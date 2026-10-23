@@ -59,9 +59,14 @@ def _write_bag(path):
         '/mission/move_outcome': 'f1tenth_messages/msg/MoveOutcome',
         '/mpc/drive_clamp': 'f1tenth_messages/msg/DriveClamp',
     }
-    for name, type_name in topics.items():
+    for topic_id, (name, type_name) in enumerate(topics.items()):
+        # id is a required positional arg as of this Jazzy rosbag2_py --
+        # TopicMetadata(id: int, name: str, type: str, serialization_format:
+        # str, ...). Older rosbag2_py accepted the no-id keyword form this
+        # used to call; any unique int per topic is fine, the writer assigns
+        # its own ids internally and ignores what's passed here.
         writer.create_topic(rosbag2_py.TopicMetadata(
-            name=name, type=type_name, serialization_format='cdr'))
+            id=topic_id, name=name, type=type_name, serialization_format='cdr'))
 
     t = 1_000_000_000
 

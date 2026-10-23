@@ -86,3 +86,74 @@ the terminal's Ctrl-C reaching the child through the process group.
 silently downgrades the package type to plain `python`, which then shows up as
 a runtime-only "package not found" crash long after the build reported success.
 Use a single hyphen in comment prose.
+
+## Rebuild policy
+
+### After any `ros-jazzy-*` apt upgrade, clean-rebuild every CMake package
+
+An apt upgrade can change a library's ABI inside a distro. `diagnostic_updater`
+4.2.6 → 4.2.7 added a parameter to `Updater`'s constructor; the workspace's
+`ackermann_mux` (and `zed_components`, `zed_debug`), built the day before the
+2026-10-01 upgrade, then died at startup with `symbol lookup error: undefined
+symbol: _ZN18diagnostic_updater7UpdaterC1E...` and the supervisor's `control`
+component crash-looped. Nothing failed at build time, and no unit test runs the
+binary. Found in Phase 5, only by running the full stack.
+
+A plain rebuild is **not** enough: dpkg installs headers with their original
+mtimes (months old), so make considers the old object files up to date and the
+link fails again. After every `ros-jazzy-*` upgrade:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install --cmake-clean-first \
+  --packages-select $(colcon list -t | awk '$3=="(ros.ament_cmake)"{print $1}')
+```
+
+then scan the install space for unresolved symbols —
+it must print nothing:
+
+```bash
+source install/setup.bash
+find install -path '*/lib/*' \( -type f -o -type l \) | while read f; do
+  file -L "$f" | grep -q ELF || continue
+  ldd -r "$f" 2>&1 | grep 'undefined symbol' | grep -v '__rosidl_\|__msg__\|__srv__\|__action__' \
+    | sed "s|^|$f: |"
+done
+```
+
+(The message-type symbols filtered out are resolved at load time through the
+generated typesupport libraries and are reported by `ldd -r` on those libraries
+alone.)
+
+The workspace is built with `--symlink-install`; keep it that way when
+rebuilding single packages.
+
+**Docker:** the image for the car must build the workspace against the same apt
+snapshot it runs. Never copy an `install/` built against a different set of
+`ros-jazzy-*` packages into it.
+
+## Orin Docker
+
+### Host networking only: every build, every container
+
+The Orin's custom kernel (5.15.185-tegra) and its `/lib/modules` come from
+different builds (`CONFIG_MODVERSIONS=y`): `ipv6.ko` fails on
+`__skb_flow_dissect`, `nf_tables.ko` on `__skb_get_hash`, so `bridge.ko` cannot
+load, `xt_connmark` is missing, and there is no IPv6 or nftables. `dockerd`
+failed at boot until `/etc/docker/daemon.json` got `"bridge": "none"`,
+`"iptables": false`, `"ip6tables": false` (2026-10-07; the original is
+`daemon.json.pre-5d`). Backlog M21/M22.
+
+There is no `bridge` network, so:
+
+- `docker build` without `--network=host` fails at its first `RUN` with
+  `network bridge not found`;
+- `docker run` without `--network host` starts **silently** with only `lo`
+  and no DNS (a `WARNING: IPv4 forwarding is disabled` is all you get).
+
+Always `docker build --network=host` and `docker run --network host`; in
+compose, `network_mode: host` **and** `build: {network: host}`.
+`docker/orin/build.sh` does this; a future run script (`scripts/docker_orin.sh`,
+Phase 5d D2, not written yet) must too. The stack wants host networking anyway (lidar on Ethernet, Discovery
+Server on 127.0.0.1:11811, linus over Tailscale).
+

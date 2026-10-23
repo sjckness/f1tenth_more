@@ -1,0 +1,42 @@
+[INFO] [1792154624.673128210] [llm_planner_node]: planner_path=v2 -- prompt prompts/planner_system_prompt.v2.it.txt, validazione schemas/intent_v1.json, traduttore translate(), go_to_enabled=True
+[INFO] [1792154624.899240256] [llm_planner_node]: Server raggiunto e scaldato in 0.2s.
+[INFO] [1792154624.904794704] [llm_planner_node]: LLM Planner (llama-server @ http://127.0.0.1:8083/completion) pronto -- consegna via /mission/load_mission + /mission/start_mission.
+[INFO] [1792154634.100919349] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=COMPLETE)
+[INFO] [1792154634.105197342] [llm_planner_node]: load_mission OK: loaded 'llm_eef2e708696d', 1 moves
+[INFO] [1792154634.108449141] [llm_planner_node]: start_mission OK: starting in 15.0 s
+
+missione generata in 9.19s (v2), 1 move:
+  0. vai verso "potted plant" (il piu' vicino), fermati a 0.6 m tra muso e bordo
+       id       move_0_go_to
+       velocita 0.5 m/s
+       fino a   oggetto raggiunto alla distanza indicata sopra
+       timeout  65 s -> abort
+       note     TERMINALE
+
+JSON (llm_eef2e708696d):
+{
+  "mission_id": "llm_eef2e708696d",
+  "schema_version": "5.0",
+  "moves": [
+    {
+      "id": "move_0_go_to",
+      "go_to_object": {
+        "target_class": "potted plant",
+        "gap_m": 0.6,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+      },
+      "stop_condition": {
+        "type": "object_reached"
+      },
+      "timeout_sec": 65,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
+
+scritta in: /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_eef2e708696d.json
+
+RESULT {"status": "ok", "stage": "translator", "error_type": null, "error_message": null, "attempts": 1, "rejections": [], "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"potted plant\"}], \"unsupported\": []}", "mission_id": "llm_eef2e708696d", "schema_version": "5.0", "n_moves": 1, "plan_seconds": 9.193, "unsupported": [], "notes": [], "mission": {"mission_id": "llm_eef2e708696d", "schema_version": "5.0", "moves": [{"id": "move_0_go_to", "go_to_object": {"target_class": "potted plant", "gap_m": 0.6, "speed": 0.5, "acquire_timeout_sec": 5.0, "lost_grace_sec": 1.5}, "stop_condition": {"type": "object_reached"}, "timeout_sec": 65, "on_timeout": "abort", "terminal": true}]}, "mission_path": "/home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_eef2e708696d.json"}

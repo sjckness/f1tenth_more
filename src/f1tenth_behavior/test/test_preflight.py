@@ -186,3 +186,27 @@ class TestCheckLiveness:
 if __name__ == '__main__':
     import sys
     sys.exit(pytest.main([__file__, '-v']))
+
+
+class TestActuationNode:
+    """preflight_actuation_node (sim overlay): the car's requirement is untouched by default."""
+
+    def test_default_is_the_cars_ackermann_to_vesc_requirement_object(self):
+        from f1tenth_behavior.mission import preflight
+        config = _mission([_distance_move()])
+        reqs = required_dependencies(config)
+        assert preflight._ACKERMANN_TO_VESC in reqs
+        assert required_dependencies(config, 'ackermann_to_vesc_node') == reqs
+
+    def test_sim_names_the_simulator_instead(self):
+        config = _mission([_distance_move()])
+        names = _names(required_dependencies(config, 'isaac_f1tenth_sim'))
+        assert 'isaac_f1tenth_sim' in names
+        assert 'ackermann_to_vesc_node' not in names
+        assert {'mpc_corr', 'localization (/odom)'} <= names
+
+    def test_sim_requirement_failure_names_the_simulator_node(self):
+        config = _mission([_distance_move()])
+        reqs = required_dependencies(config, 'isaac_f1tenth_sim')
+        failures = check_liveness(reqs, ['mpc_corr'], lambda key: (0.0, 0.0))
+        assert len(failures) == 1 and 'isaac_f1tenth_sim' in failures[0]

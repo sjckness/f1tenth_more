@@ -1,0 +1,601 @@
+[sim_isaac 15:54:50] disk: 48 GB free on /
+[sim_isaac 15:54:50] GPU: NVIDIA GeForce RTX 5050, 2075 MiB, 8151 MiB (used, total)
+== Isaac Sim (scene base_room, net eth, domain 42, Discovery Server 10.42.0.2:11811) ==
+env: ROS_DOMAIN_ID=42 ROS_DISCOVERY_SERVER=10.42.0.2:11811 ROS_AUTOMATIC_DISCOVERY_RANGE= ISAAC_CONTAINER_NAME=f1t_isaac
+cmd: /home/andreas/isaac_ws/launch.sh --ros-distro jazzy --dds-profile /tmp/sim_isaac.2I86rz/eth_false.xml --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed.lens_center_xyz=[0.2293615, 0.0, 0.2196267] --set car_spec.sensors.zed.pitch=-0.03635 --set sensors.odometry.covariance.pose_xy=0.2 --set sensors.odometry.covariance.pose_yaw=0.03 --set sensors.odometry.covariance.twist_vx=0.0 --set sensors.imu.noise.gyro_stddev=0.0013217 --set scene.layout=campaign
+ Container f1t_isaac Creating 
+ Container f1t_isaac Created 
+launch.sh: ROS_DISTRO=jazzy ROS_DOMAIN_ID=42 FASTRTPS_DEFAULT_PROFILES_FILE=/dds/eth_false.xml ROS_DISCOVERY_SERVER=10.42.0.2:11811 ROS_AUTOMATIC_DISCOVERY_RANGE=<unset>
+2026-10-16 13:54:50,734 WARNING sim.config: config override: scene.layout = 'campaign'
+2026-10-16 13:54:50,734 INFO sim.config: scene layout: campaign
+2026-10-16 13:54:50,734 WARNING sim.config: config override: ros_interface.publish_static_tf = False
+2026-10-16 13:54:50,735 WARNING sim.config: config override: car_spec.sensors.zed.lens_center_xyz = [0.2293615, 0.0, 0.2196267]
+2026-10-16 13:54:50,735 WARNING sim.config: config override: car_spec.sensors.zed.pitch = -0.03635
+2026-10-16 13:54:50,735 WARNING sim.config: config override: sensors.odometry.covariance.pose_xy = 0.2
+2026-10-16 13:54:50,735 WARNING sim.config: config override: sensors.odometry.covariance.pose_yaw = 0.03
+2026-10-16 13:54:50,735 WARNING sim.config: config override: sensors.odometry.covariance.twist_vx = 0.0
+2026-10-16 13:54:50,735 WARNING sim.config: config override: sensors.imu.noise.gyro_stddev = 0.0013217
+2026-10-16 13:54:50,735 INFO sim.config: config loaded: scene=base_room (procedural_room)
+2026-10-16 13:54:51,623 DEBUG asyncio: Using selector: EpollSelector
+[Info] [carb] Logging to file: /isaac-sim/kit/logs/Kit/Isaac-Sim Python/5.1/kit_20261016_135450.log
+[0.135s] [ext: omni.kit.async_engine-0.0.3] startup
+[0.710s] [ext: omni.metrics.core-0.0.3] startup
+[0.710s] [ext: omni.client.lib-1.1.0] startup
+[0.733s] [ext: omni.blobkey-1.1.2] startup
+[0.733s] [ext: omni.stats-1.0.1] startup
+[0.735s] [ext: omni.datastore-0.0.0] startup
+[0.739s] [ext: omni.client-1.3.0] startup
+[0.742s] [ext: omni.ujitso.default-1.0.0] startup
+[0.744s] [ext: omni.hsscclient-1.1.2] startup
+[0.760s] [ext: omni.gpu_foundation.shadercache.vulkan-1.0.0] startup
+[0.763s] [ext: omni.assets.plugins-0.0.0] startup
+[0.764s] [ext: omni.gpu_foundation-0.0.0] startup
+[0.770s] [ext: carb.windowing.plugins-1.0.0] startup
+[0.789s] [ext: omni.kit.renderer.init-0.0.0] startup
+
+|---------------------------------------------------------------------------------------------|
+| Driver Version: 580.178.04    | Graphics API: Vulkan
+|=============================================================================================|
+| GPU | Name                             | Active | LDA | GPU Memory | Vendor-ID | LUID       |
+|     |                                  |        |     |            | Device-ID | UUID       |
+|     |                                  |        |     |            | Bus-ID    |            |
+|---------------------------------------------------------------------------------------------|
+| 0   | NVIDIA GeForce RTX 5050          | Yes: 0 |     | 8397    MB | 10de      | 0          |
+|     |                                  |        |     |            | 2d83      | ce8a7f37.. |
+|     |                                  |        |     |            | 1         |            |
+|=============================================================================================|
+| OS: 24.04.2 LTS (Noble Numbat) ubuntu, Version: 24.04.2, Kernel: 7.0.0-38-generic
+| XServer Vendor: The X.Org Foundation, XServer Version: 12101011 (1.21.1.11)
+| Processor: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
+| Cores: 8 | Logical Cores: 8
+|---------------------------------------------------------------------------------------------|
+| Total Memory (MB): 32002 | Free Memory: 17947
+| Total Page/Swap (MB): 8191 | Free Page/Swap: 0
+|---------------------------------------------------------------------------------------------|
+2026-10-16T13:54:52Z [1,336ms] [Warning] [gpu.foundation.plugin] CPU performance profile is set to powersave. This profile sets the CPU to the lowest frequency reducing performance.
+2026-10-16T13:54:52Z [1,344ms] [Warning] [gpu.foundation.plugin] PCIe link width current (8) and maximum (16) for device 0 don't match.
+[1.475s] [ext: omni.kit.pipapi-0.0.0] startup
+[1.482s] [ext: omni.kit.pip_archive-0.0.0] startup
+[1.483s] [ext: omni.pip.compute-1.6.3] startup
+[1.483s] [ext: omni.materialx.libs-1.0.7] startup
+[1.494s] [ext: omni.pip.cloud-1.4.3] startup
+[1.521s] [ext: omni.isaac.core_archive-3.0.0] startup
+[1.521s] [ext: omni.usd.config-1.0.6] startup
+[1.528s] [ext: omni.gpucompute.plugins-0.0.0] startup
+[1.529s] [ext: omni.usd.libs-1.0.1] startup
+[1.598s] [ext: omni.kit.telemetry-0.5.2] startup
+[1.633s] [ext: omni.mdl-56.0.3] startup
+[2.060s] [ext: omni.iray.libs-0.0.0] startup
+[2.064s] [ext: omni.mdl.neuraylib-0.2.12] startup
+[2.071s] [ext: omni.kit.usd.mdl-1.1.5] startup
+[2.165s] [ext: omni.isaac.ml_archive-3.0.4] startup
+[2.166s] [ext: omni.kit.loop-isaac-1.3.7] startup
+[2.167s] [ext: omni.kit.test-2.0.1] startup
+[2.411s] [ext: omni.appwindow-1.1.10] startup
+[2.413s] [ext: omni.kit.renderer.core-1.1.0] startup
+[2.432s] [ext: omni.kit.renderer.capture-0.0.0] startup
+[2.435s] [ext: omni.kit.renderer.imgui-2.0.5] startup
+[2.500s] [ext: omni.ui-2.27.1] startup
+[2.517s] [ext: omni.kit.mainwindow-1.0.3] startup
+[2.520s] [ext: carb.audio-0.1.0] startup
+[2.523s] [ext: omni.uiaudio-1.0.0] startup
+[2.525s] [ext: omni.kit.uiapp-0.0.0] startup
+[2.525s] [ext: omni.usd.schema.metrics.assembler-107.3.1] startup
+[2.529s] [ext: omni.usd.schema.audio-0.0.0] startup
+[2.532s] [ext: omni.anim.graph.schema-107.3.3] startup
+[2.543s] [ext: omni.usd_resolver-1.0.0] startup
+[2.547s] [ext: omni.usd.core-1.5.3] startup
+[2.549s] [ext: omni.usd.schema.render_settings.rtx-0.0.0] startup
+[2.591s] [ext: omni.usd.schema.semantics-0.0.0] startup
+[2.594s] [ext: isaacsim.robot.schema-3.6.0] startup
+[2.603s] [ext: omni.usd.schema.geospatial-0.0.0] startup
+[2.606s] [ext: omni.usd.schema.anim-0.0.0] startup
+[2.622s] [ext: omni.kit.window.popup_dialog-2.0.24] startup
+[2.633s] [ext: usdrt.scenegraph-7.6.1] startup
+[2.677s] [ext: omni.timeline-1.0.14] startup
+[2.679s] [ext: omni.resourcemonitor-107.0.1] startup
+[2.682s] [ext: omni.activity.core-1.0.3] startup
+[2.683s] [ext: omni.kit.widget.nucleus_connector-2.0.1] startup
+[2.693s] [ext: omni.hydra.usdrt_delegate-7.5.1] startup
+[2.699s] [ext: omni.kit.actions.core-1.0.0] startup
+[2.703s] [ext: omni.graph.exec-0.9.6] startup
+[2.703s] [ext: omni.kit.commands-1.4.10] startup
+[2.716s] [ext: omni.kit.usd_undo-0.1.8] startup
+[2.717s] [ext: omni.kit.exec.core-0.13.4] startup
+[2.720s] [ext: omni.kit.audiodeviceenum-1.0.2] startup
+[2.722s] [ext: omni.hydra.scene_delegate-0.3.4] startup
+[2.726s] [ext: omni.usd-1.13.10] startup
+[2.782s] [ext: omni.kit.asset_converter-5.0.17] startup
+[2.800s] [ext: omni.usd.schema.flow-107.1.1] startup
+[2.801s] [ext: omni.usd.schema.omnigraph-1.0.0] startup
+[2.808s] [ext: omni.usd.schema.omni_sensors-0.0.0] startup
+[2.809s] [ext: omni.anim.navigation.schema-107.3.3] startup
+[2.812s] [ext: omni.inspect-1.0.2] startup
+[2.813s] [ext: omni.kit.notification_manager-1.0.10] startup
+[2.820s] [ext: omni.graph.core-2.184.5] startup
+[2.822s] [ext: isaacsim.core.deprecation_manager-0.2.7] startup
+[2.824s] [ext: omni.usd.schema.physx-107.3.26] startup
+[2.857s] [ext: omni.usd.schema.isaac-3.0.5] startup
+[2.857s] [ext: omni.usd.schema.omniscripting-1.0.0] startup
+[2.862s] [ext: omni.usd.schema.omni_lens_distortion-0.0.0] startup
+[2.863s] [ext: omni.kvdb-107.3.26] startup
+[2.865s] [ext: omni.usdphysics-107.3.26] startup
+[2.867s] [ext: omni.physx.foundation-107.3.26] startup
+[2.869s] [ext: omni.localcache-107.3.26] startup
+[2.871s] [ext: omni.convexdecomposition-107.3.26] startup
+[2.874s] [ext: omni.physx.cooking-107.3.26] startup
+[2.877s] [ext: omni.physx-107.3.26] startup
+[2.891s] [ext: omni.physics-107.3.26] startup
+[2.895s] [ext: omni.kit.usd.layers-2.2.11] startup
+[2.928s] [ext: omni.physics.physx-107.3.26] startup
+2026-10-16T13:54:53Z [2,920ms] [Warning] [carb] Acquiring non optional plugin interface which is not listed as dependency: [omni::physx::IPhysxBenchmarks v1.0] (plugin: <default plugin>), by client: omni.physics.physx.plugin. Add it to CARB_PLUGIN_IMPL_DEPS() macro of a client.
+[2.931s] [ext: omni.physics.stageupdate-107.3.26] startup
+[2.934s] [ext: omni.kit.numpy.common-0.1.3] startup
+[2.936s] [ext: isaacsim.core.version-2.0.6] startup
+[2.937s] [ext: omni.isaac.dynamic_control-2.0.7] startup
+2026-10-16T13:54:53Z [2,933ms] [Warning] [omni.isaac.dynamic_control] omni.isaac.dynamic_control is deprecated as of Isaac Sim 4.5. No action is needed from end-users.
+[2.944s] [ext: isaacsim.storage.native-1.5.1] startup
+[2.952s] [ext: omni.kit.menu.core-1.1.2] startup
+[2.956s] [ext: omni.kit.helper.file_utils-0.1.9] startup
+[2.961s] [ext: omni.usd.metrics.assembler-107.3.1] startup
+[2.970s] [ext: omni.kit.widget.context_menu-1.2.5] startup
+[2.975s] [ext: omni.warp.core-1.8.2] startup
+[3.392s] [ext: omni.usd.metrics.assembler.physics-107.3.26] startup
+[3.408s] [ext: omni.physics.tensors-107.3.26] startup
+[3.430s] [ext: omni.kit.context_menu-1.8.6] startup
+[3.440s] [ext: omni.kit.clipboard-1.0.5] startup
+[3.442s] [ext: isaacsim.core.utils-3.5.1] startup
+[3.448s] [ext: omni.kit.widget.filebrowser-2.12.3] startup
+[3.479s] [ext: omni.kit.widget.options_menu-1.1.6] startup
+[3.492s] [ext: omni.kit.widget.path_field-2.0.11] startup
+[3.496s] [ext: omni.index.libs-380600.8087.0] startup
+[3.496s] [ext: omni.ui.scene-1.11.5] startup
+[3.501s] [ext: omni.kit.widget.options_button-1.0.3] startup
+[3.503s] [ext: omni.kit.widget.browser_bar-2.0.10] startup
+[3.507s] [ext: omni.index-1.0.1] startup
+[3.507s] [ext: omni.hydra.rtx.shadercache.vul2026-10-16 13:54:54,642 DEBUG AutoNode: Defining data type 'any' as 'Any'
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'bool' as 'Bool' and array 'BoolArray
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'bundle' as 'Bundle'
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'colord[3]' as 'Color3d' and array 'Color3dArray
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'colorf[3]' as 'Color3f' and array 'Color3fArray
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'colorh[3]' as 'Color3h' and array 'Color3hArray
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'colord[4]' as 'Color4d' and array 'Color4dArray
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'colorf[4]' as 'Color4f' and array 'Color4fArray
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'colorh[4]' as 'Color4h' and array 'Color4hArray
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'double' as 'Double' and array 'DoubleArray
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'double[2]' as 'Double2' and array 'Double2Array
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'double[3]' as 'Double3' and array 'Double3Array
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'double[4]' as 'Double4' and array 'Double4Array
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'execution' as 'Execution'
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'float' as 'Float' and array 'FloatArray
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'float[2]' as 'Float2' and array 'Float2Array
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'float[3]' as 'Float3' and array 'Float3Array
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'float[4]' as 'Float4' and array 'Float4Array
+2026-10-16 13:54:54,643 DEBUG AutoNode: Defining data type 'frame[4]' as 'Frame' and array 'FrameArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'half' as 'Half' and array 'HalfArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'half[2]' as 'Half2' and array 'Half2Array
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'half[3]' as 'Half3' and array 'Half3Array
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'half[4]' as 'Half4' and array 'Half4Array
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'int' as 'Int' and array 'IntArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'int[2]' as 'Int2' and array 'Int2Array
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'int[3]' as 'Int3' and array 'Int3Array
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'int[4]' as 'Int4' and array 'Int4Array
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'int64' as 'Int64' and array 'Int64Array
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'matrixd[2]' as 'Matrix2d' and array 'Matrix2dArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'matrixd[3]' as 'Matrix3d' and array 'Matrix3dArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'matrixd[4]' as 'Matrix4d' and array 'Matrix4dArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'normald[3]' as 'Normal3d' and array 'Normal3dArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'normalf[3]' as 'Normal3f' and array 'Normal3fArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'normalh[3]' as 'Normal3h' and array 'Normal3hArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'objectId' as 'ObjectId' and array 'ObjectIdArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'path' as 'Path'
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'pointd[3]' as 'Point3d' and array 'Point3dArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'pointf[3]' as 'Point3f' and array 'Point3fArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'pointh[3]' as 'Point3h' and array 'Point3hArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'quatd[4]' as 'Quatd' and array 'QuatdArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'quatf[4]' as 'Quatf' and array 'QuatfArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'quath[4]' as 'Quath' and array 'QuathArray
+2026-10-16 13:54:54,644 DEBUG AutoNode: Defining data type 'string' as 'String'
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'target' as 'Target'
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'texcoordd[2]' as 'TexCoord2d' and array 'TexCoord2dArray
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'texcoordf[2]' as 'TexCoord2f' and array 'TexCoord2fArray
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'texcoordh[2]' as 'TexCoord2h' and array 'TexCoord2hArray
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'texcoordd[3]' as 'TexCoord3d' and array 'TexCoord3dArray
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'texcoordf[3]' as 'TexCoord3f' and array 'TexCoord3fArray
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'texcoordh[3]' as 'TexCoord3h' and array 'TexCoord3hArray
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'timecode' as 'Timecode' and array 'TimecodeArray
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'token' as 'Token' and array 'TokenArray
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'uchar' as 'UChar' and array 'UCharArray
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'uint' as 'UInt' and array 'UIntArray
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'uint64' as 'UInt64' and array 'UInt64Array
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'vectord[3]' as 'Vector3d' and array 'Vector3dArray
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'vectorf[3]' as 'Vector3f' and array 'Vector3fArray
+2026-10-16 13:54:54,645 DEBUG AutoNode: Defining data type 'vectorh[3]' as 'Vector3h' and array 'Vector3hArray
+kan-1.0.0] startup
+[3.509s] [ext: omni.kit.window.filepicker-2.13.4] startup
+[3.600s] [ext: omni.volume-0.5.2] startup
+[3.603s] [ext: omni.ujitso.client-0.0.0] startup
+[3.603s] [ext: omni.graph.tools-1.79.2] startup
+[3.743s] [ext: omni.graph.image.core-0.6.1] startup
+[3.744s] [ext: omni.hydra.rtx-1.0.0] startup
+2026-10-16T13:54:54Z [3,749ms] [Warning] [omni.log] Source: omni.hydra was already registered.
+[3.773s] [ext: omni.kit.window.file_importer-1.1.18] startup
+[3.778s] [ext: omni.kit.menu.utils-2.0.5] startup
+[3.810s] [ext: omni.graph.image.nodes-1.3.1] startup
+[3.811s] [ext: omni.kit.widget.searchable_combobox-1.0.6] startup
+[3.814s] [ext: omni.kit.hydra_texture-1.4.6] startup
+[3.818s] [ext: omni.kit.material.library-2.0.7] startup
+[3.843s] [ext: omni.hydra.engine.stats-1.0.3] startup
+[3.845s] [ext: omni.kit.viewport.scene_camera_model-1.0.6] startup
+[3.849s] [ext: omni.kit.widget.settings-1.2.6] startup
+[3.860s] [ext: omni.kit.viewport.legacy_gizmos-1.0.19] startup
+[3.862s] [ext: omni.kit.widget.viewport-107.1.3] startup
+[3.881s] [ext: omni.kit.viewport.registry-104.0.6] startup
+[3.882s] [ext: omni.kit.raycast.query-1.1.0] startup
+[3.887s] [ext: omni.physx.tensors-107.3.26] startup
+[3.891s] [ext: omni.kit.window.drop_support-1.0.5] startup
+[3.892s] [ext: omni.kit.primitive.mesh-1.0.17] startup
+[3.906s] [ext: omni.kit.viewport.window-107.2.0] startup
+[3.952s] [ext: omni.kit.window.preferences-1.8.0] startup
+[3.973s] [ext: isaacsim.core.simulation_manager-1.4.4] startup
+[6.906s] [ext: omni.graph.action_core-1.1.7] startup
+[6.908s] [ext: omni.graph-1.141.2] startup
+[7.033s] [ext: omni.kit.viewport.utility-1.1.2] startup
+[7.036s] [ext: omni.kit.viewport.menubar.core-107.2.1] startup
+[7.076s] [ext: isaacsim.core.prims-0.6.1] startup
+[7.187s] [ext: omni.graph.action_nodes-1.50.4] startup
+[7.192s] [ext: omni.kit.stage_template.core-1.1.22] startup
+[7.197s] [ext: omni.syntheticdata-0.6.13] startup
+[7.281s] [ext: omni.graph.nodes-1.170.10] startup
+[7.294s] [ext: omni.graph.action-1.130.0] startup
+[7.295s] [ext: omni.kit.stage_templates-2.0.0] startup
+[7.305s] [ext: omni.kit.widget.filter-1.1.4] startup
+[7.310s] [ext: omni.kit.widget.graph-2.0.0] startup
+[7.373s] [ext: omni.kit.property.adapter.core-1.0.2] startup
+[7.388s] [ext: omni.kit.window.file_exporter-1.0.33] startup
+[7.394s] [ext: omni.kit.widget.searchfield-1.1.8] startup
+[7.408s] [ext: omni.kit.hotkeys.core-1.3.10] startup
+[7.410s] [ext: omni.kit.graph.delegate.default-1.2.3] startup
+[7.414s] [ext: omni.kit.property.adapter.fabric-1.0.3] startup
+[7.420s] [ext: omni.kit.widget.stage-3.1.4] startup
+[7.469s] [ext: omni.kit.property.adapter.usd-1.0.2] startup
+[7.493s] [ext: omni.kit.graph.editor.core-1.5.3] startup
+[7.532s] [ext: omni.kit.widget.material_preview-1.0.16] startup
+[7.538s] [ext: omni.kit.widget.highlight_label-1.0.3] startup
+[7.541s] [ext: omni.kit.window.file-2.0.5] startup
+[7.555s] [ext: omni.kit.window.content_browser_registry-0.0.6] startup
+[7.557s] [ext: omni.kit.window.property-1.12.1] startup
+[7.567s] [ext: omni.kit.window.content_browser-3.1.3] startup
+[7.590s] [ext: omni.kit.graph.usd.commands-1.3.1] startup
+[7.593s] [ext: omni.kit.property.usd-4.5.12] startup
+[7.665s] [ext: omni.graph.ui_nodes-1.50.5] startup
+[7.668s] [ext: omni.videoencoding-0.1.2] startup
+[7.671s] [ext: omni.kit.window.material_graph-1.9.1] startup
+[7.714s] [ext: omni.warp-1.8.2] startup
+[7.729s] [ext: isaacsim.core.api-4.8.0] startup
+[7.791s] [ext: omni.graph.scriptnode-1.50.0] startup
+[7.798s] [ext: isaacsim.test.docstring-1.1.0] startup
+[7.815s] [ext: isaacsim.core.experimental.utils-0.3.0] startup
+[7.827s] [ext: omni.replicator.core-1.12.27] startup
+2026-10-16T13:54:58Z [7,937ms] [Warning] [pxr.Semantics] pxr.Semantics is deprecated - please use Semantics instead
+2026-10-16T13:54:59Z [8,213ms] [Warning] [omni.graph.core.plugin] Found duplicate of category 'Replicator' - was 'Annotators', adding 'Fabric Reader'
+2026-10-16T13:54:59Z [8,213ms] [Warning] [omni.graph.core.plugin] Category 'Replicator' not accepted on node type 'omni.replicator.core.FabricReader' in extension 'omni.replicator.core'
+2026-10-16T13:54:59Z [8,214ms] [Warning] [omni.replicator.core.scripts.extension] No material configuration file, adding configuration to material settings directly.
+[8.228s] [ext: isaacsim.core.experimental.prims-0.8.1] startup
+[8.335s] [ext: omni.kit.window.extensions-1.4.27] startup
+[8.378s] [ext: isaacsim.core.experimental.objects-0.4.0] startup
+[8.407s] [ext: omni.ui_query-1.1.8] startup
+[8.414s] [ext: omni.kit.manipulator.viewport-107.0.1] startup
+[8.418s] [ext: isaacsim.robot.surface_gripper-3.3.1] startup
+[8.424s] [ext: omni.kit.ui_test-1.3.7] startup
+[8.434s] [ext: omni.graph.visualization.nodes-2.1.3] startup
+[8.519s] [ext: isaacsim.robot_motion.lula-4.0.8] startup
+[8.536s] [ext: isaacsim.core.nodes-3.4.3] startup
+[8.601s] [ext: isaacsim.gui.components-1.2.1] startup
+[8.760s] [ext: isaacsim.robot_motion.motion_generation-8.0.26] startup
+[8.922s] [ext: isaacsim.robot.manipulators-3.3.6] startup
+[9.064s] [ext: isaacsim.core.experimental.materials-0.4.0] startup
+[9.214s] [ext: isaacsim.robot.manipulators.examples-1.1.2] startup
+[9.249s] [ext: isaacsim.cortex.framework-1.0.12] startup
+[9.268s] [ext: isaacsim.cortex.behaviors-2.0.14] startup
+[9.325s] [ext: omni.isaac.cortex.sample_behaviors-2.0.5] startup
+2026-10-16T13:55:00Z [9,341ms] [Warning] [omni.isaac.cortex] omni.isaac.cortex has been deprecated in favor of isaacsim.cortex.framework. Please update your code accordingly.
+2026-10-16T13:55:00Z [9,349ms] [Warning] [omni.isaac.cortex.sample_behaviors] omni.isaac.cortex.sample_behaviors has been deprecated in favor of isaacsim.cortex.behaviors. Please update your code accordingly.
+[9.363s] [ext: omni.kit.widget.zoombar-1.0.6] startup
+[9.518s] [ext: isaacsim.gui.content_browser-0.1.11] startup
+[9.554s] [ext: omni.kit.browser.core-2.3.13] startup
+[9.640s] [ext: omni.kit.widget.stage_icons-1.0.8] startup
+[9.675s] [ext: omni.kit.widget.prompt-1.0.7] startup
+[9.688s] [ext: omni.kit.usd.collect-2.4.5] startup
+[9.717s] [ext: omni.kit.browser.folder.core-1.10.9] startup
+[9.807s] [ext: omni.kit.window.stage-2.6.1] startup
+[9.845s] [ext: omni.kit.usdz_export-1.0.9] startup
+[9.856s] [ext: omni.kit.tool.collect-2.2.18] startup
+[9.885s] [ext: omni.kit.menu.stage-1.2.7] startup
+[9.890s] [ext: omni.kit.tool.asset_importer-4.3.2] startup
+[9.935s] [ext: isaacsim.robot.wheeled_robots-4.0.24] startup
+[9.982s] [ext: isaacsim.examples.browser-0.2.1] startup
+[9.992s] [ext: isaacsim.asset.importer.urdf-2.4.30] startup
+[10.141s] [ext: omni.isaac.wheeled_robots-3.0.7] startup
+2026-10-16T13:55:01Z [10,134ms] [Warning] [omni.isaac.wheeled_robots] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,134ms] [Warning] [omni.isaac.wheeled_robots.controllers] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,134ms] [Warning] [omni.isaac.wheeled_robots.controllers.ackermann_controller] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,135ms] [Warning] [omni.isaac.wheeled_robots.controllers.differential_controller] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,135ms] [Warning] [omni.isaac.wheeled_robots.controllers.holonomic_controller] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,135ms] [Warning] [omni.isaac.wheeled_robots.controllers.quintic_path_planner] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,135ms] [Warning] [omni.isaac.wheeled_robots.controllers.stanley_control] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,135ms] [Warning] [omni.isaac.wheeled_robots.controllers.wheel_base_pose_controller] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,136ms] [Warning] [omni.isaac.wheeled_robots.impl] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,139ms] [Warning] [omni.isaac.wheeled_robots.robots] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,140ms] [Warning] [omni.isaac.wheeled_robots.robots.holonomic_robot_usd_setup] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,141ms] [Warning] [omni.isaac.wheeled_robots.robots.wheeled_robot] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+[10.157s] [ext: isaacsim.simulation_app-2.12.2] startup
+[10.160s] [ext: omni.isaac.franka-1.0.7] startup
+2026-10-16T13:55:01Z [10,151ms] [Warning] [omni.isaac.franka] omni.isaac.franka has been deprecated in favor of isaacsim.robot.manipulators.examples.franka. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,151ms] [Warning] [omni.isaac.franka.franka] omni.isaac.franka has been deprecated in favor of isaacsim.robot.manipulators.examples.franka. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,183ms] [Warning] [omni.isaac.franka.kinematics_solver] omni.isaac.franka has been deprecated in favor of isaacsim.robot.manipulators.examples.franka. Please update your code accordingly.
+[10.193s] [ext: omni.isaac.kit-2.0.6] startup
+2026-10-16T13:55:01Z [10,186ms] [Warning] [omni.isaac.kit] omni.isaac.kit has been deprecated in favor of isaacsim.simulation_app. Please update your code accordingly.
+[10.196s] [ext: omni.kit.selection-0.1.6] startup
+[10.200s] [ext: omni.isaac.lula-4.0.6] startup
+2026-10-16T13:55:01Z [10,191ms] [Warning] [omni.isaac.lula] omni.isaac.lula has been deprecated in favor of isaacsim.robot_motion.lula. Please update your code accordingly.
+[10.202s] [ext: isaacsim.robot_motion.lula_test_widget-1.0.12] startup
+[10.211s] [ext: isaacsim.asset.browser-1.3.23] startup
+[10.365s] [ext: omni.kit.viewport.actions-107.0.2] startup
+[10.377s] [ext: isaacsim.gui.menu-2.4.4] startup
+[10.396s] [ext: omni.isaac.manipulators-3.0.7] startup
+2026-10-16T13:55:01Z [10,389ms] [Warning] [omni.isaac.manipulators] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,389ms] [Warning] [omni.isaac.manipulators.controllers] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,390ms] [Warning] [omni.isaac.manipulators.controllers.pick_place_controller] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,394ms] [Warning] [omni.isaac.manipulators.controllers.stacking_controller] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,394ms] [Warning] [omni.isaac.manipulators.grippers] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,395ms] [Warning] [omni.isaac.manipulators.grippers.gripper] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,395ms] [Warning] [omni.isaac.manipulators.grippers.parallel_gripper] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,395ms] [Warning] [omni.isaac.manipulators.grippers.surface_gripper] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,395ms] [Warning] [omni.isaac.manipulators.manipulators] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,395ms] [Warning] [omni.isaac.manipulators.manipulators.single_manipulator] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+[10.406s] [ext: omni.isaac.lula_test_widget-1.0.6] startup
+2026-10-16T13:55:01Z [10,399ms] [Warning] [omni.isaac.lula_test_widget] omni.isaac.lula_test_widget has been deprecated in favor of isaacsim.robot_motion.lula_test_widget. Please update your code accordingly.
+[10.409s] [ext: omni.isaac.asset_browser-1.0.6] startup
+2026-10-16T13:55:01Z [10,402ms] [Warning] [omni.isaac.asset_browser] omni.isaac.asset_browser has been deprecated in favor of isaacsim.asset.browser. Please update your code accordingly.
+[10.413s] [ext: omni.kit.viewport.menubar.display-107.0.3] startup
+[10.423s] [ext: omni.isaac.menu-1.0.6] startup
+2026-10-16T13:55:01Z [10,414ms] [Warning] [omni.isaac.menu] omni.isaac.menu has been deprecated in favor of isaacsim.gui.menu. Please update your code accordingly.
+[10.425s] [ext: omni.isaac.motion_generation-8.0.7] startup
+2026-10-16T13:55:01Z [10,417ms] [Warning] [omni.isaac.motion_generation] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,420ms] [Warning] [omni.isaac.motion_generation.articulation_kinematics_solver] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,420ms] [Warning] [omni.isaac.motion_generation.articulation_motion_policy] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,420ms] [Warning] [omni.isaac.motion_generation.articulation_trajectory] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,420ms] [Warning] [omni.isaac.motion_generation.kinematics_interface] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,421ms] [Warning] [omni.isaac.motion_generation.lula] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,421ms] [Warning] [omni.isaac.motion_generation.lula.kinematics] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,421ms] [Warning] [omni.isaac.motion_generation.lula.motion_policies] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,421ms] [Warning] [omni.isaac.motion_generation.lula.path_planners] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,421ms] [Warning] [omni.isaac.motion_generation.lula.trajectory_generator] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,421ms] [Warning] [omni.isaac.motion_generation.motion_policy_controller] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,422ms] [Warning] [omni.isaac.motion_generation.motion_policy_interface] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,422ms] [Warning] [omni.isaac.motion_generation.path_planner_visualizer] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,422ms] [Warning] [omni.isaac.motion_generation.path_planning_interface] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,422ms] [Warning] [omni.isaac.motion_generation.trajectory] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,422ms] [Warning] [omni.isaac.motion_generation.world_interface] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+[10.433s] [ext: omni.isaac.assets_check-0.3.13] startup
+2026-10-16T13:55:01Z [10,426ms] [Warning] [omni.isaac.assets_check] omni.isaac.assets_check has been deprecated in favor of isaacsim.asset.browser. Please update your code accordingly.
+[10.436s] [ext: isaacsim.gui.sensors.icon-2.0.3] startup
+[10.503s] [ext: isaacsim.asset.importer.mjcf-2.5.13] startup
+[10.517s] [ext: omni.sensors.nv.common-3.0.0] startup
+[10.526s] [ext: isaacsim.sensors.physics-0.4.3] startup
+[10.535s] [ext: omni.sensors.net-1.0.0] startup
+[10.540s] [ext: omni.isaac.nucleus-1.0.6] startup
+2026-10-16T13:55:01Z [10,531ms] [Warning] [omni.isaac.nucleus] omni.isaac.nucleus has been deprecated in favor of isaacsim.storage.native. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,531ms] [Warning] [omni.isaac.nucleus.nucleus] omni.isaac.nucleus.nucleus has been deprecated in favor of isaacsim.storage.native. Please update your code accordingly.
+[10.542s] [ext: omni.sensors.nv.materials-2.0.0] startup
+[10.548s] [ext: isaacsim.robot.policy.examples-4.1.11] startup
+[10.555s] [ext: omni.sensors.nv.wpm-3.0.0] startup
+[10.559s] [ext: omni.sensors.nv.lidar-3.0.0] startup
+[10.568s] [ext: isaacsim.util.debug_draw-3.1.0] startup
+[10.575s] [ext: omni.sensors.nv.radar-3.0.0] startup
+[10.579s] [ext: omni.sensors.nv.ids-2.0.0] startup
+[10.581s] [ext: isaacsim.core.cloner-1.4.10] startup
+[10.587s] [ext: isaacsim.sensors.physx-2.3.2] startup
+[10.596s] [ext: isaacsim.sensors.rtx-15.8.4] startup
+[10.610s] [ext: isaacsim.sensors.camera-1.3.6] startup
+[10.638s] [ext: omni.isaac.quadruped-3.0.7] startup
+2026-10-16T13:55:01Z [10,631ms] [Warning] [omni.isaac.quadruped] omni.isaac.quadruped has been deprecated in favor of isaacsim.robot.policy.examples. Please update your code accordingly.
+[10.642s] [ext: omni.isaac.cloner-1.0.7] startup
+2026-10-16T13:55:01Z [10,641ms] [Warning] [omni.isaac.cloner] omni.isaac.cloner has been deprecated in favor of isaacsim.core.cloner. Please update your code accordingly.
+[10.655s] [ext: omni.isaac.range_sensor-4.0.6] startup
+2026-10-16T13:55:01Z [10,649ms] [Warning] [omni.isaac.range_sensor] omni.isaac.range_sensor has been deprecated in favor of isaacsim.sensors.physx. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,649ms] [Warning] [omni.isaac.range_sensor.commands] omni.isaac.range_sensor.commands has been deprecated in favor of isaacsim.sensors.physx.commands. Please update your code accordingly.
+[10.660s] [ext: omni.isaac.sensor-13.0.7] startup
+2026-10-16T13:55:01Z [10,655ms] [Warning] [omni.isaac.sensor] omni.isaac.sensor has been deprecated in favor of isaacsim.sensors.camera, isaacsim.sensors.physics, isaacsim.sensors.physx, and isaacsim.sensors.rtx. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,657ms] [Warning] [omni.isaac.sensor.camera] omni.isaac.sensor.camera has been deprecated in favor of isaacsim.sensors.camera.camera. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,658ms] [Warning] [omni.isaac.sensor.camera_view] omni.isaac.sensor.camera_view has been deprecated in favor of isaacsim.sensors.camera.camera_view. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,658ms] [Warning] [omni.isaac.sensor.commands] omni.isaac.sensor.commands has been deprecated in favor of isaacsim.sensors.physics.commands, isaacsim.sensors.physx.commands, and isaacsim.sensors.rtx.commands. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,658ms] [Warning] [omni.isaac.sensor.contact_sensor] omni.isaac.sensor.contact_sensor has been deprecated in favor of isaacsim.sensors.physics.contact_sensor. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,658ms] [Warning] [omni.isaac.sensor.imu_sensor] omni.isaac.sensor.imu_sensor has been deprecated in favor of isaacsim.sensors.physics.imu_sensor. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,658ms] [Warning] [omni.isaac.sensor.lidar_rtx] omni.isaac.sensor.lidar_rtx has been deprecated in favor of isaacsim.sensors.rtx.lidar_rtx. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,659ms] [Warning] [omni.isaac.sensor.rotating_lidar_physX] omni.isaac.sensor.imu_sensor has been deprecated in favor of isaacsim.sensors.physix.rotating_lidar_physX. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,660ms] [Warning] [omni.isaac.sensor.scripts.samples.contact_sensor] omni.isaac.sensor.scripts.samples.contact_sensor has been deprecated in favor of isaacsim.sensors.physics.scripts.samples.contact_sensor. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,660ms] [Warning] [omni.isaac.sensor.scripts.samples.imu_sensor] omni.isaac.sensor.scripts.samples.imu_sensor has been deprecated in favor of isaacsim.sensors.physics.scripts.samples.imu_sensor. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,660ms] [Warning] [omni.isaac.sensor.scripts.samples.lightbeam_sensor] omni.isaac.sensor.scripts.samples.lightbeam_sensor has been deprecated in favor of isaacsim.sensors.physx.scripts.samples.lightbeam_sensor. Please update your code accordingly.
+[10.670s] [ext: omni.kit.menu.create-2.0.1] startup
+[10.677s] [ext: omni.kit.widget.toolbar-2.0.1] startup
+[10.710s] [ext: omni.kit.manipulator.transform-107.0.0] startup
+[10.730s] [ext: omni.isaac.core-4.0.7] startup
+2026-10-16T13:55:01Z [10,721ms] [Warning] [omni.isaac.core.physics_context.physics_context] omni.isaac.core.physics_context.physics_context has been deprecated in favor of isaacsim.core.api.physics_context.physics_context. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,721ms] [Warning] [omni.isaac.core.simulation_context.simulation_context] omni.isaac.core.simulation_context.simulation_context has been deprecated in favor of isaacsim.core.api.simulation_context.simulation_context. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,722ms] [Warning] [omni.isaac.core.world.world] omni.isaac.core.world.world has been deprecated in favor of isaacsim.core.api.world.world. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,722ms] [Warning] [omni.isaac.core] omni.isaac.core has been deprecated in favor of isaacsim.core.api. Please update your code accordingly.
+[10.732s] [ext: omni.kit.scripting-107.3.2] startup
+[10.751s] [ext: omni.kit.manipulator.tool.snap-1.5.13] startup
+[10.765s] [ext: omni.kit.manipulator.selector-1.1.3] startup
+[10.768s] [ext: isaacsim.app.about-2.0.11] startup
+[10.778s] [ext: isaacsim.replicator.behavior-1.1.16] startup
+[10.779s] [ext: omni.kit.viewport.manipulator.transform-107.0.4] startup
+[10.786s] [ext: omni.isaac.window.about-2.0.7] startup
+2026-10-16T13:55:01Z [10,779ms] [Warning] [omni.isaac.window.about] omni.isaac.window.about has been deprecated in favor of isaacsim.app.about. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,779ms] [Warning] [omni.isaac.window.about.about] omni.isaac.window.about.about has been deprecated in favor of isaacsim.app.about.about. Please update your code accordingly.
+[10.789s] [ext: omni.fabric.commands-1.1.6] startup
+[10.803s] [ext: omni.kit.manipulator.prim.core-107.0.8] startup
+[10.827s] [ext: omni.kit.property.audio-1.0.16] startup
+[10.831s] [ext: omni.kit.property.camera-1.0.10] startup
+[10.835s] [ext: omni.kit.property.geometry-2.0.4] startup
+[10.845s] [ext: omni.hydra.scene_api-0.1.2] startup
+[10.850s] [ext: omni.kit.property.light-1.0.12] startup
+[10.862s] [ext: omni.kit.manipulator.prim.fabric-107.0.4] startup
+[10.869s] [ext: omni.kit.manipulator.prim.usd-107.0.3] startup
+[10.873s] [ext: omni.kit.property.material-1.11.9] startup
+[10.896s] [ext: omni.kit.property.render-1.2.1] startup
+[10.899s] [ext: omni.kit.property.transform-1.5.13] startup
+[10.922s] [ext: isaacsim.gui.property-1.1.3] startup
+[10.930s] [ext: omni.kit.manipulator.camera-106.0.4] startup
+[10.951s] [ext: omni.kit.manipulator.prim-107.0.0] startup
+[10.951s] [ext: omni.isaac.surface_gripper-2.0.6] startup
+2026-10-16T13:55:01Z [10,942ms] [Warning] [omni.isaac.surface_gripper] omni.isaac.surface_gripper has been deprecated in favor of isaacsim.robot.surface_gripper. Please update your code accordingly.
+[10.952s] [ext: omni.kit.manipulator.selection-106.0.1] startup
+[10.961s] [ext: omni.kit.property.bundle-1.4.1] startup
+[10.964s] [ext: omni.kit.property.isaac-1.0.6] startup
+2026-10-16T13:55:01Z [10,955ms] [Warning] [omni.kit.property.isaac] omni.kit.property.isaac has been deprecated in favor of isaacsim.gui.property. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,956ms] [Warning] [omni.kit.property.isaac.widgets] omni.kit.property.isaac.widgets has been deprecated in favor of isaacsim.gui.property.widgets. Please update your code accordingly.
+[10.966s] [ext: omni.isaac.universal_robots-1.0.6] startup
+2026-10-16T13:55:01Z [10,957ms] [Warning] [omni.isaac.universal_robots] omni.isaac.universal_robots has been deprecated in favor of isaacsim.robot.manipulators.examples.universal_robots. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,957ms] [Warning] [omni.isaac.universal_robots.kinematics_solver] omni.isaac.franka has been deprecated in favor of isaacsim.robot.manipulators.examples.universal_robots. Please update your code accordingly.
+2026-10-16T13:55:01Z [10,961ms] [Warning] [omni.isaac.universal_robots.ur10] omni.isaac.franka has been deprecated in favor of isaacsim.robot.manipulators.examples.universal_robots. Please update your code accordingly.
+[10.971s] [ext: omni.isaac.core_nodes-2.0.6] startup
+2026-10-16T13:55:01Z [10,965ms] [Warning] [omni.isaac.core_nodes] omni.isaac.core_nodes has been deprecated in favor of isaacsim.core.nodes. Please update your code accordingly.
+[10.975s] [ext: omni.kit.viewport.menubar.camera-107.0.6] startup
+[11.000s] [ext: omni.kit.viewport.menubar.lighting-107.3.1] startup
+[11.011s] [ext: isaacsim.replicator.writers-1.0.17] startup
+[11.069s] [ext: omni.kit.viewport.menubar.render-107.0.10] startup
+[11.082s] [ext: omni.kit.viewport.menubar.settings-107.0.3] startup
+[11.099s] [ext: omni.kit.window.console-1.1.4] startup
+[11.111s] [ext: isaacsim.replicator.domain_randomization-1.0.16] startup
+[11.135s] [ext: isaacsim.replicator.examples-1.3.6] startup
+[11.141s] [ext: omni.ocio-0.1.1] startup
+[11.146s] [ext: omni.rtx.window.settings-0.6.19] startup
+[11.164s] [ext: omni.kit.window.status_bar-0.1.9] startup
+[11.170s] [ext: omni.kit.window.toolbar-2.0.0] startup
+[11.199s] [ext: omni.replicator.isaac-2.0.8] startup
+2026-10-16T13:55:02Z [11,193ms] [Warning] [omni.replicator.isaac] omni.replicator.isaac has been deprecated in favor of isaacsim.replicator.domain_randomization, isaacsim.replicator.examples, isaacsim.replicator.writers. Please update your code accordingly.
+[11.206s] [ext: omni.replicator.replicator_yaml-2.0.11] startup
+[11.240s] [ext: omni.rtx.settings.core-0.6.5] startup
+[11.261s] [ext: omni.usd.metrics.assembler.ui-107.3.1] startup
+[11.286s] [ext: omni.isaac.utils-2.0.6] startup
+[11.288s] [ext: semantics.schema.editor-2.0.2] startup
+[11.302s] [ext: omni.kit.ui.actions-1.0.5] startup
+[11.306s] [ext: semantics.schema.property-2.0.1] startup
+[11.310s] [ext: omni.isaac.version-2.0.7] startup
+2026-10-16T13:55:02Z [11,301ms] [Warning] [omni.isaac.version] omni.isaac.version has been deprecated in favor of isaacsim.core.version. Please update your code accordingly.
+[11.312s] [ext: omni.isaac.cortex-1.0.5] startup
+[11.312s] [ext: omni.anim.curve.core-1.3.1] startup
+[11.342s] [ext: isaacsim.core.throttling-2.2.2] startup
+[11.346s] [ext: omni.kit.menu.common-2.0.1] startup
+[11.350s] [ext: isaacsim.exp.base-5.1.0] startup
+[11.351s] [ext: isaacsim.exp.base.python-5.1.0] startup
+[11.352s] Simulation App Starting
+2026-10-16T13:55:02Z [11,456ms] [Warning] [omni.fabric.plugin] Warning: attribute viewportHandle not found for bucket id 9
+
+[11.502s] app ready
+2026-10-16 13:55:05,780 INFO sim.app: rclpy path: /isaac-sim/exts/isaacsim.ros2.bridge/jazzy/rclpy (ROS_DISTRO=jazzy, LD_LIBRARY_PATH has bridge: True)
+2026-10-16 13:55:07,238 INFO sim.scene_builder: room 6.00 x 6.00 m, walls 2.50 m high, 0.10 m thick
+2026-10-16 13:55:08,750 INFO sim.scene_builder: person asset as shipped (bind pose): 1.872 x 0.420 x 1.788 m (width x depth x height, person frame; z 0.000..1.788)
+2026-10-16 13:55:08,756 INFO sim.person_pose: person pose: arms down (4 deg from vertical), animation /World/person/visual/male_adult_medical_01/ManRoot/male_adult_medical_01/StandingPose
+2026-10-16 13:55:08,758 INFO sim.scene_builder: person bbox size 0.577 x 0.420 x 1.788 m (width x depth x height, person frame; z 0.000..1.788)
+[14.166s] Simulation App Startup Complete
+[14.177s] [ext: isaacsim.ros2.bridge-4.12.4] startup
+[14.286s] Attempting to load system rclpy
+[14.286s] Could not import system rclpy: No module named 'rclpy'
+[14.286s] Attempting to load internal rclpy for ROS Distro: jazzy
+[14.341s] rclpy loaded
+2026-10-16T13:55:07Z [16,942ms] [Warning] [omni.fabric.plugin] Warning: attribute evaluatedTranslations not found for bucket id 15
+
+2026-10-16 13:55:11,251 INFO sim.scene_builder: plant /Isaac/Environments/Office/Props/SM_Plant02.usd scale 0.55: 0.516 x 0.554 x 0.855 m, 1 mesh colliders, label 'potted plant'
+2026-10-16 13:55:11,252 INFO sim.scene_builder: object wall_0   wall          center (-0.05, 3.00, 1.25) size (0.10, 6.20, 2.50) yaw 0 deg
+2026-10-16 13:55:11,252 INFO sim.scene_builder: object wall_1   wall          center (6.05, 3.00, 1.25) size (0.10, 6.20, 2.50) yaw 0 deg
+2026-10-16 13:55:11,252 INFO sim.scene_builder: object wall_2   wall          center (3.00, -0.05, 1.25) size (6.00, 0.10, 2.50) yaw 0 deg
+2026-10-16 13:55:11,252 INFO sim.scene_builder: object wall_3   wall          center (3.00, 6.05, 1.25) size (6.00, 0.10, 2.50) yaw 0 deg
+2026-10-16 13:55:11,252 INFO sim.scene_builder: object person   person        center (5.37, 4.68, 0.89) size (0.58, 0.42, 1.79) yaw -62 deg
+2026-10-16 13:55:11,252 INFO sim.scene_builder: object plant    potted plant  center (3.83, 1.23, 0.43) size (0.52, 0.55, 0.85) yaw 0 deg
+2026-10-16 13:55:11,980 INFO sim.car: scaled geometry: wheelbase 0.3050 track 0.2306 radius 0.0496 base_link(car frame) [-0.162   0.     -0.0016]
+2026-10-16 13:55:11,980 INFO sim.car: geometry check wheelbase vs real              measured 0.3050 expected 0.3050 err 0.00%
+2026-10-16 13:55:11,980 INFO sim.car: geometry check wheelbase vs s*leatherback     measured 0.3050 expected 0.3050 err 0.00%
+2026-10-16 13:55:11,980 INFO sim.car: geometry check track vs s*leatherback         measured 0.2306 expected 0.2303 err 0.15%
+2026-10-16 13:55:11,980 INFO sim.car: geometry check wheel_radius vs s*leatherback  measured 0.0496 expected 0.0496 err 0.00%
+2026-10-16 13:55:11,981 INFO sim.car: deviation from real car: track sim 0.2306 real 0.2000 (+15.3%)
+2026-10-16 13:55:11,981 INFO sim.car: deviation from real car: wheel_radius sim 0.0496 real 0.0500 (-0.9%)
+2026-10-16 13:55:11,984 INFO sim.car: mass: chassis 4.622 kg + other bodies 0.940 kg = 5.562 kg
+2026-10-16 13:55:11,990 INFO sim.car: tyre friction material bound to 4 wheel colliders
+2026-10-16 13:55:11,997 INFO sim.sensors: lidar /World/car/Leatherback/Rigid_Bodies/Chassis/laser: fov 271.000 deg res 0.2500 deg range 0.02-30.0 m
+2026-10-16 13:55:12,233 INFO sim.sensors: camera left: 640x360 f=8.5925 mm ha=20.955 va=11.787 -> K fx=262.428 fy=262.428 cx=320.0 cy=180.0
+2026-10-16 13:55:12,258 INFO sim.sensors: camera right: 640x360 f=8.5925 mm ha=20.955 va=11.787 -> K fx=262.428 fy=262.428 cx=320.0 cy=180.0
+2026-10-16 13:55:12,265 INFO sim.sensors: imu at /World/car/Leatherback/Rigid_Bodies/Chassis/imu
+2026-10-16 13:55:12,814 INFO sim.car: articulation dofs: 26; steering [22 19] drive [25 24 16 13]
+2026-10-16 13:55:12,815 INFO sim.car: wheel drive max torque 2.00 N m (car_spec leatherback.drive_max_torque); max efforts now [2. 2. 2. 2.]
+2026-10-16 13:55:12,816 INFO sim.car: joint gains (USD drives): drive kp [0. 0. 0. 0.] kd [5.729578e+09 5.729578e+09 5.729578e+09 5.729578e+09] | steering kp [57295.78 57295.78] kd [0. 0.]
+2026-10-16 13:55:12,817 INFO sim: scene ready in 7.0 s (wall)
+2026-10-16 13:55:13,169 INFO sim.ros_bridge: ROS node 'isaac_f1tenth_sim' up: domain 42, command topic /ackermann_drive
+2026-10-16 13:55:13,170 INFO sim: render settings: {'/rtx/rendermode': 'RaytracedLighting', '/rtx/post/aa/op': 4, '/rtx/post/dlss/execMode': 0, '/rtx-transient/resourcemanager/texturestreaming/memoryBudget': 0.6000000238418579}
+2026-10-16 13:55:13,170 INFO sim: running: physics 60 Hz, render every 4 steps (15.0 Hz), realtime=True
+2026-10-16 13:55:13,200 INFO sim.sensors: lidar: 1083 physx columns, azimuth -2.3649..2.3562 rad; mapped to 1081 beams, max angle err 0.00000 rad
+2026-10-16 13:55:13,203 DEBUG sim: camera rgb not ready (render 1): type=ndarray shape=(0,)
+2026-10-16T13:55:12Z [21,335ms] [Warning] [isaacsim.sensors.physics.impl.imu_sensor] Creating a new IMU prim at path /World/car/Leatherback/Rigid_Bodies/Chassis/imu
+2026-10-16T13:55:12Z [21,379ms] [Warning] [omni.fabric.plugin] USD->Fabric: Unhandled array type string[]
+2026-10-16T13:55:12Z [21,385ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:ior_constant)
+2026-10-16T13:55:12Z [21,386ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:transmittance_color)
+2026-10-16T13:55:12Z [21,386ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:ior_constant)
+2026-10-16T13:55:12Z [21,386ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:reflection_roughness_constant)
+2026-10-16T13:55:12Z [21,386ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:transmittance_color)
+2026-10-16T13:55:12Z [21,386ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:reflection_roughness_constant)
+2026-10-16T13:55:12Z [21,428ms] [Warning] [omni.hydra] Mesh '/World/car/Leatherback/Rigid_Bodies/Chassis/Electronics_Mounting/Electronics_Mounting' update topology/point without updating normal, fallback to smooth normal.
+2026-10-16T13:55:12Z [21,573ms] [Warning] [omni.syntheticdata.plugin] OgnSdPostRenderVarToHost : rendervar copy from texture directly to host buffer is counter-performant. Please use copy from texture to device buffer first.
+2026-10-16T13:55:12Z [21,677ms] [Warning] [carb] Plugin interface for a client: omni.hydratexture.plugin was already released.
+2026-10-16T13:55:12Z [21,678ms] [Warning] [carb] Plugin interface for a client: omni.hydratexture.plugin was already released.
+2026-10-16T13:55:13Z [22,252ms] [Warning] [omni.syntheticdata.plugin] SdRenderVarPtr missing valid input renderVar LdrColorSDhost
+2026-10-16T13:55:15Z [24,190ms] [Warning] [carb] Client gpu.foundation.plugin has acquired [gpu::unstable::IMemoryBudgetManagerFactory v0.1] 100 times. Consider accessing this interface with carb::getCachedInterface() (Performance warning)
+2026-10-16 13:55:23,205 INFO sim: RTF 0.991 (sim 9.9 s / wall 10.0 s)
+2026-10-16 13:55:33,207 INFO sim: RTF 0.778 (sim 7.8 s / wall 10.0 s)
+2026-10-16 13:55:43,224 INFO sim: RTF 0.760 (sim 7.6 s / wall 10.0 s)
+2026-10-16 13:55:53,225 INFO sim: RTF 0.767 (sim 7.7 s / wall 10.0 s)
+2026-10-16 13:56:03,229 INFO sim: RTF 0.763 (sim 7.6 s / wall 10.0 s)
+2026-10-16 13:56:13,267 INFO sim: RTF 0.767 (sim 7.7 s / wall 10.0 s)
+2026-10-16 13:56:23,274 INFO sim: RTF 0.768 (sim 7.7 s / wall 10.0 s)
+2026-10-16 13:56:33,274 INFO sim: RTF 0.763 (sim 7.6 s / wall 10.0 s)
+2026-10-16 13:56:41,364 INFO sim.reset: reset #1 done
+2026-10-16 13:56:43,275 INFO sim: RTF 0.758 (sim 7.6 s / wall 10.0 s)
+2026-10-16 13:56:53,277 INFO sim: RTF 0.747 (sim 7.5 s / wall 10.0 s)
+2026-10-16 13:57:03,283 INFO sim: RTF 0.713 (sim 7.1 s / wall 10.0 s)
+2026-10-16 13:57:13,306 INFO sim: RTF 0.722 (sim 7.2 s / wall 10.0 s)
+2026-10-16 13:57:23,307 INFO sim: RTF 0.730 (sim 7.3 s / wall 10.0 s)
+2026-10-16 13:57:33,332 INFO sim: RTF 0.748 (sim 7.5 s / wall 10.0 s)
+2026-10-16 13:57:34,991 INFO sim.reset: reset #2 done
+2026-10-16 13:57:43,336 INFO sim: RTF 0.758 (sim 7.6 s / wall 10.0 s)
+2026-10-16 13:57:53,357 INFO sim: RTF 0.733 (sim 7.3 s / wall 10.0 s)
+2026-10-16 13:58:03,361 INFO sim: RTF 0.728 (sim 7.3 s / wall 10.0 s)
+2026-10-16 13:58:13,366 INFO sim: RTF 0.751 (sim 7.5 s / wall 10.0 s)
+2026-10-16 13:58:23,386 INFO sim: RTF 0.759 (sim 7.6 s / wall 10.0 s)
+2026-10-16 13:58:26,628 INFO sim.reset: reset #3 done
+2026-10-16 13:58:33,424 INFO sim: RTF 0.770 (sim 7.7 s / wall 10.0 s)
+2026-10-16 13:58:43,461 INFO sim: RTF 0.757 (sim 7.6 s / wall 10.0 s)
+2026-10-16 13:58:53,468 INFO sim: RTF 0.753 (sim 7.5 s / wall 10.0 s)
+2026-10-16 13:59:03,482 INFO sim: RTF 0.759 (sim 7.6 s / wall 10.0 s)
+2026-10-16 13:59:13,538 INFO sim: RTF 0.756 (sim 7.6 s / wall 10.1 s)
+2026-10-16 13:59:21,271 INFO sim.reset: reset #4 done
+2026-10-16 13:59:23,586 INFO sim: RTF 0.756 (sim 7.6 s / wall 10.0 s)
+2026-10-16 13:59:33,622 INFO sim: RTF 0.757 (sim 7.6 s / wall 10.0 s)
+2026-10-16 13:59:43,676 INFO sim: RTF 0.763 (sim 7.7 s / wall 10.1 s)
+2026-10-16 13:59:53,688 INFO sim: RTF 0.754 (sim 7.5 s / wall 10.0 s)
+2026-10-16 14:00:03,745 INFO sim: RTF 0.754 (sim 7.6 s / wall 10.1 s)
+2026-10-16 14:00:08,683 INFO sim.reset: reset #5 done
+2026-10-16 14:00:13,796 INFO sim: RTF 0.789 (sim 7.9 s / wall 10.1 s)
+2026-10-16 14:00:23,858 INFO sim: RTF 0.788 (sim 7.9 s / wall 10.1 s)
+2026-10-16 14:00:33,865 INFO sim: RTF 0.793 (sim 7.9 s / wall 10.0 s)
+2026-10-16 14:00:43,909 INFO sim: RTF 0.790 (sim 7.9 s / wall 10.0 s)
+2026-10-16 14:00:53,957 INFO sim: RTF 0.790 (sim 7.9 s / wall 10.0 s)
+2026-10-16 14:01:03,992 INFO sim: RTF 0.784 (sim 7.9 s / wall 10.0 s)
+2026-10-16 14:01:04,442 INFO sim.reset: reset #6 done
+2026-10-16 14:01:13,998 INFO sim: RTF 0.791 (sim 7.9 s / wall 10.0 s)
+2026-10-16 14:01:24,051 INFO sim: RTF 0.784 (sim 7.9 s / wall 10.1 s)
+2026-10-16 14:01:34,096 INFO sim: RTF 0.783 (sim 7.9 s / wall 10.0 s)
+2026-10-16 14:01:44,125 INFO sim: RTF 0.791 (sim 7.9 s / wall 10.0 s)
+2026-10-16 14:01:54,173 INFO sim: RTF 0.783 (sim 7.9 s / wall 10.0 s)
+2026-10-16 14:02:04,216 INFO sim: RTF 0.783 (sim 7.9 s / wall 10.0 s)

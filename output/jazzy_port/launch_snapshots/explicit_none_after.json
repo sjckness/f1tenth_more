@@ -1,0 +1,3040 @@
+{
+ "auto_started_components": {
+  "behavior": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_behavior",
+     "behavior_bringup.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=behavior_executor_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "bt_setup_timeout_sec": 90.0,
+           "car_radius": 0.2,
+           "enable_camera_obstacle_stop": false,
+           "enable_lidar_safety_stop": true,
+           "enable_sys_obs_load_trip": false,
+           "mission_file_name": "",
+           "nice": 0,
+           "obstacle_safety_margin_m": 0.12,
+           "proximity_front_extra_margin_m": 0.08,
+           "proximity_front_threshold_m": 0.15,
+           "proximity_side_threshold_m": 0.15,
+           "sys_obs_load_trip_consecutive_samples": 3,
+           "sys_obs_max_load_percent": 95.0,
+           "sys_obs_max_temp_c": 100.0
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "behavior_executor_node",
+      "kind": "Node",
+      "name": "behavior_executor_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_behavior",
+      "prefix": "taskset -c 4",
+      "use_sim_time": null,
+      "where": "behavior_bringup.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=twist_to_ackermann_node",
+       "--params-file",
+       {
+        "content": {
+         "twist_to_ackermann_node": {
+          "ros__parameters": {
+           "frame_id": "base_link",
+           "max_steering_angle": 0.314,
+           "min_steering_angle": -0.264,
+           "wheelbase": 0.305
+          }
+         }
+        },
+        "file": "<ws>/install/f1tenth_behavior/share/f1tenth_behavior/config/twist_to_ackermann.yaml"
+       }
+      ],
+      "executable": "twist_to_ackermann_node",
+      "kind": "Node",
+      "name": "twist_to_ackermann_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_behavior",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "behavior_bringup.launch.py"
+     }
+    ]
+   }
+  ],
+  "control": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_control",
+     "ackermann_mux.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=ackermann_mux",
+       "--params-file",
+       {
+        "content": {
+         "ackermann_mux": {
+          "ros__parameters": {
+           "topics": {
+            "calibration": {
+             "priority": 50,
+             "timeout": 0.2,
+             "topic": "calibration_drive"
+            },
+            "joystick": {
+             "priority": 100,
+             "timeout": 0.2,
+             "topic": "teleop"
+            },
+            "navigation": {
+             "priority": 10,
+             "timeout": 0.2,
+             "topic": "drive"
+            },
+            "safety_stop": {
+             "priority": 200,
+             "timeout": 0.2,
+             "topic": "safety_stop"
+            }
+           }
+          }
+         }
+        },
+        "file": "<ws>/install/f1tenth_bringup/share/f1tenth_bringup/config/mux.yaml"
+       },
+       "-r",
+       "ackermann_cmd:=ackermann_drive"
+      ],
+      "executable": "ackermann_mux",
+      "kind": "Node",
+      "name": "ackermann_mux",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "ackermann_mux",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "ackermann_mux.launch.py"
+     }
+    ]
+   }
+  ],
+  "dev_tools": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_bringup",
+     "foxglove_bridge.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=foxglove_bridge",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "address": "0.0.0.0",
+           "capabilities": [
+            "clientPublish",
+            "parameters",
+            "parametersSubscribe",
+            "services",
+            "assets"
+           ],
+           "client_topic_whitelist": [
+            "^/clicked_point$",
+            "^/goal_pose$",
+            "^/initialpose$",
+            "^/move_base_simple/goal$"
+           ],
+           "port": 8765,
+           "send_buffer_limit": 2500000,
+           "service_whitelist": [
+            "^(?!/zed2/)(?!.*/(describe_parameters|get_parameter_types|get_parameters|list_parameters|set_parameters|set_parameters_atomically)$).*"
+           ],
+           "topic_whitelist": [
+            "^/viz/.*",
+            "^/tf$",
+            "^/tf_static$",
+            "^/robot_description$",
+            "^/joint_states$",
+            "^/slam/map$",
+            "^/slam/map_metadata$",
+            "^/map$",
+            "^/calibration/in_progress$",
+            "^/mission/status$",
+            "^/mission/move_outcome$",
+            "^/safety/event$",
+            "^/rosout$",
+            "^/parameter_events$",
+            "^/costmap/semantic_markers$"
+           ],
+           "use_compression": false
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "foxglove_bridge",
+      "kind": "Node",
+      "name": "foxglove_bridge",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "foxglove_bridge",
+      "prefix": "taskset -c 3",
+      "use_sim_time": null,
+      "where": "foxglove_bridge.launch.py"
+     },
+     {
+      "cmd": [
+       "messages",
+       "/camera/image_raw",
+       "5.0",
+       "/camera/image_raw/viz",
+       "--ros-args",
+       "-r",
+       "__node:=image_raw_viz_throttle"
+      ],
+      "executable": "throttle",
+      "kind": "Node",
+      "name": "image_raw_viz_throttle",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "topic_tools",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "foxglove_bridge.launch.py"
+     },
+     {
+      "cmd": [
+       "messages",
+       "/camera/image_annotated",
+       "5.0",
+       "/camera/image_annotated/viz",
+       "--ros-args",
+       "-r",
+       "__node:=image_annotated_viz_throttle"
+      ],
+      "executable": "throttle",
+      "kind": "Node",
+      "name": "image_annotated_viz_throttle",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "topic_tools",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "foxglove_bridge.launch.py"
+     }
+    ]
+   },
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_bringup",
+     "viz_relays.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=viz_relay_container",
+       "-r",
+       "__ns:=/"
+      ],
+      "components": [
+       {
+        "name": "viz_throttle_scan",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/scan",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/scan",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_sensors_core",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/sensors/core",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/sensors/core",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_camera_image_annotated",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/camera/image_annotated",
+         "lazy": true,
+         "msgs_per_sec": 3.3,
+         "output_topic": "/viz_internal/camera/image_annotated",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_costmap_visualization",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/costmap/visualization",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz_internal/costmap/visualization",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_bt_tree_visualization",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/bt/tree_visualization",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/bt/tree_visualization",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_ekf_global_odometry_filtered",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/ekf_global/odometry/filtered",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/ekf_global/odometry/filtered",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_slam_pose",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/slam/pose",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/slam/pose",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_slam_pose_calibrated",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/slam/pose_calibrated",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/slam/pose_calibrated",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_perception_d_wall",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/perception/d_wall",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/perception/d_wall",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_perception_front_clearance",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/perception/front_clearance",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/perception/front_clearance",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_perception_front_distance",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/perception/front_distance",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/perception/front_distance",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_perception_lidar_front_wall_virtual",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/perception/lidar_front_wall_virtual",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/perception/lidar_front_wall_virtual",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_perception_obstacles_2d",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/perception/obstacles_2d",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/perception/obstacles_2d",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_costmap_front_clearance",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/costmap/front_clearance",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/costmap/front_clearance",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_drive",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/drive",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/drive",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_mpc_corridor_markers",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/mpc/corridor_markers",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/mpc/corridor_markers",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       },
+       {
+        "name": "viz_throttle_diagnostics_system_status",
+        "namespace": "",
+        "package": "topic_tools",
+        "parameters": {
+         "input_topic": "/diagnostics/system_status",
+         "lazy": true,
+         "msgs_per_sec": 5.5,
+         "output_topic": "/viz/diagnostics/system_status",
+         "throttle_type": "messages"
+        },
+        "plugin": "topic_tools::ThrottleNode",
+        "remaps": [],
+        "use_sim_time": null
+       }
+      ],
+      "executable": "component_container",
+      "kind": "ComposableNodeContainer",
+      "name": "viz_relay_container",
+      "namespace": "/",
+      "on_event": false,
+      "package": "rclcpp_components",
+      "prefix": "taskset -c 3",
+      "use_sim_time": null,
+      "where": "viz_relays.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=viz_jpeg_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "input_topics": [
+            "/viz_internal/camera/image_annotated",
+            "/viz_internal/costmap/visualization"
+           ],
+           "jpeg_quality": 75,
+           "output_topics": [
+            "/viz/camera/image_annotated/compressed",
+            "/viz/costmap/visualization/compressed"
+           ]
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "viz_jpeg_node",
+      "kind": "Node",
+      "name": "viz_jpeg_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_bringup",
+      "prefix": "taskset -c 3",
+      "use_sim_time": null,
+      "where": "viz_relays.launch.py"
+     }
+    ]
+   }
+  ],
+  "diagnostics": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_diagnostics",
+     "system_observer.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=system_observer_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "publish_rate_hz": 1.0
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "system_observer_node",
+      "kind": "Node",
+      "name": "system_observer_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_diagnostics",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "system_observer.launch.py"
+     }
+    ]
+   },
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_diagnostics",
+     "diagnostics_server.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=diagnostics_server_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "battery_check_rate_hz": 2.0,
+           "min_battery_voltage": 10.8
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "diagnostics_server_node",
+      "kind": "Node",
+      "name": "diagnostics_server_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_diagnostics",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "diagnostics_server.launch.py"
+     }
+    ]
+   },
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_logger",
+     "mission_logger.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=mission_logger_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "runs_dir": "/home/andreas/f1tenth_archive",
+           "storage_id": "mcap",
+           "sweep_action": "move",
+           "sweep_period_sec": 300.0
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "mission_logger_node",
+      "kind": "Node",
+      "name": "mission_logger_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_logger",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "mission_logger.launch.py"
+     }
+    ]
+   }
+  ],
+  "hardware": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_hardware",
+     "vesc.launch.py",
+     "release_downstream:=false",
+     "calibration:=false"
+    ],
+    "resolved": [
+     {
+      "executable": "vesc_driver_node",
+      "kind": "Node",
+      "name": "vesc_driver_node",
+      "on_event": false,
+      "package": "vesc_driver",
+      "unresolved": "PackageNotFoundError: \"package 'vesc_driver' not found",
+      "where": "vesc.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=battery_voltage_check_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "max_wait_for_first_sample_sec": 10.0,
+           "min_battery_voltage": 10.8
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "battery_voltage_check_node",
+      "kind": "Node",
+      "name": "battery_voltage_check_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_diagnostics",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "vesc.launch.py"
+     }
+    ]
+   }
+  ],
+  "intelligence": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "llm",
+     "llm.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "/scratch/fabiocar/llama.cpp/build/bin/llama-server",
+       "-m",
+       "/home/andreas/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf",
+       "--port",
+       "8083",
+       "-ngl",
+       "999"
+      ],
+      "kind": "process",
+      "name": null,
+      "on_event": false,
+      "where": "llm.launch.py"
+     }
+    ]
+   }
+  ],
+  "lidar_front_wall": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_perception",
+     "lidar_front_wall.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=lidar_front_wall_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "detection_margin_deg": 3.0,
+           "detection_max_age_sec": 0.5,
+           "enable_scene_labels": false,
+           "inlier_distance_m": 0.03,
+           "max_hypothesis_pairs": 800,
+           "min_inlier_count_ratio": 0.5,
+           "min_inlier_fraction": 0.6,
+           "nice": 0,
+           "oblique_max_deg": 45.0,
+           "odom_max_age_sec": 0.2,
+           "odom_topic": "/odometry/filtered",
+           "sector_half_angle_deg": 10.0,
+           "seed_max_age_sec": 0.5,
+           "seed_max_valid_m": 5.0,
+           "stale_age_sec": 3.0,
+           "stereo_max_age_sec": 0.5,
+           "virtual_disagree_m": 0.15,
+           "wall_min_span_m": 0.8,
+           "wall_planes_half_angle_deg": 60.0,
+           "wall_planes_max_lines": 3,
+           "wall_planes_min_inliers": 15,
+           "wall_planes_rate_hz": 10.0,
+           "wrong_surface_gate_m": 0.3
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "lidar_front_wall_node",
+      "kind": "Node",
+      "name": "lidar_front_wall_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_perception",
+      "prefix": "taskset -c 5",
+      "use_sim_time": null,
+      "where": "lidar_front_wall.launch.py"
+     }
+    ]
+   }
+  ],
+  "localization": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_localization",
+     "localization.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=ekf_filter_node",
+       "--params-file",
+       {
+        "content": {
+         "ekf_filter_node": {
+          "ros__parameters": {
+           "base_link_frame": "base_link",
+           "debug": false,
+           "frequency": 50.0,
+           "imu0": "sensors/imu/raw",
+           "imu0_config": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false
+           ],
+           "imu0_differential": false,
+           "imu0_queue_size": 10,
+           "imu0_relative": false,
+           "imu0_remove_gravitational_acceleration": true,
+           "map_frame": "map",
+           "odom0": "odom",
+           "odom0_config": [
+            true,
+            true,
+            false,
+            false,
+            false,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+           ],
+           "odom0_differential": true,
+           "odom0_queue_size": 10,
+           "odom0_relative": false,
+           "odom_frame": "odom",
+           "print_diagnostics": true,
+           "process_noise_covariance": [
+            0.08,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.08,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.06,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.03,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.03,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.06,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.05,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.03,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.06,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.02,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.02,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.005,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.01,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.01,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.015
+           ],
+           "publish_acceleration": false,
+           "publish_tf": true,
+           "sensor_timeout": 0.1,
+           "transform_time_offset": 0.05,
+           "two_d_mode": true,
+           "world_frame": "odom"
+          }
+         }
+        },
+        "file": "<ws>/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf.yaml"
+       }
+      ],
+      "executable": "ekf_node",
+      "kind": "Node",
+      "name": "ekf_filter_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "robot_localization",
+      "prefix": "taskset -c 0,1",
+      "use_sim_time": null,
+      "where": "ekf.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=ekf_global_filter_node",
+       "-r",
+       "__ns:=/ekf_global",
+       "--params-file",
+       {
+        "content": {
+         "/ekf_global/ekf_global_filter_node": {
+          "ros__parameters": {
+           "base_link_frame": "base_link",
+           "debug": false,
+           "frequency": 50.0,
+           "initial_state": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           "map_frame": "map",
+           "odom0": "/odometry/filtered",
+           "odom0_config": [
+            true,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+           ],
+           "odom0_differential": true,
+           "odom0_queue_size": 10,
+           "odom0_relative": false,
+           "odom_frame": "odom",
+           "pose0": "/slam/pose_calibrated",
+           "pose0_config": [
+            true,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+           ],
+           "pose0_differential": false,
+           "pose0_queue_size": 10,
+           "pose0_rejection_threshold": 5.0,
+           "pose0_relative": false,
+           "print_diagnostics": true,
+           "process_noise_covariance": [
+            0.0243,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0273,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.06,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.03,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.03,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0123,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.05,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.03,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.06,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.02,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.02,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.005,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.01,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.01,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.015
+           ],
+           "publish_acceleration": false,
+           "publish_tf": true,
+           "sensor_timeout": 0.1,
+           "transform_time_offset": 0.05,
+           "two_d_mode": true,
+           "world_frame": "map"
+          }
+         },
+         "slam_pose_relay_node": {
+          "ros__parameters": {
+           "input_topic": "/slam/pose",
+           "output_topic": "/slam/pose_calibrated",
+           "pose_variance_x": 0.1,
+           "pose_variance_y": 0.1,
+           "pose_variance_yaw": 0.05
+          }
+         }
+        },
+        "file": "<ws>/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml"
+       }
+      ],
+      "executable": "ekf_node",
+      "kind": "Node",
+      "name": "ekf_global_filter_node",
+      "namespace": "/ekf_global",
+      "on_event": false,
+      "package": "robot_localization",
+      "prefix": "taskset -c 0,1",
+      "use_sim_time": null,
+      "where": "ekf_global.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=slam_pose_relay_node",
+       "--params-file",
+       {
+        "content": {
+         "/ekf_global/ekf_global_filter_node": {
+          "ros__parameters": {
+           "base_link_frame": "base_link",
+           "debug": false,
+           "frequency": 50.0,
+           "initial_state": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+           ],
+           "map_frame": "map",
+           "odom0": "/odometry/filtered",
+           "odom0_config": [
+            true,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+           ],
+           "odom0_differential": true,
+           "odom0_queue_size": 10,
+           "odom0_relative": false,
+           "odom_frame": "odom",
+           "pose0": "/slam/pose_calibrated",
+           "pose0_config": [
+            true,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+           ],
+           "pose0_differential": false,
+           "pose0_queue_size": 10,
+           "pose0_rejection_threshold": 5.0,
+           "pose0_relative": false,
+           "print_diagnostics": true,
+           "process_noise_covariance": [
+            0.0243,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0273,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.06,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.03,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.03,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0123,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.05,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.03,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.06,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.02,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.02,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.005,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.01,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.01,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.015
+           ],
+           "publish_acceleration": false,
+           "publish_tf": true,
+           "sensor_timeout": 0.1,
+           "transform_time_offset": 0.05,
+           "two_d_mode": true,
+           "world_frame": "map"
+          }
+         },
+         "slam_pose_relay_node": {
+          "ros__parameters": {
+           "input_topic": "/slam/pose",
+           "output_topic": "/slam/pose_calibrated",
+           "pose_variance_x": 0.1,
+           "pose_variance_y": 0.1,
+           "pose_variance_yaw": 0.05
+          }
+         }
+        },
+        "file": "<ws>/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml"
+       }
+      ],
+      "executable": "slam_pose_relay_node",
+      "kind": "Node",
+      "name": "slam_pose_relay_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_localization",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "ekf_global.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=ekf_cost_observer_node"
+      ],
+      "executable": "ekf_cost_observer_node",
+      "kind": "Node",
+      "name": "ekf_cost_observer_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_diagnostics",
+      "prefix": "taskset -c 2-11",
+      "use_sim_time": null,
+      "where": "localization.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "robot_description": "<?xml version=\"1.0\" ?>\n<!-- =================================================================================== -->\n<!-- |    This document was autogenerated by xacro from <ws>/install/f1tenth_description/share/f1tenth_description/urdf/roboracer.urdf.xacro | -->\n<!-- |    EDITING THIS FILE BY HAND IS NOT RECOMMENDED                                 | -->\n<!-- =================================================================================== -->\n<!--\n  roboracer.urdf.xacro - F1TENTH vehicle description.\n\n  Ported from msauber_stack/msauber_description (ROS 2 Jazzy + Gazebo Harmonic)\n  to ROS 2 Humble + Gazebo Fortress (ignition-fortress). Key differences vs the\n  source:\n    * Frames use the canonical F1TENTH names (base_link, laser, imu,\n      zed2_camera_link, ...) so the model is a drop-in for f1tenth_bringup and\n      f1tenth_perception - NOT the 'sauber_*' prefixed names.\n    * ros2_control hardware is ign_ros2_control/IgnitionSystem (was\n      gz_ros2_control/GazeboSimSystem).\n    * The stereo \"front camera\" is replaced by a ZED2 mock (RGB + depth +\n      camera_info on the zed2 optical frame).\n    * A 2D Hokuyo-like LiDAR (/scan) and an IMU (/sensors/imu/raw) are added\n      (the source had neither in the URDF).\n\n  Args:\n    pkg_share      - absolute path to this package's share dir (for mesh_dir).\n    use_sim        - true to emit the ign_ros2_control gazebo plugin + sensors.\n    enable_sensors - true to include the LiDAR / camera / IMU sensor links.\n    control_config - path to the ros2_control controllers.yaml (f1tenth_sim).\n-->\n<robot name=\"roboracer\">\n  <!-- Materials palette -->\n  <material name=\"black\">\n    <color rgba=\"0.0 0.0 0.0 1.0\"/>\n  </material>\n  <material name=\"blue\">\n    <color rgba=\"0.0 0.0 0.8 1.0\"/>\n  </material>\n  <material name=\"green\">\n    <color rgba=\"0.0 0.8 0.0 1.0\"/>\n  </material>\n  <material name=\"grey\">\n    <color rgba=\"0.2 0.2 0.2 1.0\"/>\n  </material>\n  <material name=\"orange\">\n    <color rgba=\"1.0 0.4235294117647059 0.0392156862745098 1.0\"/>\n  </material>\n  <material name=\"red\">\n    <color rgba=\"0.8 0.0 0.0 1.0\"/>\n  </material>\n  <material name=\"white\">\n    <color rgba=\"1.0 1.0 1.0 1.0\"/>\n  </material>\n  <!-- Kinematic root -->\n  <link name=\"base_link\"/>\n  <link name=\"chassis\">\n    <visual>\n      <origin rpy=\"1.57 0 3.14\" xyz=\"0.46 -0.135 -0.180\"/>\n      <geometry>\n        <mesh filename=\"<ws>/install/f1tenth_description/share/f1tenth_description/meshes/chassis.stl\" scale=\"0.000990 0.0009375 0.0009375\"/>\n      </geometry>\n      <material name=\"red\"/>\n    </visual>\n  </link>\n  <joint name=\"base_link_joint\" type=\"fixed\">\n    <origin rpy=\"0 0 0\" xyz=\"0 0 0.05\"/>\n    <parent link=\"base_link\"/>\n    <child link=\"chassis\"/>\n  </joint>\n  <link name=\"chassis_inertia\">\n    <inertial>\n      <origin rpy=\"0 0 0\" xyz=\"0.1477 0 0\"/>\n      <mass value=\"4.0\"/>\n      <inertia ixx=\"0.010609\" ixy=\"0\" ixz=\"0\" iyy=\"0.050409\" iyz=\"0\" izz=\"0.05865\"/>\n    </inertial>\n  </link>\n  <joint name=\"chassis_inertia_joint\" type=\"fixed\">\n    <origin rpy=\"0 0 0\" xyz=\"0 0 0\"/>\n    <parent link=\"chassis\"/>\n    <child link=\"chassis_inertia\"/>\n  </joint>\n  <!-- Left rear wheel (traction) -->\n  <link name=\"left_rear_wheel\">\n    <inertial>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 -0.0225\"/>\n      <mass value=\"0.34055\"/>\n      <inertia ixx=\"0.00026046\" ixy=\"0\" ixz=\"0\" iyy=\"0.00026046\" iyz=\"0\" izz=\"0.00041226\"/>\n    </inertial>\n    <visual>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 0\"/>\n      <geometry>\n        <mesh filename=\"<ws>/install/f1tenth_description/share/f1tenth_description/meshes/left_wheel.stl\"/>\n      </geometry>\n      <material name=\"black\"/>\n    </visual>\n    <collision>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 -0.0225\"/>\n      <geometry>\n        <cylinder length=\"0.045\" radius=\"0.05\"/>\n      </geometry>\n    </collision>\n  </link>\n  <joint name=\"left_rear_wheel_joint\" type=\"continuous\">\n    <origin rpy=\"1.5708 0 0\" xyz=\"0 0.1 0\"/>\n    <parent link=\"chassis\"/>\n    <child link=\"left_rear_wheel\"/>\n    <axis xyz=\"0 0 -1\"/>\n    <limit effort=\"100\" velocity=\"100\"/>\n  </joint>\n  <!-- Right rear wheel (traction) -->\n  <link name=\"right_rear_wheel\">\n    <inertial>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 0.0225\"/>\n      <mass value=\"0.34055\"/>\n      <inertia ixx=\"0.00026046\" ixy=\"0\" ixz=\"0\" iyy=\"0.00026046\" iyz=\"0\" izz=\"0.00041226\"/>\n    </inertial>\n    <visual>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 0\"/>\n      <geometry>\n        <mesh filename=\"<ws>/install/f1tenth_description/share/f1tenth_description/meshes/right_wheel.stl\"/>\n      </geometry>\n      <material name=\"black\"/>\n    </visual>\n    <collision>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 0.0225\"/>\n      <geometry>\n        <cylinder length=\"0.045\" radius=\"0.05\"/>\n      </geometry>\n    </collision>\n  </link>\n  <joint name=\"right_rear_wheel_joint\" type=\"continuous\">\n    <origin rpy=\"1.5708 0 0\" xyz=\"0 -0.1 0\"/>\n    <parent link=\"chassis\"/>\n    <child link=\"right_rear_wheel\"/>\n    <axis xyz=\"0 0 -1\"/>\n    <limit effort=\"100\" velocity=\"100\"/>\n  </joint>\n  <!-- Left steering hinge -->\n  <link name=\"left_steering_hinge\">\n    <inertial>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 0\"/>\n      <mass value=\"0.100\"/>\n      <inertia ixx=\"4E-06\" ixy=\"0\" ixz=\"0\" iyy=\"4E-06\" iyz=\"0\" izz=\"4E-06\"/>\n    </inertial>\n    <visual>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 0\"/>\n      <geometry>\n        <mesh filename=\"<ws>/install/f1tenth_description/share/f1tenth_description/meshes/hinge.stl\"/>\n      </geometry>\n      <material name=\"grey\"/>\n    </visual>\n  </link>\n  <joint name=\"left_steering_hinge_joint\" type=\"revolute\">\n    <origin rpy=\"0 1.5708 0\" xyz=\"0.305 0.1 0\"/>\n    <parent link=\"chassis\"/>\n    <child link=\"left_steering_hinge\"/>\n    <axis xyz=\"-1 0 0\"/>\n    <limit effort=\"10\" lower=\"-0.4\" upper=\"0.4\" velocity=\"10\"/>\n  </joint>\n  <!-- Right steering hinge -->\n  <link name=\"right_steering_hinge\">\n    <inertial>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 0\"/>\n      <mass value=\"0.100\"/>\n      <inertia ixx=\"4E-06\" ixy=\"0\" ixz=\"0\" iyy=\"4E-06\" iyz=\"0\" izz=\"4E-06\"/>\n    </inertial>\n    <visual>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 0\"/>\n      <geometry>\n        <mesh filename=\"<ws>/install/f1tenth_description/share/f1tenth_description/meshes/hinge.stl\"/>\n      </geometry>\n      <material name=\"grey\"/>\n    </visual>\n  </link>\n  <joint name=\"right_steering_hinge_joint\" type=\"revolute\">\n    <origin rpy=\"0 1.5708 0\" xyz=\"0.305 -0.1 0\"/>\n    <parent link=\"chassis\"/>\n    <child link=\"right_steering_hinge\"/>\n    <axis xyz=\"-1 0 0\"/>\n    <limit effort=\"10\" lower=\"-0.4\" upper=\"0.4\" velocity=\"10\"/>\n  </joint>\n  <!-- Left front wheel (steered) -->\n  <link name=\"left_front_wheel\">\n    <inertial>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 -0.0225\"/>\n      <mass value=\"0.34055\"/>\n      <inertia ixx=\"0.00026046\" ixy=\"0\" ixz=\"0\" iyy=\"0.00026046\" iyz=\"0\" izz=\"0.00041226\"/>\n    </inertial>\n    <visual>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 0\"/>\n      <geometry>\n        <mesh filename=\"<ws>/install/f1tenth_description/share/f1tenth_description/meshes/left_wheel.stl\"/>\n      </geometry>\n      <material name=\"black\"/>\n    </visual>\n    <collision>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 -0.0225\"/>\n      <geometry>\n        <cylinder length=\"0.045\" radius=\"0.05\"/>\n      </geometry>\n    </collision>\n  </link>\n  <joint name=\"left_front_wheel_joint\" type=\"continuous\">\n    <origin rpy=\"1.5708 0 0\" xyz=\"0 0 0\"/>\n    <parent link=\"left_steering_hinge\"/>\n    <child link=\"left_front_wheel\"/>\n    <axis xyz=\"0 0 -1\"/>\n    <limit effort=\"100\" velocity=\"100\"/>\n  </joint>\n  <!-- Right front wheel (steered) -->\n  <link name=\"right_front_wheel\">\n    <inertial>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 0.0225\"/>\n      <mass value=\"0.34055\"/>\n      <inertia ixx=\"0.00026046\" ixy=\"0\" ixz=\"0\" iyy=\"0.00026046\" iyz=\"0\" izz=\"0.00041226\"/>\n    </inertial>\n    <visual>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 0\"/>\n      <geometry>\n        <mesh filename=\"<ws>/install/f1tenth_description/share/f1tenth_description/meshes/right_wheel.stl\"/>\n      </geometry>\n      <material name=\"black\"/>\n    </visual>\n    <collision>\n      <origin rpy=\"0 0 0\" xyz=\"0 0 0.0225\"/>\n      <geometry>\n        <cylinder length=\"0.045\" radius=\"0.05\"/>\n      </geometry>\n    </collision>\n  </link>\n  <joint name=\"right_front_wheel_joint\" type=\"continuous\">\n    <origin rpy=\"1.5708 0 0\" xyz=\"0 0 0\"/>\n    <parent link=\"right_steering_hinge\"/>\n    <child link=\"right_front_wheel\"/>\n    <axis xyz=\"0 0 -1\"/>\n    <limit effort=\"100\" velocity=\"100\"/>\n  </joint>\n  <link name=\"base_front\"/>\n  <joint name=\"base_front_joint\" type=\"fixed\">\n    <origin rpy=\"0 0 0\" xyz=\"0.405 0.0 0.0\"/>\n    <parent link=\"base_link\"/>\n    <child link=\"base_front\"/>\n  </joint>\n  <ros2_control name=\"roboracer_control\" type=\"system\">\n    <hardware>\n      <plugin>ign_ros2_control/IgnitionSystem</plugin>\n    </hardware>\n    <!-- Rear axle: velocity command (traction) -->\n    <joint name=\"left_rear_wheel_joint\">\n      <command_interface name=\"velocity\"/>\n      <state_interface name=\"position\"/>\n      <state_interface name=\"velocity\"/>\n      <state_interface name=\"effort\"/>\n    </joint>\n    <joint name=\"right_rear_wheel_joint\">\n      <command_interface name=\"velocity\"/>\n      <state_interface name=\"position\"/>\n      <state_interface name=\"velocity\"/>\n      <state_interface name=\"effort\"/>\n    </joint>\n    <!-- Front wheels: passive -->\n    <joint name=\"left_front_wheel_joint\">\n      <state_interface name=\"position\"/>\n      <state_interface name=\"velocity\"/>\n      <state_interface name=\"effort\"/>\n    </joint>\n    <joint name=\"right_front_wheel_joint\">\n      <state_interface name=\"position\"/>\n      <state_interface name=\"velocity\"/>\n      <state_interface name=\"effort\"/>\n    </joint>\n    <!-- Steering hinges: position command -->\n    <joint name=\"left_steering_hinge_joint\">\n      <command_interface name=\"position\"/>\n      <state_interface name=\"position\"/>\n      <state_interface name=\"velocity\"/>\n      <state_interface name=\"effort\"/>\n    </joint>\n    <joint name=\"right_steering_hinge_joint\">\n      <command_interface name=\"position\"/>\n      <state_interface name=\"position\"/>\n      <state_interface name=\"velocity\"/>\n      <state_interface name=\"effort\"/>\n    </joint>\n  </ros2_control>\n  <!-- Contact / friction tuning (legacy gazebo-reference tags) -->\n  <gazebo reference=\"chassis\">\n    <mu1 value=\"0.0\"/>\n    <mu2 value=\"0.0\"/>\n    <kp value=\"10000000.0\"/>\n    <kd value=\"1.0\"/>\n  </gazebo>\n  <gazebo reference=\"left_rear_wheel\">\n    <mu1 value=\"1.0\"/>\n    <mu2 value=\"1.0\"/>\n    <kp value=\"10000000.0\"/>\n    <kd value=\"1.0\"/>\n    <fdir1 value=\"1 0 0\"/>\n  </gazebo>\n  <gazebo reference=\"right_rear_wheel\">\n    <mu1 value=\"1.0\"/>\n    <mu2 value=\"1.0\"/>\n    <kp value=\"10000000.0\"/>\n    <kd value=\"1.0\"/>\n    <fdir1 value=\"1 0 0\"/>\n  </gazebo>\n  <gazebo reference=\"left_front_wheel\">\n    <mu1 value=\"1.0\"/>\n    <mu2 value=\"1.0\"/>\n    <kp value=\"10000000.0\"/>\n    <kd value=\"1.0\"/>\n    <fdir1 value=\"0 0 1\"/>\n  </gazebo>\n  <gazebo reference=\"right_front_wheel\">\n    <mu1 value=\"1.0\"/>\n    <mu2 value=\"1.0\"/>\n    <kp value=\"10000000.0\"/>\n    <kd value=\"1.0\"/>\n    <fdir1 value=\"0 0 1\"/>\n  </gazebo>\n</robot>\n"
+          }
+         }
+        },
+        "file": "generated"
+       },
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "use_sim_time": false
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "robot_state_publisher",
+      "kind": "Node",
+      "name": null,
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "robot_state_publisher",
+      "prefix": "",
+      "use_sim_time": "False",
+      "where": "description.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=joint_state_publisher",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "use_sim_time": false
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "joint_state_publisher",
+      "kind": "Node",
+      "name": "joint_state_publisher",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "joint_state_publisher",
+      "prefix": "",
+      "use_sim_time": "False",
+      "where": "description.launch.py"
+     },
+     {
+      "cmd": [
+       "0.305",
+       "0.0",
+       "0.20",
+       "0.0",
+       "0.0",
+       "0.0",
+       "base_link",
+       "laser",
+       "--ros-args",
+       "-r",
+       "__node:=static_baselink_to_laser"
+      ],
+      "executable": "static_transform_publisher",
+      "kind": "Node",
+      "name": "static_baselink_to_laser",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "tf2_ros",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "description.launch.py"
+     }
+    ]
+   }
+  ],
+  "navigation": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_navigation",
+     "navigation.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=mpc_corr",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "avoidance_margin": 0.12,
+           "boundary_hard": false,
+           "boundary_max_sources": 3,
+           "boundary_slack_weight": 10000.0,
+           "car_radius": 0.2,
+           "corridor_heading_return": true,
+           "corridor_update_period": 1.0,
+           "delta_max": 0.319,
+           "delta_min": -0.309,
+           "model_log_path": "mpc_log.csv",
+           "mpc_arc_corr_sigma_m": 0.25,
+           "mpc_arc_line_sigma_m": 0.35,
+           "mpc_prediction_dt_s": 0.1,
+           "mpc_w_corr": 3.5714,
+           "mpc_w_delta0": 0.0,
+           "mpc_w_du_a": 0.0,
+           "mpc_w_du_delta": 8.33,
+           "mpc_w_line": 1.1662,
+           "mpc_w_obs": 8.0,
+           "mpc_w_psi": 4.5,
+           "mpc_w_psi_stage": 4.7736,
+           "mpc_w_term": 9.0,
+           "mpc_w_u_a": 0.0,
+           "mpc_w_v": 4.2857,
+           "nice": 0,
+           "object_arc_switch_hi_frac": 1.24,
+           "object_arc_switch_lo_frac": 1.0,
+           "object_corridor_mode": "off",
+           "obstacle_target_shift_m": 0.3,
+           "odom_stale_timeout_sec": 0.5,
+           "use_hard_boundary_constraints": true,
+           "use_rti_solver": true
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "mpc_corr",
+      "kind": "Node",
+      "name": "mpc_corr",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "mpc_controller",
+      "prefix": "taskset -c 10,11",
+      "use_sim_time": null,
+      "where": "mpc_corr.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=map_server",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "frame_id": "map",
+           "topic_name": "map",
+           "use_sim_time": false,
+           "yaml_filename": "<ws>/install/f1tenth_navigation/share/f1tenth_navigation/maps/square_100m.yaml"
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "map_server",
+      "kind": "Node",
+      "name": "map_server",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "nav2_map_server",
+      "prefix": "",
+      "use_sim_time": "False",
+      "where": "map.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=lifecycle_manager_map",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "autostart": true,
+           "node_names": [
+            "map_server"
+           ],
+           "use_sim_time": false
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "lifecycle_manager",
+      "kind": "Node",
+      "name": "lifecycle_manager_map",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "nav2_lifecycle_manager",
+      "prefix": "",
+      "use_sim_time": "False",
+      "where": "map_only.launch.py"
+     }
+    ]
+   }
+  ],
+  "obstacle_clearance": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_perception",
+     "obstacle_clearance.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=obstacle_clearance_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "clearance_topic": "/obstacle_clearance",
+           "contact_rearm_m": 0.05,
+           "contact_threshold_m": 0.0,
+           "footprint_length_m": 0.48700000000000004,
+           "footprint_rear_x_m": -0.082,
+           "footprint_width_m": 0.272,
+           "publish_contact_events": true,
+           "scan_topic": "/scan"
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "obstacle_clearance_node",
+      "kind": "Node",
+      "name": "obstacle_clearance_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_perception",
+      "prefix": "taskset -c 5",
+      "use_sim_time": null,
+      "where": "obstacle_clearance.launch.py"
+     }
+    ]
+   }
+  ],
+  "perception": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_perception",
+     "camera.launch.py"
+    ],
+    "resolved": {
+     "error": "InvalidLaunchFileError: Caught multiple exceptions when trying to load file of format [py]:"
+    }
+   },
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_perception",
+     "lidar.launch.py"
+    ],
+    "resolved": [
+     {
+      "executable": "urg_node_driver",
+      "kind": "Node",
+      "name": "urg_node",
+      "on_event": false,
+      "package": "urg_node",
+      "unresolved": "PackageNotFoundError: \"package 'urg_node' not found",
+      "where": "lidar.launch.py"
+     }
+    ]
+   },
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_perception",
+     "detection.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=yolo_detector_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "annotated_topic": "/camera/image_annotated",
+           "confidence_threshold": 0.3,
+           "debug_image_jpeg_quality": 50,
+           "debug_image_min_confidence": 0.1,
+           "debug_image_rate_hz": 5.0,
+           "debug_image_width": 480,
+           "detections_topic": "/camera/detections",
+           "device": "cuda",
+           "enable_scene_labels": false,
+           "image_topic": "/camera/image_raw",
+           "lidar_exclusion_overlap_threshold": 0.5,
+           "lidar_exclusion_x_max": 1.0,
+           "lidar_exclusion_x_min": 0.75,
+           "lidar_exclusion_y_max": 1.0,
+           "lidar_exclusion_y_min": 0.55,
+           "masks_topic": "/camera/detection_masks",
+           "model_path": "<ws>/src/f1tenth_perception/models/yolo26s-seg.pt",
+           "model_task": "segment",
+           "nice": 0
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "yolo_detector_node",
+      "kind": "Node",
+      "name": "yolo_detector_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_perception",
+      "prefix": "taskset -c 8,9",
+      "use_sim_time": null,
+      "where": "detection.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=detection_3d_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "confidence_threshold": 0.3,
+           "depth_info_topic": "/zed2/zed_node/depth/camera_info",
+           "depth_topic": "/zed2/zed_node/depth/depth_registered",
+           "detections_3d_topic": "/camera/detections_3d",
+           "detections_topic": "/camera/detections",
+           "enable_scene_labels": false,
+           "markers_topic": "/camera/detection_markers",
+           "masks_topic": "/camera/detection_masks",
+           "nice": 0,
+           "scene_labels_max_age_s": 0.3,
+           "scene_min_other_px": 20,
+           "use_mask_depth": true
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "detection_3d_node",
+      "kind": "Node",
+      "name": "detection_3d_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_perception",
+      "prefix": "taskset -c 6,7",
+      "use_sim_time": null,
+      "where": "detection.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=obstacle_projector_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "detections_3d_topic": "/camera/detections_3d",
+           "nice": 0,
+           "obstacle_class_margin_m": "{}",
+           "obstacle_radius_source": "footprint",
+           "obstacle_z_max": 2.0,
+           "obstacle_z_min": -0.1,
+           "obstacles_topic": "/perception/obstacles_2d",
+           "output_frame": "base_link"
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "obstacle_projector_node",
+      "kind": "Node",
+      "name": "obstacle_projector_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_perception",
+      "prefix": "taskset -c 6,7",
+      "use_sim_time": null,
+      "where": "detection.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=front_clearance_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "background_percentile_high": 50.0,
+           "background_percentile_low": 5.0,
+           "background_weight_threshold": 0.5,
+           "clearance_enter_m": 0.5,
+           "clearance_exit_m": 0.7,
+           "clearance_min_dwell_frames": 2,
+           "corridor_half_width_m": 0.35,
+           "depth_topic": "/zed2/zed_node/depth/depth_registered",
+           "detections_topic": "/camera/detections",
+           "distance_ema_alpha": 0.25,
+           "enable_scene_labels": false,
+           "ground_band_m": 0.15,
+           "ground_fit_stride_px": 4,
+           "ground_height_m": 0.06,
+           "ground_inlier_m": 0.03,
+           "ground_max_tilt_deg": 15.0,
+           "ground_min_inliers": 150,
+           "ground_prior_z_m": 0.0,
+           "ground_ransac_iters": 60,
+           "ground_removal_enabled": true,
+           "lidar_exclusion_x_max": 1.0,
+           "lidar_exclusion_x_min": 0.75,
+           "lidar_exclusion_y_max": 1.0,
+           "lidar_exclusion_y_min": 0.55,
+           "mask_time_constant": 0.35,
+           "masks_topic": "/camera/detection_masks",
+           "min_bg_pixels_for_reading": 60,
+           "nice": 0,
+           "obstacle_max_age_s": 0.4,
+           "obstacles_topic": "/perception/obstacles_2d",
+           "publish_debug_raw": false,
+           "publish_debug_wall": true,
+           "roi_half_height_px": 70,
+           "roi_half_width_px": 180,
+           "roi_shift_up_px": 35,
+           "scene_ceiling_alpha": 0.3,
+           "scene_ceiling_band_m": 0.08,
+           "scene_ceiling_max_m": 4.0,
+           "scene_ceiling_max_step_m": 0.25,
+           "scene_ceiling_min_m": 2.0,
+           "scene_ceiling_prior_m": 0.0,
+           "scene_grid_height_px": 90,
+           "scene_grid_width_px": 160,
+           "scene_ground_band_m": 0.04,
+           "scene_ground_max_angle_deg": 5.0,
+           "scene_ground_max_offset_m": 0.05,
+           "scene_max_relevant_height_m": 1.0,
+           "scene_rate_hz": 5.0,
+           "scene_stereo_wall_min_px": 30,
+           "scene_wall_band_m": 0.06,
+           "scene_wall_max_age_s": 0.3,
+           "scene_wall_min_span_m": 0.8,
+           "too_close_clearance_m": 0.2,
+           "too_close_min_pixel_fraction": 0.02,
+           "wall_enter_px": 150,
+           "wall_exit_px": 50,
+           "wall_min_dwell_frames": 2
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "front_clearance_node",
+      "kind": "Node",
+      "name": "front_clearance_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_perception",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "detection.launch.py"
+     }
+    ]
+   }
+  ],
+  "reset_manager": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_bringup",
+     "reset_manager.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=reset_manager",
+       "--params-file",
+       {
+        "content": {
+         "reset_manager": {
+          "ros__parameters": {
+           "covariance": {
+            "position": 0.0001,
+            "yaw": 0.0001
+           },
+           "ekf_global": {
+            "enabled": true,
+            "frame_id": "map",
+            "service": "/ekf_global/set_pose",
+            "tolerance_m": 0.15,
+            "verify_topic": "/ekf_global/odometry/filtered"
+           },
+           "ekf_local": {
+            "enabled": true,
+            "frame_id": "odom",
+            "service": "/set_pose",
+            "tolerance_m": 0.05,
+            "verify_topic": "/odometry/filtered"
+           },
+           "hooks": {
+            "restart_components": [
+             "wall_distance"
+            ]
+           },
+           "nav2": {
+            "cancel_actions": [
+             "/navigate_to_pose",
+             "/navigate_through_poses"
+            ],
+            "clear_costmap_services": [
+             "/global_costmap/clear_entirely_global_costmap",
+             "/local_costmap/clear_entirely_local_costmap"
+            ]
+           },
+           "protected_components": [
+            "intelligence"
+           ],
+           "restart_timeout_s": 45.0,
+           "service_name": "/reset_all",
+           "service_timeout_s": 5.0,
+           "slam": {
+            "component": "slam",
+            "enabled": true,
+            "ready_topic": "/slam/pose",
+            "timeout_s": 60.0
+           },
+           "stop": {
+            "abort_mission_service": "/mission/abort_mission",
+            "enabled": true,
+            "rate_hz": 20.0,
+            "standstill_hold_s": 0.5,
+            "standstill_speed_mps": 0.05,
+            "standstill_topic": "/odometry/filtered",
+            "timeout_s": 5.0,
+            "topic": "/safety_stop"
+           },
+           "supervisor_restart_service": "/restart_component",
+           "verify_timeout_s": 5.0,
+           "wheel_odom": {
+            "component": "hardware",
+            "enabled": true,
+            "method": "restart_component",
+            "service": "",
+            "timeout_s": 60.0,
+            "tolerance_m": 0.05,
+            "topic": "/odom"
+           },
+           "yaw_tolerance_rad": 0.05
+          }
+         }
+        },
+        "file": "<ws>/install/f1tenth_bringup/share/f1tenth_bringup/config/reset_manager.yaml"
+       },
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "nav2.enabled": false
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "reset_manager",
+      "kind": "Node",
+      "name": "reset_manager",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_bringup",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "reset_manager.launch.py"
+     }
+    ]
+   }
+  ],
+  "slam": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_navigation",
+     "slam.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=slam_toolbox",
+       "-r",
+       "__ns:=/",
+       "--params-file",
+       {
+        "content": {
+         "slam_toolbox": {
+          "ros__parameters": {
+           "angle_variance_penalty": 1.0,
+           "base_frame": "base_link",
+           "ceres_dogleg_type": "TRADITIONAL_DOGLEG",
+           "ceres_linear_solver": "SPARSE_NORMAL_CHOLESKY",
+           "ceres_loss_function": "None",
+           "ceres_preconditioner": "SCHUR_JACOBI",
+           "ceres_trust_strategy": "LEVENBERG_MARQUARDT",
+           "coarse_angle_resolution": 0.0349,
+           "coarse_search_angle_offset": 0.349,
+           "correlation_search_space_dimension": 0.5,
+           "correlation_search_space_resolution": 0.01,
+           "correlation_search_space_smear_deviation": 0.1,
+           "debug_logging": false,
+           "distance_variance_penalty": 0.5,
+           "do_loop_closing": true,
+           "enable_interactive_mode": true,
+           "fine_search_angle_offset": 0.00349,
+           "link_match_minimum_response_fine": 0.1,
+           "link_scan_maximum_distance": 1.5,
+           "loop_match_maximum_variance_coarse": 3.0,
+           "loop_match_minimum_chain_size": 10,
+           "loop_match_minimum_response_coarse": 0.35,
+           "loop_match_minimum_response_fine": 0.45,
+           "loop_search_maximum_distance": 3.0,
+           "loop_search_space_dimension": 8.0,
+           "loop_search_space_resolution": 0.05,
+           "loop_search_space_smear_deviation": 0.03,
+           "map_frame": "map",
+           "map_update_interval": 5.0,
+           "max_laser_range": 20.0,
+           "min_laser_range": 0.0,
+           "min_pass_through": 2,
+           "minimum_angle_penalty": 0.9,
+           "minimum_distance_penalty": 0.5,
+           "minimum_time_interval": 0.5,
+           "minimum_travel_distance": 0.03,
+           "minimum_travel_heading": 0.035,
+           "mode": "mapping",
+           "occupancy_threshold": 0.1,
+           "odom_frame": "odom",
+           "resolution": 0.05,
+           "scan_buffer_maximum_scan_distance": 10.0,
+           "scan_buffer_size": 10,
+           "scan_queue_size": 100,
+           "scan_topic": "/scan",
+           "solver_plugin": "solver_plugins::CeresSolver",
+           "stack_size_to_use": 40000000,
+           "tf_buffer_duration": 30.0,
+           "throttle_scans": 1,
+           "transform_publish_period": 0.0,
+           "transform_timeout": 0.2,
+           "use_map_saver": true,
+           "use_response_expansion": true,
+           "use_scan_barycenter": true,
+           "use_scan_matching": true
+          }
+         }
+        },
+        "file": "<ws>/install/f1tenth_navigation/share/f1tenth_navigation/config/slam_toolbox_params.yaml"
+       },
+       "-r",
+       "/map:=/slam/map",
+       "-r",
+       "/map_metadata:=/slam/map_metadata",
+       "-r",
+       "/pose:=/slam/pose"
+      ],
+      "executable": "async_slam_toolbox_node",
+      "kind": "LifecycleNode",
+      "name": "slam_toolbox",
+      "namespace": "/",
+      "on_event": false,
+      "package": "slam_toolbox",
+      "prefix": "taskset -c 2",
+      "use_sim_time": null,
+      "where": "slam.launch.py"
+     }
+    ]
+   },
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_costmap",
+     "costmap.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=semantic_layer_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "confirm_hit_count": 3,
+           "lost_miss_count": 5,
+           "merge_distance_m": 0.5,
+           "score_threshold": 0.5
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "semantic_layer_node",
+      "kind": "Node",
+      "name": "semantic_layer_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_costmap",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "costmap.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=costmap_renderer_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "render_rate_hz": 2.0
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "costmap_renderer_node",
+      "kind": "Node",
+      "name": "costmap_renderer_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_costmap",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "costmap.launch.py"
+     },
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=costmap_boundary_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "extraction_rate_hz": 20.0,
+           "front_facing_max_deg": 35.0,
+           "max_range_m": 5.0,
+           "occupied_threshold": 65,
+           "polytope_max_faces": 8,
+           "polytope_r_local_m": 3.0,
+           "side_window_max_deg": 135.0,
+           "side_window_min_deg": 45.0,
+           "use_convex_polytope": false
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "costmap_boundary_node",
+      "kind": "Node",
+      "name": "costmap_boundary_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_costmap",
+      "prefix": "",
+      "use_sim_time": null,
+      "where": "costmap.launch.py"
+     }
+    ]
+   }
+  ],
+  "swept_clearance": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_perception",
+     "swept_clearance.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=swept_clearance_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "absolute_min_clearance_m": 0.15,
+           "body_front_x_m": 0.405,
+           "body_half_width_m": 0.136,
+           "body_rear_x_m": -0.082,
+           "camera_max_depth_m": 6.0,
+           "camera_max_points": 4000,
+           "camera_min_depth_m": 0.2,
+           "camera_stride_px": 4,
+           "camera_timeout_sec": 0.5,
+           "camera_z_max_m": 0.35,
+           "camera_z_min_m": 0.08,
+           "depth_info_topic": "/zed2/zed_node/depth/camera_info",
+           "depth_topic": "/zed2/zed_node/depth/depth_registered",
+           "lidar_timeout_sec": 0.25,
+           "margin_m": 0.1,
+           "max_range_m": 5.0,
+           "nice": 0,
+           "publish_rate_hz": 20.0,
+           "rear_axle_x_m": 0.0,
+           "steering_estimate": "lagged_command",
+           "steering_lag_sec": 0.3,
+           "steering_topic": "/ackermann_drive",
+           "use_camera": true,
+           "use_lidar": true,
+           "wheelbase_m": 0.305
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "swept_clearance_node",
+      "kind": "Node",
+      "name": "swept_clearance_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_perception",
+      "prefix": "taskset -c 5",
+      "use_sim_time": null,
+      "where": "swept_clearance.launch.py"
+     }
+    ]
+   }
+  ],
+  "wall_distance": [
+   {
+    "cmd": [
+     "ros2",
+     "launch",
+     "f1tenth_perception",
+     "wall_distance.launch.py"
+    ],
+    "resolved": [
+     {
+      "cmd": [
+       "--ros-args",
+       "-r",
+       "__node:=wall_distance_node",
+       "--params-file",
+       {
+        "content": {
+         "/**": {
+          "ros__parameters": {
+           "convergence_length_m": 3.0,
+           "cos_theta_floor": 0.2,
+           "d_ref": 0.6,
+           "deadband_floor": 0.02,
+           "deadband_k": 2.0,
+           "expect_return_tol_deg": 60.0,
+           "fade_start_age": 0.3,
+           "fade_zero_age": 1.0,
+           "fov_half_angle_rad": 1.5708,
+           "geom_enable": true,
+           "geom_inlier_distance_m": 0.03,
+           "geom_max_candidates": 4,
+           "geom_min_distance_m": 0.5,
+           "geom_min_inliers": 40,
+           "geom_min_length_m": 1.2,
+           "geom_min_span_m": 1.0,
+           "geom_min_voids": 2,
+           "geometry_only_multiplier": 2,
+           "intensity_range_exponent": 0.0,
+           "line_inlier_dist": 0.05,
+           "match_angle_tol_deg": 10.0,
+           "match_endpoint_tol": 0.2,
+           "max_candidates": 4,
+           "max_coast_distance": 0.5,
+           "max_coast_yaw": 0.35,
+           "max_psi_correction": 0.2,
+           "max_psi_rate": 0.5,
+           "max_range_m": 5.0,
+           "max_segment_length": 6.0,
+           "max_spike_width": 3,
+           "min_gradient_ratio": 3.0,
+           "min_line_inliers": 6,
+           "min_range_m": 0.8,
+           "min_segment_length": 0.3,
+           "min_void_beams": 3,
+           "nice": 0,
+           "normal_tolerance_deg": 2.0,
+           "normal_window": 5,
+           "odom_max_age_sec": 0.2,
+           "odom_topic": "/odometry/filtered",
+           "on_line_min_beams": 2,
+           "output_topic": "/perception/d_wall",
+           "persistence_hits": 3,
+           "persistence_window": 8,
+           "point_spacing": 0.025,
+           "publish_rate_hz": 10.0,
+           "scan_topic": "/scan",
+           "see_through_max_gap_m": 0.3,
+           "spike_factor": 6.0,
+           "spike_window": 31,
+           "stale_inflate_per_s": 0.15,
+           "support_window_beams": 60,
+           "swept_absolute_min_clearance_m": 0.15,
+           "swept_body_front_x_m": 0.405,
+           "swept_body_half_width_m": 0.136,
+           "swept_body_rear_x_m": -0.082,
+           "swept_margin_m": 0.1,
+           "swept_max_range_m": 5.0,
+           "swept_rear_axle_x_m": 0.0,
+           "swept_wheelbase_m": 0.305,
+           "track_timeout_sec": 0.0,
+           "void_range_jump": 0.5,
+           "wall_track_silence_ticks": 3,
+           "wall_track_topic": "/mpc/wall_track"
+          }
+         }
+        },
+        "file": "generated"
+       }
+      ],
+      "executable": "wall_distance_node",
+      "kind": "Node",
+      "name": "wall_distance_node",
+      "namespace": "<node_namespace_unspecified>",
+      "on_event": false,
+      "package": "f1tenth_perception",
+      "prefix": "taskset -c 5",
+      "use_sim_time": null,
+      "where": "wall_distance.launch.py"
+     }
+    ]
+   }
+  ]
+ },
+ "registry": {
+  "behavior": [
+   {
+    "args": {},
+    "launch_file": "behavior_bringup.launch.py",
+    "package": "f1tenth_behavior"
+   }
+  ],
+  "calibrate_hardware": [
+   {
+    "args": {
+     "calibration": "true",
+     "release_downstream": "false"
+    },
+    "launch_file": "vesc.launch.py",
+    "package": "f1tenth_hardware"
+   }
+  ],
+  "control": [
+   {
+    "args": {},
+    "launch_file": "ackermann_mux.launch.py",
+    "package": "f1tenth_control"
+   }
+  ],
+  "dev_tools": [
+   {
+    "args": {},
+    "launch_file": "foxglove_bridge.launch.py",
+    "package": "f1tenth_bringup"
+   },
+   {
+    "args": {},
+    "launch_file": "viz_relays.launch.py",
+    "package": "f1tenth_bringup"
+   }
+  ],
+  "diagnostics": [
+   {
+    "args": {},
+    "launch_file": "system_observer.launch.py",
+    "package": "f1tenth_diagnostics"
+   },
+   {
+    "args": {},
+    "launch_file": "diagnostics_server.launch.py",
+    "package": "f1tenth_diagnostics"
+   },
+   {
+    "args": {},
+    "launch_file": "mission_logger.launch.py",
+    "package": "f1tenth_logger"
+   }
+  ],
+  "hardware": [
+   {
+    "args": {
+     "calibration": "false",
+     "release_downstream": "false"
+    },
+    "launch_file": "vesc.launch.py",
+    "package": "f1tenth_hardware"
+   }
+  ],
+  "intelligence": [
+   {
+    "args": {},
+    "launch_file": "llm.launch.py",
+    "package": "llm"
+   }
+  ],
+  "lidar_front_wall": [
+   {
+    "args": {},
+    "launch_file": "lidar_front_wall.launch.py",
+    "package": "f1tenth_perception"
+   }
+  ],
+  "localization": [
+   {
+    "args": {},
+    "launch_file": "localization.launch.py",
+    "package": "f1tenth_localization"
+   }
+  ],
+  "navigation": [
+   {
+    "args": {},
+    "launch_file": "navigation.launch.py",
+    "package": "f1tenth_navigation"
+   }
+  ],
+  "obstacle_clearance": [
+   {
+    "args": {},
+    "launch_file": "obstacle_clearance.launch.py",
+    "package": "f1tenth_perception"
+   }
+  ],
+  "perception": [
+   {
+    "args": {},
+    "launch_file": "camera.launch.py",
+    "package": "f1tenth_perception"
+   },
+   {
+    "args": {},
+    "launch_file": "lidar.launch.py",
+    "package": "f1tenth_perception"
+   },
+   {
+    "args": {},
+    "launch_file": "detection.launch.py",
+    "package": "f1tenth_perception"
+   }
+  ],
+  "reset_manager": [
+   {
+    "args": {},
+    "launch_file": "reset_manager.launch.py",
+    "package": "f1tenth_bringup"
+   }
+  ],
+  "slam": [
+   {
+    "args": {},
+    "launch_file": "slam.launch.py",
+    "package": "f1tenth_navigation"
+   },
+   {
+    "args": {},
+    "launch_file": "costmap.launch.py",
+    "package": "f1tenth_costmap"
+   }
+  ],
+  "startup_sequence": [
+   {
+    "args": {},
+    "launch_file": "startup_sequence.launch.py",
+    "package": "f1tenth_bringup"
+   }
+  ],
+  "swept_clearance": [
+   {
+    "args": {},
+    "launch_file": "swept_clearance.launch.py",
+    "package": "f1tenth_perception"
+   }
+  ],
+  "wall_distance": [
+   {
+    "args": {},
+    "launch_file": "wall_distance.launch.py",
+    "package": "f1tenth_perception"
+   }
+  ]
+ },
+ "supervisor_bringup": [
+  {
+   "cmd": [
+    "python3",
+    "<ws>/install/f1tenth_bringup/share/f1tenth_bringup/scripts/ensure_discovery_server.py",
+    "127.0.0.1",
+    "11811"
+   ],
+   "kind": "process",
+   "name": "fastdds_discovery_server",
+   "on_event": false,
+   "where": "supervisor_bringup.launch.py"
+  },
+  {
+   "cmd": [
+    "--ros-args",
+    "-r",
+    "__node:=component_supervisor_node",
+    "--params-file",
+    {
+     "content": {
+      "/**": {
+       "ros__parameters": {
+        "calibration": false,
+        "components_config": "<ws>/install/f1tenth_bringup/share/f1tenth_bringup/config/components.yaml",
+        "enable_intelligence": true,
+        "log_dir": "~/.ros/log/component_supervisor",
+        "max_auto_restarts": 3,
+        "restart_budget_window_sec": 60.0,
+        "restart_timeout_sec": 10.0,
+        "watchdog_period_sec": 2.0
+       }
+      }
+     },
+     "file": "generated"
+    }
+   ],
+   "executable": "component_supervisor_node",
+   "kind": "Node",
+   "name": "component_supervisor_node",
+   "namespace": "<node_namespace_unspecified>",
+   "on_event": false,
+   "package": "f1tenth_bringup",
+   "prefix": "",
+   "use_sim_time": null,
+   "where": "supervisor_bringup.launch.py"
+  }
+ ]
+}

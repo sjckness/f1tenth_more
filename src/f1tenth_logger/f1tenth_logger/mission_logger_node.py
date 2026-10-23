@@ -66,7 +66,7 @@ rosbag2_storage_mcap plugin is not installed (checked live). Rather than fail
 every mission recording on a missing plugin, _resolve_storage_id() below
 checks the registered writers at startup and falls back to sqlite3 with a
 loud one-time WARNING naming the exact package to install
-(ros-humble-rosbag2-storage-mcap). Install it and this node switches to mcap
+(ros-jazzy-rosbag2-storage-mcap). Install it and this node switches to mcap
 on the next start with no code or config change. The fallback is deliberately
 noisy rather than silent: sqlite3 bags are what Foxglove reads least well, so
 "it recorded fine" must not quietly mean "in the format you didn't want".
@@ -887,7 +887,7 @@ class MissionLoggerNode(Node):
         self.get_logger().warn(
             f'storage_id "{self.requested_storage_id}" is NOT a registered rosbag2 '
             f'writer on this system (registered: {sorted(available)}) -- falling back to '
-            f'"{fallback}". For mcap: sudo apt install ros-humble-rosbag2-storage-mcap, '
+            f'"{fallback}". For mcap: sudo apt install ros-jazzy-rosbag2-storage-mcap, '
             'then restart this node; no config change needed. But the run-report overlay '
             '(mask and LiDAR on the snapshots) reads sqlite3 bags only: with mcap the '
             'snapshots are the plain recorded frames.')
@@ -968,7 +968,13 @@ class MissionLoggerNode(Node):
                     uri=bag_dir, storage_id=self.storage_id,
                     max_cache_size=100 * 1024 * 1024)
                 record_options = rosbag2_py.RecordOptions()
-                record_options.all = False
+                # Jazzy's rosbag2_py (0.26) split RecordOptions.all into
+                # all_topics/all_services and removed `all`: assigning it
+                # raises AttributeError, and no run was ever recorded.
+                if hasattr(record_options, 'all_topics'):
+                    record_options.all_topics = False
+                else:
+                    record_options.all = False
                 record_options.topics = list(self.topics)
                 record_options.is_discovery_disabled = False
                 record_options.rmw_serialization_format = 'cdr'

@@ -1,0 +1,20 @@
+[sim_isaac 10:14:05] sourced host setup /home/andreas/dev_ws/jc_env.sh
+[sim_isaac 10:14:06] disk: 55 GB free on /
+[sim_isaac 10:14:06] GPU: NVIDIA GeForce RTX 5050, 1618 MiB, 8151 MiB (used, total)
+[sim_isaac 10:14:07] Discovery Server 127.0.0.1:11811 (pid 671824)
+== Isaac Sim (background; log /tmp/sim_isaac.SpELRd/isaac.log) ==
+cmd: /home/andreas/isaac_ws/launch.sh --ros-distro jazzy --dds-profile /home/andreas/dev_ws/f1tenth_more_jc/src/f1tenth_bringup/config/sim/dds/isaac_local.xml --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed.lens_center_xyz=[0.2293615, 0.0, 0.2196267] --set car_spec.sensors.zed.pitch=-0.03635 --set sensors.odometry.covariance.pose_xy=0.2 --set sensors.odometry.covariance.pose_yaw=0.03 --set sensors.odometry.covariance.twist_vx=0.0
+[sim_isaac 10:14:07] sourced host setup /home/andreas/dev_ws/jc_env.sh
+== stack (sim:=isaac, net local, domain 42, Discovery Server 127.0.0.1:11811) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/home/andreas/dev_ws/f1tenth_more_jc/src/f1tenth_bringup/config/sim/dds/local.xml
+[sim_isaac 10:14:09] Discovery Server 127.0.0.1:11811 (pid 672097)
+[sim_isaac 10:14:09] waiting up to 300s for /clock (domain 42, Discovery Server 127.0.0.1:11811) ...
+[sim_isaac 10:14:43] /clock received:  sec: 0
+[sim_isaac 10:14:43] 8 CPUs (< 12, the Orin's pinning): host overlay /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/hosts/linus.yaml
+[sim_isaac 10:14:43] llama-server not found (/scratch/fabiocar/llama.cpp/build/bin/llama-server): enable_intelligence:=false (the LLM planner is not a mission dependency)
+cmd: ros2 launch f1tenth_bringup supervisor_bringup.launch.py sim:=isaac use_sim_time:=true discovery_server_address:=127.0.0.1 discovery_server_port:=11811 sim_overlay_extra:=/home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/hosts/linus.yaml enable_intelligence:=false
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-10-16-10-14-44-328388-linus-673524
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [fastdds_discovery_server-1]: process started with pid [673543]
+[INFO] [component_supervisor_node-2]: process started with pid [673544]
+[fastdds_discovery_server-1] [ensure_discovery_server] 127.0.0.1:11811 already has a live listener (an earlier session's server, deliberately still running by design -- see stack_params.yaml's own discovery_server_address/_port comment) -- reusing it, not starting a duplicate. This process will now idle harmlessly for the life of this launch.

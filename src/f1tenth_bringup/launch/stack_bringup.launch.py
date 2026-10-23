@@ -64,6 +64,7 @@ from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     ExecuteProcess,
+    GroupAction,
     IncludeLaunchDescription,
     SetEnvironmentVariable,
 )
@@ -282,7 +283,13 @@ def generate_launch_description():
     # verbatim; now this is the one definition, same file the component supervisor's
     # dev_tools component also runs).
     # ================================================================
-    foxglove_bringup = include('f1tenth_bringup', 'foxglove_bridge.launch.py')
+    # Scoped: foxglove_bridge.launch.py sets ROS_SUPER_CLIENT=TRUE for the bridge and
+    # its relays only. An unscoped include leaks it into every process this file starts
+    # afterwards (startup_sequence, the VESC driver group released by the battery
+    # check), turning them into Discovery Server super clients (plan C10). Environment
+    # only; the included launch description is unchanged.
+    foxglove_bringup = GroupAction(
+        [include('f1tenth_bringup', 'foxglove_bridge.launch.py')], scoped=True, forwarding=True)
 
     # ================================================================
     # 9. STARTUP SELF-CHECK

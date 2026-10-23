@@ -1,6 +1,7 @@
 # f1tenth_more
 
-ROS 2 Humble workspace for a physical F1TENTH autonomous racing car (VESC drive stack,
+ROS 2 Jazzy workspace (branch `jazzy-campaign`: the campaign-final stack ported from Humble, see
+`output/jazzy_port/`) for a physical F1TENTH autonomous racing car (VESC drive stack,
 ZED2 stereo camera or a webcam fallback, Hokuyo LiDAR, Jetson Orin/Thor), plus a Gazebo
 Fortress simulation. Real hardware and simulation are separate, non-overlapping entry
 points that share the same robot description, EKF config, and most node code.
@@ -65,8 +66,10 @@ car -> only then MPC weight tuning).
 
 `vesc` (driver + odometry + msgs, personal fork with local commits), `ackermann_mux`
 (personal fork), `teleop_tools` (joystick teleop), `zed_ros2_wrapper` +
-`zed-ros2-interfaces` (ZED2 SDK wrapper, clean upstream), `transport_drivers` (serial
-I/O library `vesc_driver` links against). Not first-party code — not covered by the
+`zed-ros2-interfaces` (ZED2 SDK wrapper, clean upstream; v5.4.1 on Jazzy). The serial I/O
+library `vesc_driver` links against (`serial_driver`/`io_context`) comes from apt on Jazzy
+(`ros-jazzy-serial-driver ros-jazzy-io-context ros-jazzy-asio-cmake-module`), no longer a
+`transport_drivers` submodule. Not first-party code — not covered by the
 reorg or this README's param reference.
 
 ## The 4 stack-wide branching args

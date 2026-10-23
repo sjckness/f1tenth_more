@@ -138,6 +138,28 @@ def _uses_forward_only_obstacle_distance(config: MissionConfig) -> bool:
     return False
 
 
+# Default actuation node: the car's ackermann_to_vesc_node (_ACKERMANN_TO_VESC).
+DEFAULT_ACTUATION_NODE = 'ackermann_to_vesc_node'
+
+
+def _actuation_requirement(actuation_node: str) -> Requirement:
+    """Return the requirement for the node that turns /ackermann_drive into motion.
+
+    On the car (the default) this is _ACKERMANN_TO_VESC itself, so the requirement and its
+    failure message are unchanged. In sim:=isaac the simulator consumes /ackermann_drive and
+    the VESC stack is off, so the sim overlay (config/sim/isaac.yaml) names the simulator's
+    node instead.
+    """
+    if actuation_node == DEFAULT_ACTUATION_NODE:
+        return _ACKERMANN_TO_VESC
+    return Requirement(
+        name=actuation_node,
+        reason=('consumes /ackermann_drive in place of ackermann_to_vesc_node '
+                '(preflight_actuation_node, simulation)'),
+        node_name=actuation_node,
+    )
+
+
 def wall_distance_requirement(scene_labels: Optional[bool] = None) -> Requirement:
     """The node that publishes the wall topic the front_clearance stop reads.
 
@@ -162,11 +184,12 @@ def wall_distance_requirement(scene_labels: Optional[bool] = None) -> Requiremen
 
 
 def required_dependencies(config: MissionConfig,
+                          actuation_node: str = DEFAULT_ACTUATION_NODE,
                           scene_labels: Optional[bool] = None) -> List[Requirement]:
     """Pure function: what must be alive for THIS mission, specifically --
     not a blanket "everything the stack could ever need" list. Testable
     without rclpy (see test/test_preflight.py)."""
-    reqs = [_MPC_CORR, _ACKERMANN_TO_VESC, _LOCALIZATION]
+    reqs = [_MPC_CORR, _actuation_requirement(actuation_node), _LOCALIZATION]
 
     stop_condition_types = {m.stop_condition.type for m in config.moves}
     for m in config.moves:
