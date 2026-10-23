@@ -104,6 +104,25 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Pyth
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
+#: The thread-pool variables a *_cpu_threads launch argument sets.
+CPU_THREAD_ENV_VARS = ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS',
+                       'OPENCV_FOR_THREADS_NUM')
+
+#: front_clearance_node's process env with front_clearance_cpu_threads 0 (the
+#: default): one OpenBLAS thread, as since 2026-10-13. The node is unpinned (see
+#: the nice arg below), so numpy starts a 12-thread pool, and on the loaded Orin
+#: one 7000 x 3 mat-vec then costs ~15 ms against ~0.06 ms on one thread
+#: (measured 2026-10-13). The floor RANSAC and the scene labelling are dozens of
+#: those per frame.
+FRONT_CLEARANCE_BASE_ENV = {'OPENBLAS_NUM_THREADS': '1'}
+
+
+def cpu_thread_env(threads):
+    """Return the process env for a *_cpu_threads value: {} for 0 (library defaults)."""
+    if threads <= 0:
+        return {}
+    return {var: str(threads) for var in CPU_THREAD_ENV_VARS}
+
 
 def generate_launch_description():
     # src/ dir: src/f1tenth_perception/launch/<this file> -> ../.. -> src/.
@@ -385,6 +404,13 @@ def generate_launch_description():
     front_clearance_nice_la = DeclareLaunchArgument(
         'front_clearance_nice', default_value='0',
         description="Process niceness for front_clearance_node. 0: no-op.")
+    # Its thread env (stack_params front_clearance_cpu_threads): a launch-only
+    # knob, never a node parameter -- the env must exist before numpy loads.
+    front_clearance_cpu_threads_default, front_clearance_cpu_threads_desc = get_default(
+        'front_clearance_cpu_threads')
+    front_clearance_cpu_threads_la = DeclareLaunchArgument(
+        'front_clearance_cpu_threads', default_value=str(front_clearance_cpu_threads_default),
+        description=front_clearance_cpu_threads_desc)
 
     is_zed = get_value('camera_source') == 'zed'
     # Stack-wide scene-labels switch (stack_params.yaml): a plain get_value,
@@ -396,11 +422,8 @@ def generate_launch_description():
         # leave OMP/MKL/OPENBLAS/OPENCV unset (library defaults), which a
         # substitution cannot express. Never LD_LIBRARY_PATH here: torch on
         # the Orin needs the inherited one (recon A.5).
-        threads = int(LaunchConfiguration('yolo_cpu_threads').perform(context))
-        thread_env = {} if threads <= 0 else {
-            var: str(threads) for var in (
-                'OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS',
-                'OPENCV_FOR_THREADS_NUM')}
+        thread_env = cpu_thread_env(
+            int(LaunchConfiguration('yolo_cpu_threads').perform(context)))
         return [Node(
             package='f1tenth_perception',
             executable='yolo_detector_node',
@@ -459,7 +482,7 @@ def generate_launch_description():
         yolo_cpu_affinity_la, yolo_nice_la,
         detection_3d_cpu_affinity_la, detection_3d_nice_la,
         obstacle_projector_cpu_affinity_la, obstacle_projector_nice_la,
-        front_clearance_nice_la,
+        front_clearance_nice_la, front_clearance_cpu_threads_la,
         *front_clearance_las,
         *debug_image_las,
         stage_timing_la,
@@ -537,39 +560,46 @@ def generate_launch_description():
         # /zed2/zed_node/depth/depth_registered by name. Making the canonical
         # depth topic real is a camera.launch.py change with its own blast
         # radius, not a side effect of adding this node.
-        actions.append(Node(
-            package='f1tenth_perception',
-            executable='front_clearance_node',
-            name='front_clearance_node',
-            output='screen',
-            # One OpenBLAS thread. The node is unpinned (see the nice arg
-            # above), so numpy starts a 12-thread pool, and on the loaded Orin
-            # one 7000 x 3 mat-vec then costs ~15 ms against ~0.06 ms on one
-            # thread (measured 2026-10-13). The floor RANSAC and the scene
-            # labelling are dozens of those per frame.
-            additional_env={'OPENBLAS_NUM_THREADS': '1'},
-            parameters=[{
-                'depth_topic': '/zed2/zed_node/depth/depth_registered',
-                'detections_topic': '/camera/detections',
-                # Only ever published by a segment-task yolo_model; the node
-                # detects that per frame by header stamp and falls back to
-                # bounding boxes when no mask matches, so passing the name
-                # unconditionally is correct for both model types (same
-                # reasoning as detection_3d_node's masks_topic above).
-                'masks_topic': '/camera/detection_masks',
-                'obstacles_topic': '/perception/obstacles_2d',
-                # Same four fractional edges yolo_detector_node gets -- one
-                # calibration of the same physical housing, two consumers.
-                # The overlap threshold is NOT passed: it is a per-detection
-                # suppression rule with no meaning for a depth ROI cut.
-                'lidar_exclusion_x_min': LaunchConfiguration('lidar_exclusion_x_min'),
-                'lidar_exclusion_x_max': LaunchConfiguration('lidar_exclusion_x_max'),
-                'lidar_exclusion_y_min': LaunchConfiguration('lidar_exclusion_y_min'),
-                'lidar_exclusion_y_max': LaunchConfiguration('lidar_exclusion_y_max'),
-                'nice': LaunchConfiguration('front_clearance_nice'),
-                'enable_scene_labels': scene_labels_on,
-                **front_clearance_params,
-            }],
-        ))
+        front_clearance_node_params = {
+            'depth_topic': '/zed2/zed_node/depth/depth_registered',
+            'detections_topic': '/camera/detections',
+            # Only ever published by a segment-task yolo_model; the node
+            # detects that per frame by header stamp and falls back to
+            # bounding boxes when no mask matches, so passing the name
+            # unconditionally is correct for both model types (same
+            # reasoning as detection_3d_node's masks_topic above).
+            'masks_topic': '/camera/detection_masks',
+            'obstacles_topic': '/perception/obstacles_2d',
+            # Same four fractional edges yolo_detector_node gets -- one
+            # calibration of the same physical housing, two consumers.
+            # The overlap threshold is NOT passed: it is a per-detection
+            # suppression rule with no meaning for a depth ROI cut.
+            'lidar_exclusion_x_min': LaunchConfiguration('lidar_exclusion_x_min'),
+            'lidar_exclusion_x_max': LaunchConfiguration('lidar_exclusion_x_max'),
+            'lidar_exclusion_y_min': LaunchConfiguration('lidar_exclusion_y_min'),
+            'lidar_exclusion_y_max': LaunchConfiguration('lidar_exclusion_y_max'),
+            'nice': LaunchConfiguration('front_clearance_nice'),
+            'enable_scene_labels': scene_labels_on,
+            **front_clearance_params,
+        }
+
+        def _front_clearance_node(context):
+            # An OpaqueFunction only for the thread env, like the YOLO node's:
+            # front_clearance_cpu_threads 0 (the default) keeps exactly the env
+            # the node had, FRONT_CLEARANCE_BASE_ENV (one OpenBLAS thread, see
+            # its comment); N > 0 sets all four thread variables to N.
+            thread_env = dict(FRONT_CLEARANCE_BASE_ENV)
+            thread_env.update(cpu_thread_env(
+                int(LaunchConfiguration('front_clearance_cpu_threads').perform(context))))
+            return [Node(
+                package='f1tenth_perception',
+                executable='front_clearance_node',
+                name='front_clearance_node',
+                output='screen',
+                additional_env=thread_env,
+                parameters=[front_clearance_node_params],
+            )]
+
+        actions.append(OpaqueFunction(function=_front_clearance_node))
 
     return LaunchDescription(actions)

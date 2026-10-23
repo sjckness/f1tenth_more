@@ -112,7 +112,9 @@ components:
   # value is rear-axle ARC LENGTH to body contact -- metres of travel, not a
   # perpendicular gap and not a sensor range. Nothing subscribes to
   # /perception/swept_clearance yet; anything that starts to must read
-  # swept_corridor.py's module docstring first.
+  # swept_corridor.py's module docstring first. NOT started at boot since R3
+  # (2026-10-23): _CONDITIONAL_AUTO_START on stack_params' enable_swept_clearance
+  # (default false); `scripts/stackctl.py start swept_clearance` runs it.
   swept_clearance:
     - package: f1tenth_perception
       launch_file: swept_clearance.launch.py

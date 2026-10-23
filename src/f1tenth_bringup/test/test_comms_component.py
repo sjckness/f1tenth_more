@@ -80,7 +80,7 @@ def _auto_start(monkeypatch, stack_params, **params):
 
 def test_comms_follows_the_supervisor_parameter_not_the_yaml(monkeypatch):
     on_in_yaml = {'use_behavior_tree': True, 'enable_wall_distance': False,
-                  'enable_comms': True}
+                  'enable_swept_clearance': False, 'enable_comms': True}
     started = _auto_start(monkeypatch, on_in_yaml, enable_intelligence=False,
                           enable_comms=False)
     assert 'comms' not in started
@@ -91,7 +91,8 @@ def test_comms_follows_the_supervisor_parameter_not_the_yaml(monkeypatch):
 
 
 def test_the_other_components_are_gated_as_before(monkeypatch):
-    params = {'use_behavior_tree': True, 'enable_wall_distance': False, 'enable_comms': False}
+    params = {'use_behavior_tree': True, 'enable_wall_distance': False,
+              'enable_swept_clearance': False, 'enable_comms': False}
     for comms in (False, True):
         started = _auto_start(monkeypatch, params, enable_intelligence=True,
                               enable_comms=comms)
@@ -100,3 +101,15 @@ def test_the_other_components_are_gated_as_before(monkeypatch):
                                             enable_wall_distance=True),
                           enable_intelligence=False, enable_comms=False)
     assert started == _ALWAYS_AUTO_START | {'wall_distance'}
+
+
+def test_swept_clearance_starts_only_with_enable_swept_clearance(monkeypatch):
+    """R3 (2026-10-23): out of the always-started set, gated on its stack_params key."""
+    params = {'use_behavior_tree': False, 'enable_wall_distance': False,
+              'enable_swept_clearance': False, 'enable_comms': False}
+    started = _auto_start(monkeypatch, params, enable_intelligence=False, enable_comms=False)
+    assert 'swept_clearance' not in started
+    assert 'obstacle_clearance' in started          # the logger's contact source stays
+    started = _auto_start(monkeypatch, dict(params, enable_swept_clearance=True),
+                          enable_intelligence=False, enable_comms=False)
+    assert started == _ALWAYS_AUTO_START | {'swept_clearance'}

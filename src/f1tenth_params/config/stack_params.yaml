@@ -376,6 +376,19 @@ perception_stage_timing:
 yolo_cpu_threads:
   default: 2
   description: "yolo_detector_node: torch intra/inter-op and cv2 thread pool size, plus OMP_NUM_THREADS/MKL_NUM_THREADS/OPENBLAS_NUM_THREADS/OPENCV_FOR_THREADS_NUM of its process. 2 = its two taskset cores. 0 = library defaults (one thread per core, the behaviour before 2026-10-22)."
+# Consumed by: f1tenth_perception/detection.launch.py (front_clearance_node's
+# process env) and f1tenth_costmap/costmap.launch.py (semantic_layer_node's).
+# The same thread env as yolo_cpu_threads, set by launch (an OpaqueFunction):
+# both nodes are unpinned numpy/scipy/OpenCV processes whose libraries start
+# one worker per core. R3 2026-10-23. Default 0 = the env each process had
+# before: front_clearance keeps the OPENBLAS_NUM_THREADS=1 it has had since
+# 2026-10-13, semantic_layer sets nothing.
+front_clearance_cpu_threads:
+  default: 0
+  description: "front_clearance_node: N > 0 sets OMP_NUM_THREADS/MKL_NUM_THREADS/OPENBLAS_NUM_THREADS/OPENCV_FOR_THREADS_NUM of its process to N. 0 = unchanged: OPENBLAS_NUM_THREADS=1 only (one 7000 x 3 mat-vec cost ~15 ms with the 12-thread pool on the loaded Orin, 2026-10-13), the other three library defaults."
+semantic_layer_cpu_threads:
+  default: 0
+  description: "semantic_layer_node: N > 0 sets OMP_NUM_THREADS/MKL_NUM_THREADS/OPENBLAS_NUM_THREADS/OPENCV_FOR_THREADS_NUM of its process to N. 0 = none of them set (library defaults, one thread per core), as before 2026-10-23."
 yolo_cuda_blocking_sync:
   default: true
   description: "yolo_detector_node: CU_CTX_SCHED_BLOCKING_SYNC on the CUDA primary context, so a thread waiting for the GPU sleeps instead of spinning a core. false = CUDA's default (spin with one context)."
@@ -1083,6 +1096,18 @@ glass_point_spacing:
 enable_wall_distance:
   default: false
   description: "Run wall_distance_node (/perception/d_wall*). Off by default: with enable_scene_labels true its only control consumer (MPC_corr psi_correction) is always 0.0, and a missing topic is 0.0 too. Turn on with enable_scene_labels: false, where the post-wall_turn heading correction is live."
+# Consumed by: f1tenth_bringup/component_supervisor_node.py
+# (_CONDITIONAL_AUTO_START, the 'swept_clearance' component). R3 2026-10-23:
+# the component was in _ALWAYS_AUTO_START, but nothing subscribes to
+# /perception/swept_clearance (its four topics feed no node and no check; the
+# mission logger's topic list does not name them, only record-everything bags
+# such as corridor10m_20261019T131815 picked them up), so it ran a /scan + ZED
+# depth consumer at boot for no reader. Still
+# registered and restartable by name; the swept_clearance_* keys below stay
+# (swept_clearance_body_half_width_m is read by six other modules).
+enable_swept_clearance:
+  default: false
+  description: "Start swept_clearance_node (/perception/swept_clearance, the steering-arc travel before body contact) with the stack. Off by default since 2026-10-23: nothing consumes it. `scripts/stackctl.py start swept_clearance` starts it on demand; true here starts it at boot as before."
 # All of the following are consumed by:
 # f1tenth_perception/launch/wall_distance.launch.py, forwarded to
 # wall_distance_node under their names without the wall_distance_ prefix.
@@ -3576,6 +3601,18 @@ unknown_speed_cap_range_m:
 semantic_layer_tf_static_only:
   default: true
   description: "semantic_layer_node reads TF from the latched /tf_static only (no TransformListener, which deserialises every /tf message). Correct while every joint between the camera and base_link is fixed (sensors.xacro). Set false whenever the camera pan joint is enabled."
+# Consumed by: f1tenth_perception/detection_3d_node.py and
+# obstacle_projector_node.py (each its tf_static_only parameter, default
+# single-sourced from here; f1tenth_perception/static_tf.py). R3 2026-10-23.
+# The same rule as semantic_layer_tf_static_only above: MUST BE false IF THE
+# CAMERA PAN JOINT IS EVER ENABLED (the obstacle projector's camera -> base_link
+# chain then runs through a moving joint on /tf).
+detection_3d_tf_static_only:
+  default: true
+  description: "detection_3d_node reads TF from the latched /tf_static only (no TransformListener, which deserialises every /tf message): its one lookup, depth optical frame -> output_frame (zed2_left_camera_frame), is a fixed ZED joint. An output_frame of map or odom is refused at startup. false: the full TransformListener, as before 2026-10-23."
+obstacle_projector_tf_static_only:
+  default: true
+  description: "obstacle_projector_node reads TF from the latched /tf_static only (no TransformListener): its one lookup, detections frame -> base_link, runs through fixed joints only (sensors.xacro). An output_frame of map or odom is refused at startup. Set false whenever the camera pan joint is enabled; false is the full TransformListener, as before 2026-10-23."
 
 # Consumed by: MPC_corr.py (declare_parameter default = this value). The MPC
 # side of the semantic layer's object memory: MEMORY objects (inflated radius

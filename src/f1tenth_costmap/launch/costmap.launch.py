@@ -55,11 +55,23 @@ by matching that file's mechanism exactly instead.
 from f1tenth_params.param_defaults import get_default
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+
+#: The thread-pool variables a *_cpu_threads launch argument sets (the same four
+#: as f1tenth_perception's detection.launch.py, yolo_cpu_threads).
+CPU_THREAD_ENV_VARS = ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS',
+                       'OPENCV_FOR_THREADS_NUM')
+
+
+def cpu_thread_env(threads):
+    """Return the process env for a *_cpu_threads value: {} for 0 (library defaults)."""
+    if threads <= 0:
+        return {}
+    return {var: str(threads) for var in CPU_THREAD_ENV_VARS}
 
 
 def generate_launch_description():
@@ -154,21 +166,39 @@ def generate_launch_description():
                     "consumer (logger only / none). Detections are still "
                     "processed per batch: the track lifecycle counts batches.")
 
-    semantic_layer_node = Node(
-        package='f1tenth_costmap',
-        executable='semantic_layer_node',
-        name='semantic_layer_node',
-        output='screen',
-        condition=IfCondition(LaunchConfiguration('enable_slam')),
-        parameters=[{
-            'wall_layer_rate_hz': ParameterValue(
-                LaunchConfiguration('semantic_layer_rate_hz'), value_type=float),
-            'score_threshold': LaunchConfiguration('semantic_score_threshold'),
-            'merge_distance_m': LaunchConfiguration('semantic_merge_distance_m'),
-            'confirm_hit_count': LaunchConfiguration('semantic_confirm_hit_count'),
-            'lost_miss_count': LaunchConfiguration('semantic_lost_miss_count'),
-        }],
-    )
+    # semantic_layer_node's thread env (R3, 2026-10-23): the yolo_cpu_threads
+    # pattern of f1tenth_perception's detection.launch.py, default from
+    # stack_params.yaml (semantic_layer_cpu_threads) rather than this file's
+    # hardcoded-default convention, since the value is shared stack tuning.
+    semantic_cpu_threads_default, semantic_cpu_threads_desc = get_default(
+        'semantic_layer_cpu_threads')
+    semantic_cpu_threads_la = DeclareLaunchArgument(
+        'semantic_layer_cpu_threads', default_value=str(semantic_cpu_threads_default),
+        description=semantic_cpu_threads_desc)
+
+    def _semantic_layer_node(context):
+        # An OpaqueFunction only for the thread env: semantic_layer_cpu_threads
+        # 0 (the default) must leave OMP/MKL/OPENBLAS/OPENCV unset, exactly the
+        # env the node had, which a substitution cannot express.
+        return [Node(
+            package='f1tenth_costmap',
+            executable='semantic_layer_node',
+            name='semantic_layer_node',
+            output='screen',
+            condition=IfCondition(LaunchConfiguration('enable_slam')),
+            additional_env=cpu_thread_env(
+                int(LaunchConfiguration('semantic_layer_cpu_threads').perform(context))),
+            parameters=[{
+                'wall_layer_rate_hz': ParameterValue(
+                    LaunchConfiguration('semantic_layer_rate_hz'), value_type=float),
+                'score_threshold': LaunchConfiguration('semantic_score_threshold'),
+                'merge_distance_m': LaunchConfiguration('semantic_merge_distance_m'),
+                'confirm_hit_count': LaunchConfiguration('semantic_confirm_hit_count'),
+                'lost_miss_count': LaunchConfiguration('semantic_lost_miss_count'),
+            }],
+        )]
+
+    semantic_layer_node = OpaqueFunction(function=_semantic_layer_node)
 
     costmap_renderer_node = Node(
         package='f1tenth_costmap',
@@ -306,6 +336,6 @@ def generate_launch_description():
         boundary_polytope_max_faces_la, semantic_rate_la,
         boundary_component_filter_la, boundary_min_component_length_la,
         boundary_min_component_scans_la, boundary_exclude_object_cells_la,
-        boundary_object_margin_la,
+        boundary_object_margin_la, semantic_cpu_threads_la,
         semantic_layer_node, costmap_renderer_node, costmap_boundary_node,
     ])
