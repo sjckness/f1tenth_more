@@ -3,17 +3,23 @@
 
 Run from the repository root:  python3 -I output/consolidation/static_checks.py [BASE]
 
-BASE (default campaign-final) only selects which files count as "touched" for
-the bare '=======' marker check; every other check covers the whole tree.
+BASE (default main) only selects which files count as "touched" for the bare
+'=======' marker check; every other check covers the whole tree.
+
+Target: main-jazzy is Jazzy only (Python 3.12, Ubuntu 24.04), so Python is
+checked as 3.12 and SyntaxWarnings (invalid escapes, which 3.12 warns about
+and a later Python rejects) fail. F1T_STATIC_PY310=1 restores the Humble
+(3.10) checks of the consolidation.
 
 Checks, each over the files git tracks (submodules excluded):
   markers   conflict markers: '<<<<<<< ', '>>>>>>> ', '||||||| ' anywhere;
             a bare '=======' line only in files changed since BASE
-  python    every *.py compiles (compile(), nothing written), parsed with
-            feature_version=(3, 10), PLUS the Python 3.12-only f-string forms
-            that compile on linus (3.12) but not on the Orin (Humble, 3.10):
-            a nested string reusing the enclosing f-string's quote, a
-            backslash or a comment inside a replacement field (PEP 701)
+  python    every *.py compiles (compile(), nothing written) with
+            SyntaxWarning as an error, parsed with feature_version=(3, 12);
+            with F1T_STATIC_PY310=1 instead feature_version=(3, 10) PLUS the
+            Python 3.12-only f-string forms that the Orin's Humble 3.10 rejects
+            (a nested string reusing the enclosing f-string's quote, a
+            backslash or a comment inside a replacement field, PEP 701)
   launch    every *.launch.py defines generate_launch_description()
   yaml      every *.yaml / *.yml parses (all documents), with duplicate
             mapping keys reported (safe_load keeps the last one silently)
@@ -41,11 +47,13 @@ import re
 import subprocess
 import sys
 import tokenize
+import warnings
 import xml.etree.ElementTree as ET
 
 import yaml
 
-BASE = sys.argv[1] if len(sys.argv) > 1 else 'campaign-final'
+BASE = sys.argv[1] if len(sys.argv) > 1 else 'main'
+PY310 = os.environ.get('F1T_STATIC_PY310') == '1'
 FAIL = []
 NOTE = []
 
@@ -149,13 +157,16 @@ def check_python():
             fail('python', f, str(e))
             continue
         try:
-            compile(src, f, 'exec', dont_inherit=True)
-            tree = ast.parse(src, f, feature_version=(3, 10))
-        except SyntaxError as e:
-            fail('python', f'{f}:{e.lineno}', e.msg)
+            with warnings.catch_warnings():
+                warnings.simplefilter('error', SyntaxWarning)
+                compile(src, f, 'exec', dont_inherit=True)
+            tree = ast.parse(src, f, feature_version=(3, 10) if PY310 else (3, 12))
+        except (SyntaxError, SyntaxWarning) as e:
+            fail('python', f'{f}:{getattr(e, "lineno", "?")}', getattr(e, 'msg', str(e)))
             continue
-        for line, msg in fstring_310_problems(src):
-            fail('python', f'{f}:{line}', f'Python 3.10 (Humble) would reject: {msg}')
+        if PY310:
+            for line, msg in fstring_310_problems(src):
+                fail('python', f'{f}:{line}', f'Python 3.10 (Humble) would reject: {msg}')
         if f.endswith('.launch.py'):
             if not any(isinstance(n, ast.FunctionDef) and n.name == 'generate_launch_description'
                        for n in tree.body):
