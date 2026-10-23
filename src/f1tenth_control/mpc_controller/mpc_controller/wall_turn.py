@@ -24,9 +24,15 @@ the wall: there dpsi_by_dist is the LARGEST term, so the min picks dpsi_rem and
 the corridor would bend by the whole turn at once. So the turn commits when
 the distance can no longer carry what is left,
 
-    d_avail <= k_safety * R_min * |dpsi_rem|    (i.e. dpsi_by_dist <= |dpsi_rem|)
+    d_avail <= k_safety * R_min * |dpsi_rem| + commit_lead
 
-and stays committed for the rest of the move. Without the latch the gate
+and stays committed for the rest of the move. commit_lead (metres, default
+0) moves ONLY the gate: the turn starts that much further from the wall,
+while dpsi_by_dist keeps its own formula. Raising k_safety or the margin
+would also start it earlier, but both shrink dpsi_by_dist, and that is what
+capped a live 90 deg turn at 42 deg (stack_params.yaml,
+corr_wall_turn_k_safety). The lead only adds distance in hand, so every
+later rebuild has a larger dpsi_by_dist, never a smaller one. Without the latch the gate
 re-closes as soon as the first increment lands (the remainder is then small
 next to the distance left), which splits one turn into two with a straight
 in between.
@@ -91,6 +97,16 @@ is not a distance, and it is not a wall at zero either.
     like any later one, and the car drives straight until a distance
     appears and the gate commits on it.
 
+A WALL INSIDE THE MARGIN, COMMITTED, IS NOT THE SAME CASE. dFront here is
+KNOWN, just smaller than safety_margin, so d_avail clamps to 0 -- but once
+committed this is given the identical treatment as UNKNOWN above (drop the
+distance cap, let the horizon cap carry the turn) rather than freezing
+dpsi_by_dist at exactly 0. The two look different (a real, small reading vs.
+no reading) but a frozen cap is the same stall either way: cmd_rot pins at
+whatever rotation has been reached and the car sits there, still closing on
+the wall at v_ref, for as long as the reading stays inside the margin. Before
+commit nothing changes -- d_avail still drives the commit decision, and nothing here can un-stall a turn that never started.
+
 WHAT THIS DOES NOT FIX. dFront is a straight-ahead measurement along the
 camera's optical axis, not along the arc. Once the car is bending, that ray
 meets the wall further away than the car's own path will, so d_avail is
@@ -140,10 +156,12 @@ def horizon_heading_reach(n_steps: int, ts: float, v_ref: float,
 
 
 def wall_turn_trigger_distance(turn: float, wheelbase: float, steering_bound: float,
-                               k_safety: float, safety_margin: float) -> float:
+                               k_safety: float, safety_margin: float,
+                               commit_lead: float = 0.0) -> float:
     """Return the dFront at which a still-straight car commits to `turn` radians."""
     r_min = min_turn_radius(wheelbase, steering_bound)
-    return float(safety_margin) + float(k_safety) * r_min * abs(float(turn))
+    return (float(safety_margin) + float(k_safety) * r_min * abs(float(turn))
+            + max(float(commit_lead), 0.0))
 
 
 class WallTurnStep(NamedTuple):
@@ -176,7 +194,8 @@ def plan_wall_turn_step(turn_total: float, turn_progress: float,
                         n_steps: int, ts: float, v_ref: float,
                         committed: bool = False,
                         prev_commanded_rot: Optional[float] = None,
-                        commit_on_unknown_first_rebuild: bool = True) -> WallTurnStep:
+                        commit_on_unknown_first_rebuild: bool = True,
+                        commit_lead: float = 0.0) -> WallTurnStep:
     """
     Decide how much of the turn this corridor rebuild asks for.
 
@@ -184,7 +203,8 @@ def plan_wall_turn_step(turn_total: float, turn_progress: float,
     turn_sign * turn_mag and turn_progress_rad). committed and
     prev_commanded_rot come from the previous rebuild of the SAME move:
     pass False/None on a move's first rebuild. See the module docstring for
-    the rule, the gate and the ratchet, and its UNKNOWN dFront section for
+    the rule, the gate and the ratchet, its COMMIT GATE section for
+    commit_lead, and its UNKNOWN dFront section for
     commit_on_unknown_first_rebuild.
     """
     if k_safety < SMOOTHSTEP_PEAK_SLOPE:
@@ -206,8 +226,20 @@ def plan_wall_turn_step(turn_total: float, turn_progress: float,
 
     if d_front is not None and math.isfinite(d_front) and d_front >= 0.0:
         d_avail = max(float(d_front) - float(safety_margin), 0.0)
-        dpsi_by_dist = d_avail / (k_safety * r_min)
-        committed = committed or d_avail <= k_safety * r_min * abs(dpsi_rem)
+        committed = committed or d_avail <= (k_safety * r_min * abs(dpsi_rem)
+                                             + max(float(commit_lead), 0.0))
+        # Once committed, a wall inside the margin is a KNOWN reading, not a
+        # missing one, but freezing dpsi_by_dist at exactly 0 here is a live
+        # stall, not a safety margin: cmd_rot pins forever while the car
+        # sits at the margin, still closing on the wall at v_ref because
+        # nothing is asking it to turn any further. Confirmed live 2026-10-23
+        # (R017, M05_turn_left_wall): held at 46.6 deg of a commanded 90,
+        # dFront flat at 0.14 m for 20+ s, then contact. Treated the same as
+        # UNKNOWN dFront post-commit (module docstring): drop the distance
+        # cap and let the horizon cap carry the rest of the turn, instead of
+        # sitting still pointed at the wall.
+        dpsi_by_dist = (math.inf if (committed and d_avail <= 0.0)
+                        else d_avail / (k_safety * r_min))
     else:
         # Unknown distance: see the module docstring's three cases.
         d_avail = None

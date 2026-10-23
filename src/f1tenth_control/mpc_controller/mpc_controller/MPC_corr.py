@@ -1187,6 +1187,12 @@ class MPCController(Node):
             self.declare_parameter(
                 'corr_wall_turn_safety_margin_m',
                 get_value('corr_wall_turn_safety_margin_m')).value), 0.0)
+        # Extra metres on the commit gate only (wall_turn.py, COMMIT GATE):
+        # the turn starts earlier without shrinking the per-rebuild distance cap.
+        self.corr_wall_turn_commit_lead_m = max(float(
+            self.declare_parameter(
+                'corr_wall_turn_commit_lead_m',
+                get_value('corr_wall_turn_commit_lead_m')).value), 0.0)
         # /perception/front_distance older than this is treated as unknown, not
         # as a distance. Without it a dead camera path would leave the last
         # value (or the 10.0 bootstrap below) standing in for the wall forever.
@@ -6192,7 +6198,8 @@ class MPCController(Node):
                     n_steps=self.N, ts=self.ts, v_ref=self.vdes,
                     committed=self.wall_turn_committed,
                     prev_commanded_rot=self.wall_turn_commanded_rot,
-                    commit_on_unknown_first_rebuild=not semantic)
+                    commit_on_unknown_first_rebuild=not semantic,
+                    commit_lead=getattr(self, 'corr_wall_turn_commit_lead_m', 0.0))
                 self.wall_turn_committed = wall_step.committed
                 self.wall_turn_commanded_rot = wall_step.commanded_rot
                 turn_remaining = wall_step.dpsi_this
