@@ -18,7 +18,7 @@ PYTHON="python3"
 FORCE=0
 DRY_RUN=0
 LOAD_TEST_RUNS=20
-CU12_LIB="${CU12_LIB:-$HOME/.local/lib/python3.10/site-packages/nvidia/cu12/lib}"
+CU12_LIB="${CU12_LIB:-}"    # default: the --python interpreter's user-site nvidia/cu12/lib (below)
 
 usage() {
   cat <<EOF
@@ -52,7 +52,8 @@ Options:
 
 Environment:
   CU12_LIB           nvidia cu12 lib dir prepended to LD_LIBRARY_PATH when it
-                     exists (default: ~/.local/lib/python3.10/site-packages/nvidia/cu12/lib)
+                     exists (default: ~/.local/lib/pythonX.Y/site-packages/nvidia/cu12/lib
+                     of the --python interpreter; pip torch in the user site needs it)
   YOLO_AUTOINSTALL   defaults to False here, so Ultralytics never pip-installs
                      missing export deps (onnx, onnxslim, onnxruntime) by itself
 
@@ -355,14 +356,18 @@ if [[ -n "$NODE_PIDS" ]]; then
   fi
 fi
 
-if [[ -d "$CU12_LIB" ]]; then
+if [[ -z "$CU12_LIB" ]]; then
+  PYVER=$("$PYTHON" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || true)
+  [[ -n "$PYVER" ]] && CU12_LIB="$HOME/.local/lib/python$PYVER/site-packages/nvidia/cu12/lib"
+fi
+if [[ -n "$CU12_LIB" && -d "$CU12_LIB" ]]; then
   case ":${LD_LIBRARY_PATH:-}:" in
     *":$CU12_LIB:"*) echo "LD_LIBRARY_PATH already has $CU12_LIB" ;;
     *) export LD_LIBRARY_PATH="$CU12_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
        echo "LD_LIBRARY_PATH += $CU12_LIB" ;;
   esac
 else
-  echo "no $CU12_LIB (LD_LIBRARY_PATH unchanged)"
+  echo "no ${CU12_LIB:-pip nvidia/cu12 dir} (LD_LIBRARY_PATH unchanged)"
 fi
 export YOLO_AUTOINSTALL="${YOLO_AUTOINSTALL:-False}"
 
