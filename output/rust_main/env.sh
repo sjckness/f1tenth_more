@@ -14,3 +14,4 @@ export SKIP="$(cat $WS/output/jazzy_port/linus_skip.txt | tr '\n' ' ')"
 #   unset ROS_DISCOVERY_SERVER ROS_SUPER_CLIENT FASTRTPS_DEFAULT_PROFILES_FILE
 #   export ROS_DOMAIN_ID=95 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 #   colcon test --packages-select <pkgs> --packages-ignore $SKIP --test-result-base <dir>; colcon test-result --all --test-result-base <dir>
+export CARGO_BUILD_JOBS=3 MAKEFLAGS=-j3

@@ -40,6 +40,7 @@ from mpc_controller.move_target import (
 from f1tenth_params.corridor_geometry import (
     CORRIDOR_HANDLE_FRAC, CORRIDOR_WIDTH_RATIO, POSE_HANDLE_FRAC, wrap_pi)
 from mpc_controller import corridor_backend
+from mpc_controller import solver_backend
 from mpc_controller import wall_boundaries as wb
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
 from mpc_controller.llm2_params import (
@@ -1120,6 +1121,20 @@ class MPCController(Node):
         self.get_logger().info(
             f'CORR/impl | corridor geometry: '
             f'{corridor_backend.describe(self.corridor_impl)}')
+        # WHICH IMPLEMENTATION SOLVES THE RTI TICK (solver_backend.py, R2):
+        # 'py' mpc_solver._solve_rti, 'rust' the bit-identical port in
+        # f1tenth_mpc_core (output/rust/parity_mpc_solver.md), for rti ticks
+        # without a stage_spec; SLSQP and the reverse candidates stay py.
+        # Same shape as corridor_impl: default from stack_params.yaml (py),
+        # rust that does not load refuses the start, read-only at run time.
+        self.mpc_solver_impl = solver_backend.require(str(self.declare_parameter(
+            'mpc_solver_impl', solver_backend.default_impl(),
+            ParameterDescriptor(
+                read_only=True,
+                description='RTI solver core py|rust (R2): read once at start')).value))
+        self.get_logger().info(
+            f'MPC/solver_impl | RTI solver: '
+            f'{solver_backend.describe(self.mpc_solver_impl)}')
 
         # LOOKAHEAD IS DERIVED FROM CORRIDOR LENGTH, NOT A SECOND CONSTANT.
         # It used to be a bare `lookahead = 1.5` inside compute_local_target
@@ -4869,7 +4884,14 @@ class MPCController(Node):
         same call, same arguments -- which is what keeps the flag-off
         behaviour bit-identical (pinned by test_reverse_flag_off_identity.py
         on the existing closed-loop scenarios).
+
+        mpc_solver_impl (R2) rides along as solve_mpc_step's impl= when the
+        node has one; a stand-in without the attribute passes nothing and
+        gets solver_backend.DEFAULT_IMPL, the call unchanged.
         """
+        impl = getattr(self, 'mpc_solver_impl', None)
+        if impl is not None:
+            solve_kwargs = dict(solve_kwargs, impl=impl)
         if not getattr(self, 'allow_reverse', False) or self.reverse_planner is None:
             return solve_mpc_step(**solve_kwargs)
         return self.reverse_planner.step(

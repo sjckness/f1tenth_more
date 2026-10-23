@@ -410,12 +410,15 @@ _SIM_WRAPPER = ('f1tenth_bringup', 'sim_component.launch.py')
 #   impl:=          -> costmap.launch.py          costmap_boundary_impl:=py|rust
 #   corridor_impl:= -> navigation.launch.py       corridor_impl:=py|rust (forwarded
 #                      to mpc_corr.launch.py: MPC_corr's corridor geometry, R1)
+#   mpc_solver_impl:= -> navigation.launch.py     mpc_solver_impl:=py|rust (forwarded
+#                      to mpc_corr.launch.py: the RTI solver core, R2)
 # Keyed by argument, not by launch file, because one file can take several
-# (navigation.launch.py will also take the solver core's switch).
+# (navigation.launch.py takes both MPC switches).
 _RUST_SWITCHES = {
     'proximity_guard': ('behavior_bringup.launch.py', ('off', 'shadow', 'active')),
     'costmap_boundary_impl': ('costmap.launch.py', ('py', 'rust')),
     'corridor_impl': ('navigation.launch.py', ('py', 'rust')),
+    'mpc_solver_impl': ('navigation.launch.py', ('py', 'rust')),
 }
 
 
@@ -699,17 +702,21 @@ class ComponentSupervisorNode(Node):
         # impl:=, the same shape as enable_mission_logger and for the same
         # reason. Validated here as well as by the launch arguments' choices:
         # a bare `ros2 run` must not start a guard mode nobody asked for.
-        # corridor_impl (R1): default from stack_params.yaml like the launch
-        # argument's, so a bare `ros2 run` agrees with the bringups.
+        # corridor_impl (R1) and mpc_solver_impl (R2): default from
+        # stack_params.yaml like the launch arguments', so a bare `ros2 run`
+        # agrees with the bringups.
         self.proximity_guard = str(self.declare_parameter('proximity_guard', 'off').value)
         self.costmap_boundary_impl = str(
             self.declare_parameter('costmap_boundary_impl', 'py').value)
         self.corridor_impl = str(
             self.declare_parameter('corridor_impl', str(get_value('corridor_impl'))).value)
+        self.mpc_solver_impl = str(self.declare_parameter(
+            'mpc_solver_impl', str(get_value('mpc_solver_impl'))).value)
         self.rust_switches = {
             'proximity_guard': self.proximity_guard,
             'costmap_boundary_impl': self.costmap_boundary_impl,
             'corridor_impl': self.corridor_impl,
+            'mpc_solver_impl': self.mpc_solver_impl,
         }
         validate_rust_switches(self.rust_switches)
         # component-auto-start pass: whether 'intelligence' (llama-server) auto-
@@ -810,7 +817,8 @@ class ComponentSupervisorNode(Node):
             self.get_logger().info(
                 f'[component_supervisor] Rust ports: guard:={self.proximity_guard} '
                 f'impl:={self.costmap_boundary_impl} '
-                f'corridor_impl:={self.corridor_impl} (output/rust/)')
+                f'corridor_impl:={self.corridor_impl} '
+                f'mpc_solver_impl:={self.mpc_solver_impl} (output/rust/)')
 
         # Some individual launch files within a multi-launch component legitimately
         # do nothing at all when their own feature flag is off -- an empty (or

@@ -1,7 +1,7 @@
 [package]
 name = "f1tenth_mpc_core"
 version = "0.1.0"
-description = "MPC_corr's corridor geometry in Rust (no ROS): a C-ABI library mpc_controller loads with ctypes"
+description = "MPC_corr's corridor geometry and RTI solver core in Rust (no ROS): a C-ABI library mpc_controller loads with ctypes"
 edition = "2021"
 license = "Apache-2.0"
 rust-version = "1.85"
@@ -13,14 +13,25 @@ rust-version = "1.85"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-# No dependencies on purpose: no ROS, no numerics crate. The arithmetic is the
-# numpy reproduction in src/npcompat.rs; sin/cos/pow/hypot/atan2 come from the
+# No ROS, no numerics crate. The arithmetic is the numpy reproduction in
+# src/npcompat.rs; sin/cos/tan/atan/pow/hypot/atan2/exp/log1p come from the
 # platform libm, the same one numpy and CPython call.
+#
+# osqp-sys =1.0.1 (R2, the solver core): the C bindings of the `osqp` 1.0.1
+# crate, OSQP C v1.0.0 vendored and built with CMake (OSQP's CMake fetches
+# QDLDL v0.1.8 at build time). The same C version as the Python's osqp 1.1.3.
+# Used directly rather than through `osqp` 1.0.1's safe wrapper: that wrapper
+# has no setter for device, rho_is_vec, check_dualgap and the cg_* settings
+# (src/solve.rs sets every OSQPSettings field explicitly, from the Python's
+# effective values), and it refuses NaN bounds that the Python hands to OSQP C
+# (output/rust_main/decisions.md, R2).
 [dependencies]
+osqp-sys = "=1.0.1"
 
 [lints.rust]
-# deny, not forbid: src/ffi.rs is the one module allowed to use unsafe (raw
-# pointers from ctypes), and a crate-level forbid cannot be relaxed there.
+# deny, not forbid: the ffi module (src/ffi.rs and its submodules ffi/solver.rs
+# and ffi/osqp.rs) is the one place allowed to use unsafe (raw pointers from
+# ctypes, the OSQP C calls), and a crate-level forbid cannot be relaxed there.
 unsafe_code = "deny"
 
 [lints.clippy]

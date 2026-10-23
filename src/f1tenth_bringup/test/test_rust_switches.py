@@ -1,4 +1,4 @@
-"""guard:=, impl:= and corridor_impl:= (Rust ports): bringup -> supervisor -> component.
+"""guard:=, impl:=, corridor_impl:=, mpc_solver_impl:= (Rust ports): bringup -> supervisor.
 
 supervisor_bringup.launch.py and stack_bringup.launch.py declare the
 switches; component_supervisor_node writes them into the args of the entries
@@ -32,6 +32,7 @@ _SWITCHES = (
     ('guard', 'proximity_guard', 'off', ['off', 'shadow', 'active']),
     ('impl', 'costmap_boundary_impl', 'py', ['py', 'rust']),
     ('corridor_impl', 'corridor_impl', 'py', ['py', 'rust']),
+    ('mpc_solver_impl', 'mpc_solver_impl', 'py', ['py', 'rust']),
 )
 
 
@@ -70,19 +71,22 @@ def test_the_table_matches_the_bringup_arguments():
             for param, (_lf, choices) in _RUST_SWITCHES.items()} == {
         param: (default, choices) for _arg, param, default, choices in _SWITCHES}
     assert rust_switch_defaults() == {
-        'proximity_guard': 'off', 'costmap_boundary_impl': 'py', 'corridor_impl': 'py'}
+        'proximity_guard': 'off', 'costmap_boundary_impl': 'py', 'corridor_impl': 'py',
+        'mpc_solver_impl': 'py'}
 
 
 def test_bad_values_are_refused():
     validate_rust_switches(rust_switch_defaults())
     validate_rust_switches({'proximity_guard': 'active', 'costmap_boundary_impl': 'rust',
-                            'corridor_impl': 'rust'})
+                            'corridor_impl': 'rust', 'mpc_solver_impl': 'rust'})
     with pytest.raises(ValueError):
         validate_rust_switches({'proximity_guard': 'on'})
     with pytest.raises(ValueError):
         validate_rust_switches({'costmap_boundary_impl': 'cpp'})
     with pytest.raises(ValueError):
         validate_rust_switches({'corridor_impl': 'c'})
+    with pytest.raises(ValueError):
+        validate_rust_switches({'mpc_solver_impl': 'osqp'})
     with pytest.raises(ValueError):
         validate_rust_switches({'solver_impl': 'rust'})
     with pytest.raises(ValueError):
@@ -92,10 +96,11 @@ def test_bad_values_are_refused():
 def test_the_switches_reach_exactly_their_launch_files():
     before = _registry()
     after = apply_rust_switches(copy.deepcopy(before), {
-        'proximity_guard': 'shadow', 'costmap_boundary_impl': 'rust', 'corridor_impl': 'rust'})
+        'proximity_guard': 'shadow', 'costmap_boundary_impl': 'rust', 'corridor_impl': 'rust',
+        'mpc_solver_impl': 'rust'})
     expected = {'behavior_bringup.launch.py': {'proximity_guard': 'shadow'},
                 'costmap.launch.py': {'costmap_boundary_impl': 'rust'},
-                'navigation.launch.py': {'corridor_impl': 'rust'}}
+                'navigation.launch.py': {'corridor_impl': 'rust', 'mpc_solver_impl': 'rust'}}
     touched = 0
     for name, entries in after.items():
         for old, new in zip(before[name], entries):
@@ -114,14 +119,16 @@ def test_the_defaults_are_written_too():
     assert args['behavior_bringup.launch.py']['proximity_guard'] == 'off'
     assert args['costmap.launch.py']['costmap_boundary_impl'] == 'py'
     assert args['navigation.launch.py']['corridor_impl'] == 'py'
+    assert args['navigation.launch.py']['mpc_solver_impl'] == 'py'
 
 
 def test_navigation_launch_accepts_what_the_supervisor_writes():
     """
     Navigation.launch.py declares the argument the supervisor writes.
 
-    The supervisor runs `ros2 launch ... navigation.launch.py corridor_impl:=...`:
-    an argument the file does not declare would be refused at launch time.
+    The supervisor runs `ros2 launch ... navigation.launch.py corridor_impl:=...
+    mpc_solver_impl:=...`: an argument the file does not declare would be refused
+    at launch time.
     """
     from ament_index_python.packages import get_package_share_directory
     path = os.path.join(get_package_share_directory('f1tenth_navigation'), 'launch',
@@ -132,6 +139,7 @@ def test_navigation_launch_accepts_what_the_supervisor_writes():
     names = {e.name for e in module.generate_launch_description().entities
              if isinstance(e, DeclareLaunchArgument)}
     assert 'corridor_impl' in names
+    assert 'mpc_solver_impl' in names
 
 
 def _supervisor_parameters(overrides=None):
@@ -156,7 +164,8 @@ def _supervisor_parameters(overrides=None):
 
 
 @pytest.mark.parametrize('overrides', [None, {'guard': 'shadow', 'impl': 'rust',
-                                              'corridor_impl': 'rust'}])
+                                              'corridor_impl': 'rust',
+                                              'mpc_solver_impl': 'rust'}])
 def test_the_switches_reach_the_supervisor_as_strings(overrides):
     """
     Every switch reaches the supervisor as a string.
@@ -179,7 +188,7 @@ def _location(include, ctx):
         ctx, include.launch_description_source._LaunchDescriptionSource__location)
 
 
-def test_stack_bringup_forwards_corridor_impl_to_navigation():
+def test_stack_bringup_forwards_both_mpc_switches_to_navigation():
     ld = _module('stack_bringup.launch.py').generate_launch_description()
     ctx = LaunchContext()
     includes = [e for e in ld.entities if isinstance(e, IncludeLaunchDescription)]
@@ -187,4 +196,4 @@ def test_stack_bringup_forwards_corridor_impl_to_navigation():
     assert len(nav) == 1
     forwarded = {perform_substitutions(ctx, list(k)) if not isinstance(k, str) else k
                  for k, _v in nav[0].launch_arguments}
-    assert forwarded == {'corridor_impl'}
+    assert forwarded == {'corridor_impl', 'mpc_solver_impl'}

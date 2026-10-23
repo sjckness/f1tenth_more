@@ -79,6 +79,15 @@ def generate_launch_description():
         'corridor_impl', default_value=str(corridor_impl_default),
         choices=['py', 'rust'], description=corridor_impl_desc)
 
+    # Which implementation solves the RTI tick: py (default) or rust (the
+    # f1tenth_mpc_core solver core, main-jazzy-rust R2). Forwarded by
+    # navigation.launch.py and set by the supervisor/stack bringups'
+    # mpc_solver_impl:=.
+    mpc_solver_impl_default, mpc_solver_impl_desc = get_default('mpc_solver_impl')
+    mpc_solver_impl_la = DeclareLaunchArgument(
+        'mpc_solver_impl', default_value=str(mpc_solver_impl_default),
+        choices=['py', 'rust'], description=mpc_solver_impl_desc)
+
     # The MPC's prediction step, NOT its control period (see the yaml key).
     # A launch arg so the 0.1 rollback is a launch-time switch, not a rebuild.
     mpc_prediction_dt_s_default, mpc_prediction_dt_s_desc = get_default(
@@ -362,6 +371,8 @@ def generate_launch_description():
             # value_type=str, like boundary_source: a string parameter.
             'corridor_impl': ParameterValue(
                 LaunchConfiguration('corridor_impl'), value_type=str),
+            'mpc_solver_impl': ParameterValue(
+                LaunchConfiguration('mpc_solver_impl'), value_type=str),
             # value_type=float: the node declares it with a float default,
             # and an untyped `:=1` would reach it as an INTEGER.
             'mpc_prediction_dt_s': ParameterValue(
@@ -432,8 +443,8 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        odom_stale_timeout_sec_la, use_rti_solver_la, corridor_impl_la, mpc_prediction_dt_s_la,
-        car_radius_la, avoidance_margin_la,
+        odom_stale_timeout_sec_la, use_rti_solver_la, corridor_impl_la, mpc_solver_impl_la,
+        mpc_prediction_dt_s_la, car_radius_la, avoidance_margin_la,
         cpu_affinity_la, nice_la, corridor_update_period_la,
         mpc_w_term_la, mpc_w_psi_la, mpc_w_psi_stage_la, mpc_w_corr_la,
         mpc_w_line_la, object_corridor_mode_la,

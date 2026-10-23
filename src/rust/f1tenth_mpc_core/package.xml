@@ -3,7 +3,7 @@
 <package format="3">
   <name>f1tenth_mpc_core</name>
   <version>0.1.0</version>
-  <description>MPC_corr's corridor geometry in Rust: a ROS-free C-ABI library (libf1tenth_mpc_core.so) that mpc_controller loads with ctypes when corridor_impl is rust</description>
+  <description>MPC_corr's corridor geometry and RTI solver core (OSQP C 1.0.0 linked in) in Rust: a ROS-free C-ABI library (libf1tenth_mpc_core.so) that mpc_controller loads with ctypes when corridor_impl or mpc_solver_impl is rust</description>
   <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
   <license>Apache-2.0</license>
 

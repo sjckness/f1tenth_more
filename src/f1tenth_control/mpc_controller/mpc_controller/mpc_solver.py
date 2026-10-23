@@ -124,6 +124,7 @@ import numpy as np
 from f1tenth_params.object_geometry import SOLVER_FRONT_POINT_OFFSETS_M
 from scipy.optimize import minimize
 
+from mpc_controller import mpc_native, solver_backend
 from mpc_controller.vehicle_model import (
     f1tenth_state_fcn_dt_beta,
     f1tenth_state_fcn_dt_beta_jacobian,
@@ -347,6 +348,7 @@ def solve_mpc_step(
     control_period: Optional[float] = None,
     stage_spec: Optional[Dict] = None,
     speed_model: Optional[Dict] = None,
+    impl: Optional[str] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """
     Replica MATLAB:
@@ -425,11 +427,22 @@ def solve_mpc_step(
                       'slack_weight' * (s^2 + s) like the boundary slack.
     RTI only (SLSQP raises), and not combined with stage_spec. x_pred keeps
     its four columns; the predicted command is info['v_cmd_pred'].
+
+    impl: which implementation solves an rti tick WITHOUT a stage_spec
+    (solver_backend.py, main-jazzy-rust R2): 'py' this module's _solve_rti,
+    'rust' the bit-identical port in f1tenth_mpc_core
+    (output/rust/parity_mpc_solver.md). None (default) is
+    solver_backend.DEFAULT_IMPL: stack_params' mpc_solver_impl unless the
+    F1TENTH_MPC_SOLVER_IMPL test hook overrides it. SLSQP and stage_spec
+    calls always run the Python, whatever impl says.
     """
+    # The weights as handed in, for the parity capture (solver_backend).
+    weights_in = weights
     # Horizon-invariant stage/terminal balance -- see scale_stage_weights.
     # Done here, once, so both backends and the true_cost they report are
     # evaluated against identical weights.
     weights = scale_stage_weights(weights, horizon)
+    impl = solver_backend.resolve(impl)
 
     if stage_spec is not None and solver != 'rti':
         raise ValueError('stage_spec (reverse candidates) needs the rti solver')
@@ -442,6 +455,32 @@ def solve_mpc_step(
         return _solve_slsqp(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
             weights, obstacles, dmin, vdes, control_period=control_period)
+    elif solver == 'rti' and stage_spec is None:
+        rti_kwargs = {
+            'boundaries': boundaries, 'warm_start_z': warm_start_z,
+            'control_period': control_period,
+            'boundary_max_sources': boundary_max_sources,
+            'boundary_hard': boundary_hard,
+            'boundary_slack_weight': boundary_slack_weight,
+            'boundary_slack_max': boundary_slack_max,
+            'speed_model': speed_model}
+        if impl == 'rust':
+            u0, info = mpc_native.solve_rti(
+                x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
+                weights, obstacles, dmin, vdes,
+                front_offsets=SOLVER_FRONT_POINT_OFFSETS_M, **rti_kwargs)
+        else:
+            u0, info = _solve_rti(
+                x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
+                weights, obstacles, dmin, vdes, stage_spec=None, **rti_kwargs)
+        if solver_backend.capture_dir() is not None:
+            solver_backend.capture({
+                'x0': x0, 'last_u': last_u, 'pref_nom': pref_nom, 'corridor': corridor,
+                'horizon': horizon, 'ts': ts, 'params': params, 'limits': limits,
+                'weights': weights_in, 'obstacles': obstacles, 'dmin': dmin,
+                'vdes': vdes, 'solver': solver, 'stage_spec': None, **rti_kwargs},
+                impl, u0, info)
+        return u0, info
     elif solver == 'rti':
         return _solve_rti(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,

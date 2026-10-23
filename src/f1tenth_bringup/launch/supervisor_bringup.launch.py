@@ -196,6 +196,13 @@ def generate_launch_description():
     corridor_impl_la = DeclareLaunchArgument(
         'corridor_impl', default_value=str(corridor_impl_default), choices=['py', 'rust'],
         description=corridor_impl_desc)
+    # mpc_solver_impl -> navigation.launch.py mpc_solver_impl -> mpc_corr.launch.py:
+    # which implementation solves the MPC's RTI tick (R2). Default from
+    # stack_params.yaml (py), the same as mpc_corr.launch.py's own.
+    mpc_solver_impl_default, mpc_solver_impl_desc = get_default('mpc_solver_impl')
+    mpc_solver_impl_la = DeclareLaunchArgument(
+        'mpc_solver_impl', default_value=str(mpc_solver_impl_default), choices=['py', 'rust'],
+        description=mpc_solver_impl_desc)
 
     enable_intelligence_default, enable_intelligence_desc = get_default('enable_intelligence')
     enable_intelligence_la = DeclareLaunchArgument(
@@ -273,6 +280,8 @@ def generate_launch_description():
                 LaunchConfiguration('impl'), value_type=str),
             'corridor_impl': ParameterValue(
                 LaunchConfiguration('corridor_impl'), value_type=str),
+            'mpc_solver_impl': ParameterValue(
+                LaunchConfiguration('mpc_solver_impl'), value_type=str),
             'enable_intelligence': LaunchConfiguration('enable_intelligence'),
             'enable_comms': LaunchConfiguration('enable_comms'),
             'components_config': LaunchConfiguration('components_config'),
@@ -320,6 +329,7 @@ def generate_launch_description():
         guard_la,
         impl_la,
         corridor_impl_la,
+        mpc_solver_impl_la,
         enable_intelligence_la,
         enable_comms_la,
         components_config_la,

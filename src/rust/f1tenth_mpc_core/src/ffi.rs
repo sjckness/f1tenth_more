@@ -1,8 +1,15 @@
 //! The C ABI that `mpc_controller/mpc_native.py` loads with ctypes.
 //!
-//! The only module of the crate allowed to use `unsafe`: raw pointers come in
-//! from Python, are checked for null and turned into slices of the length the
-//! caller declared, and nothing else is unsafe.
+//! The only module of the crate allowed to use `unsafe` (with its two
+//! submodules): raw pointers come in from Python, are checked for null and
+//! turned into slices of the length the caller declared, and nothing else is
+//! unsafe.
+//!
+//! - this file: the ABI report and the corridor entry points (R1);
+//! - [`solver`]: the solver core's entry points (R2: `mpc_solve_rti` and the
+//!   parity layers' debug exports);
+//! - [`osqp`]: the other direction, the OSQP C library the solver calls
+//!   (osqp-sys 1.0.1).
 //!
 //! CONTRACT (kept in step with mpc_native.py; [`ABI_VERSION`] changes whenever
 //! any of it does, and the loader refuses a mismatch):
@@ -26,8 +33,14 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::corridor::{self, Corridor, CorridorError, CurvesArgs, PoseArgs, Walls};
 use crate::query::{self, QueryError};
 
+pub mod osqp;
+pub mod solver;
+
 /// Bumped on any change to a struct layout, a signature or a status code.
-pub const ABI_VERSION: u32 = 1;
+/// 2: the solver core (R2): `mpc_solve_rti`, `mpc_build_qp`,
+/// `mpc_osqp_solve_csc`, `mpc_osqp_settings`, `mpc_osqp_version`, struct
+/// kinds 6-13, status codes -10 to -15.
+pub const ABI_VERSION: u32 = 2;
 
 pub const MPC_OK: i32 = 0;
 /// A required pointer was null.
@@ -48,6 +61,20 @@ pub const MPC_ERR_PANIC: i32 = -7;
 pub const MPC_ERR_TOO_MANY_SAMPLES: i32 = -8;
 /// An empty centreline (Python: np.argmin ValueError).
 pub const MPC_ERR_EMPTY: i32 = -9;
+/// `x0` does not have the speed model's size (Python: ValueError
+/// "x0 has {n} entries, the speed model needs {n_x}").
+pub const MPC_ERR_X0_SIZE: i32 = -10;
+/// A Python float `x ** 2` overflowed (Python: OverflowError).
+pub const MPC_ERR_OVERFLOW: i32 = -11;
+/// `osqp_setup` failed; the OSQP error code is in the result (Python:
+/// osqp.OSQPException(code)).
+pub const MPC_ERR_OSQP_SETUP: i32 = -12;
+/// `horizon < 1`.
+pub const MPC_ERR_HORIZON: i32 = -13;
+/// `corridor["psiRef"]` missing while `w_psi` is on (Python: KeyError).
+pub const MPC_ERR_MISSING_KEY: i32 = -14;
+/// The QP would exceed qp::MAX_VARIABLES variables (refused: ValueError).
+pub const MPC_ERR_TOO_LARGE: i32 = -15;
 
 /// `corridor_curves(...)` inputs.
 #[repr(C)]
@@ -157,6 +184,14 @@ pub const STRUCT_POSE_ARGS: i32 = 2;
 pub const STRUCT_INFO: i32 = 3;
 pub const STRUCT_BUFFERS: i32 = 4;
 pub const STRUCT_FRAME: i32 = 5;
+pub const STRUCT_RTI_ARGS: i32 = 6;
+pub const STRUCT_RTI_RESULT: i32 = 7;
+pub const STRUCT_RTI_BUFFERS: i32 = 8;
+pub const STRUCT_QP_SIZES: i32 = 9;
+pub const STRUCT_QP_BUFFERS: i32 = 10;
+pub const STRUCT_OSQP_ARGS: i32 = 11;
+pub const STRUCT_OSQP_RESULT: i32 = 12;
+pub const STRUCT_OSQP_SETTINGS: i32 = 13;
 
 static VERSION: &[u8] = concat!(env!("CARGO_PKG_VERSION"), "\0").as_bytes();
 
@@ -175,9 +210,39 @@ pub extern "C" fn f1tenth_mpc_core_struct_size(kind: i32) -> i64 {
         STRUCT_INFO => std::mem::size_of::<MpcCorridorInfo>(),
         STRUCT_BUFFERS => std::mem::size_of::<MpcCorridorBuffers>(),
         STRUCT_FRAME => std::mem::size_of::<MpcCorridorFrame>(),
+        STRUCT_RTI_ARGS => std::mem::size_of::<solver::MpcRtiArgs>(),
+        STRUCT_RTI_RESULT => std::mem::size_of::<solver::MpcRtiResult>(),
+        STRUCT_RTI_BUFFERS => std::mem::size_of::<solver::MpcRtiBuffers>(),
+        STRUCT_QP_SIZES => std::mem::size_of::<solver::MpcQpSizes>(),
+        STRUCT_QP_BUFFERS => std::mem::size_of::<solver::MpcQpBuffers>(),
+        STRUCT_OSQP_ARGS => std::mem::size_of::<solver::MpcOsqpArgs>(),
+        STRUCT_OSQP_RESULT => std::mem::size_of::<solver::MpcOsqpResult>(),
+        STRUCT_OSQP_SETTINGS => std::mem::size_of::<solver::MpcOsqpSettings>(),
         _ => return -1,
     };
     i64::try_from(size).unwrap_or(-1)
+}
+
+/// Byte offset of field `name` (NUL-terminated) in the solver struct `kind`
+/// (`STRUCT_RTI_ARGS` .. `STRUCT_OSQP_SETTINGS`); -1 for an unknown kind or
+/// field. The loader checks every field of its ctypes mirrors with it.
+///
+/// # Safety
+/// `name` must be null or a NUL-terminated string.
+#[no_mangle]
+pub unsafe extern "C" fn f1tenth_mpc_core_field_offset(kind: i32, name: *const c_char) -> i64 {
+    if name.is_null() {
+        return -1;
+    }
+    // SAFETY: non-null and NUL-terminated by the caller's contract.
+    let name = unsafe { std::ffi::CStr::from_ptr(name) };
+    let Ok(name) = name.to_str() else {
+        return -1;
+    };
+    solver::field_table(kind)
+        .and_then(|t| t.iter().find(|(n, _)| *n == name))
+        .and_then(|&(_, off)| i64::try_from(off).ok())
+        .unwrap_or(-1)
 }
 
 /// The crate version, a static NUL-terminated string.
@@ -570,7 +635,7 @@ mod tests {
     #[test]
     fn the_abi_reports_itself() {
         assert_eq!(f1tenth_mpc_core_abi_version(), ABI_VERSION);
-        for kind in 1..=5 {
+        for kind in 1..=13 {
             assert!(f1tenth_mpc_core_struct_size(kind) > 0);
         }
         assert_eq!(f1tenth_mpc_core_struct_size(99), -1);

@@ -229,6 +229,12 @@ RUN --mount=type=cache,id=f1tenth-orin-ccache-llama,target=/root/.ccache \
 #   * colcon-ros-cargo writes /opt/f1tenth_ws/.cargo/config.toml during the
 #     build (removed with build/ and log/); --merge-install with ament_cargo
 #     packages has not been tried.
+#   * f1tenth_mpc_core's solver core (R2) depends on osqp-sys =1.0.1, whose
+#     build.rs compiles the vendored OSQP C 1.0.0 with CMake, and OSQP's CMake
+#     clones QDLDL v0.1.8 from github.com at build time (FetchContent): the
+#     build needs cmake and git (zed stage: both installed) and network
+#     (docker build --network=host, CLAUDE.md). The crates themselves come
+#     from crates.io (registry cache mount above).
 # Pins: rustup-init 1.29.1 (sha256 from static.rust-lang.org's
 # rustup-init.sha256 for aarch64-unknown-linux-gnu, fetched 2026-10-23),
 # toolchain 1.99.1 = linus's (the crates need >= 1.85), cargo-ament-build
@@ -281,9 +287,9 @@ COPY set_llama_paths.py build_checks.sh entrypoint.sh /opt/f1tenth_ws/
 # task extension to 'build' a 'ros.ament_cargo' package" and skip them (tried
 # on linus, 2026-10-23): ignoring them says so instead. No package declares a
 # dependency on them (mpc_controller finds f1tenth_mpc_core through
-# ament_index only when corridor_impl is rust); their launch switches
-# (guard:=, costmap_boundary_impl:=, impl:=, corridor_impl:=) default to
-# off/py. RUST=build: built like every other package
+# ament_index only when corridor_impl or mpc_solver_impl is rust); their
+# launch switches (guard:=, costmap_boundary_impl:=, impl:=, corridor_impl:=,
+# mpc_solver_impl:=) default to off/py. RUST=build: built like every other package
 # (colcon-ros-cargo; cargo's dev profile at opt-level 3, src/rust/Cargo.toml).
 RUN --mount=type=bind,from=l4t,target=/usr/lib/aarch64-linux-gnu/nvidia \
     --mount=type=cache,id=f1tenth-orin-ccache-ws,target=/root/.ccache \

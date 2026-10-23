@@ -106,6 +106,10 @@ def generate_launch_description():
     corridor_impl_la = DeclareLaunchArgument(
         'corridor_impl', default_value=str(corridor_impl_default), choices=['py', 'rust'],
         description=corridor_impl_desc)
+    mpc_solver_impl_default, mpc_solver_impl_desc = get_default('mpc_solver_impl')
+    mpc_solver_impl_la = DeclareLaunchArgument(
+        'mpc_solver_impl', default_value=str(mpc_solver_impl_default), choices=['py', 'rust'],
+        description=mpc_solver_impl_desc)
     discovery_server_address = LaunchConfiguration('discovery_server_address')
     discovery_server_port = LaunchConfiguration('discovery_server_port')
 
@@ -232,7 +236,8 @@ def generate_launch_description():
     # ================================================================
     autonomy_bringup = [
         include('f1tenth_navigation', 'navigation.launch.py', condition=is_calibration_disabled,
-                corridor_impl=LaunchConfiguration('corridor_impl')),
+                corridor_impl=LaunchConfiguration('corridor_impl'),
+                mpc_solver_impl=LaunchConfiguration('mpc_solver_impl')),
     ]
     if use_behavior_tree:
         autonomy_bringup.append(include('f1tenth_behavior', 'behavior_bringup.launch.py',
@@ -335,6 +340,7 @@ def generate_launch_description():
         guard_la,
         impl_la,
         corridor_impl_la,
+        mpc_solver_impl_la,
         discovery_server_env,
         fastdds_profile_la,
         fastdds_profile_env,

@@ -162,6 +162,9 @@ numpy 1.26.4 actually executes on linus:
 - numpy's RuntimeWarnings (invalid value, overflow) are not emitted.
 - `n > 1,000,000` is refused with ValueError (the Python would try; a failed Rust allocation would
   abort the process). The planner uses n = 120.
+- With numpy-scalar `u_start`/`u_end` the Python returns `kappa_max` as `numpy.float64`, the Rust
+  dict always as a Python `float` (the same value; R1 manager check: 1520 of 6000 such cases, no
+  other key differs). No caller passes numpy scalars there. (Added in R2, as the R1 review asked.)
 - NaN bit patterns: the gate compares NaN == NaN. The sign of a NaN produced from a NaN or
   infinite input follows numpy's operand order inside its loops (`0xfff8...` vs `0x7ff8...`);
   it carries no information and appears in no finite-input case.

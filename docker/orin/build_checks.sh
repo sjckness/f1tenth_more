@@ -62,6 +62,35 @@ if [ "${RUST:-skip}" = build ]; then
   mpc_core=$(python3 -c 'from mpc_controller import mpc_native as m; print(m.available(), m.load_error(), m.build_info())' 2>&1 | tail -1)
   echo "  f1tenth_mpc_core: $mpc_core"
   case "$mpc_core" in "True None "*"opt-level 3,"*) ;; *) bad "f1tenth_mpc_core not loadable or not opt-level 3: $mpc_core" ;; esac
+  # The solver core (R2, same library): OSQP C 1.0.0 linked in, and one RTI
+  # tick through mpc_solver_impl rust agrees with the Python bit for bit (an
+  # aarch64 build may differ in the last bits: then this prints the largest
+  # difference instead of failing; the tolerance gates are in
+  # output/rust/parity_mpc_solver.md).
+  solver=$(python3 - <<'PY' 2>&1 | tail -1
+import numpy as np
+from f1tenth_params import corridor_geometry as cg
+from mpc_controller import mpc_native, mpc_solver
+c = cg.corridor_curves(0.0, 0.0, 0.0, 0.5, 3.0, 120, r_min=0.923)
+cor = {k: c[k] for k in ('xc', 'yc', 'nx', 'ny', 'halfWidth')}
+cor.update(psiRef=0.5, obstacles_world=[(1.4, 0.15, 0.18)], car_radius=0.2, avoidance_margin=0.12)
+kw = dict(x0=[0.0, 0.0, 0.0, 0.3], last_u=[0.0, 0.0], pref_nom=[2.5, 0.8], corridor=cor,
+          horizon=20, ts=0.1, params={'L': 0.305, 'lr': 0.17},
+          limits={'delta_min': -0.28, 'delta_max': 0.28, 'a_min': -2.0, 'a_max': 3.0,
+                  'dDeltaMin': -0.5, 'dDeltaMax': 0.5, 'dAMin': -2.0, 'dAMax': 2.0,
+                  'vMin': 0.0, 'vMax': 1.0},
+          weights={'w_term': 9.0, 'w_v': 4.3, 'w_psi': 4.5, 'w_u_a': 0.0, 'w_du_delta': 8.6,
+                   'w_du_a': 0.0, 'w_delta0': 0.0, 'w_obs': 8.0},
+          obstacles=[], dmin=0.32, vdes=0.5, boundaries=[(0.0, 1.0, 0.9)],
+          boundary_max_sources=4, control_period=0.1)
+u_py, i_py = mpc_solver.solve_mpc_step(**kw, impl='py')
+u_rs, i_rs = mpc_solver.solve_mpc_step(**kw, impl='rust')
+d = float(np.max(np.abs(i_py['zopt'] - i_rs['zopt'])))
+print(mpc_native.osqp_version(), i_py['status'] == i_rs['status'], d)
+PY
+)
+  echo "  f1tenth_mpc_core solver (OSQP, status equal, max |dz|): $solver"
+  case "$solver" in "1.0.0 True "*) ;; *) bad "f1tenth_mpc_core solver core check failed: $solver" ;; esac
 fi
 
 echo "== ldd -r scan (CLAUDE.md): workspace install, ZED SDK, llama.cpp; must print nothing"

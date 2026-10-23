@@ -1269,6 +1269,18 @@ use_rti_solver:
 corridor_impl:
   default: py
   description: "Which implementation builds mpc_corr's corridor geometry (corridor_curves / corridor_curves_to_pose). 'py' (default): f1tenth_params.corridor_geometry. 'rust': the f1tenth_mpc_core library (src/rust/f1tenth_mpc_core) through ctypes, bit-identical on linus (output/rust/parity_corridor.md). With 'rust', mpc_corr refuses to start if the library does not load; it never falls back to the Python silently."
+# Consumed by: f1tenth_control/mpc_corr.launch.py (launch arg -> MPC_corr.py's
+# mpc_solver_impl parameter, whose own default is this key through
+# mpc_controller/solver_backend.py), f1tenth_navigation/navigation.launch.py
+# (forwarded), and f1tenth_bringup's supervisor_bringup.launch.py /
+# stack_bringup.launch.py (mpc_solver_impl:=, through the supervisor's
+# mpc_solver_impl parameter to the `navigation` component). Rust port
+# main-jazzy-rust R2: output/rust/parity_mpc_solver.md. Default py; a flip to
+# rust is its own commit after evidence. (The env var F1TENTH_MPC_SOLVER_IMPL
+# overrides this default for tests only; see solver_backend.py.)
+mpc_solver_impl:
+  default: py
+  description: "Which implementation solves mpc_corr's RTI tick (mpc_solver.solve_mpc_step with solver rti and no stage_spec, both speed models). 'py' (default): mpc_solver._solve_rti. 'rust': the f1tenth_mpc_core solver core (src/rust/f1tenth_mpc_core, OSQP C 1.0.0 linked in) through ctypes, bit-identical on linus (output/rust/parity_mpc_solver.md). SLSQP and the reverse candidates (stage_spec) always run the Python. With 'rust', mpc_corr refuses to start if the library does not load; it never falls back to the Python silently."
 # Consumed by: f1tenth_control/mpc_corr.launch.py AND, since the single-
 # sourcing pass, by MPC_corr.py itself -- its declare_parameter() default is
 # now get_value('corridor_update_period') rather than a hand-mirrored literal.

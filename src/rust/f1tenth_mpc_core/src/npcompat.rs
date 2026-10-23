@@ -413,6 +413,99 @@ pub fn py_trig_domain_ok(x: f64) -> bool {
     !x.is_infinite()
 }
 
+// ---------------------------------------------------------------------------
+// R2 (the solver core): the numpy scalar and BLAS operations `_solve_rti`,
+// `_linearize_obstacle_cost_rti` and `planner_cost_corridor` use.
+// ---------------------------------------------------------------------------
+
+/// `np.minimum(a, b)` for float64 (numpy 1.26 `scalar_min`):
+/// `(a <= b || isnan(a)) ? a : b`, so a NaN in either argument propagates.
+#[inline]
+pub fn np_minimum(a: f64, b: f64) -> f64 {
+    if a <= b || a.is_nan() {
+        a
+    } else {
+        b
+    }
+}
+
+/// `np.minimum.reduce(a)` (`a.min()`): NaN if any element is NaN, otherwise
+/// the smallest. `None` for an empty slice (numpy raises). Which of two
+/// equal-valued signed zeros comes back is not specified by numpy; the
+/// solver only reduces `hypot(...) - r`, which is never `-0.0`.
+pub fn min_reduce(a: &[f64]) -> Option<f64> {
+    let mut it = a.iter();
+    let mut best = *it.next()?;
+    for &v in it {
+        if best.is_nan() {
+            break;
+        }
+        best = np_minimum(best, v);
+    }
+    Some(best)
+}
+
+/// `x ** y` on a numpy float64 SCALAR (numpy 1.26 scalarmath
+/// `double_power`): libm `pow(x, y)`, with no Python-level checks (an
+/// overflow is `inf` and a warning, not an exception).
+///
+/// NOT `x * x` for `y == 2`: glibc's `pow` is not correctly rounded and
+/// differs from the product in about 0.1 % of arguments (measured on linus).
+/// Arrays are different: `array ** 2` is `np.square` (numpy's scalar-power
+/// fast path), i.e. `x * x`. `black_box` keeps LLVM from rewriting
+/// `pow(x, 2.0)` into `x * x`, which it does without fast-math.
+#[inline]
+pub fn np_pow(x: f64, y: f64) -> f64 {
+    x.powf(black_box(y))
+}
+
+/// numpy's `float64 @ float64` of two 1-D vectors: `DOUBLE_dot` through
+/// `cblas_ddot` (netlib reference BLAS on linus). ddot sums the first
+/// `n % 5` products sequentially from `0.0`, then five at a time,
+/// `dtemp + p1 + p2 + p3 + p4 + p5` left to right (gfortran without
+/// -ffast-math keeps that order). DOUBLE_dot adds the result to a `sum = 0.`
+/// of its own. For n < 5 this is a plain sequential sum from `+0.0`.
+pub fn blas_dot(a: &[f64], b: &[f64]) -> f64 {
+    let n = a.len().min(b.len());
+    let mut dtemp = 0.0;
+    let m = n % 5;
+    for i in 0..m {
+        dtemp += a[i] * b[i];
+    }
+    let mut i = m;
+    while i + 5 <= n {
+        dtemp = dtemp
+            + a[i] * b[i]
+            + a[i + 1] * b[i + 1]
+            + a[i + 2] * b[i + 2]
+            + a[i + 3] * b[i + 3]
+            + a[i + 4] * b[i + 4];
+        i += 5;
+    }
+    let mut sum = 0.0;
+    sum += dtemp;
+    sum
+}
+
+/// numpy's `A @ x` for a C-contiguous float64 matrix `A` (`rows x cols`,
+/// row-major) and a contiguous vector: `DOUBLE_gemv` -> `cblas_dgemv`
+/// (ColMajor, Trans) -> reference `dgemv('T')`. Per output element
+/// `temp = 0; temp += A[i][j] * x[j]` over j in order, then
+/// `y[i] = 0.0 + 1.0 * temp` (beta 0 zeroes y first, alpha 1).
+pub fn blas_gemv(a: &[f64], rows: usize, cols: usize, x: &[f64]) -> Vec<f64> {
+    (0..rows)
+        .map(|i| {
+            let mut temp = 0.0;
+            for j in 0..cols {
+                temp += a[i * cols + j] * x[j];
+            }
+            let mut y = 0.0;
+            y += 1.0 * temp;
+            y
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -601,5 +694,52 @@ mod tests {
         assert_eq!(py_atan2(1.0, 1.0), 1.0_f64.atan2(1.0));
         assert!(!py_trig_domain_ok(f64::INFINITY));
         assert!(py_trig_domain_ok(f64::NAN));
+    }
+
+    #[test]
+    fn np_minimum_and_min_reduce_propagate_nan() {
+        assert!(np_minimum(f64::NAN, 1.0).is_nan());
+        assert!(np_minimum(1.0, f64::NAN).is_nan());
+        assert_eq!(np_minimum(3.0, 1e-9), 1e-9);
+        assert_eq!(min_reduce(&[3.0, -1.0, 2.0]), Some(-1.0));
+        assert!(min_reduce(&[3.0, f64::NAN, -9.0]).is_some_and(f64::is_nan));
+        assert_eq!(min_reduce(&[]), None);
+    }
+
+    #[test]
+    fn blas_order_sums_from_positive_zero() {
+        // a signed zero product sums to +0.0, as ddot / dgemv's leading 0.0
+        assert_eq!(blas_dot(&[-1.0, -1.0], &[0.0, 0.0]).to_bits(), 0);
+        assert_eq!(blas_dot(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]), 32.0);
+        // n = 7: two sequential, then one group of five, left to right
+        let a = [1e16, 1.0, -1e16, 1.0, 1.0, 1.0, 1.0];
+        let b = [1.0; 7];
+        let seq2 = (0.0 + 1e16) + 1.0;
+        let expect = seq2 + -1e16 + 1.0 + 1.0 + 1.0 + 1.0;
+        assert_eq!(blas_dot(&a, &b), expect);
+        let y = blas_gemv(&[1.0, 2.0, 3.0, 4.0], 2, 2, &[-0.0, 0.0]);
+        assert_eq!(y.iter().map(|v| v.to_bits()).collect::<Vec<_>>(), [0, 0]);
+        assert_eq!(
+            blas_gemv(&[1.0, 2.0, 3.0, 4.0], 2, 2, &[1.0, 1.0]),
+            [3.0, 7.0]
+        );
+    }
+
+    #[test]
+    fn np_pow_is_libm_pow_not_the_product() {
+        // pow(x, 2) and x * x differ for some x: np_pow must be pow.
+        let mut differ = 0;
+        let mut x = 0.123_456_789_f64;
+        for _ in 0..20_000 {
+            x = (x * 9.876_543_21 + 0.314_159).fract() * 20.0 - 10.0;
+            assert_eq!(np_pow(x, 2.0).to_bits(), x.powf(black_box(2.0)).to_bits());
+            if np_pow(x, 2.0) != x * x {
+                differ += 1;
+            }
+        }
+        assert!(
+            differ > 0,
+            "glibc pow(x, 2) is expected to differ from x*x somewhere"
+        );
     }
 }

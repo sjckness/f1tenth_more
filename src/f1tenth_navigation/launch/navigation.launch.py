@@ -68,6 +68,9 @@ _FORWARDED = (
     # The corridor geometry's implementation, py (default) or rust
     # (main-jazzy-rust R1): the supervisor writes it into this component's args.
     'corridor_impl',
+    # The RTI solver core's implementation, py (default) or rust
+    # (main-jazzy-rust R2): written by the supervisor like corridor_impl.
+    'mpc_solver_impl',
     'boundary_source',
     'boundary_max_sources',
     'boundary_hard',
