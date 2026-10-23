@@ -5,6 +5,9 @@
   the container runs as root in its own PID namespace, and component_supervisor_node's
   stale-segment sweep (_sweep_stale_fastrtps_shm) cannot see its processes and would delete
   live segments. Mounted into the container by ~/isaac_ws/launch.sh dds-profile.
+  Participant lease 5 s, announcement 1 s: the same as config/fastdds_profile.xml, which this
+  profile replaces for the sim (sim_isaac.sh passes it as fastdds_profile:=; Fast DDS loads one
+  default profile).
 -->
 <profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
   <transport_descriptors>
@@ -18,6 +21,12 @@
   </transport_descriptors>
   <participant profile_name="f1tenth_isaac_local" is_default_profile="true">
     <rtps>
+      <builtin>
+        <discovery_config>
+          <leaseDuration><sec>5</sec></leaseDuration>
+          <leaseAnnouncement><sec>1</sec></leaseAnnouncement>
+        </discovery_config>
+      </builtin>
       <userTransports>
         <transport_id>f1t_udp_lo</transport_id>
       </userTransports>

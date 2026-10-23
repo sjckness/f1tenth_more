@@ -87,6 +87,62 @@ silently downgrades the package type to plain `python`, which then shows up as
 a runtime-only "package not found" crash long after the build reported success.
 Use a single hyphen in comment prose.
 
+## DDS / discovery
+
+### Every participant loads `config/fastdds_profile.xml` (5 s lease)
+
+`src/f1tenth_bringup/config/fastdds_profile.xml` sets a 5 s participant lease
+(Fast DDS default 20 s). A participant that dies without disposing is dropped
+from the Discovery Server within 5 s; with 20 s, a stack started inside that
+window intermittently never matched some endpoints (old `jazzy` line, backlog
+H1: 8 of 30 bringups, slam_toolbox never activating; 0 of 90 with the profile,
+fix batches 4 and 5).
+
+The lease is announced by **each participant itself**: the server and the
+other side cannot impose it (measured: profile on the server only, a killed
+node still stays 19.4 s). So it must reach every process:
+
+- the stack: `supervisor_bringup.launch.py` / `stack_bringup.launch.py` set
+  `FASTRTPS_DEFAULT_PROFILES_FILE` (launch argument `fastdds_profile`). A new
+  top-level launch entry point must set it the same way, next to
+  `ROS_DISCOVERY_SERVER`;
+- everything started by hand: `source scripts/env/jazzy.sh` (bash or zsh),
+  and f1tenth_ctl through `ctl.env`. After changing it, `ros2 daemon stop`;
+- the Isaac sim: its own profiles (`config/sim/dds/*.xml`, loopback or the
+  link interface) carry the same lease, and `scripts/sim/sim_isaac.sh` passes
+  its profile as `fastdds_profile:=...`, so the launch does not replace it;
+- the car's Docker image runs the launch files, so it is covered.
+
+Never add another `is_default_profile` next to these: Fast DDS loads one
+default profile per process.
+
+### Launch parameters: never `on` / `off` / `yes` / `no` as string values
+
+Launch writes parameters through a YAML file, and YAML turns `on`/`off`
+into booleans: a string parameter declared with default `'on'` received
+`True` and the node refused to start (fix batch 5, `health_watchdog`). Use
+words YAML leaves alone (`enforce`, `alert`, `disabled`).
+
+## Harness gotchas
+
+- `pkill -f PATTERN` / `pgrep -f` inside a Bash tool call match the calling
+  shell's own command line, which contains PATTERN: `pkill -f` then kills the
+  call itself. Kill by PID, or by exact process name (`pkill -x`).
+- **Never `rm -rf` a path built from a variable** unless the variable is
+  expanded as `${VAR:?}` (an unset or empty variable aborts instead of
+  expanding to nothing) **and** the resolved path is checked to be under an
+  expected prefix (`/scratch/fabiocar/`, `~/p5d_*`, `~/jazzy_orin/`, the repo)
+  before deleting. On every machine. Phase 5d: a broken SSH here-doc ran
+  `rm -rf $VAL` with `VAL=$OUT/pydeps_validated` and `$OUT` empty, i.e. `rm -rf /pydeps_validated` on
+  the Thor. The path did not exist; the same slip with another name wipes a
+  directory tree.
+- **Remote work goes through a script, not a here-doc typed into `ssh '…'`.**
+  Write the script locally with `set -euo pipefail` (`set +u` only around
+  sourcing ROS setup files, which read unset variables), then
+  `ssh andre@jetson-thor bash -s < script.sh`, or `scp` it and run it. Nested
+  quoting of a multi-line here-doc inside `ssh '…'` breaks silently and runs
+  the rest of the text as shell commands.
+
 ## Rebuild policy
 
 ### After any `ros-jazzy-*` apt upgrade, clean-rebuild every CMake package
@@ -157,3 +213,18 @@ compose, `network_mode: host` **and** `build: {network: host}`.
 Phase 5d D2, not written yet) must too. The stack wants host networking anyway (lidar on Ethernet, Discovery
 Server on 127.0.0.1:11811, linus over Tailscale).
 
+## Thor
+
+### A second checkout needs a clean shell
+
+The Thor's `~/.bashrc` sources `~/dev_ws/f1tenth_more/scripts/env/jazzy.sh`,
+which sources **that** checkout's install. A worktree (e.g.
+`~/dev_ws/f1tenth_more_main`) built or run from a normal login shell chains
+the main checkout's install underneath its own, and a package missing from
+the worktree silently comes from the other one. Build and run a second
+checkout from `env -i HOME=$HOME USER=$USER PATH=/usr/bin:/bin bash --noprofile
+--norc`, then `export F1TENTH_WS=<worktree>` and `source <worktree>/scripts/env/jazzy.sh`.
+
+`f1tenth_sim` (Gazebo) carries `COLCON_IGNORE` on this line, so the old
+`~/.colcon/defaults.yaml` skip of `f1tenth_sim` and `f1tenth_more` is harmless
+but no longer needed.

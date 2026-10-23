@@ -6,6 +6,9 @@
   UDP only on the link interface (and loopback for this host's own processes), so the
   traffic stays on the direct cable. @SHM_TRANSPORT@ is the shared-memory transport on the
   stack side, empty on the Isaac side (see isaac_local.xml for why).
+  Participant lease 5 s, announcement 1 s: the same as config/fastdds_profile.xml, which this
+  profile replaces for the sim (sim_isaac.sh passes it as fastdds_profile:=; Fast DDS loads one
+  default profile).
 -->
 <profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
   <transport_descriptors>
@@ -24,6 +27,12 @@
   </transport_descriptors>
   <participant profile_name="f1tenth_sim_eth" is_default_profile="true">
     <rtps>
+      <builtin>
+        <discovery_config>
+          <leaseDuration><sec>5</sec></leaseDuration>
+          <leaseAnnouncement><sec>1</sec></leaseAnnouncement>
+        </discovery_config>
+      </builtin>
       <userTransports>
         @SHM_TRANSPORT@
         <transport_id>f1t_udp_link</transport_id>

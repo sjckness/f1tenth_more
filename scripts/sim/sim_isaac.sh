@@ -297,8 +297,11 @@ run_isaac() {  # until Isaac exits or Ctrl+C (cleanup() stops the container)
 stack_cmd() {  # fills STACK_ARGS
   local share overlay
   share="$(ros2 pkg prefix f1tenth_bringup)/share/f1tenth_bringup"
+  # fastdds_profile: the sim's own profile (loopback or the link interface, the stack's 5 s
+  # lease), which the launch would otherwise replace with config/fastdds_profile.xml.
   STACK_ARGS=(ros2 launch f1tenth_bringup supervisor_bringup.launch.py sim:=isaac use_sim_time:=true
-    discovery_server_address:="$DS_ADDR" discovery_server_port:="$DS_PORT")
+    discovery_server_address:="$DS_ADDR" discovery_server_port:="$DS_PORT"
+    fastdds_profile:="$FASTRTPS_DEFAULT_PROFILES_FILE")
   overlay="${F1T_SIM_HOST_OVERLAY:-}"
   if [ -z "$overlay" ] && [ "$(nproc)" -lt 12 ]; then
     overlay="$share/config/sim/hosts/linus.yaml"

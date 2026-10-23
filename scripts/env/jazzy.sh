@@ -29,6 +29,16 @@ if [ -f "$_f1tenth_ws/install/setup.$_f1tenth_sh" ]; then
   source "$_f1tenth_ws/install/setup.$_f1tenth_sh"
 fi
 
+
+# Fast DDS participant profile: 5 s lease, 1 s announcement (old jazzy line,
+# fix batch 5, H1; the file's own comment says why). The bringup launch files
+# set it for the stack; this covers every participant started by hand:
+# ros2 / ros2cli, rosbag, scripts/stackctl.py, test harnesses, and f1tenth_ctl
+# (ctl.env sources this file). The lease is announced by each participant
+# itself, so a participant without it is not dropped until 20 s after it
+# dies, however the Discovery Server is configured. The Isaac sim replaces it
+# with its own profile (same lease) after sourcing this file.
+export FASTRTPS_DEFAULT_PROFILES_FILE="$_f1tenth_ws/src/f1tenth_bringup/config/fastdds_profile.xml"
 unset _f1tenth_ws _f1tenth_sh
 
 # The Discovery Server is a Fast DDS feature. rmw_fastrtps_cpp is Jazzy's
@@ -90,7 +100,8 @@ ros2cli() {
 # (SUBNET and LOCALHOST gave identical graphs).
 
 # The ros2 daemon keeps the environment it was started with. After changing
-# any of the above, run `ros2 daemon stop` (or use --no-daemon).
+# any of the above (the profile included), run `ros2 daemon stop` (or use
+# --no-daemon).
 
 # Escape hatch for an ad-hoc simple-discovery session (e.g. a bag replay on an
 # isolated domain, the way scripts/jazzy_parity/*.sh do it):
