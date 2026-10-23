@@ -60,18 +60,17 @@ than that, for the same reason the spec calls out SIGINT-not-SIGKILL for the
 subprocess approach: readers and post-hoc analysis trust metadata.yaml, and a
 bag without it reports wrong counts/duration or refuses to open.
 
-STORAGE FORMAT: mcap requested by default, BUT NOT AVAILABLE ON THIS BOX AS
-SHIPPED -- rosbag2_py.get_registered_writers() returns {'sqlite3'} only; the
-rosbag2_storage_mcap plugin is not installed (checked live). Rather than fail
-every mission recording on a missing plugin, _resolve_storage_id() below
-checks the registered writers at startup and falls back to sqlite3 with a
-loud one-time WARNING naming the exact package to install
-(ros-jazzy-rosbag2-storage-mcap). Install it and this node switches to mcap
-on the next start with no code or config change. The fallback is deliberately
-noisy rather than silent: sqlite3 bags are what Foxglove reads least well, so
-"it recorded fine" must not quietly mean "in the format you didn't want".
-The run-report overlay (mission_overlay) reads sqlite3 bags only: an mcap run
-gets the plain recorded stills, so the warning says that too.
+STORAGE FORMAT: sqlite3 by default (storage_id), as the car has always
+recorded: its Humble install has no mcap writer, so the old 'mcap' default
+fell back to sqlite3 there, while on Jazzy the mcap writer is registered and
+the same default silently switched the format. The run-report overlay
+(mission_overlay), mission_debug_video and the replay tools in tools/ read
+sqlite3 bags only (backlog: make them format-agnostic), so the default stays
+sqlite3. storage_id:=mcap still works for a Foxglove-first run: if the
+requested plugin is not registered, _resolve_storage_id() below falls back to
+sqlite3 with a loud one-time WARNING naming the exact package to install
+(ros-jazzy-rosbag2-storage-mcap). An mcap run gets the plain recorded stills
+in its report, so the warning says that too.
 
 QoS -- THE TRAP THIS NODE EXPLICITLY GUARDS AGAINST: rosbag2's recorder does
 not simply inherit a publisher's QoS, and a recorder subscribing RELIABLE to
@@ -789,7 +788,10 @@ class MissionLoggerNode(Node):
         self.active_dir = os.path.join(self.runs_dir, 'active')
         self.complete_dir = os.path.join(self.runs_dir, 'complete')
         self.incomplete_dir = os.path.join(self.runs_dir, 'incomplete')
-        self.requested_storage_id = str(self.declare_parameter('storage_id', 'mcap').value)
+        # sqlite3, as the car records (Humble had no mcap writer): the overlay,
+        # the debug video and the replay tools read .db3 only (the launch arg's
+        # description; mcap readers are on the backlog).
+        self.requested_storage_id = str(self.declare_parameter('storage_id', 'sqlite3').value)
         topics = list(self.declare_parameter('topics', _DEFAULT_TOPICS).value)
         # Off by default: the raw annotated stream was 134 of the 179 MB of
         # the 2026-10-13 R007 bag, and the debug video covers it.
