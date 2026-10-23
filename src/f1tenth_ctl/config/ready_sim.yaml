@@ -1,8 +1,8 @@
-# READY thresholds for the Gazebo sim on linus (config/sim_linus.env).
+# READY thresholds for the Isaac sim on linus (config/sim_linus.env).
 #
 # Same checks as ready.yaml, with two differences:
 # - rates are counted in wall time while the stack runs on sim time, and one
-#   host carries Gazebo plus the whole stack, so the real-time factor is
+#   host carries Isaac Sim plus the whole stack, so the real-time factor is
 #   below 1. The minimum rates are therefore lower;
 # - there is no VESC, so the battery never has data. It is shown only.
 

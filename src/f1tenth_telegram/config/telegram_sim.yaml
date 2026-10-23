@@ -1,4 +1,4 @@
-# f1tenth_telegram against the Gazebo sim on linus: f1tenth_ctl runs locally
+# f1tenth_telegram against the Isaac sim on linus: f1tenth_ctl runs locally
 # with the sim profile (f1tenth_ctl/config/sim_linus.env). For --cli tests.
 
 target:

@@ -91,9 +91,10 @@ def test_discovery_server_on_loopback_in_both_profiles():
     assert re.search(r'^ROS_DISCOVERY_SERVER=127\.0\.0\.1:11811$', car, re.M)
     with open(os.path.join(PKG, 'config', 'sim_linus.env')) as f:
         sim = f.read()
-    # The sim takes its ROS environment from jazzy's sim scripts, on loopback.
-    assert re.search(r'^F1TENTH_SIM_DISCOVERY_IP=127\.0\.0\.1$', sim, re.M)
-    assert re.search(r'^source "\$F1T_SIM_WS/scripts/sim/sim_net\.sh"', sim, re.M)
+    # The sim takes sim_isaac.sh's ROS environment (--net local), on loopback.
+    assert re.search(r'^F1TENTH_DISCOVERY_SERVER=127\.0\.0\.1:11811$', sim, re.M)
+    assert re.search(r'^source "\$F1T_SIM_WS/scripts/env/jazzy\.sh"', sim, re.M)
+    assert re.search(r'sim:=isaac', sim)
 
 
 def test_car_env_matches_the_stack_defaults():
