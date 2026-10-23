@@ -143,7 +143,7 @@ Se `/behavior_executor_node/snapshot_streams/open` esiste, il BT in Telemetria
 richiede `py_trees_ros_interfaces`:
 
 ```bash
-source /opt/ros/humble/setup.bash && source install/setup.bash
+source scripts/env/jazzy.sh
 python3 -c "import py_trees_ros_interfaces.srv" && echo ok
 ```
 
@@ -192,18 +192,19 @@ proprio quando serve. Con sudo: `sudo journalctl --user-unit f1tenth-gateway`.
 Se il gateway gira da un **worktree** (`git worktree add ~/dev_ws/f1tenth_more_pwa
 pwa-control`, per non spostare il checkout principale), nella copia in
 `~/.config/systemd/user/` cambia `ExecStart` nel percorso del worktree. Tutto il
-resto resta: `ctl.env` del worktree sorgente comunque
-`~/dev_ws/f1tenth_more/install/setup.bash`, in sola lettura, che è quello che
-serve -- il gateway vede il grafo e i tipi di messaggio dello stack.
+resto resta: `ctl.env` sorgente l'install del proprio checkout (il worktree),
+oppure quello di `F1TENTH_WS` se impostato -- il gateway vede il grafo e i tipi
+di messaggio dello stack che quel workspace avvia.
 
 `bin/f1tenth_gateway` esegue due passi:
 
 1. Carica `src/f1tenth_ctl/config/ctl.env`, che contiene:
-   - ROS Humble;
+   - ROS Jazzy (`scripts/env/jazzy.sh` del checkout);
    - l'install del workspace;
-   - `ROS_DISCOVERY_SERVER=127.0.0.1:11811`;
-   - `ROS_SUPER_CLIENT=TRUE`.
-2. Avvia il venv.
+   - `ROS_DISCOVERY_SERVER=127.0.0.1:11811`.
+2. Esporta `ROS_SUPER_CLIENT=TRUE` solo per il gateway: conta publisher e
+   subscriber dei topic, e un client normale del Discovery Server non li vede.
+3. Avvia il venv.
 
 Così il gateway vede lo stesso grafo di `f1tenth_ctl`.
 

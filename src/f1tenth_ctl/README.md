@@ -63,16 +63,19 @@ the CLI see the same variables.
 **One rule for every target: the env file gives exactly the ROS environment
 of a shell on that target.** The details are in `output/telegram/discovery.md`.
 
-- **Car:** `config/ctl.env` is a literal copy of the ROS part of the Orin's
-  `~/.bashrc`:
-  - Humble and the workspace;
+- **Car (Jazzy):** `config/ctl.env` sources `scripts/env/jazzy.sh` of its own
+  checkout (`F1TENTH_WS` overrides it), the file a Jazzy host's `~/.bashrc`
+  sources:
+  - Jazzy and the workspace install;
   - `ROS_DISCOVERY_SERVER=127.0.0.1:11811`;
-  - `ROS_SUPER_CLIENT=TRUE`;
-  - the CUDA `LD_LIBRARY_PATH`.
+  - **no** `ROS_SUPER_CLIENT`: the stack's nodes are plain Discovery Server
+    clients; the probe, the monitor and the gateway set it for themselves;
+  - the pip CUDA `LD_LIBRARY_PATH` only where torch is in this python's user site.
 
-  Read on 2026-10-20, it was identical on all 13 compared variables.
-- **Sim:** `config/sim_linus.env` sources jazzy's own `scripts/sim/sim_net.sh`,
-  with the discovery server on loopback. See also `output/telegram/test.md`.
+  The car's Humble profile (a copy of the Orin's `~/.bashrc`, read on
+  2026-10-20) is the one on `campaign-final`.
+- **Sim:** `config/sim_linus.env`: the Isaac sim on one host (`scripts/sim/sim_isaac.sh`'s
+  stack environment, `--net local`). See also `output/telegram/test.md`.
 
 `check` compares the env file with the reference shell `F1T_SHELL_REF`:
 
@@ -123,14 +126,15 @@ This is the `ros2 node list` check: the node list is read as a super client.
 
 **The same graph from a shell.** With the discovery server, the ros2 CLI sees
 what f1tenth_ctl sees only with the env file's environment
-(`ROS_DISCOVERY_SERVER=127.0.0.1:11811`, `ROS_SUPER_CLIENT=TRUE`) and
+(`ROS_DISCOVERY_SERVER=127.0.0.1:11811`), as a **super client** and
 **without the ros2 daemon**. The daemon keeps the environment of whoever
-started it, so through it `ros2 topic list` can show nothing, or another graph:
+started it, so through it `ros2 topic list` can show nothing, or another graph.
+`scripts/env/jazzy.sh`'s `ros2cli` helper does both:
 
 ```bash
-set -a; . ~/dev_ws/f1tenth_more/src/f1tenth_ctl/config/ctl.env; set +a
-ros2 node list --no-daemon
-ros2 topic list --no-daemon
+source ~/dev_ws/f1tenth_more/scripts/env/jazzy.sh
+ros2cli node list
+ros2cli topic list
 ```
 
 `f1tenth_ctl check` warns (`super_client`) when the env file leaves

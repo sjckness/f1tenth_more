@@ -1,9 +1,12 @@
 #!/bin/bash
 # Runs the gateway straight from this checkout (no colcon build needed).
 #
-# On the car: f1tenth_ctl's env file is sourced first (ROS Humble, the
-# workspace install, the discovery server, ROS_SUPER_CLIENT), so the gateway
-# sees the graph f1tenth_ctl sees; then the gateway's venv runs it.
+# On the car: f1tenth_ctl's env file is sourced first (ROS Jazzy, the
+# workspace install, the discovery server), so the gateway sees the graph
+# f1tenth_ctl sees; then the gateway's venv runs it. The env file leaves the
+# stack's nodes plain Discovery Server clients; the gateway alone becomes a
+# super client, because ros_bridge counts the publishers and subscribers of
+# topics (teleop lane, /llm2/*), which a plain client does not learn.
 # --mock: a pretend car, no ROS and no env file (linus, tests).
 set -e
 here="$(cd "$(dirname "$0")/.." && pwd)"     # src/f1tenth_gateway
@@ -18,6 +21,7 @@ if [ "$mock" = 0 ]; then
     # shellcheck disable=SC1090
     . "$env_file"
     set +a
+    export ROS_SUPER_CLIENT=TRUE
 fi
 export PYTHONPATH="$here:$src/f1tenth_ctl:$src/f1tenth_telegram${PYTHONPATH:+:$PYTHONPATH}"
 config="${F1T_GATEWAY_CONFIG:-$here/config/gateway.yaml}"
