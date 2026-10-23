@@ -45,7 +45,7 @@ mode="$(python3 "$here/zed_svo.py" start "$out/${clip}.svo2")" || { echo "SVO st
 sed -i "s|^svo_compression: .*|svo_compression: ${mode}|" "$out/notes.txt"
 echo "SVO recording: ${mode} -> $out/${clip}.svo2"
 
-ros2 bag record -o "$out/bag" "${topics[@]}" &
+ros2 bag record -o "$out/bag" --topics "${topics[@]}" &
 bag_pid=$!
 
 stopping=0

@@ -368,10 +368,26 @@ def checkout_commit(src):
 # The bag
 # ============================================================================
 
-def typestore(src):
-    """Return a ROS2_HUMBLE typestore with checkout `src`'s f1tenth_messages registered."""
+def bag_distro(bag):
+    """ROS distro that recorded `bag` (dir or .db3): its metadata.yaml's ros_distro.
+
+    rosbag2 writes ros_distro from Iron on; the car's Humble bags have none.
+    """
+    p = Path(bag)
+    for meta in (p / 'metadata.yaml', p.parent / 'metadata.yaml'):
+        if meta.is_file():
+            with open(meta) as f:
+                info = (yaml.safe_load(f) or {}).get('rosbag2_bagfile_information') or {}
+            return str(info.get('ros_distro') or 'humble')
+    return 'humble'
+
+
+def typestore(src, bag=None):
+    """Return the typestore of `bag`'s distro (Humble without a bag), with checkout
+    `src`'s f1tenth_messages registered."""
     from rosbags.typesys import get_types_from_msg, get_typestore, Stores
-    store = get_typestore(Stores.ROS2_HUMBLE)
+    store = get_typestore(Stores.ROS2_JAZZY if bag is not None and bag_distro(bag) == 'jazzy'
+                          else Stores.ROS2_HUMBLE)
     types = {}
     for path in sorted((Path(src) / 'src/f1tenth_messages/msg').glob('*.msg')):
         types.update(get_types_from_msg(path.read_text(), f'f1tenth_messages/msg/{path.stem}'))
@@ -1085,7 +1101,7 @@ def replay(bag, out_dir=None, walls='recorded', cadence='steps', every=4, frames
     src = Path(src).resolve()
     sources = {}
     p = door_params(src, params, frames, overrides, sources)
-    store = typestore(src)
+    store = typestore(src, bag)
     data, undecoded = read_bag(bag, store, TOPICS + (IMAGE_TOPICS if images != 'none' else ()),
                                first_only=(IMAGE_TOPICS[1],))
     if not data['/scan']:

@@ -73,8 +73,23 @@ def stack_params():
     return {k: v['default'] for k, v in raw.items() if isinstance(v, dict) and 'default' in v}
 
 
-def typestore():
-    store = get_typestore(Stores.ROS2_HUMBLE)
+def bag_distro(bag):
+    """ROS distro that recorded `bag` (dir or .db3): its metadata.yaml's ros_distro.
+
+    rosbag2 writes ros_distro from Iron on; the car's Humble bags have none.
+    """
+    p = Path(bag)
+    for meta in (p / 'metadata.yaml', p.parent / 'metadata.yaml'):
+        if meta.is_file():
+            with open(meta) as f:
+                info = (yaml.safe_load(f) or {}).get('rosbag2_bagfile_information') or {}
+            return str(info.get('ros_distro') or 'humble')
+    return 'humble'
+
+
+def typestore(bag=None):
+    store = get_typestore(Stores.ROS2_JAZZY if bag is not None and bag_distro(bag) == 'jazzy'
+                          else Stores.ROS2_HUMBLE)
     types = {}
     for path in sorted((REPO / 'src/f1tenth_messages/msg').glob('*.msg')):
         types.update(get_types_from_msg(path.read_text(), f'f1tenth_messages/msg/{path.stem}'))
@@ -533,8 +548,8 @@ def main():
     ap.add_argument('bags', nargs='+')
     args = ap.parse_args()
     params = stack_params()
-    store = typestore()
     for bag in args.bags:
+        store = typestore(bag)
         s = replay(bag, args.out, params, store, args.wall_obs_min_span,
                    not args.no_behind_walls)
         print(json.dumps({k: v for k, v in s.items() if k != 'unknown_objects'}, indent=1,
