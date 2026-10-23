@@ -373,6 +373,7 @@ def bag_distro(bag):
 
     rosbag2 writes ros_distro from Iron on; the car's Humble bags have none.
     """
+    import yaml
     p = Path(bag)
     for meta in (p / 'metadata.yaml', p.parent / 'metadata.yaml'):
         if meta.is_file():
