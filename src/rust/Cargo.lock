@@ -322,6 +322,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "f1tenth_mpc_core"
+version = "0.1.0"
+
+[[package]]
 name = "f1tenth_proximity_guard"
 version = "0.1.0"
 dependencies = [

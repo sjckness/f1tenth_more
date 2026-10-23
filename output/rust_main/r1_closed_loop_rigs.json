@@ -1,0 +1,23 @@
+{
+ "golden": "/home/andreas/dev_ws/f1tenth_more_rust/src/f1tenth_control/mpc_controller/test/data/closed_loop_golden.json",
+ "runs": 20,
+ "impl": {
+  "py": {
+   "seconds": 8.429285287857056,
+   "solves": 1218,
+   "runs_equal_to_golden": 20,
+   "differing_runs": [],
+   "corridor_calls_py": 138,
+   "corridor_calls_rust": 0
+  },
+  "rust": {
+   "seconds": 8.491978883743286,
+   "solves": 1218,
+   "runs_equal_to_golden": 20,
+   "differing_runs": [],
+   "corridor_calls_py": 0,
+   "corridor_calls_rust": 138
+  }
+ },
+ "pass": true
+}

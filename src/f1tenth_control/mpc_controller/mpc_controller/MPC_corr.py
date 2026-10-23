@@ -38,8 +38,8 @@ from mpc_controller.cost_to_go import CostToGo, LatticeConfig
 from mpc_controller.move_target import (
     MoveTarget, without_target_circles, without_target_objects)
 from f1tenth_params.corridor_geometry import (
-    CORRIDOR_HANDLE_FRAC, CORRIDOR_WIDTH_RATIO, POSE_HANDLE_FRAC,
-    corridor_curves, corridor_curves_to_pose, wrap_pi)
+    CORRIDOR_HANDLE_FRAC, CORRIDOR_WIDTH_RATIO, POSE_HANDLE_FRAC, wrap_pi)
+from mpc_controller import corridor_backend
 from mpc_controller import wall_boundaries as wb
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
 from mpc_controller.llm2_params import (
@@ -1105,6 +1105,21 @@ class MPCController(Node):
         self.corr_width_scale_with_length = bool(self.declare_parameter(
             'corr_width_scale_with_length',
             get_value('corr_width_scale_with_length')).value)
+        # WHICH IMPLEMENTATION BUILDS THE GEOMETRY (corridor_backend.py):
+        # 'py' f1tenth_params.corridor_geometry, 'rust' the bit-identical
+        # port in f1tenth_mpc_core (output/rust/parity_corridor.md). Default
+        # from stack_params.yaml (py). rust that does not load refuses the
+        # start here, never falls back: the launch line is what runs.
+        # READ-ONLY, like the LLM2 switch: it is read once, so a runtime
+        # `ros2 param set` is refused instead of accepted and ignored.
+        self.corridor_impl = corridor_backend.require(str(self.declare_parameter(
+            'corridor_impl', corridor_backend.default_impl(),
+            ParameterDescriptor(
+                read_only=True,
+                description='corridor geometry py|rust (R1): read once at start')).value))
+        self.get_logger().info(
+            f'CORR/impl | corridor geometry: '
+            f'{corridor_backend.describe(self.corridor_impl)}')
 
         # LOOKAHEAD IS DERIVED FROM CORRIDOR LENGTH, NOT A SECOND CONSTANT.
         # It used to be a bare `lookahead = 1.5` inside compute_local_target
@@ -6730,8 +6745,11 @@ class MPCController(Node):
         # beyond 2.0 m, 8 of 9 beyond 1.55 m and 9 of 12 beyond 1.25 m -- so a
         # fallback is not an edge case, it is the final approach, and it is the
         # straight geometry the branch has always used there.
+        # corridor_impl (corridor_backend.py): getattr, because the stand-ins
+        # carry no such field; they get corridor_backend.DEFAULT_IMPL.
+        _corridor_impl = getattr(self, 'corridor_impl', corridor_backend.DEFAULT_IMPL)
         if pose_target is not None:
-            geom = corridor_curves_to_pose(
+            geom = corridor_backend.corridor_curves_to_pose(
                 X0, Y0, psiStart, pose_target[0], pose_target[1], psiEnd,
                 self.corr_N,
                 w0=self.corr_wmin,
@@ -6741,6 +6759,7 @@ class MPCController(Node):
                             if getattr(self, 'corr_width_scale_with_length',
                                        False) else None),
                 walls=CORRIDOR_WALLS,
+                impl=_corridor_impl,
             )
             # THE CAP APPLIES TO THIS SHAPE TOO, and it has to be checked
             # after the fit rather than before it: the pose corridor's length
@@ -6797,7 +6816,7 @@ class MPCController(Node):
                 target_line = None
 
         if pose_target is None:
-            geom = corridor_curves(
+            geom = corridor_backend.corridor_curves(
                 X0, Y0, psiStart, psiEnd, L, self.corr_N,
                 dpsi=turn_remaining,
                 u_start=u_start_use,
@@ -6821,6 +6840,7 @@ class MPCController(Node):
                             if getattr(self, 'corr_width_scale_with_length',
                                        False) else None),
                 walls=CORRIDOR_WALLS,
+                impl=_corridor_impl,
             )
         if not geom['feasible'] and pose_target is None:
             self.get_logger().warn(

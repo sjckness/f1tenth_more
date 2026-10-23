@@ -64,6 +64,17 @@
        only; no cycle (f1tenth_hardware does not depend back on this
        package). -->
   <test_depend>f1tenth_hardware</test_depend>
+  <!-- NO dependency on f1tenth_mpc_core (src/rust/f1tenth_mpc_core,
+       ament_cargo), deliberately: libf1tenth_mpc_core.so is the Rust corridor
+       geometry mpc_native.py loads with ctypes only when corridor_impl is rust
+       (main-jazzy-rust R1), found through ament_index in the sourced
+       workspace, the corridor_perception / libextract_lines pattern. Any
+       declared dependency, exec or test, makes this package unbuildable on a
+       colcon without colcon-ros-cargo, where the Rust package cannot be built
+       (measured 2026-10-23: "Failed to find ... f1tenth_mpc_core/package.sh",
+       the CLAUDE.md Thor trap), and the MPC must build everywhere. Not built:
+       corridor_impl rust refuses mpc_corr's start, and the rust corridor tests
+       skip. -->
 
   <export>
     <build_type>ament_python</build_type>

@@ -1,0 +1,10 @@
+rebuilds: geometry 1344 cases, 1344 bit-identical, 0 failures, 0 matched exceptions, 0 exception mismatches, max |d| 0.0; queries 22848 / 22848 identical / 0 failures
+sweep: geometry 8937 cases, 8907 bit-identical, 0 failures, 1063 matched exceptions, 0 exception mismatches, max |d| 0.0; queries 43987 / 43409 identical / 0 failures
+replay /tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r1/suites2/capture/mpc_controller/corpus.pkl: 1383 geometry (1383 identical, 0 failures, 9 exceptions matched), 30446 queries (0 failures)
+replay /tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r1/suites2/capture/f1tenth_params/corpus.pkl: 130 geometry (130 identical, 0 failures, 2 exceptions matched), 0 queries (0 failures)
+replay /tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r1/suites2/capture/f1tenth_logger/corpus.pkl: 33 geometry (33 identical, 0 failures, 0 exceptions matched), 0 queries (0 failures)
+timing straight {"py": {"median_us": 154.9335, "p95_us": 195.1085, "calls": 1200}, "rust": {"median_us": 49.437, "p95_us": 86.35499999999996, "calls": 1200}, "speedup_median": 3.1339583712603925}
+timing arc+rmin {"py": {"median_us": 154.0585, "p95_us": 195.17065, "calls": 1200}, "rust": {"median_us": 49.5415, "p95_us": 84.97449999999999, "calls": 1200}, "speedup_median": 3.109685818959862}
+timing pose+rmin {"py": {"median_us": 374.5725, "p95_us": 432.35795, "calls": 1200}, "rust": {"median_us": 124.567, "p95_us": 181.73549999999997, "calls": 1200}, "speedup_median": 3.006996234957894}
+timing query (lateral coordinates / frame) {"py": {"median_us": 7.9475, "calls": 1000}, "rust": {"median_us": 16.851, "calls": 1000}}
+GATE PASS (20.1 s)

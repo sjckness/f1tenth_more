@@ -71,6 +71,14 @@ def generate_launch_description():
         'use_rti_solver', default_value=str(use_rti_solver_default),
         description=use_rti_solver_desc)
 
+    # Which implementation builds the corridor geometry: py (default) or rust
+    # (f1tenth_mpc_core, main-jazzy-rust R1). Forwarded by navigation.launch.py
+    # and set by the supervisor/stack bringups' corridor_impl:=.
+    corridor_impl_default, corridor_impl_desc = get_default('corridor_impl')
+    corridor_impl_la = DeclareLaunchArgument(
+        'corridor_impl', default_value=str(corridor_impl_default),
+        choices=['py', 'rust'], description=corridor_impl_desc)
+
     # The MPC's prediction step, NOT its control period (see the yaml key).
     # A launch arg so the 0.1 rollback is a launch-time switch, not a rebuild.
     mpc_prediction_dt_s_default, mpc_prediction_dt_s_desc = get_default(
@@ -351,6 +359,9 @@ def generate_launch_description():
         parameters=[{
             'odom_stale_timeout_sec': LaunchConfiguration('odom_stale_timeout_sec'),
             'use_rti_solver': LaunchConfiguration('use_rti_solver'),
+            # value_type=str, like boundary_source: a string parameter.
+            'corridor_impl': ParameterValue(
+                LaunchConfiguration('corridor_impl'), value_type=str),
             # value_type=float: the node declares it with a float default,
             # and an untyped `:=1` would reach it as an INTEGER.
             'mpc_prediction_dt_s': ParameterValue(
@@ -421,7 +432,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        odom_stale_timeout_sec_la, use_rti_solver_la, mpc_prediction_dt_s_la,
+        odom_stale_timeout_sec_la, use_rti_solver_la, corridor_impl_la, mpc_prediction_dt_s_la,
         car_radius_la, avoidance_margin_la,
         cpu_affinity_la, nice_la, corridor_update_period_la,
         mpc_w_term_la, mpc_w_psi_la, mpc_w_psi_stage_la, mpc_w_corr_la,

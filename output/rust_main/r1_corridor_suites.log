@@ -1,0 +1,37 @@
+== py mpc_controller (20:27:15)
+   13 failed, 1530 passed, 1 skipped, 2 xfailed, 8 warnings in 345.10s (0:05:45) [346 s]
+== py f1tenth_params (20:33:01)
+   80 passed in 0.41s [1 s]
+== py f1tenth_logger (20:33:02)
+   5 failed, 331 passed, 8 warnings in 45.34s [46 s]
+== rust mpc_controller (20:33:48)
+   13 failed, 1530 passed, 1 skipped, 2 xfailed, 8 warnings in 344.98s (0:05:44) [346 s]
+== rust f1tenth_params (20:39:34)
+   80 passed in 0.41s [1 s]
+== rust f1tenth_logger (20:39:35)
+   5 failed, 331 passed, 8 warnings in 45.27s [46 s]
+== substitute mpc_controller (20:40:21)
+   13 failed, 1530 passed, 1 skipped, 2 xfailed, 8 warnings in 435.90s (0:07:15) [436 s]
+== substitute f1tenth_params (20:47:37)
+   80 passed in 0.33s [1 s]
+== substitute f1tenth_logger (20:47:38)
+   5 failed, 331 passed, 8 warnings in 45.32s [47 s]
+== capture mpc_controller (20:48:25)
+   13 failed, 1530 passed, 1 skipped, 2 xfailed, 8 warnings in 866.80s (0:14:26) [868 s]
+== capture f1tenth_params (21:02:53)
+   80 passed in 0.40s [1 s]
+== capture f1tenth_logger (21:02:54)
+   5 failed, 331 passed, 8 warnings in 45.65s [47 s]
+f1tenth_logger   capture       336 tests  passed   331  failure   5  error   0  skipped   0  differs from py 0
+f1tenth_logger   py            336 tests  passed   331  failure   5  error   0  skipped   0  differs from py 0
+f1tenth_logger   rust          336 tests  passed   331  failure   5  error   0  skipped   0  differs from py 0
+f1tenth_logger   substitute    336 tests  passed   331  failure   5  error   0  skipped   0  differs from py 0
+f1tenth_params   capture        80 tests  passed    80  failure   0  error   0  skipped   0  differs from py 0
+f1tenth_params   py             80 tests  passed    80  failure   0  error   0  skipped   0  differs from py 0
+f1tenth_params   rust           80 tests  passed    80  failure   0  error   0  skipped   0  differs from py 0
+f1tenth_params   substitute     80 tests  passed    80  failure   0  error   0  skipped   0  differs from py 0
+mpc_controller   capture      1546 tests  passed  1530  failure  13  error   0  skipped   3  differs from py 0
+mpc_controller   py           1546 tests  passed  1530  failure  13  error   0  skipped   3  differs from py 0
+mpc_controller   rust         1546 tests  passed  1530  failure  13  error   0  skipped   3  differs from py 0
+mpc_controller   substitute   1546 tests  passed  1530  failure  13  error   0  skipped   3  differs from py 0
+IDENTICAL OUTCOMES

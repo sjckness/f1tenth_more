@@ -1,0 +1,21 @@
+{
+ "mode": "substitute",
+ "library": "/home/andreas/dev_ws/f1tenth_more_rust/install/f1tenth_mpc_core/lib/f1tenth_mpc_core/libf1tenth_mpc_core.so",
+ "build": "build: cargo profile debug, opt-level 3, debug_assertions on",
+ "seconds": 435.91176176071167,
+ "geometry_calls": {},
+ "geometry_distinct": 0,
+ "geometry": {},
+ "query_calls": {},
+ "query": {},
+ "query_dtypes": {},
+ "substituted_calls": {
+  "_nearest_corridor_frame": 875628,
+  "corridor_lateral_coordinates": 1015199,
+  "corridor_curves": 2305,
+  "corridor_curves_to_pose": 134,
+  "corridor_heading_at": 1818070
+ },
+ "mismatches": 0,
+ "mismatch_examples": []
+}

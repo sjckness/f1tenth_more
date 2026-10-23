@@ -67,6 +67,7 @@ from launch.actions import (
 )
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -188,6 +189,13 @@ def generate_launch_description():
         'impl', default_value='py', choices=['py', 'rust'],
         description='costmap_boundary_node implementation: py (f1tenth_costmap) or rust '
                     '(f1tenth_costmap_boundary_rs). Never both: same node name and topics.')
+    # corridor_impl -> navigation.launch.py corridor_impl -> mpc_corr.launch.py:
+    # which implementation builds MPC_corr's corridor geometry (R1). Default
+    # from stack_params.yaml (py), the same as mpc_corr.launch.py's own.
+    corridor_impl_default, corridor_impl_desc = get_default('corridor_impl')
+    corridor_impl_la = DeclareLaunchArgument(
+        'corridor_impl', default_value=str(corridor_impl_default), choices=['py', 'rust'],
+        description=corridor_impl_desc)
 
     enable_intelligence_default, enable_intelligence_desc = get_default('enable_intelligence')
     enable_intelligence_la = DeclareLaunchArgument(
@@ -255,8 +263,16 @@ def generate_launch_description():
         params = {
             'calibration': LaunchConfiguration('calibration'),
             'enable_mission_logger': LaunchConfiguration('enable_mission_logger'),
-            'proximity_guard': LaunchConfiguration('guard'),
-            'costmap_boundary_impl': LaunchConfiguration('impl'),
+            # value_type=str: the supervisor declares these as STRING
+            # parameters, and an untyped substitution is read back as YAML 1.1,
+            # where guard's default `off` is the boolean false (rclpy then
+            # refuses the override and the supervisor dies in __init__;
+            # CLAUDE.md, "never on/off as string values").
+            'proximity_guard': ParameterValue(LaunchConfiguration('guard'), value_type=str),
+            'costmap_boundary_impl': ParameterValue(
+                LaunchConfiguration('impl'), value_type=str),
+            'corridor_impl': ParameterValue(
+                LaunchConfiguration('corridor_impl'), value_type=str),
             'enable_intelligence': LaunchConfiguration('enable_intelligence'),
             'enable_comms': LaunchConfiguration('enable_comms'),
             'components_config': LaunchConfiguration('components_config'),
@@ -303,6 +319,7 @@ def generate_launch_description():
         enable_mission_logger_la,
         guard_la,
         impl_la,
+        corridor_impl_la,
         enable_intelligence_la,
         enable_comms_la,
         components_config_la,

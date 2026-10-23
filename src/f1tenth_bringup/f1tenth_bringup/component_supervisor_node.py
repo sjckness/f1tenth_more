@@ -402,39 +402,59 @@ _SIM_REPLACEMENTS = {
 _SIM_WRAPPER = ('f1tenth_bringup', 'sim_component.launch.py')
 
 
-# Rust ports (output/rust/): which launch file takes which switch.
-#   guard -> behavior_bringup.launch.py proximity_guard:=off|shadow|active
-#   impl  -> costmap.launch.py          costmap_boundary_impl:=py|rust
+# Rust ports (output/rust/): each switch is a supervisor parameter AND the
+# launch argument it becomes, written into every registry entry that launches
+# its file. {argument: (launch_file, choices)}; the first choice is the default
+# (off / py), the stack exactly as it is without the ports.
+#   guard:=         -> behavior_bringup.launch.py proximity_guard:=off|shadow|active
+#   impl:=          -> costmap.launch.py          costmap_boundary_impl:=py|rust
+#   corridor_impl:= -> navigation.launch.py       corridor_impl:=py|rust (forwarded
+#                      to mpc_corr.launch.py: MPC_corr's corridor geometry, R1)
+# Keyed by argument, not by launch file, because one file can take several
+# (navigation.launch.py will also take the solver core's switch).
 _RUST_SWITCHES = {
-    'behavior_bringup.launch.py': ('proximity_guard', ('off', 'shadow', 'active')),
-    'costmap.launch.py': ('costmap_boundary_impl', ('py', 'rust')),
+    'proximity_guard': ('behavior_bringup.launch.py', ('off', 'shadow', 'active')),
+    'costmap_boundary_impl': ('costmap.launch.py', ('py', 'rust')),
+    'corridor_impl': ('navigation.launch.py', ('py', 'rust')),
 }
 
 
-def validate_rust_switches(proximity_guard, costmap_boundary_impl):
-    """Raise ValueError for a value the launch files do not accept."""
-    for value, (arg, choices) in zip(
-            (proximity_guard, costmap_boundary_impl), _RUST_SWITCHES.values()):
+def rust_switch_defaults():
+    """{argument: default} for every switch: off / py."""
+    return {arg: choices[0] for arg, (_launch_file, choices) in _RUST_SWITCHES.items()}
+
+
+def validate_rust_switches(values):
+    """
+    Raise ValueError for an unknown switch or a value its launch file refuses.
+
+    `values` is {argument: value}, e.g. {'corridor_impl': 'rust'}.
+    """
+    unknown = sorted(set(values) - set(_RUST_SWITCHES))
+    if unknown:
+        raise ValueError(f'unknown Rust switch {unknown}, known: {sorted(_RUST_SWITCHES)}')
+    for arg, value in values.items():
+        choices = _RUST_SWITCHES[arg][1]
         if value not in choices:
             raise ValueError(f'{arg} must be one of {choices}, got {value!r}')
 
 
-def apply_rust_switches(registry, proximity_guard, costmap_boundary_impl):
-    """Write guard/impl into the args of the entries that launch those files.
+def apply_rust_switches(registry, values):
+    """Write each switch into the args of the entries that launch its file.
 
-    Found by launch_file, like _apply_mission_logger_override, so moving an
-    entry to another component cannot disconnect the switch. The defaults
-    (off, py) are written too: a components.yaml literal cannot silently
-    disagree with the supervisor's own parameter.
+    `values` is {argument: value}. Found by launch_file, like
+    _apply_mission_logger_override, so moving an entry to another component
+    cannot disconnect a switch. The defaults (off, py) are written too: a
+    components.yaml literal cannot silently disagree with the supervisor's
+    own parameter.
     """
-    values = {'behavior_bringup.launch.py': proximity_guard,
-              'costmap.launch.py': costmap_boundary_impl}
+    validate_rust_switches(values)
     for entries in registry.values():
         for entry in entries:
             launch_file = str(entry.get('launch_file', ''))
-            if launch_file in _RUST_SWITCHES:
-                arg = _RUST_SWITCHES[launch_file][0]
-                entry.setdefault('args', {})[arg] = values[launch_file]
+            for arg, value in values.items():
+                if launch_file == _RUST_SWITCHES[arg][0]:
+                    entry.setdefault('args', {})[arg] = value
     return registry
 
 
@@ -679,10 +699,19 @@ class ComponentSupervisorNode(Node):
         # impl:=, the same shape as enable_mission_logger and for the same
         # reason. Validated here as well as by the launch arguments' choices:
         # a bare `ros2 run` must not start a guard mode nobody asked for.
+        # corridor_impl (R1): default from stack_params.yaml like the launch
+        # argument's, so a bare `ros2 run` agrees with the bringups.
         self.proximity_guard = str(self.declare_parameter('proximity_guard', 'off').value)
         self.costmap_boundary_impl = str(
             self.declare_parameter('costmap_boundary_impl', 'py').value)
-        validate_rust_switches(self.proximity_guard, self.costmap_boundary_impl)
+        self.corridor_impl = str(
+            self.declare_parameter('corridor_impl', str(get_value('corridor_impl'))).value)
+        self.rust_switches = {
+            'proximity_guard': self.proximity_guard,
+            'costmap_boundary_impl': self.costmap_boundary_impl,
+            'corridor_impl': self.corridor_impl,
+        }
+        validate_rust_switches(self.rust_switches)
         # component-auto-start pass: whether 'intelligence' (llama-server) auto-
         # starts -- same "declared parameter, wired from supervisor_bringup.
         # launch.py's own launch argument, default sourced from stack_params.yaml"
@@ -776,11 +805,12 @@ class ComponentSupervisorNode(Node):
         # After the sim rewrite, on whichever registry is final: the logger
         # toggle is by launch_file, so it applies to the car and to sim alike.
         self._apply_mission_logger_override()
-        apply_rust_switches(self._registry, self.proximity_guard, self.costmap_boundary_impl)
-        if self.proximity_guard != 'off' or self.costmap_boundary_impl != 'py':
+        apply_rust_switches(self._registry, self.rust_switches)
+        if self.rust_switches != rust_switch_defaults():
             self.get_logger().info(
                 f'[component_supervisor] Rust ports: guard:={self.proximity_guard} '
-                f'impl:={self.costmap_boundary_impl} (output/rust/)')
+                f'impl:={self.costmap_boundary_impl} '
+                f'corridor_impl:={self.corridor_impl} (output/rust/)')
 
         # Some individual launch files within a multi-launch component legitimately
         # do nothing at all when their own feature flag is off -- an empty (or

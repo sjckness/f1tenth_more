@@ -56,6 +56,12 @@ if [ "${RUST:-skip}" = build ]; then
     echo "  $pb: $build"
     case "$build" in *"opt-level 3,"*) ;; *) bad "$pb not built at opt-level 3: $build" ;; esac
   done
+  # The corridor library (R1): mpc_controller loads it with ctypes when
+  # corridor_impl is rust; check that the loader accepts it (ABI version,
+  # struct sizes) and that it is an opt-level 3 build.
+  mpc_core=$(python3 -c 'from mpc_controller import mpc_native as m; print(m.available(), m.load_error(), m.build_info())' 2>&1 | tail -1)
+  echo "  f1tenth_mpc_core: $mpc_core"
+  case "$mpc_core" in "True None "*"opt-level 3,"*) ;; *) bad "f1tenth_mpc_core not loadable or not opt-level 3: $mpc_core" ;; esac
 fi
 
 echo "== ldd -r scan (CLAUDE.md): workspace install, ZED SDK, llama.cpp; must print nothing"

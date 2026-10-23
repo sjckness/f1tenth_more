@@ -1,0 +1,29 @@
+[package]
+name = "f1tenth_mpc_core"
+version = "0.1.0"
+description = "MPC_corr's corridor geometry in Rust (no ROS): a C-ABI library mpc_controller loads with ctypes"
+edition = "2021"
+license = "Apache-2.0"
+rust-version = "1.85"
+
+# cdylib: cargo-ament-build installs lib<package>.so into
+# install/f1tenth_mpc_core/lib/f1tenth_mpc_core/, where mpc_controller's
+# mpc_native.py finds it through ament_index. rlib: the unit tests and any Rust
+# consumer (the R2 solver core) link it directly.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# No dependencies on purpose: no ROS, no numerics crate. The arithmetic is the
+# numpy reproduction in src/npcompat.rs; sin/cos/pow/hypot/atan2 come from the
+# platform libm, the same one numpy and CPython call.
+[dependencies]
+
+[lints.rust]
+# deny, not forbid: src/ffi.rs is the one module allowed to use unsafe (raw
+# pointers from ctypes), and a crate-level forbid cannot be relaxed there.
+unsafe_code = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"

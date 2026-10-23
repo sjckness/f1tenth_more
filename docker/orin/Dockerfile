@@ -279,9 +279,11 @@ COPY set_llama_paths.py build_checks.sh entrypoint.sh /opt/f1tenth_ws/
 # colcon without colcon-ros-cargo identifies them from package.xml
 # ("ros.ament_cargo"; "ament_cargo" with the plugin) and would only warn "No
 # task extension to 'build' a 'ros.ament_cargo' package" and skip them (tried
-# on linus, 2026-10-23): ignoring them says so instead. Nothing depends on
-# them; their launch switches (guard:=, costmap_boundary_impl:=, impl:=)
-# default to off/py. RUST=build: built like every other package
+# on linus, 2026-10-23): ignoring them says so instead. No package declares a
+# dependency on them (mpc_controller finds f1tenth_mpc_core through
+# ament_index only when corridor_impl is rust); their launch switches
+# (guard:=, costmap_boundary_impl:=, impl:=, corridor_impl:=) default to
+# off/py. RUST=build: built like every other package
 # (colcon-ros-cargo; cargo's dev profile at opt-level 3, src/rust/Cargo.toml).
 RUN --mount=type=bind,from=l4t,target=/usr/lib/aarch64-linux-gnu/nvidia \
     --mount=type=cache,id=f1tenth-orin-ccache-ws,target=/root/.ccache \

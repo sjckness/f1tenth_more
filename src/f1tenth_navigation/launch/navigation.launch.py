@@ -65,6 +65,9 @@ from launch.substitutions import LaunchConfiguration
 _FORWARDED = (
     # LLM2's parameter updates on/off (two-llm-arch), default false.
     'llm2_params_enabled',
+    # The corridor geometry's implementation, py (default) or rust
+    # (main-jazzy-rust R1): the supervisor writes it into this component's args.
+    'corridor_impl',
     'boundary_source',
     'boundary_max_sources',
     'boundary_hard',

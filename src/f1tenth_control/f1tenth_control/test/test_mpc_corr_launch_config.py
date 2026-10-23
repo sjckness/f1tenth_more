@@ -142,3 +142,23 @@ class TestLlm2ParamsEnabledSurvivesSubstitution:
     def test_the_override_reaches_the_node_as_true(self):
         value = _node_parameters({'llm2_params_enabled': 'true'})['llm2_params_enabled']
         assert value is True, f'{value!r} ({type(value).__name__})'
+
+
+class TestCorridorImplSurvivesSubstitution:
+    """corridor_impl (main-jazzy-rust R1) reaches the node as the string it declares."""
+
+    def test_the_default_is_py_from_stack_params(self):
+        value = _node_parameters()['corridor_impl']
+        assert isinstance(value, str), f'{value!r} ({type(value).__name__})'
+        assert value == get_value('corridor_impl') == 'py'
+
+    def test_the_override_reaches_the_node_as_rust(self):
+        value = _node_parameters({'corridor_impl': 'rust'})['corridor_impl']
+        assert isinstance(value, str)
+        assert value == 'rust'
+
+    def test_only_the_two_implementations_are_accepted(self):
+        launch_description = _load_mpc_corr_launch().generate_launch_description()
+        arg = next(e for e in launch_description.entities
+                   if isinstance(e, DeclareLaunchArgument) and e.name == 'corridor_impl')
+        assert arg.choices == ['py', 'rust']

@@ -102,6 +102,10 @@ def generate_launch_description():
     impl_la = DeclareLaunchArgument(
         'impl', default_value='py', choices=['py', 'rust'],
         description='costmap_boundary_node implementation: py or rust.')
+    corridor_impl_default, corridor_impl_desc = get_default('corridor_impl')
+    corridor_impl_la = DeclareLaunchArgument(
+        'corridor_impl', default_value=str(corridor_impl_default), choices=['py', 'rust'],
+        description=corridor_impl_desc)
     discovery_server_address = LaunchConfiguration('discovery_server_address')
     discovery_server_port = LaunchConfiguration('discovery_server_port')
 
@@ -227,7 +231,8 @@ def generate_launch_description():
     # via the mux; independent of which process navigation_bringup itself started.
     # ================================================================
     autonomy_bringup = [
-        include('f1tenth_navigation', 'navigation.launch.py', condition=is_calibration_disabled),
+        include('f1tenth_navigation', 'navigation.launch.py', condition=is_calibration_disabled,
+                corridor_impl=LaunchConfiguration('corridor_impl')),
     ]
     if use_behavior_tree:
         autonomy_bringup.append(include('f1tenth_behavior', 'behavior_bringup.launch.py',
@@ -329,6 +334,7 @@ def generate_launch_description():
         discovery_server_port_la,
         guard_la,
         impl_la,
+        corridor_impl_la,
         discovery_server_env,
         fastdds_profile_la,
         fastdds_profile_env,

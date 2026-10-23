@@ -1257,6 +1257,18 @@ odom_stale_timeout_sec:
 use_rti_solver:
   default: true
   description: "true (default): mpc_corr.py uses the OSQP real-time-iteration solver. false: fall back to the original SLSQP solve (kept for rollback/comparison)."
+# Consumed by: f1tenth_control/mpc_corr.launch.py (launch arg -> MPC_corr.py's
+# corridor_impl parameter, whose own default is this key through
+# mpc_controller/corridor_backend.py), f1tenth_navigation/navigation.launch.py
+# (forwarded), and f1tenth_bringup's supervisor_bringup.launch.py /
+# stack_bringup.launch.py (corridor_impl:=, through the supervisor's
+# corridor_impl parameter to the `navigation` component). Rust port
+# main-jazzy-rust R1: output/rust/parity_corridor.md. Default py; a flip to rust
+# is its own commit after evidence. (The env var F1TENTH_CORRIDOR_IMPL overrides
+# this default for tests only; see corridor_backend.py.)
+corridor_impl:
+  default: py
+  description: "Which implementation builds mpc_corr's corridor geometry (corridor_curves / corridor_curves_to_pose). 'py' (default): f1tenth_params.corridor_geometry. 'rust': the f1tenth_mpc_core library (src/rust/f1tenth_mpc_core) through ctypes, bit-identical on linus (output/rust/parity_corridor.md). With 'rust', mpc_corr refuses to start if the library does not load; it never falls back to the Python silently."
 # Consumed by: f1tenth_control/mpc_corr.launch.py AND, since the single-
 # sourcing pass, by MPC_corr.py itself -- its declare_parameter() default is
 # now get_value('corridor_update_period') rather than a hand-mirrored literal.
