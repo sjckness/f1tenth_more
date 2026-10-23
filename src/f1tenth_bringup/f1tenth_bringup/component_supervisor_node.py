@@ -307,7 +307,8 @@ _HARDWARE_TEARDOWN_BUFFER_SEC = 2.0
 
 # Components that auto-start unconditionally. 'lidar_front_wall',
 # 'wall_distance' (conditional since cpu-cleanup, see _CONDITIONAL_AUTO_START),
-# 'swept_clearance' and 'obstacle_clearance' are each separate
+# 'swept_clearance' (conditional since R3, 2026-10-23, likewise) and
+# 'obstacle_clearance' are each separate
 # from 'perception' on purpose (restarting 'perception' restarts urg_node, the
 # e-stop's /scan) -- see components.yaml's comments on those entries. All four
 # launch files self-gate on use_lidar. obstacle_clearance was on-demand until
@@ -323,7 +324,7 @@ _HARDWARE_TEARDOWN_BUFFER_SEC = 2.0
 # 'reset_manager' serves /reset_all, which restarts other components through
 # this node's /restart_component (never 'intelligence').
 _ALWAYS_AUTO_START = {'hardware', 'localization', 'navigation', 'perception',
-                      'lidar_front_wall', 'swept_clearance',
+                      'lidar_front_wall',
                       'obstacle_clearance', 'control', 'diagnostics', 'dev_tools',
                       'slam', 'reset_manager'}
 # Registered (restartable by name) but never auto-started -- on-demand only.
@@ -345,6 +346,12 @@ _CONDITIONAL_AUTO_START = {
     # cpu-cleanup (2026-10-16): off by default, still registered so it can be
     # restarted by name. stack_params.yaml's enable_wall_distance says why.
     'wall_distance': 'enable_wall_distance',
+    # R3 (2026-10-23): off by default -- nothing subscribes to
+    # /perception/swept_clearance, so starting it at boot cost a /scan + depth
+    # consumer for no reader. Still registered: `stackctl.py start
+    # swept_clearance` (or enable_swept_clearance: true) runs it.
+    # stack_params.yaml's enable_swept_clearance says more.
+    'swept_clearance': 'enable_swept_clearance',
     # f1tenth_comms (2026-10-21): off by default until the base is set up.
     # Like 'intelligence', gated on this node's own declared parameter
     # (self.enable_comms, launch argument enable_comms), defaulting from

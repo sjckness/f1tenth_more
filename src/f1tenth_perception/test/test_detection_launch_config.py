@@ -162,3 +162,76 @@ class TestDebugImageLaunchArgs:
 
     def test_front_wall_debug_payload_is_on_by_default(self):
         assert _resolve({})['front_clearance_publish_debug_wall'] == 'True'
+
+
+def _spawned(overrides):
+    """
+    Map executable -> (Node, its resolved additional_env) for every Node launched.
+
+    OpaqueFunctions are executed against the resolved context.
+    """
+    from launch.actions import OpaqueFunction
+    from launch.utilities import perform_substitutions
+    from launch_ros.actions import Node
+
+    mod = _load_detection_launch()
+    launch_description = mod.generate_launch_description()
+    ctx = LaunchContext()
+    for key, value in overrides.items():
+        ctx.launch_configurations[key] = value
+    nodes = []
+    for entity in launch_description.entities:
+        if isinstance(entity, DeclareLaunchArgument):
+            entity.visit(ctx)
+        elif isinstance(entity, OpaqueFunction):
+            nodes.extend(entity.execute(ctx))
+        elif isinstance(entity, Node):
+            nodes.append(entity)
+    out = {}
+    for node in nodes:
+        env = {perform_substitutions(ctx, k): perform_substitutions(ctx, v)
+               for k, v in (node.additional_env or [])}
+        out[node.node_executable] = (node, env)
+    return out
+
+
+_FOUR = ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS',
+         'OPENCV_FOR_THREADS_NUM')
+
+
+class TestThreadEnv:
+    """R3 (2026-10-23): front_clearance_cpu_threads, the yolo_cpu_threads pattern.
+
+    The default env of every node is the one it had before: yolo's four
+    variables at yolo_cpu_threads (2), front_clearance's single
+    OPENBLAS_NUM_THREADS=1 (2026-10-13), nothing for the rest.
+    """
+
+    def test_the_default_envs_are_unchanged(self):
+        spawned = _spawned({})
+        assert spawned['yolo_detector_node'][1] == {var: '2' for var in _FOUR}
+        assert spawned['front_clearance_node'][1] == {'OPENBLAS_NUM_THREADS': '1'}
+        assert spawned['detection_3d_node'][1] == {}
+        assert spawned['obstacle_projector_node'][1] == {}
+
+    def test_front_clearance_cpu_threads_defaults_to_zero(self):
+        assert _resolve({})['front_clearance_cpu_threads'] == '0'
+
+    def test_front_clearance_cpu_threads_sets_all_four(self):
+        spawned = _spawned({'front_clearance_cpu_threads': '3'})
+        assert spawned['front_clearance_node'][1] == {var: '3' for var in _FOUR}
+        # Only that node's env moves.
+        assert spawned['yolo_detector_node'][1] == {var: '2' for var in _FOUR}
+
+    def test_yolo_cpu_threads_zero_is_still_unset(self):
+        spawned = _spawned({'yolo_cpu_threads': '0'})
+        assert spawned['yolo_detector_node'][1] == {}
+        assert spawned['front_clearance_node'][1] == {'OPENBLAS_NUM_THREADS': '1'}
+
+    def test_cpu_threads_is_not_passed_as_a_node_parameter(self):
+        node = _spawned({'front_clearance_cpu_threads': '3'})['front_clearance_node'][0]
+        names = set()
+        for params in node._Node__parameters:   # normalized: tuples of TextSubstitution
+            names.update(''.join(sub.text for sub in key) for key in params)
+        assert 'nice' in names and 'depth_topic' in names
+        assert not any('cpu_threads' in n for n in names)

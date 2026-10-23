@@ -1,0 +1,71 @@
+Starting >>> f1tenth_params
+Starting >>> f1tenth_comms
+Finished <<< f1tenth_params [1.27s]
+Starting >>> f1tenth_perception
+Starting >>> f1tenth_costmap
+Finished <<< f1tenth_costmap [5.48s]
+--- stderr: f1tenth_comms
+
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=2164738) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+Finished <<< f1tenth_comms [23.0s]
+Finished <<< f1tenth_perception [32.6s]
+Starting >>> mpc_controller
+--- stderr: mpc_controller
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=2169460) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+Finished <<< mpc_controller [5min 51s]	[ with test failures ]
+Starting >>> f1tenth_bringup
+--- stderr: f1tenth_bringup
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=2176984) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+Finished <<< f1tenth_bringup [3.92s]	[ with test failures ]
+
+Summary: 6 packages finished [6min 29s]
+  3 packages had stderr output: f1tenth_bringup f1tenth_comms mpc_controller
+  2 packages had test failures: f1tenth_bringup mpc_controller
+exit 0

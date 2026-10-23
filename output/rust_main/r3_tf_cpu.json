@@ -1,0 +1,64 @@
+{
+ "bag": "/home/andreas/bags/corridor10m_20261016T144537",
+ "bag_tf_rate_hz": 105.4,
+ "window_s": 30.0,
+ "warmup_s": 8.0,
+ "clk_tck": 100,
+ "host": "linus",
+ "results": [
+  {
+   "node": "mpc_corr",
+   "path": "old",
+   "tf_polling": "false",
+   "alive": true,
+   "cpu_percent": 15.57,
+   "tf_msgs_per_s": 108.2,
+   "threads": 14
+  },
+  {
+   "node": "mpc_corr",
+   "path": "new",
+   "tf_polling": "true",
+   "alive": true,
+   "cpu_percent": 3.3,
+   "tf_msgs_per_s": 108.2,
+   "threads": 14
+  },
+  {
+   "node": "detection_3d_node",
+   "path": "old",
+   "tf_static_only": "false",
+   "alive": true,
+   "cpu_percent": 5.2,
+   "tf_msgs_per_s": 108.1,
+   "threads": 14
+  },
+  {
+   "node": "detection_3d_node",
+   "path": "new",
+   "tf_static_only": "true",
+   "alive": true,
+   "cpu_percent": 0.07,
+   "tf_msgs_per_s": 108.2,
+   "threads": 14
+  },
+  {
+   "node": "obstacle_projector_node",
+   "path": "old",
+   "tf_static_only": "false",
+   "alive": true,
+   "cpu_percent": 4.03,
+   "tf_msgs_per_s": 108.2,
+   "threads": 14
+  },
+  {
+   "node": "obstacle_projector_node",
+   "path": "new",
+   "tf_static_only": "true",
+   "alive": true,
+   "cpu_percent": 0.03,
+   "tf_msgs_per_s": 108.2,
+   "threads": 14
+  }
+ ]
+}

@@ -20,6 +20,7 @@ from ackermann_msgs.msg import AckermannDriveStamped
 from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 
+from f1tenth_comms.tf_poll import make_tf
 from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import (
     BoundaryConstraintArray, DriveClamp, DriveCommand, MissionStatus, MpcSolverStatus,
@@ -71,13 +72,13 @@ from mpc_controller.wall_turn import (
     SMOOTHSTEP_PEAK_SLOPE, min_turn_radius, plan_wall_turn_step)
 from sensor_msgs.msg import JointState
 from sensor_msgs.msg import Imu, LaserScan
+from tf2_msgs.msg import TFMessage
 from tf2_ros import (
     ConnectivityException,
     ExtrapolationException,
     LookupException,
 )
 from tf2_ros.buffer import Buffer
-from tf2_ros.transform_listener import TransformListener
 
 
 #: The corridor's wall construction (corridor_geometry.CORRIDOR_WALL_SHAPES).
@@ -1804,12 +1805,31 @@ class MPCController(Node):
         # exactly what _update_active_odom() puts there -- odom-frame, local
         # EKF -- because the vehicle model, the corridor geometry and the
         # markers (frame_id 'odom', see _publish_corridor_markers) are all
-        # consistent in that frame and must remain so. Same Buffer +
-        # TransformListener + lookup_transform(..., rclpy.time.Time())
-        # ("latest available") shape as obstacle_projector_node.py,
-        # detection_3d_node.py and semantic_layer_node.py already use.
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
+        # consistent in that frame and must remain so. The lookup is
+        # lookup_transform(map, odom, rclpy.time.Time()) ("latest available").
+        #
+        # POLLED, not a TransformListener (R3, 2026-10-23): a listener made
+        # this node's executor take every /tf message (20-105/s on the car,
+        # ~0.35 ms of a core each in rclpy whatever the callback does) to read
+        # one edge at most once per tick. f1tenth_comms' PolledTf keeps the
+        # /tf and /tf_static subscriptions on an unspun side node
+        # (mpc_corr_tf_poll) and takes the queued messages into the same kind
+        # of tf2 Buffer (10 s cache) with the same set_transform calls the
+        # listener's callback makes. control_loop polls once per tick
+        # (_poll_tf), so every lookup sees every message received before it,
+        # as the listener's buffer did. tf_polling:=false (or an rclpy without
+        # take_message) is the TransformListener again.
+        self.tf_polling = bool(self.declare_parameter('tf_polling', True).value)
+        self._map_odom_tf = make_tf(self, polled=self.tf_polling)
+        self.tf_buffer = self._map_odom_tf.buffer
+        # base_link <- laser (the wall tracker's scan pose, _laser_pose_for) is
+        # a fixed URDF joint on /tf_static: its own buffer, fed from the
+        # latched /tf_static alone, like front_clearance_node's.
+        self.static_tf_buffer = Buffer()
+        self.tf_static_sub = self.create_subscription(
+            TFMessage, '/tf_static', self._tf_static_cb, QoSProfile(
+                depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                history=HistoryPolicy.KEEP_LAST))
 
         # =========================
         # Subscribers
@@ -2023,8 +2043,8 @@ class MPCController(Node):
         # no acknowledgements, and cannot back-pressure it or the e-stop
         # (f1tenth_behavior's IsProximityTooClose) that reads the same topic.
         # base_link <- laser is a static edge, looked up once through the
-        # buffer above (its map <-> odom-only scope note predates this; the
-        # control state itself still never consults TF).
+        # /tf_static-only buffer above (static_tf_buffer; the control state
+        # itself still never consults TF).
         self.scan_msg: Optional[LaserScan] = None
         self.scan_pose: Optional[Tuple[float, float, float]] = None
         self.scan_last_time: Optional[float] = None
@@ -2254,7 +2274,28 @@ class MPCController(Node):
                 pass
         if hasattr(self, 'model_log'):
             self.model_log.close()
+        if hasattr(self, '_map_odom_tf'):
+            self._map_odom_tf.close()
         super().destroy_node()
+
+    # ── TF ──────────────────────────────────────────────────────────────────
+    def _tf_static_cb(self, msg: TFMessage):
+        """Feed static_tf_buffer (base_link <- laser) from the latched /tf_static."""
+        for transform in msg.transforms:
+            self.static_tf_buffer.set_transform_static(transform, 'mpc_corr_tf_static')
+
+    def _poll_tf(self):
+        """
+        Take the queued /tf into the map -> odom buffer, once per control tick.
+
+        Only while map -> odom can be looked up at all (use_map_frame_goal_anchor):
+        otherwise _lookup_map_odom never reads the buffer and the messages can
+        stay in the side node's reader (KEEP_LAST) untaken. getattr: the
+        duck-typed stand-ins some tests run control_loop on have no TF.
+        """
+        tf = getattr(self, '_map_odom_tf', None)
+        if tf is not None and getattr(self, 'use_map_frame_goal_anchor', False):
+            tf.poll()
 
     # ── Jetson process tuning ──────────────────────────────────────────────
     def _apply_nice(self):
@@ -2464,8 +2505,9 @@ class MPCController(Node):
         if not self.use_map_frame_goal_anchor:
             return None
         try:
-            tf = self.tf_buffer.lookup_transform(
-                self.map_frame, self.odom_frame, rclpy.time.Time())
+            # lookup_transform(map_frame, odom_frame, rclpy.time.Time()) on the
+            # polled buffer, after taking whatever is queued (tf_poll.py).
+            tf = self._map_odom_tf.lookup(self.map_frame, self.odom_frame)
         except (LookupException, ConnectivityException, ExtrapolationException) as exc:
             self.get_logger().warn(
                 f'tf2 lookup "{self.map_frame}" -> "{self.odom_frame}" failed: '
@@ -4108,7 +4150,8 @@ class MPCController(Node):
         if self._laser_pose is not None and self._laser_pose[0] == frame_id:
             return self._laser_pose[1]
         try:
-            stamped = self.tf_buffer.lookup_transform('base_link', frame_id, rclpy.time.Time())
+            stamped = self.static_tf_buffer.lookup_transform(
+                'base_link', frame_id, rclpy.time.Time())
         except (LookupException, ConnectivityException, ExtrapolationException) as exc:
             self.get_logger().warn(
                 f'WALL/scan | no base_link <- {frame_id} transform yet ({exc}); '
@@ -4992,6 +5035,10 @@ class MPCController(Node):
         self._llm2_apply_pending()
 
         self._update_active_odom()
+        # Every tick, before anything can look map -> odom up or return early:
+        # the polled TF buffer then holds every /tf message received so far,
+        # as the TransformListener's did (see the TF block in __init__).
+        self._poll_tf()
         # The speed estimator advances over the step that just ended BEFORE
         # anything can return early: a hold or a stop tick still has a
         # measurement and a command that acted, and must freeze or re-sync on

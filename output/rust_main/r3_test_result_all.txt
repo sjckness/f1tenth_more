@@ -1,0 +1,8 @@
+/home/andreas/dev_ws/f1tenth_more_pyfix/output/rust_main/r3_test_results/f1tenth_bringup/pytest.xml: 78 tests, 0 errors, 3 failures, 0 skipped
+/home/andreas/dev_ws/f1tenth_more_pyfix/output/rust_main/r3_test_results/f1tenth_comms/pytest.xml: 73 tests, 0 errors, 0 failures, 0 skipped
+/home/andreas/dev_ws/f1tenth_more_pyfix/output/rust_main/r3_test_results/f1tenth_costmap/pytest.xml: 396 tests, 0 errors, 0 failures, 0 skipped
+/home/andreas/dev_ws/f1tenth_more_pyfix/output/rust_main/r3_test_results/f1tenth_params/pytest.xml: 80 tests, 0 errors, 0 failures, 0 skipped
+/home/andreas/dev_ws/f1tenth_more_pyfix/output/rust_main/r3_test_results/f1tenth_perception/pytest.xml: 1303 tests, 0 errors, 0 failures, 0 skipped
+/home/andreas/dev_ws/f1tenth_more_pyfix/output/rust_main/r3_test_results/mpc_controller/pytest.xml: 1518 tests, 0 errors, 13 failures, 3 skipped
+
+Summary: 3448 tests, 0 errors, 16 failures, 3 skipped
