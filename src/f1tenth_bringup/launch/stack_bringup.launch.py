@@ -106,6 +106,10 @@ def generate_launch_description():
     corridor_impl_la = DeclareLaunchArgument(
         'corridor_impl', default_value=str(corridor_impl_default), choices=['py', 'rust'],
         description=corridor_impl_desc)
+    hard_stop_impl_default, hard_stop_impl_desc = get_default('hard_stop_impl')
+    hard_stop_impl_la = DeclareLaunchArgument(
+        'hard_stop_impl', default_value=str(hard_stop_impl_default), choices=['py', 'rust'],
+        description=hard_stop_impl_desc)
     discovery_server_address = LaunchConfiguration('discovery_server_address')
     discovery_server_port = LaunchConfiguration('discovery_server_port')
 
@@ -219,7 +223,8 @@ def generate_launch_description():
     # that used to live here) was retired -- superseded by the BT's own
     # unconditional handle_obstacle lane (see section 6 / f1tenth_behavior).
     # ================================================================
-    command_control_bringup = [include('f1tenth_control', 'ackermann_mux.launch.py')]
+    command_control_bringup = [include('f1tenth_control', 'ackermann_mux.launch.py',
+                                       hard_stop_impl=LaunchConfiguration('hard_stop_impl'))]
 
     # ================================================================
     # 6. AUTONOMY
@@ -335,6 +340,7 @@ def generate_launch_description():
         guard_la,
         impl_la,
         corridor_impl_la,
+        hard_stop_impl_la,
         discovery_server_env,
         fastdds_profile_la,
         fastdds_profile_env,

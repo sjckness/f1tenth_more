@@ -8,6 +8,13 @@
   <license>Apache-2.0</license>
 
   <!-- No ROS dependencies: plain Rust, C ABI in src/ffi.rs. -->
+  <!-- Not used by this crate (as in f1tenth_proximity_guard/package.xml): cargo resolves
+       EVERY member of the src/rust workspace when it builds one, and colcon-ros-cargo patches
+       only the message crates visible to the package it builds. f1tenth_costmap_boundary_rs
+       needs the WORKSPACE-built f1tenth_messages, so without this line a clean build
+       (no install/ yet) starts this package before f1tenth_messages and fails with
+       "no matching package named f1tenth_messages" (found in R4, 2026-10-23). -->
+  <build_depend>f1tenth_messages</build_depend>
 
   <export>
     <build_type>ament_cargo</build_type>

@@ -2292,6 +2292,15 @@ mpc_w_du_a:
 mux_config:
   default: config/mux.yaml
   description: "ackermann_mux priority/lock/topic config arbitrating between drive-command sources."
+# Consumed by: f1tenth_control/ackermann_mux.launch.py (hard_stop_impl:=, which
+# hard_stop_node runs beside the mux) and f1tenth_bringup's
+# supervisor_bringup.launch.py / stack_bringup.launch.py (hard_stop_impl:=,
+# through the supervisor's hard_stop_impl parameter to the `control`
+# component). Rust port main-jazzy-rust R4: output/rust/parity_hard_stop.md.
+# Default py; a flip to rust is its own commit after evidence.
+hard_stop_impl:
+  default: py
+  description: "Which implementation runs hard_stop_node, the last-resort LiDAR stop on the safety_stop lane. 'py' (default): f1tenth_control/hard_stop_node.py. 'rust': f1tenth_hard_stop_rs (src/rust/f1tenth_hard_stop_rs), same node name, topics, parameters and decisions (output/rust/parity_hard_stop.md); it refuses to start without the footprint values the launch file passes. Never both: same node name and topics."
 # Consumed by: f1tenth_control/joy.launch.py.
 joy_config:
   default: config/joy_teleop.yaml

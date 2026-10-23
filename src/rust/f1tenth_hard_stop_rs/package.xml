@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_hard_stop_rs</name>
+  <version>0.1.0</version>
+  <description>hard_stop_node in Rust (rclrs): the last-resort LiDAR stop of f1tenth_control, same topics, parameters and decisions (hard_stop_impl:=rust)</description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>builtin_interfaces</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>ackermann_msgs</depend>
+  <!-- ros2-rust/ros2_rust#557: rclrs 0.7 links these through its vendored
+       test crates; see output/rust/setup.md (test_msgs underlay). -->
+  <depend>example_interfaces</depend>
+  <depend>test_msgs</depend>
+  <!-- Not used by this crate (see f1tenth_proximity_guard/package.xml): cargo resolves EVERY
+       member of the src/rust workspace when it builds one, and colcon-ros-cargo patches only
+       the message crates visible to the package it builds. f1tenth_costmap_boundary_rs needs
+       the WORKSPACE-built f1tenth_messages, so without this line this package cannot build
+       alone, nor in a clean build that starts it before f1tenth_messages. -->
+  <build_depend>f1tenth_messages</build_depend>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>

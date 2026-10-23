@@ -1,0 +1,42 @@
+## ros2 launch f1tenth_control ackermann_mux.launch.py hard_stop_impl:=rust   (ROS_DOMAIN_ID=197 LOCALHOST)
+   ros2 param get /hard_stop_node footprint_front_x_m: Double value is: 0.405
+   ros2 param get /hard_stop_node footprint_half_width_m: Node not found
+   ros2 param get /hard_stop_node hard_stop_range_m: Node not found
+   ros2 param get /hard_stop_node hard_stop_allow_reverse: Boolean value is: True
+   launch exit status: 0
+-- launch output (hard_stop lines, errors):
+   [INFO] [ackermann_mux-1]: process started with pid [2618693]
+   [INFO] [hard_stop_node-2]: process started with pid [2618694]
+   [hard_stop_node-2] [INFO] [1792789578.948640667] [hard_stop_node]: hard_stop_node (rust) build: cargo profile debug, opt-level 3, debug_assertions on
+   [hard_stop_node-2] [INFO] [1792789578.951026762] [hard_stop_node]: HARD STOP enabled: range <= 0.200 m from the laser at x=0.305 (bumper 0.405), debounce 2 scans, clear hold 0.50 s, self-mask x[-0.120,+0.425] y[-0.156,+0.156], stop -> /safety_stop as base_l
+   [hard_stop_node-2] [INFO] [1792789578.951063124] [hard_stop_node]: hard_stop_node (rust): clock system time, republish every 50000000 ns on it, subscribed ["/scan", "/teleop", "/calibration_drive", "/drive"]
+   [INFO] [hard_stop_node-2]: sending signal 'SIGINT' to process[hard_stop_node-2]
+   [ERROR] [hard_stop_node-2]: process has died [pid 2618694, exit code -2, cmd '/home/andreas/dev_ws/f1tenth_more_r4/install/f1tenth_hard_stop_rs/lib/f1tenth_hard_stop_rs/hard_stop_node --ros-args -r __node:=hard_stop_node --params-file /tmp/launch_params_t2t
+   [INFO] [ackermann_mux-1]: process has finished cleanly [pid 2618693]
+## ros2 launch f1tenth_control ackermann_mux.launch.py hard_stop_impl:=py   (ROS_DOMAIN_ID=197 LOCALHOST)
+   ros2 param get /hard_stop_node footprint_front_x_m: Double value is: 0.405
+   ros2 param get /hard_stop_node footprint_half_width_m: Node not found
+   ros2 param get /hard_stop_node hard_stop_range_m: Node not found
+   ros2 param get /hard_stop_node hard_stop_allow_reverse: Boolean value is: True
+   launch exit status: 0
+-- launch output (hard_stop lines, errors):
+   [INFO] [ackermann_mux-1]: process started with pid [2619784]
+   [INFO] [hard_stop_node-2]: process started with pid [2619785]
+   [hard_stop_node-2] [INFO] [1792789620.930648717] [hard_stop_node]: HARD STOP enabled: range <= 0.200 m from the laser at x=0.305 (bumper 0.405), debounce 2 scans, clear hold 0.50 s, self-mask x[-0.120,+0.425] y[-0.156,+0.156], stop -> /safety_stop as base_l
+   [INFO] [hard_stop_node-2]: sending signal 'SIGINT' to process[hard_stop_node-2]
+   [hard_stop_node-2] Traceback (most recent call last):
+   [hard_stop_node-2]   File "/home/andreas/dev_ws/f1tenth_more_r4/install/f1tenth_control/lib/f1tenth_control/hard_stop_node", line 33, in <module>
+   [hard_stop_node-2]     sys.exit(load_entry_point('f1tenth-control', 'console_scripts', 'hard_stop_node')())
+   [hard_stop_node-2]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   [hard_stop_node-2]   File "/home/andreas/dev_ws/f1tenth_more_r4/build/f1tenth_control/f1tenth_control/hard_stop_node.py", line 276, in main
+   [hard_stop_node-2]     rclpy.shutdown()
+   [hard_stop_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/__init__.py", line 134, in shutdown
+   [hard_stop_node-2]     _shutdown(context=context)
+   [hard_stop_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/utilities.py", line 82, in shutdown
+   [hard_stop_node-2]     context.shutdown()
+## ros2 launch f1tenth_control ackermann_mux.launch.py hard_stop_impl:=cpp   (ROS_DOMAIN_ID=197 LOCALHOST)
+   launch exit status: 1
+-- launch output (hard_stop lines, errors):
+   [ERROR] [launch.actions.declare_launch_argument]: Argument "hard_stop_impl" provided value "cpp" is not valid. Valid options are: ['py', 'rust']
+   [ERROR] [launch]: Caught exception in launch (see debug for traceback): Argument "hard_stop_impl" provided value "cpp" is not valid. Valid options are: ['py', 'rust']
+-- left over (must be empty):

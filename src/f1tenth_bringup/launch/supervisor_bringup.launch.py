@@ -196,6 +196,13 @@ def generate_launch_description():
     corridor_impl_la = DeclareLaunchArgument(
         'corridor_impl', default_value=str(corridor_impl_default), choices=['py', 'rust'],
         description=corridor_impl_desc)
+    # hard_stop_impl -> ackermann_mux.launch.py hard_stop_impl (the `control`
+    # component): which implementation runs hard_stop_node (R4). Default from
+    # stack_params.yaml (py), the same as ackermann_mux.launch.py's own.
+    hard_stop_impl_default, hard_stop_impl_desc = get_default('hard_stop_impl')
+    hard_stop_impl_la = DeclareLaunchArgument(
+        'hard_stop_impl', default_value=str(hard_stop_impl_default), choices=['py', 'rust'],
+        description=hard_stop_impl_desc)
 
     enable_intelligence_default, enable_intelligence_desc = get_default('enable_intelligence')
     enable_intelligence_la = DeclareLaunchArgument(
@@ -273,6 +280,8 @@ def generate_launch_description():
                 LaunchConfiguration('impl'), value_type=str),
             'corridor_impl': ParameterValue(
                 LaunchConfiguration('corridor_impl'), value_type=str),
+            'hard_stop_impl': ParameterValue(
+                LaunchConfiguration('hard_stop_impl'), value_type=str),
             'enable_intelligence': LaunchConfiguration('enable_intelligence'),
             'enable_comms': LaunchConfiguration('enable_comms'),
             'components_config': LaunchConfiguration('components_config'),
@@ -320,6 +329,7 @@ def generate_launch_description():
         guard_la,
         impl_la,
         corridor_impl_la,
+        hard_stop_impl_la,
         enable_intelligence_la,
         enable_comms_la,
         components_config_la,
