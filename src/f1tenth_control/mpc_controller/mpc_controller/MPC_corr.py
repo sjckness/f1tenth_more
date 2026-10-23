@@ -62,7 +62,8 @@ from mpc_controller.vehicle_model import (
     f1tenth_state_fcn_dt_beta, f1tenth_state_fcn_dt_beta_lag)
 from mpc_controller.wall_tracker import PROVENANCE_NAMES, WallTracker, scan_to_odom_points
 from mpc_controller.wall_turn import (
-    SMOOTHSTEP_PEAK_SLOPE, min_turn_radius, plan_wall_turn_step)
+    SMOOTHSTEP_PEAK_SLOPE, min_turn_radius, plan_wall_turn_step,
+    raw_lidar_forward_min_range, wall_turn_brake_half_angle, wall_turn_speed_cap)
 from mpc_controller.wall_turn_distance import wall_turn_distance
 from sensor_msgs.msg import JointState
 from sensor_msgs.msg import Imu, LaserScan
@@ -1193,6 +1194,25 @@ class MPCController(Node):
             self.declare_parameter(
                 'corr_wall_turn_commit_lead_m',
                 get_value('corr_wall_turn_commit_lead_m')).value), 0.0)
+        # Speed-side guards alongside the freeze fix above (wall_turn.py,
+        # "SPEED, NOT HEADING"): a committed turn's v_ref ramp, and the
+        # raw-lidar brake's shared floor/cone. See stack_params.yaml for each.
+        self.corr_wall_turn_stop_dist_m = max(float(
+            self.declare_parameter(
+                'corr_wall_turn_stop_dist_m',
+                get_value('corr_wall_turn_stop_dist_m')).value), 0.0)
+        self.corr_wall_turn_v_min_turn_mps = max(float(
+            self.declare_parameter(
+                'corr_wall_turn_v_min_turn_mps',
+                get_value('corr_wall_turn_v_min_turn_mps')).value), 0.0)
+        self.corr_wall_turn_brake_half_angle_rad = math.radians(float(
+            self.declare_parameter(
+                'corr_wall_turn_brake_half_angle_deg',
+                get_value('corr_wall_turn_brake_half_angle_deg')).value))
+        self.corr_wall_turn_brake_widen_per_rad = max(float(
+            self.declare_parameter(
+                'corr_wall_turn_brake_widen_per_rad',
+                get_value('corr_wall_turn_brake_widen_per_rad')).value), 0.0)
         # /perception/front_distance older than this is treated as unknown, not
         # as a distance. Without it a dead camera path would leave the last
         # value (or the 10.0 bootstrap below) standing in for the wall forever.
@@ -5476,6 +5496,29 @@ class MPCController(Node):
                    else loop_t0 - self.unknown_speed_cap_time)
         vdes = apply_speed_cap(vdes, self.unknown_speed_cap, cap_age,
                                self.unknown_speed_cap_max_age_s)
+        # WALL_TURN's two speed-side guards (wall_turn.py, "SPEED, NOT
+        # HEADING"), last, so they also bound every cap above. The ramp only
+        # runs once committed; the raw-lidar brake runs for the whole
+        # wall_turn move, deliberately independent of commit/tracker state.
+        if self.drive_cmd is not None and self.drive_cmd.get('mode') == 'wall_turn':
+            if self.wall_turn_committed:
+                vdes = wall_turn_speed_cap(
+                    self._fresh_front_distance(), self.corr_wall_turn_safety_margin_m,
+                    self.corr_wall_turn_stop_dist_m, self.corr_wall_turn_v_min_turn_mps, vdes)
+            if self.scan_msg is not None:
+                half_angle = wall_turn_brake_half_angle(
+                    self.corr_wall_turn_brake_half_angle_rad, self._last_published_steer,
+                    self.corr_wall_turn_brake_widen_per_rad)
+                brake_range = raw_lidar_forward_min_range(
+                    self.scan_msg.ranges, self.scan_msg.angle_min, self.scan_msg.angle_increment,
+                    self.scan_msg.range_min, self.scan_msg.range_max, half_angle)
+                if brake_range is not None and brake_range < self.corr_wall_turn_stop_dist_m:
+                    vdes = 0.0
+                    self.get_logger().warn(
+                        f'WALL/brake | raw lidar {brake_range:.2f} m < stop_dist '
+                        f'{self.corr_wall_turn_stop_dist_m:.2f} m (cone +-'
+                        f'{math.degrees(half_angle):.0f} deg): vdes -> 0',
+                        throttle_duration_sec=1.0)
 
         now_time = self.get_clock().now()
         now_sec = now_time.nanoseconds * 1e-9
