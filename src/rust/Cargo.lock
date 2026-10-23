@@ -330,6 +330,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "f1tenth_hard_stop_rs"
+version = "0.1.0"
+dependencies = [
+ "ackermann_msgs",
+ "builtin_interfaces",
+ "example_interfaces",
+ "rclrs",
+ "sensor_msgs",
+ "serde_json",
+ "std_msgs",
+ "test_msgs",
+]
+
+[[package]]
 name = "f1tenth_messages"
 version = "0.0.1"
 dependencies = [

@@ -115,6 +115,8 @@ src/rust/
   clippy.toml rustfmt.toml       tests may unwrap; edition 2021
   f1tenth_proximity_guard/       ament_cargo package: Cargo.toml + package.xml
   f1tenth_costmap_boundary_rs/   ament_cargo package
+  f1tenth_mpc_core/              ament_cargo package (cdylib + rlib, no ROS), R1
+  f1tenth_hard_stop_rs/          ament_cargo package (hard_stop_node), R4
 ```
 
 - colcon-cargo identifies the virtual workspace and enumerates its members; each member is an
@@ -134,14 +136,18 @@ src/rust/
   package built IN this workspace and used by another member (`f1tenth_messages`, used by
   the costmap crate) must therefore be a `<build_depend>` of every member, or that
   single-package build fails with "no matching package named `f1tenth_messages`". The guard's
-  package.xml carries it, with the reason (found 2026-10-18).
+  package.xml carries it, with the reason (found 2026-10-18). A CLEAN workspace build (no
+  install/ yet) fails the same way for a member without it, because colcon may start that
+  member before f1tenth_messages: f1tenth_mpc_core lacked it until R4 (2026-10-23); every
+  member, f1tenth_hard_stop_rs included, now carries it.
 - Gates used before each commit (from `src/rust`, the environment above sourced):
 
   ```bash
   cargo fmt --all --check
   cargo clippy --all-targets -- -D warnings      # lints: unsafe_code forbid; unwrap/expect/panic deny
   cargo test
-  colcon test --packages-select f1tenth_proximity_guard f1tenth_costmap_boundary_rs
+  colcon test --packages-select f1tenth_proximity_guard f1tenth_costmap_boundary_rs \
+    f1tenth_mpc_core f1tenth_hard_stop_rs
   ```
 
   `cargo` inside `src/rust` uses the colcon-written `.cargo/config.toml` (parent directory), so
@@ -150,7 +156,8 @@ src/rust/
   rounded (1 ulp), which the parity harness first reported as extraction differences.
 
 Install result (lib/<pkg>/): `proximity_guard_node`, `proximity_guard_replay`,
-`costmap_boundary_node`, `costmap_boundary_replay`.
+`costmap_boundary_node`, `costmap_boundary_replay`, `libf1tenth_mpc_core.so`, `hard_stop_node`,
+`hard_stop_replay`.
 
 ## 5. aarch64 notes for the Thor (nothing installed there)
 

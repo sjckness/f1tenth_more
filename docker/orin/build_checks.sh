@@ -48,10 +48,12 @@ echo "== Rust binaries (RUST=${RUST:-skip}; Dockerfile rust-build stage, NOT BUI
 # the ldd -r scan below. RUST=skip: the ament_cargo packages were ignored.
 if [ "${RUST:-skip}" = build ]; then
   for pb in f1tenth_proximity_guard/proximity_guard_node f1tenth_proximity_guard/proximity_guard_replay \
-            f1tenth_costmap_boundary_rs/costmap_boundary_node f1tenth_costmap_boundary_rs/costmap_boundary_replay; do
+            f1tenth_costmap_boundary_rs/costmap_boundary_node f1tenth_costmap_boundary_rs/costmap_boundary_replay \
+            f1tenth_hard_stop_rs/hard_stop_node f1tenth_hard_stop_rs/hard_stop_replay; do
     [ -x "/opt/f1tenth_ws/install/lib/$pb" ] || bad "Rust binary missing: install/lib/$pb"
   done
-  for pb in f1tenth_proximity_guard/proximity_guard_replay f1tenth_costmap_boundary_rs/costmap_boundary_replay; do
+  for pb in f1tenth_proximity_guard/proximity_guard_replay f1tenth_costmap_boundary_rs/costmap_boundary_replay \
+            f1tenth_hard_stop_rs/hard_stop_replay; do
     build=$(echo | "/opt/f1tenth_ws/install/lib/$pb" 2>&1 >/dev/null | head -1)
     echo "  $pb: $build"
     case "$build" in *"opt-level 3,"*) ;; *) bad "$pb not built at opt-level 3: $build" ;; esac

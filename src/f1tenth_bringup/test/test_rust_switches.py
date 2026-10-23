@@ -1,10 +1,11 @@
-"""guard:=, impl:=, corridor_impl:=, mpc_solver_impl:= (Rust ports): bringup -> supervisor.
+"""guard:=, impl:=, corridor_impl:=, mpc_solver_impl:=, hard_stop_impl:= (Rust ports).
 
 supervisor_bringup.launch.py and stack_bringup.launch.py declare the
 switches; component_supervisor_node writes them into the args of the entries
 that launch behavior_bringup.launch.py / costmap.launch.py /
-navigation.launch.py, found by launch_file (_RUST_SWITCHES, keyed by the
-argument). Plain YAML and launch inspection, no rclpy node.
+navigation.launch.py / ackermann_mux.launch.py, found by launch_file
+(_RUST_SWITCHES, keyed by the argument). Plain YAML and launch inspection, no
+rclpy node.
 """
 
 import copy
@@ -33,6 +34,7 @@ _SWITCHES = (
     ('impl', 'costmap_boundary_impl', 'py', ['py', 'rust']),
     ('corridor_impl', 'corridor_impl', 'py', ['py', 'rust']),
     ('mpc_solver_impl', 'mpc_solver_impl', 'py', ['py', 'rust']),
+    ('hard_stop_impl', 'hard_stop_impl', 'py', ['py', 'rust']),
 )
 
 
@@ -72,13 +74,14 @@ def test_the_table_matches_the_bringup_arguments():
         param: (default, choices) for _arg, param, default, choices in _SWITCHES}
     assert rust_switch_defaults() == {
         'proximity_guard': 'off', 'costmap_boundary_impl': 'py', 'corridor_impl': 'py',
-        'mpc_solver_impl': 'py'}
+        'mpc_solver_impl': 'py', 'hard_stop_impl': 'py'}
 
 
 def test_bad_values_are_refused():
     validate_rust_switches(rust_switch_defaults())
     validate_rust_switches({'proximity_guard': 'active', 'costmap_boundary_impl': 'rust',
-                            'corridor_impl': 'rust', 'mpc_solver_impl': 'rust'})
+                            'corridor_impl': 'rust', 'mpc_solver_impl': 'rust',
+                            'hard_stop_impl': 'rust'})
     with pytest.raises(ValueError):
         validate_rust_switches({'proximity_guard': 'on'})
     with pytest.raises(ValueError):
@@ -87,6 +90,8 @@ def test_bad_values_are_refused():
         validate_rust_switches({'corridor_impl': 'c'})
     with pytest.raises(ValueError):
         validate_rust_switches({'mpc_solver_impl': 'osqp'})
+    with pytest.raises(ValueError):
+        validate_rust_switches({'hard_stop_impl': 'cpp'})
     with pytest.raises(ValueError):
         validate_rust_switches({'solver_impl': 'rust'})
     with pytest.raises(ValueError):
@@ -97,10 +102,11 @@ def test_the_switches_reach_exactly_their_launch_files():
     before = _registry()
     after = apply_rust_switches(copy.deepcopy(before), {
         'proximity_guard': 'shadow', 'costmap_boundary_impl': 'rust', 'corridor_impl': 'rust',
-        'mpc_solver_impl': 'rust'})
+        'mpc_solver_impl': 'rust', 'hard_stop_impl': 'rust'})
     expected = {'behavior_bringup.launch.py': {'proximity_guard': 'shadow'},
                 'costmap.launch.py': {'costmap_boundary_impl': 'rust'},
-                'navigation.launch.py': {'corridor_impl': 'rust', 'mpc_solver_impl': 'rust'}}
+                'navigation.launch.py': {'corridor_impl': 'rust', 'mpc_solver_impl': 'rust'},
+                'ackermann_mux.launch.py': {'hard_stop_impl': 'rust'}}
     touched = 0
     for name, entries in after.items():
         for old, new in zip(before[name], entries):
@@ -110,7 +116,7 @@ def test_the_switches_reach_exactly_their_launch_files():
                 touched += 1
             else:
                 assert extra == {}, (name, new['launch_file'])
-    assert touched == 3
+    assert touched == 4
 
 
 def test_the_defaults_are_written_too():
@@ -120,6 +126,7 @@ def test_the_defaults_are_written_too():
     assert args['costmap.launch.py']['costmap_boundary_impl'] == 'py'
     assert args['navigation.launch.py']['corridor_impl'] == 'py'
     assert args['navigation.launch.py']['mpc_solver_impl'] == 'py'
+    assert args['ackermann_mux.launch.py']['hard_stop_impl'] == 'py'
 
 
 def test_navigation_launch_accepts_what_the_supervisor_writes():
@@ -140,6 +147,21 @@ def test_navigation_launch_accepts_what_the_supervisor_writes():
              if isinstance(e, DeclareLaunchArgument)}
     assert 'corridor_impl' in names
     assert 'mpc_solver_impl' in names
+
+
+def test_ackermann_mux_launch_accepts_what_the_supervisor_writes():
+    """ackermann_mux.launch.py declares hard_stop_impl (the `control` component)."""
+    from ament_index_python.packages import get_package_share_directory
+    path = os.path.join(get_package_share_directory('f1tenth_control'), 'launch',
+                        'ackermann_mux.launch.py')
+    spec = importlib.util.spec_from_file_location('mux_for_switch_test', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    declared = {e.name: e for e in module.generate_launch_description().entities
+                if isinstance(e, DeclareLaunchArgument)}
+    arg = declared['hard_stop_impl']
+    assert ''.join(s.perform(LaunchContext()) for s in arg.default_value) == 'py'
+    assert arg.choices == ['py', 'rust']
 
 
 def _supervisor_parameters(overrides=None):
@@ -165,7 +187,8 @@ def _supervisor_parameters(overrides=None):
 
 @pytest.mark.parametrize('overrides', [None, {'guard': 'shadow', 'impl': 'rust',
                                               'corridor_impl': 'rust',
-                                              'mpc_solver_impl': 'rust'}])
+                                              'mpc_solver_impl': 'rust',
+                                              'hard_stop_impl': 'rust'}])
 def test_the_switches_reach_the_supervisor_as_strings(overrides):
     """
     Every switch reaches the supervisor as a string.
@@ -197,3 +220,15 @@ def test_stack_bringup_forwards_both_mpc_switches_to_navigation():
     forwarded = {perform_substitutions(ctx, list(k)) if not isinstance(k, str) else k
                  for k, _v in nav[0].launch_arguments}
     assert forwarded == {'corridor_impl', 'mpc_solver_impl'}
+    assert forwarded == {'corridor_impl'}
+
+
+def test_stack_bringup_forwards_hard_stop_impl_to_the_mux():
+    ld = _module('stack_bringup.launch.py').generate_launch_description()
+    ctx = LaunchContext()
+    includes = [e for e in ld.entities if isinstance(e, IncludeLaunchDescription)]
+    mux = [e for e in includes if _location(e, ctx).endswith('/ackermann_mux.launch.py')]
+    assert len(mux) == 1
+    forwarded = {perform_substitutions(ctx, list(k)) if not isinstance(k, str) else k
+                 for k, _v in mux[0].launch_arguments}
+    assert forwarded == {'hard_stop_impl'}

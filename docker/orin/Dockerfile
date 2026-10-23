@@ -287,9 +287,10 @@ COPY set_llama_paths.py build_checks.sh entrypoint.sh /opt/f1tenth_ws/
 # task extension to 'build' a 'ros.ament_cargo' package" and skip them (tried
 # on linus, 2026-10-23): ignoring them says so instead. No package declares a
 # dependency on them (mpc_controller finds f1tenth_mpc_core through
-# ament_index only when corridor_impl or mpc_solver_impl is rust); their
+# ament_index only when corridor_impl or mpc_solver_impl is rust; ackermann_mux.launch.py
+# launches f1tenth_hard_stop_rs only when hard_stop_impl is rust); their
 # launch switches (guard:=, costmap_boundary_impl:=, impl:=, corridor_impl:=,
-# mpc_solver_impl:=) default to off/py. RUST=build: built like every other package
+# mpc_solver_impl:=, hard_stop_impl:=) default to off/py. RUST=build: built like every other package
 # (colcon-ros-cargo; cargo's dev profile at opt-level 3, src/rust/Cargo.toml).
 RUN --mount=type=bind,from=l4t,target=/usr/lib/aarch64-linux-gnu/nvidia \
     --mount=type=cache,id=f1tenth-orin-ccache-ws,target=/root/.ccache \

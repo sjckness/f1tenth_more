@@ -29,6 +29,10 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>ackermann_msgs</exec_depend>
   <exec_depend>f1tenth_description</exec_depend>
+  <!-- hard_stop_impl:=rust launches f1tenth_hard_stop_rs (src/rust), deliberately NOT
+       declared here: a dependency on an ament_cargo package fails this package's build on
+       a colcon without colcon-ros-cargo (the Thor and the Orin image today; R1 decision for
+       f1tenth_mpc_core). With py, the default, nothing of it is needed. -->
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
