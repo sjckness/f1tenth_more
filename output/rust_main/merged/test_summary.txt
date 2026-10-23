@@ -1,0 +1,4 @@
+| Package | Tests | Pass | Errors | Failures | Skipped |
+|---|---:|---:|---:|---:|---:|
+| coord_merged_tr | 4247 | 4227 | 0 | 17 | 3 |
+| **total** | **4247** | **4227** | **0** | **17** | **3** |

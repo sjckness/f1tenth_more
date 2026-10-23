@@ -265,7 +265,6 @@ def test_stack_bringup_forwards_both_mpc_switches_to_navigation():
     forwarded = {perform_substitutions(ctx, list(k)) if not isinstance(k, str) else k
                  for k, _v in nav[0].launch_arguments}
     assert forwarded == {'corridor_impl', 'mpc_solver_impl'}
-    assert forwarded == {'corridor_impl'}
 
 
 def test_stack_bringup_forwards_hard_stop_impl_to_the_mux():
