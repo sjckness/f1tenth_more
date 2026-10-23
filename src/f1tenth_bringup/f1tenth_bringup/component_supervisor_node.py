@@ -410,12 +410,15 @@ _SIM_WRAPPER = ('f1tenth_bringup', 'sim_component.launch.py')
 #   impl:=          -> costmap.launch.py          costmap_boundary_impl:=py|rust
 #   corridor_impl:= -> navigation.launch.py       corridor_impl:=py|rust (forwarded
 #                      to mpc_corr.launch.py: MPC_corr's corridor geometry, R1)
+#   wall_tracker_impl:= -> lidar_front_wall.launch.py  wall_tracker_impl:=py|rust
+#                      (lidar_front_wall_node's wall tracker and fusion, R6)
 # Keyed by argument, not by launch file, because one file can take several
 # (navigation.launch.py will also take the solver core's switch).
 _RUST_SWITCHES = {
     'proximity_guard': ('behavior_bringup.launch.py', ('off', 'shadow', 'active')),
     'costmap_boundary_impl': ('costmap.launch.py', ('py', 'rust')),
     'corridor_impl': ('navigation.launch.py', ('py', 'rust')),
+    'wall_tracker_impl': ('lidar_front_wall.launch.py', ('py', 'rust')),
 }
 
 
@@ -706,10 +709,14 @@ class ComponentSupervisorNode(Node):
             self.declare_parameter('costmap_boundary_impl', 'py').value)
         self.corridor_impl = str(
             self.declare_parameter('corridor_impl', str(get_value('corridor_impl'))).value)
+        # wall_tracker_impl (R6): the same shape, for the lidar_front_wall component.
+        self.wall_tracker_impl = str(self.declare_parameter(
+            'wall_tracker_impl', str(get_value('wall_tracker_impl'))).value)
         self.rust_switches = {
             'proximity_guard': self.proximity_guard,
             'costmap_boundary_impl': self.costmap_boundary_impl,
             'corridor_impl': self.corridor_impl,
+            'wall_tracker_impl': self.wall_tracker_impl,
         }
         validate_rust_switches(self.rust_switches)
         # component-auto-start pass: whether 'intelligence' (llama-server) auto-
@@ -810,7 +817,8 @@ class ComponentSupervisorNode(Node):
             self.get_logger().info(
                 f'[component_supervisor] Rust ports: guard:={self.proximity_guard} '
                 f'impl:={self.costmap_boundary_impl} '
-                f'corridor_impl:={self.corridor_impl} (output/rust/)')
+                f'corridor_impl:={self.corridor_impl} '
+                f'wall_tracker_impl:={self.wall_tracker_impl} (output/rust/)')
 
         # Some individual launch files within a multi-launch component legitimately
         # do nothing at all when their own feature flag is off -- an empty (or

@@ -1,10 +1,16 @@
-"""guard:=, impl:= and corridor_impl:= (Rust ports): bringup -> supervisor -> component.
+"""The Rust-port switches (guard, impl, corridor_impl, wall_tracker_impl) end to end.
+
+bringup -> supervisor -> component.
 
 supervisor_bringup.launch.py and stack_bringup.launch.py declare the
 switches; component_supervisor_node writes them into the args of the entries
 that launch behavior_bringup.launch.py / costmap.launch.py /
-navigation.launch.py, found by launch_file (_RUST_SWITCHES, keyed by the
-argument). Plain YAML and launch inspection, no rclpy node.
+navigation.launch.py / lidar_front_wall.launch.py, found by launch_file
+(_RUST_SWITCHES, keyed by the argument). wall_tracker_impl (R6) is
+supervisor_bringup's only: stack_bringup.launch.py does not start
+lidar_front_wall_node (a supervisor component, see its launch file), so it
+has nothing to pass the switch to. Plain YAML and launch inspection, no rclpy
+node.
 """
 
 import copy
@@ -32,7 +38,11 @@ _SWITCHES = (
     ('guard', 'proximity_guard', 'off', ['off', 'shadow', 'active']),
     ('impl', 'costmap_boundary_impl', 'py', ['py', 'rust']),
     ('corridor_impl', 'corridor_impl', 'py', ['py', 'rust']),
+    ('wall_tracker_impl', 'wall_tracker_impl', 'py', ['py', 'rust']),
 )
+
+#: Switches whose component only the supervisor starts (not stack_bringup).
+_SUPERVISOR_ONLY = {'wall_tracker_impl'}
 
 
 def _registry():
@@ -60,6 +70,9 @@ def _declared(launch_file):
 def test_both_bringups_declare_the_switches(launch_file):
     declared = _declared(launch_file)
     for name, _param, default, choices in _SWITCHES:
+        if launch_file == 'stack_bringup.launch.py' and name in _SUPERVISOR_ONLY:
+            assert name not in declared, name
+            continue
         arg = declared[name]
         assert ''.join(s.perform(LaunchContext()) for s in arg.default_value) == default
         assert arg.choices == choices
@@ -70,19 +83,22 @@ def test_the_table_matches_the_bringup_arguments():
             for param, (_lf, choices) in _RUST_SWITCHES.items()} == {
         param: (default, choices) for _arg, param, default, choices in _SWITCHES}
     assert rust_switch_defaults() == {
-        'proximity_guard': 'off', 'costmap_boundary_impl': 'py', 'corridor_impl': 'py'}
+        'proximity_guard': 'off', 'costmap_boundary_impl': 'py', 'corridor_impl': 'py',
+        'wall_tracker_impl': 'py'}
 
 
 def test_bad_values_are_refused():
     validate_rust_switches(rust_switch_defaults())
     validate_rust_switches({'proximity_guard': 'active', 'costmap_boundary_impl': 'rust',
-                            'corridor_impl': 'rust'})
+                            'corridor_impl': 'rust', 'wall_tracker_impl': 'rust'})
     with pytest.raises(ValueError):
         validate_rust_switches({'proximity_guard': 'on'})
     with pytest.raises(ValueError):
         validate_rust_switches({'costmap_boundary_impl': 'cpp'})
     with pytest.raises(ValueError):
         validate_rust_switches({'corridor_impl': 'c'})
+    with pytest.raises(ValueError):
+        validate_rust_switches({'wall_tracker_impl': 'cpp'})
     with pytest.raises(ValueError):
         validate_rust_switches({'solver_impl': 'rust'})
     with pytest.raises(ValueError):
@@ -92,10 +108,12 @@ def test_bad_values_are_refused():
 def test_the_switches_reach_exactly_their_launch_files():
     before = _registry()
     after = apply_rust_switches(copy.deepcopy(before), {
-        'proximity_guard': 'shadow', 'costmap_boundary_impl': 'rust', 'corridor_impl': 'rust'})
+        'proximity_guard': 'shadow', 'costmap_boundary_impl': 'rust', 'corridor_impl': 'rust',
+        'wall_tracker_impl': 'rust'})
     expected = {'behavior_bringup.launch.py': {'proximity_guard': 'shadow'},
                 'costmap.launch.py': {'costmap_boundary_impl': 'rust'},
-                'navigation.launch.py': {'corridor_impl': 'rust'}}
+                'navigation.launch.py': {'corridor_impl': 'rust'},
+                'lidar_front_wall.launch.py': {'wall_tracker_impl': 'rust'}}
     touched = 0
     for name, entries in after.items():
         for old, new in zip(before[name], entries):
@@ -105,7 +123,7 @@ def test_the_switches_reach_exactly_their_launch_files():
                 touched += 1
             else:
                 assert extra == {}, (name, new['launch_file'])
-    assert touched == 3
+    assert touched == 4
 
 
 def test_the_defaults_are_written_too():
@@ -114,6 +132,7 @@ def test_the_defaults_are_written_too():
     assert args['behavior_bringup.launch.py']['proximity_guard'] == 'off'
     assert args['costmap.launch.py']['costmap_boundary_impl'] == 'py'
     assert args['navigation.launch.py']['corridor_impl'] == 'py'
+    assert args['lidar_front_wall.launch.py']['wall_tracker_impl'] == 'py'
 
 
 def test_navigation_launch_accepts_what_the_supervisor_writes():
@@ -132,6 +151,33 @@ def test_navigation_launch_accepts_what_the_supervisor_writes():
     names = {e.name for e in module.generate_launch_description().entities
              if isinstance(e, DeclareLaunchArgument)}
     assert 'corridor_impl' in names
+
+
+def test_lidar_front_wall_launch_accepts_what_the_supervisor_writes():
+    """
+    lidar_front_wall.launch.py declares wall_tracker_impl, with the switch's choices.
+
+    The supervisor runs `ros2 launch ... lidar_front_wall.launch.py
+    wall_tracker_impl:=...`: an argument the file does not declare would be
+    refused at launch time.
+    """
+    from ament_index_python.packages import get_package_share_directory
+    path = os.path.join(get_package_share_directory('f1tenth_perception'), 'launch',
+                        'lidar_front_wall.launch.py')
+    spec = importlib.util.spec_from_file_location('lfw_for_switch_test', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    declared = {e.name: e for e in module.generate_launch_description().entities
+                if isinstance(e, DeclareLaunchArgument)}
+    assert declared['wall_tracker_impl'].choices == ['py', 'rust']
+
+
+def test_stack_bringup_does_not_start_the_wall_node():
+    """The reason wall_tracker_impl is supervisor_bringup's only (_SUPERVISOR_ONLY)."""
+    ld = _module('stack_bringup.launch.py').generate_launch_description()
+    ctx = LaunchContext()
+    includes = [e for e in ld.entities if isinstance(e, IncludeLaunchDescription)]
+    assert not [e for e in includes if _location(e, ctx).endswith('/lidar_front_wall.launch.py')]
 
 
 def _supervisor_parameters(overrides=None):
@@ -156,7 +202,8 @@ def _supervisor_parameters(overrides=None):
 
 
 @pytest.mark.parametrize('overrides', [None, {'guard': 'shadow', 'impl': 'rust',
-                                              'corridor_impl': 'rust'}])
+                                              'corridor_impl': 'rust',
+                                              'wall_tracker_impl': 'rust'}])
 def test_the_switches_reach_the_supervisor_as_strings(overrides):
     """
     Every switch reaches the supervisor as a string.

@@ -1,0 +1,35 @@
+{
+ "library": "/home/andreas/dev_ws/f1tenth_more_r6/install/f1tenth_wall_tracker_core/lib/f1tenth_wall_tracker_core/libf1tenth_wall_tracker_core.so",
+ "build": "build: cargo profile debug, opt-level 3, debug_assertions on",
+ "n": 3000,
+ "results": {
+  "robust_line": {
+   "cases": 3000,
+   "mismatches": 0,
+   "first": null
+  },
+  "fusion": {
+   "cases": 3000,
+   "mismatches": 0,
+   "first": null
+  },
+  "rectangles": {
+   "cases": 600,
+   "mismatches": 0,
+   "first": null
+  }
+ },
+ "coverage": {
+  "columns_agree": 69904,
+  "columns_lidar_only": 29418,
+  "columns_stereo_only": 208460,
+  "columns_disagree": 37727,
+  "observations": 4582,
+  "stereo_only_obs": 451,
+  "both_obs": 1752,
+  "rejected": 366,
+  "rect_segments": 3326,
+  "rect_informative": 939
+ },
+ "total_mismatches": 0
+}

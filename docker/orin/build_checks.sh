@@ -62,6 +62,12 @@ if [ "${RUST:-skip}" = build ]; then
   mpc_core=$(python3 -c 'from mpc_controller import mpc_native as m; print(m.available(), m.load_error(), m.build_info())' 2>&1 | tail -1)
   echo "  f1tenth_mpc_core: $mpc_core"
   case "$mpc_core" in "True None "*"opt-level 3,"*) ;; *) bad "f1tenth_mpc_core not loadable or not opt-level 3: $mpc_core" ;; esac
+  # The wall tracker library (R6): lidar_front_wall_node loads it with ctypes
+  # when wall_tracker_impl is rust; the same check (ABI, struct layouts,
+  # parameter lists, opt-level 3).
+  wall_core=$(python3 -c 'from f1tenth_perception import wall_tracker_native as m; print(m.available(), m.load_error(), m.build_info())' 2>&1 | tail -1)
+  echo "  f1tenth_wall_tracker_core: $wall_core"
+  case "$wall_core" in "True None "*"opt-level 3,"*) ;; *) bad "f1tenth_wall_tracker_core not loadable or not opt-level 3: $wall_core" ;; esac
 fi
 
 echo "== ldd -r scan (CLAUDE.md): workspace install, ZED SDK, llama.cpp; must print nothing"

@@ -820,6 +820,17 @@ enable_scene_labels:
 use_wall_tracker:
   default: true
   description: "Multi-wall tracker (multi_wall_tracker.py) in lidar_front_wall_node: up to 4 wall tracks in odom on /perception/walls; the front track (matched on this scan, or coasting for at most lidar_front_wall_wall_tracker_front_max_coast_sec) becomes the heading wall of the virtual wall, falling back to sequential_lines when there is none; no front track is CLEAR (since 2026-10-16, block 3: the old -1 latch after a coasted-out front track held the car indefinitely in an open hall), NO_DATA (-1) only without a pose or a laser transform. REQUIRES enable_scene_labels: without it the node logs an ERROR and the tracker stays off. TRUE since 2026-10-14, with enable_scene_labels: the calib clips of 2026-10-14 (static, square to a flat wall, bumper at 1.00 / 2.00 m) gave stereo 1.010 / 1.999 m and /perception/virtual_wall 0.996 / 1.990 m, the latter with the tracker on."
+# Consumed by: f1tenth_perception/lidar_front_wall.launch.py (launch arg ->
+# lidar_front_wall_node's wall_tracker_impl parameter, whose own default is this
+# key through f1tenth_perception/wall_tracker_backend.py) and f1tenth_bringup's
+# supervisor_bringup.launch.py (wall_tracker_impl:=, through the supervisor's
+# wall_tracker_impl parameter to the `lidar_front_wall` component). Rust port
+# main-jazzy-rust R6: output/rust/parity_wall_tracker.md. Default py; a flip to
+# rust is its own commit after evidence. (The env var F1TENTH_WALL_TRACKER_IMPL
+# overrides this default for tests only; see wall_tracker_backend.py.)
+wall_tracker_impl:
+  default: py
+  description: "Which implementation runs lidar_front_wall_node's multi-wall tracker (multi_wall_tracker.MultiWallTracker: association, extent, confirmation, roles, FRONT) and its per-cycle wall fusion (wall_fusion). 'py' (default): the Python in f1tenth_perception. 'rust': the f1tenth_wall_tracker_core library (src/rust/f1tenth_wall_tracker_core) through ctypes, the same tracker ported operation for operation, bit-identical on linus (output/rust/parity_wall_tracker.md); every reader still gets multi_wall_tracker.Track objects. With 'rust', lidar_front_wall_node refuses to start if the library does not load; it never falls back to the Python silently."
 # Consumed by: f1tenth_behavior/behavior_executor_node.py (CheckStopCondition).
 wall_distance_max_age_s:
   default: 0.5

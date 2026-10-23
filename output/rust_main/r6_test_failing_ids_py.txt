@@ -1,0 +1,3 @@
+failure f1tenth_bringup::f1tenth_bringup.test.test_copyright::test_copyright
+failure f1tenth_bringup::f1tenth_bringup.test.test_flake8::test_flake8
+failure f1tenth_bringup::f1tenth_bringup.test.test_pep257::test_pep257

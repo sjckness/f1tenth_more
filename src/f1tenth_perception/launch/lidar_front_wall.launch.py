@@ -247,6 +247,17 @@ def generate_launch_description():
     # the BT read it, so the producer and its consumers cannot disagree.
     params['enable_scene_labels'] = bool(get_value('enable_scene_labels'))
     params['use_wall_tracker'] = bool(get_value('use_wall_tracker'))
+    # Rust port R6 (f1tenth_perception/wall_tracker_backend.py): which
+    # implementation runs the wall tracker. Unprefixed, like corridor_impl,
+    # because component_supervisor_node writes it under this name
+    # (wall_tracker_impl:= on supervisor_bringup.launch.py). value_type=str:
+    # launch_ros would read an untyped value back as YAML.
+    impl_default, impl_desc = get_default('wall_tracker_impl')
+    declared.append(DeclareLaunchArgument(
+        'wall_tracker_impl', default_value=str(impl_default), choices=['py', 'rust'],
+        description=impl_desc))
+    params['wall_tracker_impl'] = ParameterValue(
+        LaunchConfiguration('wall_tracker_impl'), value_type=str)
 
     node = Node(
         condition=IfCondition(LaunchConfiguration('use_lidar')),

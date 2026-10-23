@@ -344,6 +344,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "f1tenth_wall_tracker_core"
+version = "0.1.0"
+
+[[package]]
 name = "fastrand"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

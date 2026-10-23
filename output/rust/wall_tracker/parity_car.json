@@ -1,0 +1,348 @@
+{
+ "runs": [
+  {
+   "bag": "/home/andreas/bags/yolo_gpu/corridor10m_20261015T171753",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "doors": false,
+   "cycles": 206,
+   "stepped": 206,
+   "cycles_with_diff": 0,
+   "state_diffs": 0,
+   "message_diffs": 0,
+   "debug_diffs": 0,
+   "max_abs_diff": 0.0,
+   "bit_only_equal": 0,
+   "first_diffs": [],
+   "messages_compared": 1440,
+   "tracks_compared": 724,
+   "max_tracks": 7,
+   "confirmed_track_steps": 511,
+   "front_steps": 0,
+   "rect_cycles": 0,
+   "door_cycles": 0,
+   "doors_seen": 0,
+   "roles": {
+    "unknown": 482,
+    "left": 204,
+    "right": 27,
+    "front": 11
+   },
+   "tracker_ms": {
+    "py": {
+     "n": 206,
+     "p50": 8.3828,
+     "p95": 10.2513
+    },
+    "rust": {
+     "n": 206,
+     "p50": 3.7061,
+     "p95": 4.6823
+    }
+   },
+   "wall_s": 3.8,
+   "identical": true
+  },
+  {
+   "bag": "/home/andreas/bags/corridor10m_20261016T144537",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "doors": false,
+   "cycles": 703,
+   "stepped": 703,
+   "cycles_with_diff": 0,
+   "state_diffs": 0,
+   "message_diffs": 0,
+   "debug_diffs": 0,
+   "max_abs_diff": 0.0,
+   "bit_only_equal": 0,
+   "first_diffs": [],
+   "messages_compared": 4920,
+   "tracks_compared": 2469,
+   "max_tracks": 7,
+   "confirmed_track_steps": 2185,
+   "front_steps": 495,
+   "rect_cycles": 0,
+   "door_cycles": 0,
+   "doors_seen": 0,
+   "roles": {
+    "unknown": 1146,
+    "left": 710,
+    "front": 539,
+    "right": 74
+   },
+   "tracker_ms": {
+    "py": {
+     "n": 703,
+     "p50": 9.2503,
+     "p95": 13.4534
+    },
+    "rust": {
+     "n": 703,
+     "p50": 4.1745,
+     "p95": 5.3509
+    }
+   },
+   "wall_s": 15.8,
+   "identical": true
+  },
+  {
+   "bag": "/home/andreas/bags/corridor10m_20261019T131815",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "doors": false,
+   "cycles": 664,
+   "stepped": 657,
+   "cycles_with_diff": 0,
+   "state_diffs": 0,
+   "message_diffs": 0,
+   "debug_diffs": 0,
+   "max_abs_diff": 0.0,
+   "bit_only_equal": 0,
+   "first_diffs": [],
+   "messages_compared": 4487,
+   "tracks_compared": 3285,
+   "max_tracks": 9,
+   "confirmed_track_steps": 3036,
+   "front_steps": 481,
+   "rect_cycles": 0,
+   "door_cycles": 0,
+   "doors_seen": 0,
+   "roles": {
+    "unknown": 1627,
+    "left": 943,
+    "front": 525,
+    "right": 190
+   },
+   "tracker_ms": {
+    "py": {
+     "n": 657,
+     "p50": 5.139,
+     "p95": 8.2775
+    },
+    "rust": {
+     "n": 657,
+     "p50": 2.5972,
+     "p95": 3.2679
+    }
+   },
+   "wall_s": 10.8,
+   "identical": true
+  },
+  {
+   "bag": "/home/andreas/bags/corridor_obstacles_20261019T135307",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "doors": false,
+   "cycles": 380,
+   "stepped": 380,
+   "cycles_with_diff": 0,
+   "state_diffs": 0,
+   "message_diffs": 0,
+   "debug_diffs": 0,
+   "max_abs_diff": 0.0,
+   "bit_only_equal": 0,
+   "first_diffs": [],
+   "messages_compared": 2521,
+   "tracks_compared": 1254,
+   "max_tracks": 5,
+   "confirmed_track_steps": 1084,
+   "front_steps": 336,
+   "rect_cycles": 3,
+   "door_cycles": 0,
+   "doors_seen": 0,
+   "roles": {
+    "front": 365,
+    "left": 380,
+    "unknown": 497,
+    "right": 12
+   },
+   "tracker_ms": {
+    "py": {
+     "n": 380,
+     "p50": 3.7673,
+     "p95": 4.4064
+    },
+    "rust": {
+     "n": 380,
+     "p50": 2.5671,
+     "p95": 2.9781
+    }
+   },
+   "wall_s": 5.0,
+   "identical": true
+  },
+  {
+   "bag": "/home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T14-35-30_mission-straight_until_potted_plant",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "doors": false,
+   "cycles": 286,
+   "stepped": 286,
+   "cycles_with_diff": 0,
+   "state_diffs": 0,
+   "message_diffs": 0,
+   "debug_diffs": 0,
+   "max_abs_diff": 0.0,
+   "bit_only_equal": 0,
+   "first_diffs": [],
+   "messages_compared": 1991,
+   "tracks_compared": 784,
+   "max_tracks": 8,
+   "confirmed_track_steps": 648,
+   "front_steps": 11,
+   "rect_cycles": 0,
+   "door_cycles": 0,
+   "doors_seen": 0,
+   "roles": {
+    "left": 305,
+    "right": 78,
+    "unknown": 382,
+    "front": 19
+   },
+   "tracker_ms": {
+    "py": {
+     "n": 286,
+     "p50": 8.514,
+     "p95": 12.0115
+    },
+    "rust": {
+     "n": 286,
+     "p50": 4.116,
+     "p95": 5.1696
+    }
+   },
+   "wall_s": 5.9,
+   "identical": true
+  },
+  {
+   "bag": "/home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T14-55-23_mission-person_then_potted_plant",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "doors": false,
+   "cycles": 209,
+   "stepped": 209,
+   "cycles_with_diff": 0,
+   "state_diffs": 0,
+   "message_diffs": 0,
+   "debug_diffs": 0,
+   "max_abs_diff": 0.0,
+   "bit_only_equal": 0,
+   "first_diffs": [],
+   "messages_compared": 1460,
+   "tracks_compared": 125,
+   "max_tracks": 3,
+   "confirmed_track_steps": 0,
+   "front_steps": 0,
+   "rect_cycles": 0,
+   "door_cycles": 0,
+   "doors_seen": 0,
+   "roles": {
+    "front": 67,
+    "left": 34,
+    "unknown": 18,
+    "right": 6
+   },
+   "tracker_ms": {
+    "py": {
+     "n": 209,
+     "p50": 6.9564,
+     "p95": 7.5828
+    },
+    "rust": {
+     "n": 209,
+     "p50": 3.4257,
+     "p95": 3.9344
+    }
+   },
+   "wall_s": 3.2,
+   "identical": true
+  },
+  {
+   "bag": "/home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T15-50-16_mission-go_to_person_1m",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "doors": false,
+   "cycles": 293,
+   "stepped": 288,
+   "cycles_with_diff": 0,
+   "state_diffs": 0,
+   "message_diffs": 0,
+   "debug_diffs": 0,
+   "max_abs_diff": 0.0,
+   "bit_only_equal": 0,
+   "first_diffs": [],
+   "messages_compared": 2033,
+   "tracks_compared": 1460,
+   "max_tracks": 9,
+   "confirmed_track_steps": 1293,
+   "front_steps": 17,
+   "rect_cycles": 0,
+   "door_cycles": 0,
+   "doors_seen": 0,
+   "roles": {
+    "right": 299,
+    "unknown": 802,
+    "left": 331,
+    "front": 28
+   },
+   "tracker_ms": {
+    "py": {
+     "n": 288,
+     "p50": 10.2998,
+     "p95": 13.2016
+    },
+    "rust": {
+     "n": 288,
+     "p50": 4.8047,
+     "p95": 5.8011
+    }
+   },
+   "wall_s": 7.0,
+   "identical": true
+  },
+  {
+   "bag": "/home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-21T12-25-22_mission-20261021T142038-bf7938.mission",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "doors": false,
+   "cycles": 130,
+   "stepped": 130,
+   "cycles_with_diff": 0,
+   "state_diffs": 0,
+   "message_diffs": 0,
+   "debug_diffs": 0,
+   "max_abs_diff": 0.0,
+   "bit_only_equal": 0,
+   "first_diffs": [],
+   "messages_compared": 902,
+   "tracks_compared": 457,
+   "max_tracks": 6,
+   "confirmed_track_steps": 387,
+   "front_steps": 0,
+   "rect_cycles": 0,
+   "door_cycles": 0,
+   "doors_seen": 0,
+   "roles": {
+    "right": 136,
+    "unknown": 181,
+    "left": 125,
+    "front": 15
+   },
+   "tracker_ms": {
+    "py": {
+     "n": 130,
+     "p50": 8.5867,
+     "p95": 11.3161
+    },
+    "rust": {
+     "n": 130,
+     "p50": 3.9954,
+     "p95": 5.1116
+    }
+   },
+   "wall_s": 2.5,
+   "identical": true
+  }
+ ]
+}
