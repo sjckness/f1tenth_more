@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_depth_ingest_rs</name>
+  <version>0.1.0</version>
+  <description>Depth ingest node in Rust (rclrs): subscribes the ZED depth, camera_info, detection masks and detections once and publishes f1tenth_messages/DetectionDepthArray (detection_3d_node's per-detection medians) and DepthRoi (front_clearance_node's ROI pixels), depth_source:=ingest; plus a ROS-free C-ABI library of the same logic for f1tenth_perception's parity harness</description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>builtin_interfaces</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>vision_msgs</depend>
+  <!-- DetectionDepthArray, DetectionDepth, DepthRoi (R5). -->
+  <depend>f1tenth_messages</depend>
+  <!-- ros2-rust/ros2_rust#557: rclrs 0.7 links these through its vendored
+       test crates; see output/rust/setup.md (test_msgs underlay). -->
+  <depend>example_interfaces</depend>
+  <depend>test_msgs</depend>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>

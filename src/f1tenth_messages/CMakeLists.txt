@@ -40,6 +40,9 @@ rosidl_generate_interfaces(f1tenth_messages
   "msg/SemanticObjectArray.msg"
   "msg/MpcParamUpdate.msg"
   "msg/LinkStatus.msg"
+  "msg/DetectionDepth.msg"
+  "msg/DetectionDepthArray.msg"
+  "msg/DepthRoi.msg"
   "srv/RestartComponent.srv"
   "srv/ComponentControl.srv"
   "srv/RunDiagnostics.srv"
@@ -48,6 +51,8 @@ rosidl_generate_interfaces(f1tenth_messages
   DEPENDENCIES
     std_msgs
     geometry_msgs
+    sensor_msgs
+    vision_msgs
 )
 
 if(BUILD_TESTING)
