@@ -12,6 +12,9 @@
 #
 # Only ros-jazzy-* follows the snapshot (pin 1001, and packages.ros.org -10 for
 # ros-jazzy-*); colcon, rosdep and the rest keep coming from packages.ros.org.
+# It also installs the packages linus lacked and built in user space
+# (EXTRA: jc_deps_ws's slam_toolbox, py_trees_ros, topic_tools; rust_underlay's
+# test_msgs; serial_driver for vesc_driver), from the same snapshot.
 # Refuses while a ROS process or a colcon build runs, and --apply refuses a plan
 # with any removal. After --apply every CMake package must be rebuilt clean
 # (CLAUDE.md "Rebuild policy"): tools/linus/rebuild_after_apt.sh.
@@ -27,6 +30,8 @@ KEYRING=/usr/share/keyrings/ros-snapshots-keyring.gpg
 LIST=/etc/apt/sources.list.d/ros2-snapshot.list
 PREF=/etc/apt/preferences.d/ros2-snapshot.pref
 ARCH="$(dpkg --print-architecture)"
+EXTRA=(ros-jazzy-slam-toolbox ros-jazzy-py-trees-ros ros-jazzy-py-trees-ros-interfaces
+       ros-jazzy-topic-tools ros-jazzy-test-msgs ros-jazzy-serial-driver)
 
 while (($#)); do
   case "$1" in
@@ -34,7 +39,7 @@ while (($#)); do
     --apply) MODE=apply ;;
     --rollback) MODE=rollback ;;
     --snapshot) SNAPSHOT="${2:?--snapshot needs a date}"; shift ;;
-    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
   shift
@@ -69,10 +74,16 @@ installed_ros() {
 
 # Refuse while anything ROS runs: the move replaces libraries under live processes.
 check_idle() {
-  local d pid cmd busy=()
+  local d pid cmd busy=() self=" " p=$$
+  # Skip this script and every ancestor: the shell that started it may carry the
+  # patterns in its own command line (CLAUDE.md, pkill -f self-match).
+  while [[ -n $p && $p != 0 ]]; do
+    self+="$p "
+    p=$(awk '/^PPid:/{print $2}' "/proc/$p/status" 2>/dev/null) || break
+  done
   for d in /proc/[0-9]*; do
     pid=${d#/proc/}
-    [[ $pid == "$$" || $pid == "$PPID" ]] && continue
+    [[ $self == *" $pid "* ]] && continue
     cmd=$(tr '\0' ' ' <"$d/cmdline" 2>/dev/null) || continue
     case "$cmd" in
       *"/opt/ros/jazzy/"*|*"ros2 launch"*|*"ros2 run"*|*"_ros2_daemon"*|*"colcon build"*|*"colcon test"*|*"fastdds discovery"*)
@@ -152,6 +163,11 @@ dry-run)
   summarise "$sim"
   log "transcript: $sim"
   [[ $REMOVALS == 0 ]] || die "the plan removes packages: --apply would refuse"
+  apt-get "${aptopts[@]}" -s install "${EXTRA[@]}" >"$sim.extra" 2>&1 \
+    || { tail -30 "$sim.extra"; die "apt-get -s of ${EXTRA[*]} failed"; }
+  cat "$sim.extra" >>"$sim" && rm -- "$sim.extra"
+  log "extra packages: $(grep -c '^Inst ' "$sim" | tr -d '\n') Inst lines in total, $(grep -c '^Remv ' "$sim" || true) removals"
+  [[ $(grep -c '^Remv ' "$sim" || true) == 0 ]] || die "installing ${EXTRA[*]} would remove packages"
   log "dry run OK. To apply: sudo $REPO/tools/linus/ros_snapshot_move.sh --apply"
   ;;
 apply)
@@ -174,10 +190,14 @@ apply)
   summarise "$sim"
   [[ $REMOVALS == 0 ]] || die "the plan removes packages; nothing installed. Undo the source with --rollback"
   DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade --allow-downgrades "${pkgs[@]}"
+  apt-get -s install "${EXTRA[@]}" >"$sim.extra" 2>&1 || { tail -30 "$sim.extra"; die "simulation of ${EXTRA[*]} failed"; }
+  ! grep -q '^Remv ' "$sim.extra" || die "installing ${EXTRA[*]} would remove packages (see $sim.extra)"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y "${EXTRA[@]}"
   dpkg-query -W -f='${Package} ${Version}\n' 'ros-jazzy-*' 'python3-colcon-*' >"$OUT/linus_ros_after_$stamp.txt" 2>/dev/null || true
   if [[ -n ${SUDO_USER:-} ]]; then chown -R "$SUDO_USER:" "$OUT"; fi
   log "done: $(dpkg-query -W -f='${Version}' ros-jazzy-rosidl-generator-rs) rosidl-generator-rs"
-  log "next (no sudo): tools/linus/rebuild_after_apt.sh <worktree> for every worktree you run"
+  log "next (no sudo): ~/dev_ws/jc_deps_ws and ~/dev_ws/rust_underlay are obsolete (now apt);"
+  log "  tools/linus/rebuild_after_apt.sh <worktree> for every worktree you run"
   ;;
 rollback)
   [[ $EUID -eq 0 ]] || die "--rollback needs root (sudo)"

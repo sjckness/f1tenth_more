@@ -1084,3 +1084,43 @@ Conf ros-jazzy-tricycle-controller (4.42.1-1noble.20260905.073703 jazzy/2026-09-
 Conf ros-jazzy-tricycle-steering-controller (4.42.1-1noble.20260905.074204 jazzy/2026-09-11/ubuntu noble:noble [amd64])
 Conf ros-jazzy-velocity-controllers (4.42.1-1noble.20260905.074523 jazzy/2026-09-11/ubuntu noble:noble [amd64])
 Conf ros-jazzy-ros2-controllers (4.42.1-1noble.20260905.075205 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+NOTE: This is only a simulation!
+      apt-get needs root privileges for real execution.
+      Keep also in mind that locking is deactivated,
+      so don't depend on the relevance to the real current situation!
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following packages were automatically installed and are no longer required:
+  libocct-foundation-7.6t64 libocct-modeling-algorithms-7.6t64
+  libocct-modeling-data-7.6t64 nvidia-firmware-580-580.126.09 slirp4netns
+Use 'apt autoremove' to remove them.
+The following additional packages will be installed:
+  libasio-dev ros-jazzy-io-context ros-jazzy-topic-tools-interfaces
+  ros-jazzy-udp-msgs
+The following NEW packages will be installed:
+  libasio-dev ros-jazzy-io-context ros-jazzy-py-trees-ros
+  ros-jazzy-py-trees-ros-interfaces ros-jazzy-serial-driver
+  ros-jazzy-slam-toolbox ros-jazzy-test-msgs ros-jazzy-topic-tools
+  ros-jazzy-topic-tools-interfaces ros-jazzy-udp-msgs
+0 upgraded, 10 newly installed, 0 to remove and 646 not upgraded.
+Inst libasio-dev (1:1.28.1-0.2 Ubuntu:24.04/noble [all])
+Inst ros-jazzy-udp-msgs (0.0.5-1noble.20260902.031154 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-io-context (1.2.0-4noble.20260902.061551 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-py-trees-ros-interfaces (2.1.2-1noble.20260902.043440 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-py-trees-ros (2.5.0-1noble.20260903.074309 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-serial-driver (1.2.0-4noble.20260903.011948 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-slam-toolbox (2.8.5-1noble.20260905.070219 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-test-msgs (2.0.4-1noble.20260902.022427 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-topic-tools-interfaces (1.3.4-1noble.20260902.022442 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-topic-tools (1.3.4-1noble.20260903.070927 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf libasio-dev (1:1.28.1-0.2 Ubuntu:24.04/noble [all])
+Conf ros-jazzy-udp-msgs (0.0.5-1noble.20260902.031154 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-io-context (1.2.0-4noble.20260902.061551 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-py-trees-ros-interfaces (2.1.2-1noble.20260902.043440 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-py-trees-ros (2.5.0-1noble.20260903.074309 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-serial-driver (1.2.0-4noble.20260903.011948 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-slam-toolbox (2.8.5-1noble.20260905.070219 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-test-msgs (2.0.4-1noble.20260902.022427 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-topic-tools-interfaces (1.3.4-1noble.20260902.022442 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-topic-tools (1.3.4-1noble.20260903.070927 jazzy/2026-09-11/ubuntu noble:noble [amd64])
