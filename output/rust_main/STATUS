@@ -1,1 +1,1 @@
-R0 e019d08a, R3 ceb7c884 (merged 34288544), R1 e59fc52a, R2.0 b6909dc1 done; R2 + R4 (branch rust-hardstop) + R6 (branch rust-walltracker) running since 2026-10-23T22:04:56+02:00; R5 next
+R0 R1 R2 R3 R4 R6 done and gated (all switches default py/off); R5 depth ingest partial, uncommitted (session limit 2026-10-24 01:07); Isaac e2e waits for 25 GB free, Thor/Orin/sudo pending - see report.md
