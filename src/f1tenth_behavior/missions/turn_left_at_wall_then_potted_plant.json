@@ -1,0 +1,37 @@
+{
+  "mission_id": "turn_left_at_wall_then_potted_plant",
+  "schema_version": "5.0",
+  "description": "Turn left 90 degrees at the wall (wall_turn, turn_sign +1 = left/CCW, the same move the M05 turn-left-at-the-wall plans use), then approach the nearest confirmed potted plant and stop at its default gap. The request said 'potted person'; no such class exists, so this reads it as potted plant. The plant must be in view after the turn: acquire_timeout_sec 5 starts when the second move starts. Needs semantic_layer_node (/costmap/semantic_tracks) and the global EKF.",
+  "moves": [
+    {
+      "id": "move_0_turn_left_at_wall",
+      "drive": {
+        "mode": "wall_turn",
+        "turn_sign": 1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+      },
+      "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+      },
+      "timeout_sec": 30,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "move_1_go_to_potted_plant",
+      "go_to_object": {
+        "target_class": "potted plant",
+        "speed": 0.4,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+      },
+      "stop_condition": {
+        "type": "object_reached"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}

@@ -25,7 +25,7 @@ from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import (
     BoundaryConstraintArray, DriveClamp, DriveCommand, MissionStatus, MpcSolverStatus,
     MultiWallTrackArray, ObjectApproachStatus, ObjectGoal, Obstacle2DArray, ReverseStatus,
-    SemanticObjectArray, SpeedChannelStatus, TurnGoal, WallTrack)
+    SemanticObjectArray, SpeedChannelStatus, TurnGoal, WallEstimate, WallTrack)
 from f1tenth_messages.msg import MpcParamUpdate  # LLM2 (two-llm-arch), see _llm2_setup
 from f1tenth_messages.srv import RequestReverse
 from f1tenth_params.object_geometry import (
@@ -69,7 +69,9 @@ from mpc_controller.vehicle_model import (
     f1tenth_state_fcn_dt_beta, f1tenth_state_fcn_dt_beta_lag)
 from mpc_controller.wall_tracker import PROVENANCE_NAMES, WallTracker, scan_to_odom_points
 from mpc_controller.wall_turn import (
-    SMOOTHSTEP_PEAK_SLOPE, min_turn_radius, plan_wall_turn_step)
+    SMOOTHSTEP_PEAK_SLOPE, min_turn_radius, plan_wall_turn_step,
+    raw_lidar_forward_min_range, wall_turn_brake_half_angle, wall_turn_speed_cap)
+from mpc_controller.wall_turn_distance import wall_turn_distance
 from sensor_msgs.msg import JointState
 from sensor_msgs.msg import Imu, LaserScan
 from tf2_msgs.msg import TFMessage
@@ -1193,6 +1195,31 @@ class MPCController(Node):
             self.declare_parameter(
                 'corr_wall_turn_safety_margin_m',
                 get_value('corr_wall_turn_safety_margin_m')).value), 0.0)
+        # Extra metres on the commit gate only (wall_turn.py, COMMIT GATE):
+        # the turn starts earlier without shrinking the per-rebuild distance cap.
+        self.corr_wall_turn_commit_lead_m = max(float(
+            self.declare_parameter(
+                'corr_wall_turn_commit_lead_m',
+                get_value('corr_wall_turn_commit_lead_m')).value), 0.0)
+        # Speed-side guards alongside the freeze fix above (wall_turn.py,
+        # "SPEED, NOT HEADING"): a committed turn's v_ref ramp, and the
+        # raw-lidar brake's shared floor/cone. See stack_params.yaml for each.
+        self.corr_wall_turn_stop_dist_m = max(float(
+            self.declare_parameter(
+                'corr_wall_turn_stop_dist_m',
+                get_value('corr_wall_turn_stop_dist_m')).value), 0.0)
+        self.corr_wall_turn_v_min_turn_mps = max(float(
+            self.declare_parameter(
+                'corr_wall_turn_v_min_turn_mps',
+                get_value('corr_wall_turn_v_min_turn_mps')).value), 0.0)
+        self.corr_wall_turn_brake_half_angle_rad = math.radians(float(
+            self.declare_parameter(
+                'corr_wall_turn_brake_half_angle_deg',
+                get_value('corr_wall_turn_brake_half_angle_deg')).value))
+        self.corr_wall_turn_brake_widen_per_rad = max(float(
+            self.declare_parameter(
+                'corr_wall_turn_brake_widen_per_rad',
+                get_value('corr_wall_turn_brake_widen_per_rad')).value), 0.0)
         # /perception/front_distance older than this is treated as unknown, not
         # as a distance. Without it a dead camera path would leave the last
         # value (or the 10.0 bootstrap below) standing in for the wall forever.
@@ -1200,6 +1227,22 @@ class MPCController(Node):
             self.declare_parameter(
                 'corr_wall_turn_front_distance_max_age_sec',
                 get_value('corr_wall_turn_front_distance_max_age_sec')).value)
+        # Where the increment's distance comes from (wall_turn_distance.py).
+        # 'legacy': the wall topic above and, after commit, the private
+        # tracker's d_wall, exactly as before. 'semantic': a ray along the
+        # heading onto /perception/walls, else the LiDAR forward-sector fit,
+        # else unknown -- and an unknown distance on the move's first rebuild
+        # no longer commits the turn.
+        self.corr_wall_turn_distance_source = str(
+            self.declare_parameter(
+                'corr_wall_turn_distance_source',
+                get_value('corr_wall_turn_distance_source')).value)
+        if self.corr_wall_turn_distance_source not in ('legacy', 'semantic'):
+            self.get_logger().error(
+                f'corr_wall_turn_distance_source='
+                f'{self.corr_wall_turn_distance_source!r} is neither legacy nor '
+                'semantic: using legacy.')
+            self.corr_wall_turn_distance_source = 'legacy'
 
         # =========================
         # d_wall corridor correction (the STRAIGHT drive branch only)
@@ -1937,20 +1980,26 @@ class MPCController(Node):
             10
         )
 
-        # /perception/walls, ONLY in boundary_source 'walls'. Subscribing
-        # unconditionally would deserialise up to four tracks at the tracker's
-        # ~10 Hz on this node's executor for nothing in the default
-        # configuration -- the same reason costmap_boundary_node's TF listener
-        # now only exists with use_convex_polytope (cpu-cleanup, 2026-10-16).
+        # /perception/walls, ONLY in boundary_source 'walls' or with
+        # corr_wall_turn_distance_source 'semantic' (the wall_turn ray-cast
+        # reads the same cache and coast clock). Subscribing unconditionally
+        # would deserialise up to four tracks at the tracker's ~10 Hz on this
+        # node's executor for nothing in the default configuration -- the same
+        # reason costmap_boundary_node's TF listener now only exists with
+        # use_convex_polytope (cpu-cleanup, 2026-10-16).
         self.sub_wall_tracks = None
         self.wall_diag_pub = None
-        if self.boundary_source == 'walls':
+        if (self.boundary_source == 'walls'
+                or self.corr_wall_turn_distance_source == 'semantic'):
+            if self.wall_coast_clock is None:
+                self.wall_coast_clock = wb.CoastClock()
             self.sub_wall_tracks = self.create_subscription(
                 MultiWallTrackArray,
                 '/perception/walls',
                 self.wall_tracks_callback,
                 10
             )
+        if self.boundary_source == 'walls':
             # A String of JSON, not a custom message, for exactly the reason
             # costmap_boundary_node's /costmap/safe_corridor_report is one: it
             # is a DIAGNOSTIC whose field set is still being shaped, nothing in
@@ -1978,6 +2027,20 @@ class MPCController(Node):
             self.front_distance_callback,
             10
         )
+
+        # The 'semantic' wall_turn distance's LiDAR fallback: the forward-
+        # sector fit, latest message and receipt time (staleness is
+        # corr_wall_turn_front_distance_max_age_sec, as for the topic above).
+        # Its other input, /perception/walls, is the wall rows' subscription
+        # above. Not subscribed under 'legacy'.
+        self.lidar_wall_estimate: Optional[WallEstimate] = None
+        self.lidar_wall_estimate_stamp_sec: Optional[float] = None
+        if self.corr_wall_turn_distance_source == 'semantic':
+            # The same bumper offset as the wall tracker's (base_front_x()).
+            self.wall_turn_bumper_x_m = base_front_x()
+            self.sub_lidar_wall_estimate = self.create_subscription(
+                WallEstimate, '/perception/lidar_front_wall_virtual',
+                self.lidar_wall_estimate_callback, 1)
 
         # THE MISSION'S WALL TARGET for the deceleration ramp: the distance a
         # front_clearance move stops at, published once per move by
@@ -3359,6 +3422,37 @@ class MPCController(Node):
         if tracker is not None:
             tracker.reset()
 
+    def _wall_turn_semantic_distance(self, x, y, heading):
+        """The 'semantic' wall_turn distance for a car at (x, y, heading), odom.
+
+        A WallTurnDistance (wall_turn_distance.py): the bumper's distance
+        along the heading to the nearest counting track on /perception/walls
+        (the wall rows' cache, ages and caps), else to the LiDAR forward-sector
+        fit, else None. The fit counts while MEASURED or DEAD_RECKONED
+        (lidar_front_wall_node caps the latter at
+        lidar_front_wall_stale_age_sec); SEEDED is /costmap/front_clearance, a
+        different quantity, and is not used.
+        """
+        now = self.get_clock().now().nanoseconds * 1e-9
+        walls_age = (None if self.wall_tracks_last_time is None
+                     else now - self.wall_tracks_last_time)
+        coast_ages = {t.id: self.wall_coast_clock.age(t, self.wall_tracks_stamp)
+                      for t in self.wall_tracks}
+        lidar_wall = None
+        lidar_age = None
+        est = self.lidar_wall_estimate
+        if est is not None and est.valid and est.provenance in (
+                WallEstimate.PROVENANCE_MEASURED, WallEstimate.PROVENANCE_DEAD_RECKONED):
+            lidar_wall = (est.distance, est.normal_angle)
+            lidar_age = now - self.lidar_wall_estimate_stamp_sec
+        return wall_turn_distance(
+            x, y, heading, self.wall_tracks, coast_ages,
+            self.wall_tracks_frame, walls_age, lidar_wall, lidar_age,
+            bumper_x_m=self.wall_turn_bumper_x_m, odom_frame=self._odom_frame_name(),
+            max_walls_age_s=self.wall_row_max_tf_age_s,
+            max_coast_s=self.wall_row_max_coast_s,
+            max_lidar_age_s=self.corr_wall_turn_front_distance_max_age_sec)
+
     def _fresh_front_distance(self):
         """The wall distance (get_wall_distance_topic) as a distance, or None when it is not one.
 
@@ -4028,6 +4122,10 @@ class MPCController(Node):
             f'IMU | ax={self.ax_imu:+.4f}',
             throttle_duration_sec=2.0
         )
+
+    def lidar_wall_estimate_callback(self, msg):
+        self.lidar_wall_estimate = msg
+        self.lidar_wall_estimate_stamp_sec = self.get_clock().now().nanoseconds * 1e-9
 
     def front_distance_callback(self, msg):
         self.front_distance = float(msg.data)
@@ -5461,6 +5559,29 @@ class MPCController(Node):
                    else loop_t0 - self.unknown_speed_cap_time)
         vdes = apply_speed_cap(vdes, self.unknown_speed_cap, cap_age,
                                self.unknown_speed_cap_max_age_s)
+        # WALL_TURN's two speed-side guards (wall_turn.py, "SPEED, NOT
+        # HEADING"), last, so they also bound every cap above. The ramp only
+        # runs once committed; the raw-lidar brake runs for the whole
+        # wall_turn move, deliberately independent of commit/tracker state.
+        if self.drive_cmd is not None and self.drive_cmd.get('mode') == 'wall_turn':
+            if self.wall_turn_committed:
+                vdes = wall_turn_speed_cap(
+                    self._fresh_front_distance(), self.corr_wall_turn_safety_margin_m,
+                    self.corr_wall_turn_stop_dist_m, self.corr_wall_turn_v_min_turn_mps, vdes)
+            if self.scan_msg is not None:
+                half_angle = wall_turn_brake_half_angle(
+                    self.corr_wall_turn_brake_half_angle_rad, self._last_published_steer,
+                    self.corr_wall_turn_brake_widen_per_rad)
+                brake_range = raw_lidar_forward_min_range(
+                    self.scan_msg.ranges, self.scan_msg.angle_min, self.scan_msg.angle_increment,
+                    self.scan_msg.range_min, self.scan_msg.range_max, half_angle)
+                if brake_range is not None and brake_range < self.corr_wall_turn_stop_dist_m:
+                    vdes = 0.0
+                    self.get_logger().warn(
+                        f'WALL/brake | raw lidar {brake_range:.2f} m < stop_dist '
+                        f'{self.corr_wall_turn_stop_dist_m:.2f} m (cone +-'
+                        f'{math.degrees(half_angle):.0f} deg): vdes -> 0',
+                        throttle_duration_sec=1.0)
 
         now_time = self.get_clock().now()
         now_sec = now_time.nanoseconds * 1e-9
@@ -6139,7 +6260,23 @@ class MPCController(Node):
                 # candidate passed the selection gates the rule stays on
                 # dFront, exactly as before the tracker existed. getattr for
                 # the duck-typed corridor test stand-ins, as with drive_cmd.
-                d_front = self._fresh_front_distance()
+                #
+                # corr_wall_turn_distance_source 'semantic' replaces all of
+                # that with wall_turn_distance.py's chain, every rebuild and
+                # before and after commit: the ray from the bumper along the
+                # car's heading (psi_base + turn_progress, the live heading
+                # unwrapped) onto the tracked walls, else the LiDAR fit, else
+                # unknown. d_wall is still computed for the log and the
+                # tracker still runs for /mpc/wall_track, but the rule never
+                # reads it.
+                semantic = getattr(self, 'corr_wall_turn_distance_source', 'legacy') == 'semantic'
+                wall_source = None
+                if semantic:
+                    wall_source = self._wall_turn_semantic_distance(
+                        X0, Y0, psi_base + self.turn_progress_rad)
+                    d_front = wall_source.distance
+                else:
+                    d_front = self._fresh_front_distance()
                 # None (no usable distance) for the rule below; the corridor
                 # debug and the CORR/build log further down take -1.0, the
                 # wire's own "no reading" (float(None) used to raise out of the
@@ -6149,7 +6286,7 @@ class MPCController(Node):
                 if tracker is not None and tracker.has_wall:
                     # Refitted by _wall_track_tick earlier this tick.
                     d_wall = tracker.d_wall((X0, Y0, psi0))
-                d_rule = d_wall if d_wall is not None else d_front
+                d_rule = d_front if semantic or d_wall is None else d_wall
                 was_committed = self.wall_turn_committed
                 wall_step = plan_wall_turn_step(
                     signed_total, self.turn_progress_rad,
@@ -6166,7 +6303,9 @@ class MPCController(Node):
                     # curvature 1.96 1/m against 1/R_min = 1.08).
                     n_steps=self.N, ts=self.ts, v_ref=self.vdes,
                     committed=self.wall_turn_committed,
-                    prev_commanded_rot=self.wall_turn_commanded_rot)
+                    prev_commanded_rot=self.wall_turn_commanded_rot,
+                    commit_on_unknown_first_rebuild=not semantic,
+                    commit_lead=getattr(self, 'corr_wall_turn_commit_lead_m', 0.0))
                 self.wall_turn_committed = wall_step.committed
                 self.wall_turn_commanded_rot = wall_step.commanded_rot
                 turn_remaining = wall_step.dpsi_this
@@ -6193,8 +6332,16 @@ class MPCController(Node):
                                   f'{tracker.last_inlier_count} returns)')
                 else:
                     d_rule_txt = 'd_wall=none'
+                if wall_source is None:
+                    d_front_txt = f'dFront={self.front_distance:.2f}'
+                else:
+                    d_front_txt = (
+                        f'dFront={"unknown" if d_front is None else f"{d_front:.2f}"} '
+                        f'src={wall_source.source}'
+                        + ('' if wall_source.track_id is None
+                           else f'#{wall_source.track_id}'))
                 self.get_logger().info(
-                    f'CORR/wall_turn | dFront={self.front_distance:.2f} '
+                    f'CORR/wall_turn | {d_front_txt} '
                     f'{d_rule_txt} '
                     f'd_avail={d_avail_txt} '
                     f'rem={wall_step.dpsi_rem:+.4f}/{signed_total:+.4f} '
