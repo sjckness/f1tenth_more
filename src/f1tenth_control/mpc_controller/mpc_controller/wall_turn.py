@@ -24,9 +24,15 @@ the wall: there dpsi_by_dist is the LARGEST term, so the min picks dpsi_rem and
 the corridor would bend by the whole turn at once. So the turn commits when
 the distance can no longer carry what is left,
 
-    d_avail <= k_safety * R_min * |dpsi_rem|    (i.e. dpsi_by_dist <= |dpsi_rem|)
+    d_avail <= k_safety * R_min * |dpsi_rem| + commit_lead
 
-and stays committed for the rest of the move. Without the latch the gate
+and stays committed for the rest of the move. commit_lead (metres, default
+0) moves ONLY the gate: the turn starts that much further from the wall,
+while dpsi_by_dist keeps its own formula. Raising k_safety or the margin
+would also start it earlier, but both shrink dpsi_by_dist, and that is what
+capped a live 90 deg turn at 42 deg (stack_params.yaml,
+corr_wall_turn_k_safety). The lead only adds distance in hand, so every
+later rebuild has a larger dpsi_by_dist, never a smaller one. Without the latch the gate
 re-closes as soon as the first increment lands (the remainder is then small
 next to the distance left), which splits one turn into two with a straight
 in between.
@@ -86,6 +92,21 @@ is not a distance, and it is not a wall at zero either.
   * Not committed, on the move's FIRST rebuild: the turn commits. There is no
     earlier reading it could have been waiting on, and a wall_turn issued
     with the camera path down would otherwise drive on and never turn.
+    UNLESS commit_on_unknown_first_rebuild is False (MPC_corr's
+    corr_wall_turn_distance_source 'semantic'): then the first rebuild is
+    like any later one, and the car drives straight until a distance
+    appears and the gate commits on it.
+
+A WALL INSIDE THE MARGIN, COMMITTED, IS NOT THE SAME CASE. dFront here is
+KNOWN, just smaller than safety_margin, so d_avail clamps to 0 -- but once
+committed this is given the identical treatment as UNKNOWN above (drop the
+distance cap, let the horizon cap carry the turn) rather than freezing
+dpsi_by_dist at exactly 0. The two look different (a real, small reading vs.
+no reading) but a frozen cap is the same stall either way: cmd_rot pins at
+whatever rotation has been reached and the car sits there, still closing on
+the wall at v_ref, for as long as the reading stays inside the margin. Before
+commit nothing changes -- d_avail still drives the commit decision, and
+nothing here can un-stall a turn that never started.
 
 WHAT THIS DOES NOT FIX. dFront is a straight-ahead measurement along the
 camera's optical axis, not along the arc. Once the car is bending, that ray
@@ -95,6 +116,8 @@ optimistic mid-turn.
 
 import math
 from typing import NamedTuple, Optional
+
+import numpy as np
 
 from f1tenth_params.corridor_geometry import SMOOTHSTEP_PEAK_SLOPE
 
@@ -136,10 +159,12 @@ def horizon_heading_reach(n_steps: int, ts: float, v_ref: float,
 
 
 def wall_turn_trigger_distance(turn: float, wheelbase: float, steering_bound: float,
-                               k_safety: float, safety_margin: float) -> float:
+                               k_safety: float, safety_margin: float,
+                               commit_lead: float = 0.0) -> float:
     """Return the dFront at which a still-straight car commits to `turn` radians."""
     r_min = min_turn_radius(wheelbase, steering_bound)
-    return float(safety_margin) + float(k_safety) * r_min * abs(float(turn))
+    return (float(safety_margin) + float(k_safety) * r_min * abs(float(turn))
+            + max(float(commit_lead), 0.0))
 
 
 class WallTurnStep(NamedTuple):
@@ -171,7 +196,9 @@ def plan_wall_turn_step(turn_total: float, turn_progress: float,
                         k_safety: float, safety_margin: float,
                         n_steps: int, ts: float, v_ref: float,
                         committed: bool = False,
-                        prev_commanded_rot: Optional[float] = None) -> WallTurnStep:
+                        prev_commanded_rot: Optional[float] = None,
+                        commit_on_unknown_first_rebuild: bool = True,
+                        commit_lead: float = 0.0) -> WallTurnStep:
     """
     Decide how much of the turn this corridor rebuild asks for.
 
@@ -179,7 +206,9 @@ def plan_wall_turn_step(turn_total: float, turn_progress: float,
     turn_sign * turn_mag and turn_progress_rad). committed and
     prev_commanded_rot come from the previous rebuild of the SAME move:
     pass False/None on a move's first rebuild. See the module docstring for
-    the rule, the gate and the ratchet.
+    the rule, the gate and the ratchet, its COMMIT GATE section for
+    commit_lead, and its UNKNOWN dFront section for
+    commit_on_unknown_first_rebuild.
     """
     if k_safety < SMOOTHSTEP_PEAK_SLOPE:
         raise ValueError(
@@ -200,13 +229,26 @@ def plan_wall_turn_step(turn_total: float, turn_progress: float,
 
     if d_front is not None and math.isfinite(d_front) and d_front >= 0.0:
         d_avail = max(float(d_front) - float(safety_margin), 0.0)
-        dpsi_by_dist = d_avail / (k_safety * r_min)
-        committed = committed or d_avail <= k_safety * r_min * abs(dpsi_rem)
+        committed = committed or d_avail <= (k_safety * r_min * abs(dpsi_rem)
+                                             + max(float(commit_lead), 0.0))
+        # Once committed, a wall inside the margin is a KNOWN reading, not a
+        # missing one, but freezing dpsi_by_dist at exactly 0 here is a live
+        # stall, not a safety margin: cmd_rot pins forever while the car
+        # sits at the margin, still closing on the wall at v_ref because
+        # nothing is asking it to turn any further. Confirmed live 2026-10-23
+        # (R017, M05_turn_left_wall): held at 46.6 deg of a commanded 90,
+        # dFront flat at 0.14 m for 20+ s, then contact. Treated the same as
+        # UNKNOWN dFront post-commit (module docstring): drop the distance
+        # cap and let the horizon cap carry the rest of the turn, instead of
+        # sitting still pointed at the wall.
+        dpsi_by_dist = (math.inf if (committed and d_avail <= 0.0)
+                        else d_avail / (k_safety * r_min))
     else:
         # Unknown distance: see the module docstring's three cases.
         d_avail = None
         dpsi_by_dist = math.inf
-        committed = committed or prev_commanded_rot is None
+        committed = committed or (commit_on_unknown_first_rebuild
+                                  and prev_commanded_rot is None)
 
     if committed:
         dpsi_this = math.copysign(
@@ -241,3 +283,73 @@ def plan_wall_turn_step(turn_total: float, turn_progress: float,
         committed=committed,
         held=held,
     )
+
+
+# ==============================================================================
+# SPEED, NOT HEADING. Follow-up to the freeze fix above (commit e491643a):
+# lifting the distance cap gets the TURN moving again, but says nothing
+# about how fast the car approaches the wall while it catches up. Two
+# independent layers, pure functions, no rclpy -- MPC_corr wires both in
+# every control tick while drive_cmd['mode'] == 'wall_turn':
+#
+#   * wall_turn_speed_cap: once committed, ramps the speed reference down as
+#     dFront closes from corr_wall_turn_safety_margin_m to stop_dist. Reads
+#     the SAME dFront the increment above does degraded or not -- if dFront
+#     is unknown this is not the backstop, the brake below is.
+#   * raw_lidar_forward_min_range / wall_turn_brake_half_angle: a hard stop
+#     from the RAW /scan, deliberately bypassing the wall tracker, the
+#     semantic distance and the committed/d_avail state above entirely --
+#     none of those have to be wrong for a return to be close, and this is
+#     what still catches it if they are. The cone widens with the last
+#     published steering angle so it covers the swept path mid-turn, not
+#     just dead ahead.
+# ==============================================================================
+
+def wall_turn_speed_cap(d_front: Optional[float], safety_margin: float,
+                        stop_dist: float, v_min_turn: float, v_ref: float) -> float:
+    """Linear cap on v_ref as a committed wall_turn's dFront closes from
+    safety_margin (no cap) to stop_dist (v_min_turn). Never raises v_ref.
+
+    Unknown dFront (None, NaN, or negative) is not capped HERE -- same
+    "unknown is not a wall at zero either" rule as plan_wall_turn_step's own
+    UNKNOWN dFront section, and the raw-lidar brake below is the backstop
+    for exactly this case, not this ramp.
+    """
+    if d_front is None or not math.isfinite(d_front) or d_front < 0.0:
+        return v_ref
+    if d_front >= safety_margin:
+        return v_ref
+    span = safety_margin - stop_dist
+    if span <= 0.0:
+        return min(v_ref, v_min_turn)
+    frac = max(0.0, min(1.0, (d_front - stop_dist) / span))
+    return min(v_ref, v_min_turn + frac * (v_ref - v_min_turn))
+
+
+def wall_turn_brake_half_angle(base_half_angle_rad: float, steering_rad: float,
+                               widen_per_rad: float) -> float:
+    """Forward brake cone half-angle, widened with |steering_rad| so the
+    raw-lidar check covers the swept path mid-turn, not just dead ahead.
+    Clamped at pi/2: a wider-than-side cone would start double-counting
+    what the BT's own side proximity check already covers."""
+    half = float(base_half_angle_rad) + float(widen_per_rad) * abs(float(steering_rad))
+    return min(half, math.pi / 2.0)
+
+
+def raw_lidar_forward_min_range(ranges, angle_min: float, angle_increment: float,
+                                range_min: float, range_max: float,
+                                half_angle_rad: float) -> Optional[float]:
+    """Minimum valid return within +-half_angle_rad of the RAW scan's own
+    forward axis (angle 0 -- post-remount this is genuinely the car's
+    front, same convention as f1tenth_behavior's IsProximityTooClose).
+    None with no valid return in the window: that is "nothing seen there",
+    never "clear", so the caller must not read it as a safe distance.
+    """
+    ranges = np.asarray(ranges, dtype=np.float64)
+    angles = angle_min + np.arange(ranges.size) * angle_increment
+    with np.errstate(invalid='ignore'):
+        valid = (np.isfinite(ranges) & (ranges >= range_min) & (ranges <= range_max)
+                 & (np.abs(angles) < half_angle_rad))
+    if not np.any(valid):
+        return None
+    return float(ranges[valid].min())
