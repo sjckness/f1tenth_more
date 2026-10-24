@@ -109,7 +109,7 @@ summarise() {
   log "plan: $inst installs/upgrades ($new new packages), $remv removals, $(printf '%s' "$down" | grep -c . || true) downgrades"
   if [[ -n $down ]]; then printf '%s\n' "$down" | sed 's/^/  downgrade: /'; fi
   grep '^Remv ' "$sim" | sed 's/^/  /' || true
-  printf '%s\n' "$remv" >"$sim.removals"
+  REMOVALS=$remv
 }
 
 # apt-get update, tolerating unrelated broken repositories (linus has one) but
@@ -151,7 +151,7 @@ dry-run)
     || { tail -30 "$sim"; die "apt-get -s failed (transcript $sim)"; }
   summarise "$sim"
   log "transcript: $sim"
-  [[ $(cat "$sim.removals") == 0 ]] || die "the plan removes packages: --apply would refuse"
+  [[ $REMOVALS == 0 ]] || die "the plan removes packages: --apply would refuse"
   log "dry run OK. To apply: sudo $REPO/tools/linus/ros_snapshot_move.sh --apply"
   ;;
 apply)
@@ -172,7 +172,7 @@ apply)
   sim="$OUT/linus_ros_move_apply_sim_$stamp.txt"
   apt-get -s install --only-upgrade --allow-downgrades "${pkgs[@]}" >"$sim" 2>&1 || { tail -30 "$sim"; die "simulation failed"; }
   summarise "$sim"
-  [[ $(cat "$sim.removals") == 0 ]] || die "the plan removes packages; nothing installed. Undo the source with --rollback"
+  [[ $REMOVALS == 0 ]] || die "the plan removes packages; nothing installed. Undo the source with --rollback"
   DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade --allow-downgrades "${pkgs[@]}"
   dpkg-query -W -f='${Package} ${Version}\n' 'ros-jazzy-*' 'python3-colcon-*' >"$OUT/linus_ros_after_$stamp.txt" 2>/dev/null || true
   if [[ -n ${SUDO_USER:-} ]]; then chown -R "$SUDO_USER:" "$OUT"; fi

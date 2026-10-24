@@ -1,0 +1,3 @@
+6c329992609d3e6c38939c8da1d240393af718aa mpc_corr: wall_turn speed ramp and a raw-lidar brake, independent of the planner
+e491643a6e47d50b91a3f76f14a7aad450d45196 mpc_corr: wall_turn no longer freezes once the car is inside the margin
+1f957ca015d529618e4393e8e6ae7d50a9b0d0ad mpc_corr: wall_turn distance from the semantic wall tracks, behind a flag
