@@ -1,0 +1,23 @@
+{
+  "mission_id": "go_to_person_1m",
+  "schema_version": "5.0",
+  "description": "Drive to the nearest confirmed person and stop about 1 m short: gap_m 1.1, measured from the car's front to the person's near edge. 1.1 is the closest the loader allows for a person (gap_min 1.07 m = car_radius 0.20 + avoidance_margin 0.12 + person class_margin 0.50 + settle_buffer 0.10 + solver nose 0.15). acquire_timeout_sec 10 gives semantic_layer_node time to confirm the track (3 hits at score >= 0.5) with the person standing in front of the car. Needs /costmap/semantic_tracks and the global EKF.",
+  "moves": [
+    {
+      "id": "move_0_go_to_person",
+      "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.4,
+        "acquire_timeout_sec": 10.0,
+        "lost_grace_sec": 1.5
+      },
+      "stop_condition": {
+        "type": "object_reached"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
