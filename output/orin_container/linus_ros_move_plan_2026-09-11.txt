@@ -1,0 +1,1086 @@
+NOTE: This is only a simulation!
+      apt-get needs root privileges for real execution.
+      Keep also in mind that locking is deactivated,
+      so don't depend on the relevance to the real current situation!
+Reading package lists...
+Building dependency tree...
+Reading state information...
+ros-jazzy-ament-cmake is already the newest version (2.5.6-2noble.20260225.222913).
+ros-jazzy-ament-cmake-auto is already the newest version (2.5.6-2noble.20260225.232257).
+ros-jazzy-ament-cmake-copyright is already the newest version (0.17.5-1noble.20260410.113746).
+ros-jazzy-ament-cmake-core is already the newest version (2.5.6-2noble.20260224.191131).
+ros-jazzy-ament-cmake-cppcheck is already the newest version (0.17.5-1noble.20260410.113607).
+ros-jazzy-ament-cmake-cpplint is already the newest version (0.17.5-1noble.20260410.105800).
+ros-jazzy-ament-cmake-export-definitions is already the newest version (2.5.6-2noble.20260224.232207).
+ros-jazzy-ament-cmake-export-dependencies is already the newest version (2.5.6-2noble.20260225.043730).
+ros-jazzy-ament-cmake-export-include-directories is already the newest version (2.5.6-2noble.20260224.232223).
+ros-jazzy-ament-cmake-export-interfaces is already the newest version (2.5.6-2noble.20260225.042039).
+ros-jazzy-ament-cmake-export-libraries is already the newest version (2.5.6-2noble.20260224.232254).
+ros-jazzy-ament-cmake-export-link-flags is already the newest version (2.5.6-2noble.20260225.042107).
+ros-jazzy-ament-cmake-export-targets is already the newest version (2.5.6-2noble.20260225.042100).
+ros-jazzy-ament-cmake-flake8 is already the newest version (0.17.5-1noble.20260410.113910).
+ros-jazzy-ament-cmake-gen-version-h is already the newest version (2.5.6-2noble.20260225.042237).
+ros-jazzy-ament-cmake-gmock is already the newest version (2.5.6-2noble.20260225.215706).
+ros-jazzy-ament-cmake-gtest is already the newest version (2.5.6-2noble.20260225.145055).
+ros-jazzy-ament-cmake-include-directories is already the newest version (2.5.6-2noble.20260225.042241).
+ros-jazzy-ament-cmake-libraries is already the newest version (2.5.6-2noble.20260225.042312).
+ros-jazzy-ament-cmake-lint-cmake is already the newest version (0.17.5-1noble.20260410.113602).
+ros-jazzy-ament-cmake-pep257 is already the newest version (0.17.5-1noble.20260410.113929).
+ros-jazzy-ament-cmake-pytest is already the newest version (2.5.6-2noble.20260225.145739).
+ros-jazzy-ament-cmake-python is already the newest version (2.5.6-2noble.20260225.042312).
+ros-jazzy-ament-cmake-target-dependencies is already the newest version (2.5.6-2noble.20260225.043936).
+ros-jazzy-ament-cmake-test is already the newest version (2.5.6-2noble.20260225.143205).
+ros-jazzy-ament-cmake-uncrustify is already the newest version (0.17.5-1noble.20260410.113615).
+ros-jazzy-ament-cmake-version is already the newest version (2.5.6-2noble.20260225.042330).
+ros-jazzy-ament-cmake-xmllint is already the newest version (0.17.5-1noble.20260410.113914).
+ros-jazzy-ament-copyright is already the newest version (0.17.5-1noble.20260410.105859).
+ros-jazzy-ament-cppcheck is already the newest version (0.17.5-1noble.20260410.080408).
+ros-jazzy-ament-cpplint is already the newest version (0.17.5-1noble.20260410.080348).
+ros-jazzy-ament-flake8 is already the newest version (0.17.5-1noble.20260410.113507).
+ros-jazzy-ament-lint is already the newest version (0.17.5-1noble.20260410.080358).
+ros-jazzy-ament-lint-auto is already the newest version (0.17.5-1noble.20260410.080333).
+ros-jazzy-ament-lint-cmake is already the newest version (0.17.5-1noble.20260410.080405).
+ros-jazzy-ament-lint-common is already the newest version (0.17.5-1noble.20260410.114154).
+ros-jazzy-ament-package is already the newest version (0.16.5-1noble.20260121.174946).
+ros-jazzy-ament-pep257 is already the newest version (0.17.5-1noble.20260410.113520).
+ros-jazzy-ament-uncrustify is already the newest version (0.17.5-1noble.20260410.080359).
+ros-jazzy-ament-xmllint is already the newest version (0.17.5-1noble.20260410.113521).
+ros-jazzy-angles is already the newest version (1.16.1-1noble.20260225.231445).
+ros-jazzy-backward-ros is already the newest version (1.0.8-1noble.20260225.051215).
+ros-jazzy-eigen-stl-containers is already the newest version (1.1.0-1noble.20260225.233822).
+ros-jazzy-foonathan-memory-vendor is already the newest version (1.3.1-3noble.20260225.055155).
+ros-jazzy-gmock-vendor is already the newest version (1.14.9000-2noble.20260225.143751).
+ros-jazzy-google-benchmark-vendor is already the newest version (0.5.1-1noble.20260225.055256).
+ros-jazzy-gtest-vendor is already the newest version (1.14.9000-2noble.20260225.055309).
+ros-jazzy-gz-dartsim-vendor is already the newest version (0.0.3-1noble.20260225.232143).
+ros-jazzy-gz-ogre-next-vendor is already the newest version (0.0.5-1noble.20260225.232146).
+ros-jazzy-keyboard-handler is already the newest version (0.3.2-1noble.20260225.235108).
+ros-jazzy-libcurl-vendor is already the newest version (3.4.4-1noble.20260225.235243).
+ros-jazzy-moveit-common is already the newest version (2.12.4-1noble.20260225.235600).
+ros-jazzy-ompl is already the newest version (1.7.0-2noble.20260225.055751).
+ros-jazzy-osqp-vendor is already the newest version (0.2.0-4noble.20260226.000013).
+ros-jazzy-osrf-pycommon is already the newest version (2.1.7-1noble.20260225.055811).
+ros-jazzy-pybind11-vendor is already the newest version (3.1.3-1noble.20260226.000033).
+ros-jazzy-python-cmake-module is already the newest version (0.11.1-2noble.20260226.000327).
+ros-jazzy-python-qt-binding is already the newest version (2.2.2-1noble.20260226.000339).
+ros-jazzy-qt-dotgraph is already the newest version (2.7.6-1noble.20260330.190755).
+ros-jazzy-rmw-implementation-cmake is already the newest version (7.3.3-1noble.20260225.225156).
+ros-jazzy-ros-environment is already the newest version (4.2.1-1noble.20260225.043405).
+ros-jazzy-ros-workspace is already the newest version (1.0.3-7noble.20260224.191628).
+ros-jazzy-rpyutils is already the newest version (0.4.2-1noble.20260225.142204).
+ros-jazzy-rttest is already the newest version (0.17.1-3noble.20260225.225641).
+ros-jazzy-ruckig is already the newest version (0.9.2-5noble.20260225.142307).
+ros-jazzy-sdl2-vendor is already the newest version (3.3.0-3noble.20260225.225708).
+ros-jazzy-smclib is already the newest version (4.2.0-1noble.20260317.155007).
+ros-jazzy-tango-icons-vendor is already the newest version (0.3.1-1noble.20260225.230515).
+ros-jazzy-tinyxml2-vendor is already the newest version (0.9.2-1noble.20260225.230621).
+ros-jazzy-uncrustify-vendor is already the newest version (3.0.1-1noble.20260225.230730).
+ros-jazzy-yaml-cpp-vendor is already the newest version (9.0.1-1noble.20260225.230938).
+The following packages were automatically installed and are no longer required:
+  libocct-foundation-7.6t64 libocct-modeling-algorithms-7.6t64
+  libocct-modeling-data-7.6t64 nvidia-firmware-580-580.126.09
+  python3-pygraphviz slirp4netns
+Use 'apt autoremove' to remove them.
+The following additional packages will be installed:
+  python3-graphviz ros-jazzy-battery-state-broadcaster
+  ros-jazzy-magnetometer-broadcaster
+The following NEW packages will be installed:
+  python3-graphviz ros-jazzy-battery-state-broadcaster
+  ros-jazzy-magnetometer-broadcaster
+The following packages will be upgraded:
+  ros-jazzy-ackermann-msgs ros-jazzy-ackermann-steering-controller
+  ros-jazzy-action-msgs ros-jazzy-action-tutorials-cpp
+  ros-jazzy-action-tutorials-interfaces ros-jazzy-action-tutorials-py
+  ros-jazzy-actionlib-msgs ros-jazzy-actuator-msgs
+  ros-jazzy-admittance-controller ros-jazzy-ament-cmake-ros
+  ros-jazzy-ament-index-cpp ros-jazzy-ament-index-python
+  ros-jazzy-behaviortree-cpp ros-jazzy-bicycle-steering-controller
+  ros-jazzy-bond ros-jazzy-bondcpp ros-jazzy-builtin-interfaces
+  ros-jazzy-chained-filter-controller ros-jazzy-chomp-motion-planner
+  ros-jazzy-class-loader ros-jazzy-common-interfaces ros-jazzy-composition
+  ros-jazzy-composition-interfaces ros-jazzy-compressed-depth-image-transport
+  ros-jazzy-compressed-image-transport ros-jazzy-console-bridge-vendor
+  ros-jazzy-control-msgs ros-jazzy-control-toolbox
+  ros-jazzy-controller-interface ros-jazzy-controller-manager
+  ros-jazzy-controller-manager-msgs ros-jazzy-costmap-queue
+  ros-jazzy-cv-bridge ros-jazzy-demo-nodes-cpp ros-jazzy-demo-nodes-cpp-native
+  ros-jazzy-demo-nodes-py ros-jazzy-depthimage-to-laserscan ros-jazzy-desktop
+  ros-jazzy-diagnostic-msgs ros-jazzy-diagnostic-updater
+  ros-jazzy-diff-drive-controller ros-jazzy-domain-coordinator
+  ros-jazzy-dummy-map-server ros-jazzy-dummy-robot-bringup
+  ros-jazzy-dummy-sensors ros-jazzy-dwb-core ros-jazzy-dwb-critics
+  ros-jazzy-dwb-msgs ros-jazzy-dwb-plugins ros-jazzy-effort-controllers
+  ros-jazzy-eigen3-cmake-module ros-jazzy-example-interfaces
+  ros-jazzy-examples-rclcpp-minimal-action-client
+  ros-jazzy-examples-rclcpp-minimal-action-server
+  ros-jazzy-examples-rclcpp-minimal-client
+  ros-jazzy-examples-rclcpp-minimal-composition
+  ros-jazzy-examples-rclcpp-minimal-publisher
+  ros-jazzy-examples-rclcpp-minimal-service
+  ros-jazzy-examples-rclcpp-minimal-subscriber
+  ros-jazzy-examples-rclcpp-minimal-timer
+  ros-jazzy-examples-rclcpp-multithreaded-executor
+  ros-jazzy-examples-rclpy-executors
+  ros-jazzy-examples-rclpy-minimal-action-client
+  ros-jazzy-examples-rclpy-minimal-action-server
+  ros-jazzy-examples-rclpy-minimal-client
+  ros-jazzy-examples-rclpy-minimal-publisher
+  ros-jazzy-examples-rclpy-minimal-service
+  ros-jazzy-examples-rclpy-minimal-subscriber ros-jazzy-fastcdr
+  ros-jazzy-fastrtps ros-jazzy-fastrtps-cmake-module ros-jazzy-filters
+  ros-jazzy-force-torque-sensor-broadcaster
+  ros-jazzy-forward-command-controller ros-jazzy-foxglove-bridge
+  ros-jazzy-generate-parameter-library ros-jazzy-generate-parameter-library-py
+  ros-jazzy-geographic-msgs ros-jazzy-geometric-shapes ros-jazzy-geometry-msgs
+  ros-jazzy-geometry2 ros-jazzy-gpio-controllers ros-jazzy-gps-msgs
+  ros-jazzy-gps-sensor-broadcaster ros-jazzy-gripper-controllers
+  ros-jazzy-gz-cmake-vendor ros-jazzy-gz-common-vendor
+  ros-jazzy-gz-fuel-tools-vendor ros-jazzy-gz-gui-vendor
+  ros-jazzy-gz-math-vendor ros-jazzy-gz-msgs-vendor
+  ros-jazzy-gz-physics-vendor ros-jazzy-gz-plugin-vendor
+  ros-jazzy-gz-rendering-vendor ros-jazzy-gz-ros2-control
+  ros-jazzy-gz-sensors-vendor ros-jazzy-gz-sim-vendor
+  ros-jazzy-gz-tools-vendor ros-jazzy-gz-transport-vendor
+  ros-jazzy-gz-utils-vendor ros-jazzy-hardware-interface
+  ros-jazzy-image-geometry ros-jazzy-image-tools ros-jazzy-image-transport
+  ros-jazzy-image-transport-plugins ros-jazzy-imu-sensor-broadcaster
+  ros-jazzy-interactive-markers ros-jazzy-intra-process-demo
+  ros-jazzy-joint-limits ros-jazzy-joint-state-broadcaster
+  ros-jazzy-joint-state-publisher ros-jazzy-joint-state-publisher-gui
+  ros-jazzy-joint-trajectory-controller ros-jazzy-joy ros-jazzy-kdl-parser
+  ros-jazzy-kinematics-interface ros-jazzy-laser-geometry ros-jazzy-launch
+  ros-jazzy-launch-param-builder ros-jazzy-launch-ros ros-jazzy-launch-testing
+  ros-jazzy-launch-testing-ament-cmake ros-jazzy-launch-testing-ros
+  ros-jazzy-launch-xml ros-jazzy-launch-yaml ros-jazzy-liblz4-vendor
+  ros-jazzy-libstatistics-collector ros-jazzy-libyaml-vendor
+  ros-jazzy-lifecycle ros-jazzy-lifecycle-msgs ros-jazzy-logging-demo
+  ros-jazzy-map-msgs ros-jazzy-marine-acoustic-msgs ros-jazzy-mcap-vendor
+  ros-jazzy-mecanum-drive-controller ros-jazzy-message-filters
+  ros-jazzy-moveit ros-jazzy-moveit-configs-utils ros-jazzy-moveit-core
+  ros-jazzy-moveit-kinematics ros-jazzy-moveit-msgs ros-jazzy-moveit-planners
+  ros-jazzy-moveit-planners-chomp ros-jazzy-moveit-planners-ompl
+  ros-jazzy-moveit-planners-stomp ros-jazzy-moveit-plugins
+  ros-jazzy-moveit-ros ros-jazzy-moveit-ros-benchmarks
+  ros-jazzy-moveit-ros-move-group ros-jazzy-moveit-ros-occupancy-map-monitor
+  ros-jazzy-moveit-ros-planning ros-jazzy-moveit-ros-planning-interface
+  ros-jazzy-moveit-ros-robot-interaction ros-jazzy-moveit-ros-visualization
+  ros-jazzy-moveit-ros-warehouse ros-jazzy-moveit-setup-app-plugins
+  ros-jazzy-moveit-setup-assistant ros-jazzy-moveit-setup-controllers
+  ros-jazzy-moveit-setup-core-plugins ros-jazzy-moveit-setup-framework
+  ros-jazzy-moveit-setup-srdf-plugins
+  ros-jazzy-moveit-simple-controller-manager ros-jazzy-nav-2d-msgs
+  ros-jazzy-nav-2d-utils ros-jazzy-nav-msgs ros-jazzy-nav2-amcl
+  ros-jazzy-nav2-behavior-tree ros-jazzy-nav2-behaviors
+  ros-jazzy-nav2-bt-navigator ros-jazzy-nav2-collision-monitor
+  ros-jazzy-nav2-common ros-jazzy-nav2-constrained-smoother
+  ros-jazzy-nav2-controller ros-jazzy-nav2-core ros-jazzy-nav2-costmap-2d
+  ros-jazzy-nav2-dwb-controller ros-jazzy-nav2-graceful-controller
+  ros-jazzy-nav2-lifecycle-manager ros-jazzy-nav2-map-server
+  ros-jazzy-nav2-mppi-controller ros-jazzy-nav2-msgs
+  ros-jazzy-nav2-navfn-planner ros-jazzy-nav2-planner
+  ros-jazzy-nav2-regulated-pure-pursuit-controller
+  ros-jazzy-nav2-rotation-shim-controller ros-jazzy-nav2-route
+  ros-jazzy-nav2-rviz-plugins ros-jazzy-nav2-simple-commander
+  ros-jazzy-nav2-smac-planner ros-jazzy-nav2-smoother
+  ros-jazzy-nav2-theta-star-planner ros-jazzy-nav2-util
+  ros-jazzy-nav2-velocity-smoother ros-jazzy-nav2-voxel-grid
+  ros-jazzy-nav2-waypoint-follower ros-jazzy-navigation2
+  ros-jazzy-object-recognition-msgs ros-jazzy-octomap-msgs
+  ros-jazzy-omni-wheel-drive-controller ros-jazzy-opennav-docking
+  ros-jazzy-opennav-docking-bt ros-jazzy-opennav-docking-core
+  ros-jazzy-orocos-kdl-vendor ros-jazzy-pal-statistics
+  ros-jazzy-pal-statistics-msgs ros-jazzy-parallel-gripper-controller
+  ros-jazzy-parameter-traits ros-jazzy-pcl-conversions ros-jazzy-pcl-msgs
+  ros-jazzy-pendulum-control ros-jazzy-pendulum-msgs ros-jazzy-pid-controller
+  ros-jazzy-pilz-industrial-motion-planner ros-jazzy-pluginlib
+  ros-jazzy-point-cloud-transport ros-jazzy-pose-broadcaster
+  ros-jazzy-position-controllers ros-jazzy-py-trees
+  ros-jazzy-python-orocos-kdl-vendor ros-jazzy-qt-gui ros-jazzy-qt-gui-cpp
+  ros-jazzy-qt-gui-py-common ros-jazzy-quality-of-service-demo-cpp
+  ros-jazzy-quality-of-service-demo-py ros-jazzy-random-numbers
+  ros-jazzy-range-sensor-broadcaster ros-jazzy-rcl ros-jazzy-rcl-action
+  ros-jazzy-rcl-interfaces ros-jazzy-rcl-lifecycle
+  ros-jazzy-rcl-logging-interface ros-jazzy-rcl-logging-spdlog
+  ros-jazzy-rcl-yaml-param-parser ros-jazzy-rclcpp ros-jazzy-rclcpp-action
+  ros-jazzy-rclcpp-components ros-jazzy-rclcpp-lifecycle ros-jazzy-rclpy
+  ros-jazzy-rcpputils ros-jazzy-rcutils ros-jazzy-realtime-tools
+  ros-jazzy-resource-retriever ros-jazzy-rmw ros-jazzy-rmw-dds-common
+  ros-jazzy-rmw-fastrtps-cpp ros-jazzy-rmw-fastrtps-shared-cpp
+  ros-jazzy-rmw-implementation ros-jazzy-robot-localization
+  ros-jazzy-robot-state-publisher ros-jazzy-ros-base ros-jazzy-ros-core
+  ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-image
+  ros-jazzy-ros-gz-interfaces ros-jazzy-ros-gz-sim ros-jazzy-ros-gz-sim-demos
+  ros-jazzy-ros2-control ros-jazzy-ros2-control-cmake
+  ros-jazzy-ros2-control-test-assets ros-jazzy-ros2-controllers
+  ros-jazzy-ros2action ros-jazzy-ros2bag ros-jazzy-ros2cli
+  ros-jazzy-ros2cli-common-extensions ros-jazzy-ros2component
+  ros-jazzy-ros2controlcli ros-jazzy-ros2doctor ros-jazzy-ros2interface
+  ros-jazzy-ros2launch ros-jazzy-ros2lifecycle ros-jazzy-ros2multicast
+  ros-jazzy-ros2node ros-jazzy-ros2param ros-jazzy-ros2pkg
+  ros-jazzy-ros2plugin ros-jazzy-ros2run ros-jazzy-ros2service
+  ros-jazzy-ros2topic ros-jazzy-rosbag2 ros-jazzy-rosbag2-compression
+  ros-jazzy-rosbag2-compression-zstd ros-jazzy-rosbag2-cpp
+  ros-jazzy-rosbag2-interfaces ros-jazzy-rosbag2-py ros-jazzy-rosbag2-storage
+  ros-jazzy-rosbag2-storage-default-plugins ros-jazzy-rosbag2-storage-mcap
+  ros-jazzy-rosbag2-storage-sqlite3 ros-jazzy-rosbag2-transport
+  ros-jazzy-rosgraph-msgs ros-jazzy-rosidl-adapter ros-jazzy-rosidl-cli
+  ros-jazzy-rosidl-cmake ros-jazzy-rosidl-core-generators
+  ros-jazzy-rosidl-core-runtime ros-jazzy-rosidl-default-generators
+  ros-jazzy-rosidl-default-runtime ros-jazzy-rosidl-dynamic-typesupport
+  ros-jazzy-rosidl-dynamic-typesupport-fastrtps ros-jazzy-rosidl-generator-c
+  ros-jazzy-rosidl-generator-cpp ros-jazzy-rosidl-generator-py
+  ros-jazzy-rosidl-generator-rs ros-jazzy-rosidl-generator-type-description
+  ros-jazzy-rosidl-parser ros-jazzy-rosidl-pycommon ros-jazzy-rosidl-runtime-c
+  ros-jazzy-rosidl-runtime-cpp ros-jazzy-rosidl-runtime-py
+  ros-jazzy-rosidl-typesupport-c ros-jazzy-rosidl-typesupport-cpp
+  ros-jazzy-rosidl-typesupport-fastrtps-c
+  ros-jazzy-rosidl-typesupport-fastrtps-cpp
+  ros-jazzy-rosidl-typesupport-interface
+  ros-jazzy-rosidl-typesupport-introspection-c
+  ros-jazzy-rosidl-typesupport-introspection-cpp ros-jazzy-rosx-introspection
+  ros-jazzy-rqt-action ros-jazzy-rqt-bag ros-jazzy-rqt-bag-plugins
+  ros-jazzy-rqt-common-plugins ros-jazzy-rqt-console ros-jazzy-rqt-graph
+  ros-jazzy-rqt-gui ros-jazzy-rqt-gui-cpp ros-jazzy-rqt-gui-py
+  ros-jazzy-rqt-image-view ros-jazzy-rqt-msg ros-jazzy-rqt-plot
+  ros-jazzy-rqt-publisher ros-jazzy-rqt-py-common ros-jazzy-rqt-py-console
+  ros-jazzy-rqt-reconfigure ros-jazzy-rqt-service-caller ros-jazzy-rqt-shell
+  ros-jazzy-rqt-srv ros-jazzy-rqt-topic ros-jazzy-rsl
+  ros-jazzy-rviz-assimp-vendor ros-jazzy-rviz-common
+  ros-jazzy-rviz-default-plugins ros-jazzy-rviz-ogre-vendor
+  ros-jazzy-rviz-rendering ros-jazzy-rviz2 ros-jazzy-sdformat-urdf
+  ros-jazzy-sdformat-vendor ros-jazzy-sensor-msgs ros-jazzy-sensor-msgs-py
+  ros-jazzy-service-msgs ros-jazzy-shape-msgs ros-jazzy-simulation-interfaces
+  ros-jazzy-spdlog-vendor ros-jazzy-sqlite3-vendor ros-jazzy-srdfdom
+  ros-jazzy-sros2 ros-jazzy-sros2-cmake ros-jazzy-state-interfaces-broadcaster
+  ros-jazzy-statistics-msgs ros-jazzy-std-msgs ros-jazzy-std-srvs
+  ros-jazzy-steering-controllers-library ros-jazzy-stereo-msgs ros-jazzy-stomp
+  ros-jazzy-tcb-span ros-jazzy-teleop-twist-joy
+  ros-jazzy-teleop-twist-keyboard ros-jazzy-tf2 ros-jazzy-tf2-bullet
+  ros-jazzy-tf2-eigen ros-jazzy-tf2-eigen-kdl ros-jazzy-tf2-geometry-msgs
+  ros-jazzy-tf2-kdl ros-jazzy-tf2-msgs ros-jazzy-tf2-py ros-jazzy-tf2-ros
+  ros-jazzy-tf2-ros-py ros-jazzy-tf2-sensor-msgs ros-jazzy-tf2-tools
+  ros-jazzy-theora-image-transport ros-jazzy-tl-expected ros-jazzy-tlsf
+  ros-jazzy-tlsf-cpp ros-jazzy-topic-monitor ros-jazzy-tracetools
+  ros-jazzy-trajectory-msgs ros-jazzy-transmission-interface
+  ros-jazzy-tricycle-controller ros-jazzy-tricycle-steering-controller
+  ros-jazzy-turtlesim ros-jazzy-type-description-interfaces
+  ros-jazzy-unique-identifier-msgs ros-jazzy-urdf ros-jazzy-urdf-parser-plugin
+  ros-jazzy-urdfdom ros-jazzy-urdfdom-headers ros-jazzy-urdfdom-py
+  ros-jazzy-velocity-controllers ros-jazzy-vision-msgs
+  ros-jazzy-visualization-msgs ros-jazzy-warehouse-ros ros-jazzy-xacro
+  ros-jazzy-zstd-image-transport ros-jazzy-zstd-vendor
+404 upgraded, 3 newly installed, 0 to remove and 242 not upgraded.
+Inst python3-graphviz (0.20.2-1 Ubuntu:24.04/noble [all])
+Inst ros-jazzy-fastcdr [2.2.7-1noble.20260225.051855] (2.2.8-1noble.20260901.205404 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-ament-index-python [1.8.2-1noble.20260412.024953] (1.8.4-1noble.20260519.010916 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rcutils [6.7.5-1noble.20260226.001538] (6.7.6-1noble.20260603.152220 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-typesupport-interface [4.6.7-1noble.20260225.225451] (4.6.9-1noble.20260612.045126 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rosidl-runtime-c [4.6.7-1noble.20260226.002400] (4.6.9-1noble.20260612.045513 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-dynamic-typesupport [0.1.2-3noble.20260226.003402] (0.1.2-3noble.20260612.045843 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rmw [7.3.3-1noble.20260226.004315] (7.3.3-1noble.20260612.050218 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-cli [4.6.7-1noble.20260225.142152] (4.6.9-1noble.20260612.045120 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rosidl-adapter [4.6.7-1noble.20260225.225255] (4.6.9-1noble.20260612.045507 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rosidl-parser [4.6.7-1noble.20260225.230105] (4.6.9-1noble.20260612.045810 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rosidl-pycommon [4.6.7-1noble.20260226.000402] (4.6.9-1noble.20260612.045929 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rosidl-cmake [4.6.7-1noble.20260226.001208] (4.6.9-1noble.20260612.050210 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rosidl-generator-type-description [4.6.7-1noble.20260412.025231] (4.6.9-1noble.20260612.050043 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-generator-c [4.6.7-1noble.20260412.025459] (4.6.9-1noble.20260612.050418 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rcpputils [2.11.3-1noble.20260226.002359] (2.11.4-1noble.20260603.152446 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-typesupport-c [3.2.2-1noble.20260412.030231] (3.2.3-1noble.20260612.050857 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-generator-py [0.22.2-1noble.20260412.030620] (0.22.2-1noble.20260612.051058 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-runtime-cpp [4.6.7-1noble.20260226.003416] (4.6.9-1noble.20260612.045852 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-typesupport-cpp [3.2.2-1noble.20260412.030737] (3.2.3-1noble.20260612.051324 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-domain-coordinator [0.12.0-3noble.20260225.051359] (0.12.1-1noble.20260603.150342 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ament-cmake-ros [0.12.0-3noble.20260225.232209] (0.12.1-1noble.20260603.150631 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-fastrtps-cmake-module [3.6.3-1noble.20260225.234436] (3.6.4-1noble.20260603.150331 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rosidl-generator-cpp [4.6.7-1noble.20260412.025832] (4.6.9-1noble.20260612.050852 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-typesupport-fastrtps-cpp [3.6.3-1noble.20260412.030048] (3.6.4-1noble.20260901.222810 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-typesupport-fastrtps-c [3.6.3-1noble.20260412.030624] (3.6.4-1noble.20260901.223423 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-typesupport-introspection-c [4.6.7-1noble.20260412.025838] (4.6.9-1noble.20260612.050623 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-typesupport-introspection-cpp [4.6.7-1noble.20260412.030123] (4.6.9-1noble.20260612.051103 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-core-runtime [0.2.1-1noble.20260412.030912] (0.2.1-1noble.20260902.013745 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-builtin-interfaces [2.0.3-1noble.20260412.031450] (2.0.4-1noble.20260902.013948 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-service-msgs [2.0.3-1noble.20260412.031935] (2.0.4-1noble.20260902.015102 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-unique-identifier-msgs [2.5.0-3noble.20260412.031407] (2.5.1-1noble.20260902.014005 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-action-msgs [2.0.3-1noble.20260412.032342] (2.0.4-1noble.20260902.015426 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-default-runtime [1.6.0-3noble.20260412.032511] (1.6.1-1noble.20260902.015921 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-std-msgs [5.3.7-1noble.20260412.033140] (5.3.8-1noble.20260902.022418 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ackermann-msgs [2.0.2-6noble.20260412.033758] (2.0.2-6noble.20260902.023644 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-geometry-msgs [5.3.7-1noble.20260412.033928] (5.3.8-1noble.20260902.030745 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-sensor-msgs [5.3.7-1noble.20260412.034842] (5.3.8-1noble.20260902.041633 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-trajectory-msgs [5.3.7-1noble.20260412.034949] (5.3.8-1noble.20260902.041818 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-control-msgs [5.9.0-1noble.20260412.040109] (5.9.0-1noble.20260902.042746 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ament-index-cpp [1.8.2-1noble.20260412.024949] (1.8.4-1noble.20260519.011052 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-console-bridge-vendor [1.7.1-3noble.20260225.232019] (1.7.2-1noble.20260603.150411 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-class-loader [2.7.0-3noble.20260226.003328] (2.7.1-1noble.20260604.024917 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-pluginlib [5.4.5-1noble.20260412.025240] (5.4.6-1noble.20260831.165748 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-libyaml-vendor [1.6.3-2noble.20260225.235345] (1.6.4-2noble.20260603.150356 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rcl-interfaces [2.0.3-1noble.20260412.033104] (2.0.4-1noble.20260902.021729 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rcl-logging-interface [3.1.1-1noble.20260226.002403] (3.1.1-1noble.20260603.152452 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-spdlog-vendor [1.6.1-1noble.20260225.225958] (1.6.2-1noble.20260603.150612 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rcl-logging-spdlog [3.1.1-1noble.20260226.003321] (3.1.1-1noble.20260604.025148 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rcl-yaml-param-parser [9.2.9-1noble.20260226.005115] (9.2.11-1noble.20260612.050432 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-fastrtps [2.14.6-1noble.20260303.233638] (2.14.6-1noble.20260901.222814 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rmw-dds-common [3.1.1-1noble.20260412.033108] (3.1.1-1noble.20260902.031038 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tracetools [8.2.5-1noble.20260226.001709] (8.2.6-1noble.20260603.152223 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rmw-fastrtps-shared-cpp [8.4.3-1noble.20260412.033316] (8.4.4-1noble.20260902.041127 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-dynamic-typesupport-fastrtps [0.1.0-3noble.20260304.002637] (0.1.0-3noble.20260902.013600 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rmw-fastrtps-cpp [8.4.3-1noble.20260412.034154] (8.4.4-1noble.20260902.041916 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rmw-implementation [2.15.6-1noble.20260412.040200] (2.15.6-1noble.20260902.043425 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-type-description-interfaces [2.0.3-1noble.20260412.032338] (2.0.4-1noble.20260902.015447 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rcl [9.2.9-1noble.20260412.040633] (9.2.11-1noble.20260902.044558 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-statistics-msgs [2.0.3-1noble.20260412.033131] (2.0.4-1noble.20260902.022352 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-libstatistics-collector [1.7.4-1noble.20260412.041007] (1.7.4-1noble.20260902.051231 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosgraph-msgs [2.0.3-1noble.20260412.033127] (2.0.4-1noble.20260902.031408 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rclcpp [28.1.18-1noble.20260412.041931] (28.1.22-1noble.20260902.055335 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-lifecycle-msgs [2.0.3-1noble.20260412.032912] (2.0.4-1noble.20260902.030832 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rcl-lifecycle [9.2.9-1noble.20260412.040958] (9.2.11-1noble.20260902.051007 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rclcpp-lifecycle [28.1.18-1noble.20260412.042728] (28.1.22-1noble.20260903.011547 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rcl-action [9.2.9-1noble.20260412.041043] (9.2.11-1noble.20260902.045222 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rclcpp-action [28.1.18-1noble.20260412.042748] (28.1.22-1noble.20260902.103722 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-realtime-tools [3.11.0-1noble.20260412.052804] (3.12.0-1noble.20260903.202759 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-urdfdom-headers [1.1.2-1noble.20260225.142752] (1.1.3-1noble.20260603.150728 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-urdfdom [4.0.2-1noble.20260225.232653] (4.0.2-1noble.20260603.151654 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-urdf-parser-plugin [2.10.0-3noble.20260226.001913] (2.10.1-2noble.20260603.151118 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-urdf [2.10.0-3noble.20260412.025422] (2.10.1-2noble.20260831.232032 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-joint-limits [4.44.0-1noble.20260412.053037] (4.48.0-1noble.20260905.031740 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-pal-statistics-msgs [2.7.0-1noble.20260412.034107] (2.8.2-1noble.20260902.030951 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rclpy [7.1.11-1noble.20260412.041747] (7.1.12-1noble.20260902.053513 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-pal-statistics [2.7.0-1noble.20260412.051247] (2.8.2-1noble.20260903.011933 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-gz-cmake-vendor [0.0.11-1noble.20260225.223100] (0.0.12-1noble.20260618.173318 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-gz-utils-vendor [0.0.5-1noble.20260225.231257] (0.0.5-1noble.20260618.173807 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-gz-math-vendor [0.0.8-1noble.20260225.232138] (0.0.11-1noble.20260905.031649 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-gz-tools-vendor [0.0.7-1noble.20260225.231255] (0.0.8-1noble.20260820.143431 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-sdformat-vendor [0.0.11-1noble.20260226.001417] (0.0.14-1noble.20260905.033543 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-sdformat-urdf [1.0.2-1noble.20260412.030020] (1.0.2-1noble.20260905.070219 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-hardware-interface [4.44.0-1noble.20260412.053318] (4.48.0-1noble.20260905.070541 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-controller-interface [4.44.0-1noble.20260412.063301] (4.48.0-1noble.20260905.072534 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-std-srvs [5.3.7-1noble.20260412.033137] (5.3.8-1noble.20260902.031157 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-generate-parameter-library-py [0.7.1-1noble.20260323.095134] (0.7.6-1noble.20260810.122749 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-tcb-span [1.2.0-1noble.20260304.072946] (1.3.2-1noble.20260618.160922 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rsl [1.3.0-1noble.20260412.052851] (1.3.0-1noble.20260902.084118 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tl-expected [1.2.0-1noble.20260225.230700] (1.3.2-1noble.20260618.160931 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-parameter-traits [0.7.1-1noble.20260412.053054] (0.7.6-1noble.20260903.014924 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-generate-parameter-library [0.7.1-1noble.20260412.053405] (0.7.6-1noble.20260903.015253 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav-msgs [5.3.7-1noble.20260412.034710] (5.3.8-1noble.20260902.041413 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tf2 [0.36.20-1noble.20260412.034858] (0.36.22-1noble.20260902.041654 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-eigen3-cmake-module [0.3.0-3noble.20260225.233716] (0.3.1-1noble.20260603.150413 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-orocos-kdl-vendor [0.5.1-2noble.20260225.234720] (0.5.2-1noble.20260603.150813 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-message-filters [4.11.12-1noble.20260412.042737] (4.11.17-1noble.20260902.103742 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-composition-interfaces [2.0.3-1noble.20260412.034209] (2.0.4-1noble.20260902.024252 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rclcpp-components [28.1.18-1noble.20260412.042656] (28.1.22-1noble.20260902.062054 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tf2-msgs [0.36.20-1noble.20260412.034900] (0.36.22-1noble.20260902.041736 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tf2-ros [0.36.20-1noble.20260412.044056] (0.36.22-1noble.20260903.021700 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tf2-py [0.36.20-1noble.20260412.052955] (0.36.22-1noble.20260902.102727 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tf2-ros-py [0.36.20-1noble.20260412.053403] (0.36.22-1noble.20260903.022808 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tf2-geometry-msgs [0.36.20-1noble.20260412.053505] (0.36.22-1noble.20260903.022912 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-steering-controllers-library [4.39.0-1noble.20260412.065256] (4.42.1-1noble.20260905.073642 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ackermann-steering-controller [4.39.0-1noble.20260412.065724] (4.42.1-1noble.20260905.074200 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-action-tutorials-interfaces [0.33.10-1noble.20260412.032748] (0.33.11-1noble.20260902.024042 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-action-tutorials-cpp [0.33.10-1noble.20260412.044552] (0.33.11-1noble.20260903.065104 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-action-tutorials-py [0.33.10-1noble.20260412.042036] (0.33.11-1noble.20260902.054844 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-actionlib-msgs [5.3.7-1noble.20260412.034232] (5.3.8-1noble.20260902.034206 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-actuator-msgs [0.0.1-4noble.20260412.033807] (0.0.1-4noble.20260902.024100 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-filters [2.2.2-1noble.20260412.042704] (2.2.2-1noble.20260902.082527 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-control-toolbox [4.10.0-1noble.20260412.053928] (4.11.1-1noble.20260905.031621 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-kinematics-interface [1.7.0-1noble.20260412.053227] (1.7.1-1noble.20260903.065629 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tf2-eigen [0.36.20-1noble.20260412.051518] (0.36.22-1noble.20260903.022246 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-python-orocos-kdl-vendor [0.5.1-2noble.20260226.001217] (0.5.2-1noble.20260603.151028 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-tf2-kdl [0.36.20-1noble.20260412.053442] (0.36.22-1noble.20260903.022912 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-admittance-controller [4.39.0-1noble.20260412.063944] (4.42.1-1noble.20260905.074107 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-battery-state-broadcaster (4.42.1-1noble.20260905.073119 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-behaviortree-cpp [4.9.0-1noble.20260412.042652] (4.10.0-1noble.20260902.082337 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-bicycle-steering-controller [4.39.0-1noble.20260412.065852] (4.42.1-1noble.20260905.074206 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-bond [4.2.0-1noble.20260412.034243] (4.2.0-1noble.20260902.034242 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-bondcpp [4.2.0-1noble.20260412.051032] (4.2.0-1noble.20260903.012116 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-chained-filter-controller [4.39.0-1noble.20260412.063948] (4.42.1-1noble.20260905.073140 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-random-numbers [2.0.1-5noble.20260225.225100] (2.0.5-1noble.20260617.135141 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-resource-retriever [3.4.4-1noble.20260412.025343] (3.4.4-1noble.20260603.152233 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-shape-msgs [5.3.7-1noble.20260412.035632] (5.3.8-1noble.20260902.034008 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-visualization-msgs [5.3.7-1noble.20260412.035359] (5.3.8-1noble.20260902.042956 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-geometric-shapes [2.3.2-1noble.20260412.042659] (2.3.4-1noble.20260902.103805 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-urdfdom-py [1.2.1-3noble.20260412.042521] (1.2.1-3noble.20260902.082036 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-srdfdom [2.0.7-1noble.20260412.053212] (2.0.7-1noble.20260903.070931 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-diagnostic-msgs [5.3.7-1noble.20260412.034614] (5.3.8-1noble.20260902.041325 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-stereo-msgs [5.3.7-1noble.20260412.035620] (5.3.8-1noble.20260902.043227 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-common-interfaces [5.3.7-1noble.20260412.035857] (5.3.8-1noble.20260902.043650 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-kdl-parser [2.11.0-3noble.20260412.025844] (2.11.0-3noble.20260901.011356 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-object-recognition-msgs [2.0.0-5noble.20260412.035902] (2.0.0-5noble.20260902.043010 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-octomap-msgs [2.0.1-1noble.20260412.035529] (2.0.1-1noble.20260902.033932 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-msgs [2.6.0-1noble.20260412.041739] (2.6.0-1noble.20260902.043510 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-core [2.12.4-1noble.20260412.053952] (2.12.4-1noble.20260903.075716 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-chomp-motion-planner [2.12.4-1noble.20260412.063134] (2.12.4-1noble.20260903.085448 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-example-interfaces [0.12.0-3noble.20260412.032829] (0.12.1-1noble.20260902.030327 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-launch [3.4.10-1noble.20260412.025232] (3.4.11-1noble.20260603.150356 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-launch-ros [0.26.11-1noble.20260412.042642] (0.26.12-1noble.20260902.054847 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-composition [0.33.10-1noble.20260412.044808] (0.33.11-1noble.20260902.064433 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-cv-bridge [4.1.0-1noble.20260412.042648] (4.1.0-1noble.20260902.080510 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-image-transport [5.1.7-1noble.20260412.043635] (5.1.8-1noble.20260903.065618 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-compressed-depth-image-transport [4.0.6-1noble.20260412.053601] (4.0.7-1noble.20260903.071753 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-compressed-image-transport [4.0.6-1noble.20260412.053636] (4.0.7-1noble.20260903.072043 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-controller-manager-msgs [4.44.0-1noble.20260412.034249] (4.48.0-1noble.20260902.194724 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-diagnostic-updater [4.2.6-1noble.20260412.045349] (4.2.7-1noble.20260902.061455 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-launch-xml [3.4.10-1noble.20260412.025343] (3.4.11-1noble.20260603.150705 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-launch-yaml [3.4.10-1noble.20260412.025341] (3.4.11-1noble.20260603.150711 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-launch-testing [3.4.10-1noble.20260412.025508] (3.4.11-1noble.20260603.150907 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-launch-testing-ros [0.26.11-1noble.20260412.043323] (0.26.12-1noble.20260902.081433 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2cli [0.32.9-1noble.20260412.042300] (0.32.12-1noble.20260902.102710 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2node [0.32.9-1noble.20260412.042626] (0.32.12-1noble.20260902.103130 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-runtime-py [0.13.1-2noble.20260226.000416] (0.13.2-1noble.20260612.050026 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-ros2topic [0.32.9-1noble.20260412.042628] (0.32.12-1noble.20260903.070408 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2service [0.32.9-1noble.20260412.052412] (0.32.12-1noble.20260903.074340 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2param [0.32.9-1noble.20260412.052450] (0.32.12-1noble.20260903.084453 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-controller-manager [4.44.0-1noble.20260412.063942] (4.48.0-1noble.20260905.073118 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-sensor-msgs-py [5.3.7-1noble.20260412.035802] (5.3.8-1noble.20260902.043313 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-laser-geometry [2.7.2-1noble.20260412.051842] (2.7.2-1noble.20260902.075605 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-map-msgs [2.4.1-2noble.20260412.035524] (2.4.1-2noble.20260902.043113 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-geographic-msgs [1.0.6-2noble.20260412.035916] (1.0.6-2noble.20260902.041337 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-generator-rs [0.4.11-1noble.20260412.030734] (0.5.0-1noble.20260813.022251 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-core-generators [0.2.1-1noble.20260412.030913] (0.2.1-1noble.20260902.013715 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosidl-default-generators [1.6.0-3noble.20260412.032513] (1.6.1-1noble.20260902.021422 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-msgs [1.3.11-1noble.20260412.044112] (1.3.13-1noble.20260902.082014 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-common [1.3.11-1noble.20260412.043444] (1.3.13-1noble.20260902.081418 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-util [1.3.11-1noble.20260412.054222] (1.3.13-1noble.20260903.023450 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-voxel-grid [1.3.11-1noble.20260412.052741] (1.3.13-1noble.20260902.082710 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tf2-sensor-msgs [0.36.20-1noble.20260412.053455] (0.36.22-1noble.20260903.022912 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-costmap-2d [1.3.11-1noble.20260412.054629] (1.3.13-1noble.20260903.024922 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-costmap-queue [1.3.11-1noble.20260412.060423] (1.3.13-1noble.20260903.030125 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-demo-nodes-cpp [0.33.10-1noble.20260412.044049] (0.33.11-1noble.20260902.063221 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-demo-nodes-cpp-native [0.33.10-1noble.20260412.044602] (0.33.11-1noble.20260902.064746 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-demo-nodes-py [0.33.10-1noble.20260412.042524] (0.33.11-1noble.20260902.102522 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-image-geometry [4.1.0-1noble.20260412.040226] (4.1.0-1noble.20260902.043318 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-depthimage-to-laserscan [2.5.1-3noble.20260412.051904] (2.5.1-3noble.20260902.075602 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-dummy-map-server [0.33.10-1noble.20260412.051842] (0.33.11-1noble.20260902.075357 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-dummy-sensors [0.33.10-1noble.20260412.051906] (0.33.11-1noble.20260902.080635 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-robot-state-publisher [3.3.3-3noble.20260412.044622] (3.3.4-1noble.20260903.022201 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-dummy-robot-bringup [0.33.10-1noble.20260412.052140] (0.33.11-1noble.20260903.022631 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclcpp-minimal-action-client [0.19.7-1noble.20260412.051021] (0.19.7-1noble.20260903.065417 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclcpp-minimal-action-server [0.19.7-1noble.20260412.051019] (0.19.7-1noble.20260903.065431 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclcpp-minimal-client [0.19.7-1noble.20260412.051022] (0.19.7-1noble.20260902.062743 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclcpp-minimal-composition [0.19.7-1noble.20260412.045356] (0.19.7-1noble.20260902.064809 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclcpp-minimal-publisher [0.19.7-1noble.20260412.045354] (0.19.7-1noble.20260902.061549 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclcpp-minimal-service [0.19.7-1noble.20260412.051024] (0.19.7-1noble.20260902.062803 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclcpp-minimal-subscriber [0.19.7-1noble.20260412.045426] (0.19.7-1noble.20260902.064818 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclcpp-minimal-timer [0.19.7-1noble.20260412.052718] (0.19.7-1noble.20260902.083213 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclcpp-multithreaded-executor [0.19.7-1noble.20260412.045432] (0.19.7-1noble.20260902.061530 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclpy-executors [0.19.7-1noble.20260412.042551] (0.19.7-1noble.20260902.054611 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclpy-minimal-action-client [0.19.7-1noble.20260412.042555] (0.19.7-1noble.20260902.102503 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclpy-minimal-action-server [0.19.7-1noble.20260412.042203] (0.19.7-1noble.20260902.054901 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclpy-minimal-client [0.19.7-1noble.20260412.042556] (0.19.7-1noble.20260902.054625 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclpy-minimal-publisher [0.19.7-1noble.20260412.042601] (0.19.7-1noble.20260902.054643 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclpy-minimal-service [0.19.7-1noble.20260412.042602] (0.19.7-1noble.20260902.054633 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-examples-rclpy-minimal-subscriber [0.19.7-1noble.20260412.042605] (0.19.7-1noble.20260902.054657 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-image-tools [0.33.10-1noble.20260412.045451] (0.33.11-1noble.20260902.064925 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-intra-process-demo [0.33.10-1noble.20260412.045501] (0.33.11-1noble.20260902.061501 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-joy [3.3.0-3noble.20260412.051931] (3.3.0-3noble.20260902.075937 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-lifecycle [0.33.10-1noble.20260412.045645] (0.33.11-1noble.20260903.011939 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-logging-demo [0.33.10-1noble.20260412.044110] (0.33.11-1noble.20260903.065815 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-pcl-msgs [1.0.0-9noble.20260412.035559] (1.0.0-9noble.20260902.043037 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-pcl-conversions [2.6.4-1noble.20260412.045759] (2.6.5-1noble.20260903.065915 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-pendulum-msgs [0.33.10-1noble.20260412.033002] (0.33.11-1noble.20260902.021732 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tlsf [0.9.0-3noble.20260225.230709] (0.9.1-2noble.20260603.150632 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-tlsf-cpp [0.17.1-3noble.20260412.050239] (0.17.1-3noble.20260902.061550 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-pendulum-control [0.33.10-1noble.20260412.050614] (0.33.11-1noble.20260902.062516 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-quality-of-service-demo-cpp [0.33.10-1noble.20260412.050216] (0.33.11-1noble.20260902.064446 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-quality-of-service-demo-py [0.33.10-1noble.20260412.042122] (0.33.11-1noble.20260902.054736 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tf2-bullet [0.36.20-1noble.20260412.051516] (0.36.22-1noble.20260903.022532 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tf2-eigen-kdl [0.36.20-1noble.20260412.040107] (0.36.22-1noble.20260902.042605 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tf2-tools [0.36.20-1noble.20260412.053524] (0.36.22-1noble.20260903.022914 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-geometry2 [0.36.20-1noble.20260412.060249] (0.36.22-1noble.20260903.023449 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-launch-testing-ament-cmake [3.4.10-1noble.20260412.025830] (3.4.11-1noble.20260603.151149 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2action [0.32.9-1noble.20260412.053021] (0.32.12-1noble.20260903.070315 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2pkg [0.32.9-1noble.20260412.042622] (0.32.12-1noble.20260903.070408 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2component [0.32.9-1noble.20260412.052519] (0.32.12-1noble.20260903.084755 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2doctor [0.32.9-1noble.20260412.042619] (0.32.12-1noble.20260902.103121 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2interface [0.32.9-1noble.20260412.042621] (0.32.12-1noble.20260902.103123 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2launch [0.26.11-1noble.20260412.043200] (0.26.12-1noble.20260903.074444 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2lifecycle [0.32.9-1noble.20260412.052446] (0.32.12-1noble.20260903.084439 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2multicast [0.32.9-1noble.20260412.053041] (0.32.12-1noble.20260902.103136 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2plugin [5.4.5-1noble.20260412.042739] (5.4.6-1noble.20260903.074527 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2run [0.32.9-1noble.20260412.053103] (0.32.12-1noble.20260903.074618 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-sros2 [0.13.6-1noble.20260412.042622] (0.13.6-1noble.20260903.070845 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2cli-common-extensions [0.3.1-1noble.20260412.053337] (0.3.1-1noble.20260903.085021 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-sros2-cmake [0.13.6-1noble.20260412.053208] (0.13.6-1noble.20260903.075137 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros-core [0.11.0-1noble.20260412.053408] (0.11.0-1noble.20260903.085113 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosbag2-storage [0.26.10-2noble.20260412.042713] (0.26.11-1noble.20260902.082620 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosbag2-cpp [0.26.10-2noble.20260412.043347] (0.26.11-1noble.20260902.083107 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosbag2-compression [0.26.10-2noble.20260412.053554] (0.26.11-1noble.20260903.070441 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosbag2-interfaces [0.26.10-2noble.20260412.033118] (0.26.11-1noble.20260902.022225 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosbag2-transport [0.26.10-2noble.20260412.054424] (0.26.11-1noble.20260903.085220 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosbag2-py [0.26.10-2noble.20260412.060353] (0.26.11-1noble.20260903.090602 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-liblz4-vendor [0.26.10-2noble.20260408.222020] (0.26.11-1noble.20260603.150356 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-zstd-vendor [0.26.10-2noble.20260408.222105] (0.26.11-1noble.20260603.150731 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-mcap-vendor [0.26.10-2noble.20260408.222435] (0.26.11-1noble.20260603.151024 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rosbag2-storage-mcap [0.26.10-2noble.20260412.043351] (0.26.11-1noble.20260903.070458 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-sqlite3-vendor [0.26.10-2noble.20260408.222053] (0.26.11-1noble.20260603.150654 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rosbag2-storage-sqlite3 [0.26.10-2noble.20260412.043751] (0.26.11-1noble.20260903.070451 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosbag2-storage-default-plugins [0.26.10-2noble.20260412.065628] (0.26.11-1noble.20260903.075127 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2bag [0.26.10-2noble.20260412.065702] (0.26.11-1noble.20260903.091706 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosbag2-compression-zstd [0.26.10-2noble.20260412.054126] (0.26.11-1noble.20260903.075117 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosbag2 [0.26.10-2noble.20260412.070736] (0.26.11-1noble.20260903.092044 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros-base [0.11.0-1noble.20260412.071950] (0.11.0-1noble.20260903.093452 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-qt-gui [2.7.6-1noble.20260412.025229] (2.7.6-1noble.20260519.011141 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rqt-gui [1.6.3-1noble.20260412.052948] (1.6.4-1noble.20260902.081721 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-gui-py [1.6.3-1noble.20260412.053546] (1.6.4-1noble.20260902.105041 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-py-common [1.6.3-1noble.20260412.042316] (1.6.4-1noble.20260902.081726 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-console [2.2.2-1noble.20260412.053839] (2.2.2-1noble.20260903.070638 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-msg [1.5.2-1noble.20260412.053912] (1.5.3-1noble.20260903.075044 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-action [2.2.1-1noble.20260412.060445] (2.2.1-1noble.20260903.085542 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-bag [1.5.6-1noble.20260412.063147] (1.5.6-1noble.20260903.095136 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-qt-gui-py-common [2.7.6-1noble.20260412.025229] (2.7.6-1noble.20260519.011126 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-rqt-plot [1.4.5-1noble.20260412.053903] (1.4.5-1noble.20260902.105705 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-bag-plugins [1.5.6-1noble.20260412.071952] (1.5.6-1noble.20260903.095306 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-graph [1.5.6-1noble.20260412.053847] (1.5.6-1noble.20260903.070642 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-qt-gui-cpp [2.7.6-1noble.20260412.025941] (2.7.6-1noble.20260831.231955 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-gui-cpp [1.6.3-1noble.20260412.042715] (1.6.4-1noble.20260902.082559 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-image-view [1.3.0-2noble.20260412.053350] (1.3.0-2noble.20260903.073052 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-publisher [1.7.3-1noble.20260412.053850] (1.7.3-1noble.20260903.070647 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-py-console [1.2.3-1noble.20260412.053858] (1.2.3-1noble.20260902.105741 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-reconfigure [1.6.4-1noble.20260412.053918] (1.6.4-1noble.20260903.075116 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-service-caller [1.2.2-1noble.20260412.063251] (1.2.2-1noble.20260903.070727 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-shell [1.2.3-1noble.20260412.053911] (1.2.3-1noble.20260903.070729 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-srv [1.2.3-1noble.20260412.060417] (1.2.3-1noble.20260903.085520 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-topic [1.7.5-1noble.20260412.060341] (1.7.5-1noble.20260903.074359 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rqt-common-plugins [1.2.0-4noble.20260412.072437] (1.2.0-4noble.20260903.095347 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rviz-ogre-vendor [14.1.20-2noble.20260225.225644] (14.1.23-1noble.20260715.010827 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-interactive-markers [2.5.5-1noble.20260412.054351] (2.5.5-1noble.20260903.023910 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-point-cloud-transport [4.0.7-1noble.20260412.043749] (4.0.9-1noble.20260903.070003 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rviz-assimp-vendor [14.1.20-2noble.20260225.225641] (14.1.23-1noble.20260715.010624 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rviz-rendering [14.1.20-2noble.20260412.025918] (14.1.23-1noble.20260715.013933 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rviz-common [14.1.20-2noble.20260412.044615] (14.1.23-1noble.20260903.022201 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rviz-default-plugins [14.1.20-2noble.20260412.054746] (14.1.23-1noble.20260905.033533 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rviz2 [14.1.20-2noble.20260412.070714] (14.1.23-1noble.20260905.070259 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-teleop-twist-joy [2.6.5-1noble.20260412.052507] (2.6.5-1noble.20260902.080807 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-teleop-twist-keyboard [2.4.1-1noble.20260412.052948] (2.4.1-1noble.20260903.070917 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-topic-monitor [0.33.10-1noble.20260412.043450] (0.33.11-1noble.20260903.070931 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-turtlesim [1.8.3-1noble.20260412.043332] (1.8.4-1noble.20260903.071057 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-desktop [0.11.0-1noble.20260412.072512] (0.11.0-1noble.20260905.070740 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-diff-drive-controller [4.39.0-1noble.20260412.063951] (4.42.1-1noble.20260905.073042 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav-2d-msgs [1.3.11-1noble.20260412.035516] (1.3.13-1noble.20260902.033922 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-dwb-msgs [1.3.11-1noble.20260412.035753] (1.3.13-1noble.20260902.043539 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav-2d-utils [1.3.11-1noble.20260412.054939] (1.3.13-1noble.20260903.025051 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-behavior-tree [1.3.11-1noble.20260412.054654] (1.3.13-1noble.20260903.024922 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-core [1.3.11-1noble.20260412.061507] (1.3.13-1noble.20260903.031226 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-dwb-core [1.3.11-1noble.20260412.062205] (1.3.13-1noble.20260903.031920 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-dwb-critics [1.3.11-1noble.20260412.063134] (1.3.13-1noble.20260903.032514 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-dwb-plugins [1.3.11-1noble.20260412.063135] (1.3.13-1noble.20260903.032445 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-forward-command-controller [4.39.0-1noble.20260412.064726] (4.42.1-1noble.20260905.073543 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-effort-controllers [4.39.0-1noble.20260412.065511] (4.42.1-1noble.20260905.074447 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-force-torque-sensor-broadcaster [4.39.0-1noble.20260412.064724] (4.42.1-1noble.20260905.073518 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-rosx-introspection [2.3.0-1noble.20260412.044120] (2.3.0-1noble.20260902.084129 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-foxglove-bridge [3.2.6-1noble.20260412.065650] (3.5.0-1noble.20260902.084741 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-gpio-controllers [4.39.0-1noble.20260412.064732] (4.42.1-1noble.20260905.073532 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-gps-msgs [2.1.2-1noble.20260412.033940] (3.1.1-1noble.20260902.030750 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-gps-sensor-broadcaster [4.39.0-1noble.20260412.065149] (4.42.1-1noble.20260905.073603 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-gripper-controllers [4.39.0-1noble.20260412.063950] (4.42.1-1noble.20260905.073042 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-gz-common-vendor [0.0.9-1noble.20260226.000703] (0.0.10-1noble.20260905.033536 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-gz-msgs-vendor [0.0.6-1noble.20260225.232943] (0.0.8-1noble.20260905.033532 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-gz-fuel-tools-vendor [0.0.6-1noble.20260226.001605] (0.0.6-1noble.20260905.065120 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-gz-plugin-vendor [0.0.5-1noble.20260226.000520] (0.0.5-1noble.20260820.145930 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-gz-rendering-vendor [0.0.7-1noble.20260226.001618] (0.0.7-1noble.20260905.065113 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-gz-transport-vendor [0.0.7-1noble.20260225.234741] (0.0.9-1noble.20260905.065154 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-gz-gui-vendor [0.0.5-1noble.20260226.010336] (0.0.5-1noble.20260905.071619 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-gz-physics-vendor [0.0.7-1noble.20260226.002542] (0.0.9-1noble.20260905.065116 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-gz-sensors-vendor [0.0.6-1noble.20260226.005904] (0.0.6-1noble.20260905.071631 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-gz-sim-vendor [0.0.10-1noble.20260318.175144] (0.0.13-1noble.20260905.073557 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-ros2-control-cmake [0.3.0-1noble.20260225.225206] (0.4.0-1noble.20260429.101922 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-gz-ros2-control [1.2.17-1noble.20260412.065025] (1.2.20-1noble.20260905.083607 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-theora-image-transport [4.0.6-1noble.20260412.044142] (4.0.7-1noble.20260903.073409 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-zstd-image-transport [4.0.6-1noble.20260412.065633] (4.0.7-1noble.20260903.073902 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-image-transport-plugins [4.0.6-1noble.20260412.070744] (4.0.7-1noble.20260903.082819 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-imu-sensor-broadcaster [4.39.0-1noble.20260412.065154] (4.42.1-1noble.20260905.073612 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-joint-state-broadcaster [4.39.0-1noble.20260412.065204] (4.42.1-1noble.20260905.074155 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-joint-state-publisher [2.4.1-1noble.20260412.042050] (2.4.3-1noble.20260902.054703 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-joint-state-publisher-gui [2.4.1-1noble.20260412.042300] (2.4.3-1noble.20260902.060308 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-joint-trajectory-controller [4.39.0-1noble.20260412.063953] (4.42.1-1noble.20260905.073033 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-xacro [2.1.1-1noble.20260412.025231] (2.1.1-1noble.20260519.011123 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-launch-param-builder [0.1.1-4noble.20260412.042639] (0.1.1-4noble.20260902.081343 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-magnetometer-broadcaster (4.42.1-1noble.20260905.073622 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-marine-acoustic-msgs [2.1.0-2noble.20260412.035442] (2.1.0-2noble.20260902.033749 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-mecanum-drive-controller [4.39.0-1noble.20260412.065209] (4.42.1-1noble.20260905.073053 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-planners-chomp [2.12.4-1noble.20260412.063945] (2.12.4-1noble.20260903.090215 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-ros-occupancy-map-monitor [2.12.4-1noble.20260412.060541] (2.12.4-1noble.20260903.085744 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-ros-planning [2.12.4-1noble.20260412.061458] (2.12.4-1noble.20260903.090648 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-planners-ompl [2.12.4-1noble.20260412.065232] (2.12.4-1noble.20260903.093406 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-stomp [0.1.2-4noble.20260225.143151] (0.1.2-4noble.20260825.010421 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Inst ros-jazzy-moveit-planners-stomp [2.12.4-1noble.20260412.061858] (2.12.4-1noble.20260903.085657 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-kinematics [2.12.4-1noble.20260412.065216] (2.12.4-1noble.20260903.093347 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-ros-move-group [2.12.4-1noble.20260412.070722] (2.12.4-1noble.20260903.094420 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-pilz-industrial-motion-planner [2.12.4-1noble.20260412.072051] (2.12.4-1noble.20260903.100010 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-planners [2.12.4-1noble.20260412.073607] (2.12.4-1noble.20260903.101201 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-simple-controller-manager [2.12.4-1noble.20260412.061617] (2.12.4-1noble.20260903.085318 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-plugins [2.12.4-1noble.20260412.073600] (2.12.4-1noble.20260903.093345 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-warehouse-ros [2.0.5-1noble.20260412.054120] (2.0.9-1noble.20260903.023241 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-ros-warehouse [2.12.4-1noble.20260412.065555] (2.12.4-1noble.20260903.093415 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-configs-utils [2.12.4-1noble.20260412.053416] (2.12.4-1noble.20260903.075820 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-ros-benchmarks [2.12.4-1noble.20260412.071926] (2.12.4-1noble.20260903.094815 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-ros-planning-interface [2.12.4-1noble.20260412.072305] (2.12.4-1noble.20260903.100014 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-ros-robot-interaction [2.12.4-1noble.20260412.065541] (2.12.4-1noble.20260903.093404 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-ros-visualization [2.12.4-1noble.20260412.073037] (2.12.4-1noble.20260905.072108 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-ros [2.12.4-1noble.20260412.075256] (2.12.4-1noble.20260905.074657 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-setup-framework [2.12.4-1noble.20260412.075233] (2.12.4-1noble.20260905.074650 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-setup-app-plugins [2.12.4-1noble.20260412.082330] (2.12.4-1noble.20260905.075833 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-setup-controllers [2.12.4-1noble.20260412.081203] (2.12.4-1noble.20260905.075917 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-setup-core-plugins [2.12.4-1noble.20260412.081346] (2.12.4-1noble.20260905.075903 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-setup-srdf-plugins [2.12.4-1noble.20260412.081346] (2.12.4-1noble.20260905.075931 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit-setup-assistant [2.12.4-1noble.20260412.085049] (2.12.4-1noble.20260905.082035 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-moveit [2.12.4-1noble.20260412.090945] (2.12.4-1noble.20260905.083030 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-amcl [1.3.11-1noble.20260412.054619] (1.3.13-1noble.20260903.024944 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-behaviors [1.3.11-1noble.20260412.062201] (1.3.13-1noble.20260903.032321 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-bt-navigator [1.3.11-1noble.20260412.062202] (1.3.13-1noble.20260903.032108 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-collision-monitor [1.3.11-1noble.20260412.060219] (1.3.13-1noble.20260903.031125 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-constrained-smoother [1.3.11-1noble.20260412.062205] (1.3.13-1noble.20260903.031935 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-controller [1.3.11-1noble.20260412.062208] (1.3.13-1noble.20260903.032018 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-dwb-controller [1.3.11-1noble.20260412.065547] (1.3.13-1noble.20260903.033038 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-graceful-controller [1.3.11-1noble.20260412.062210] (1.3.13-1noble.20260903.032134 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-lifecycle-manager [1.3.11-1noble.20260412.054912] (1.3.13-1noble.20260903.024931 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-map-server [1.3.11-1noble.20260412.054646] (1.3.13-1noble.20260903.025026 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-mppi-controller [1.3.11-1noble.20260412.062211] (1.3.13-1noble.20260903.032340 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-navfn-planner [1.3.11-1noble.20260412.062212] (1.3.13-1noble.20260903.031832 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-planner [1.3.11-1noble.20260412.062215] (1.3.13-1noble.20260903.031918 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-regulated-pure-pursuit-controller [1.3.11-1noble.20260412.062217] (1.3.13-1noble.20260903.031928 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-rotation-shim-controller [1.3.11-1noble.20260412.063202] (1.3.13-1noble.20260903.032741 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-route [1.3.11-1noble.20260412.062220] (1.3.13-1noble.20260903.032339 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-rviz-plugins [1.3.11-1noble.20260412.063246] (1.3.13-1noble.20260905.070215 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-simple-commander [1.3.11-1noble.20260412.045449] (1.3.13-1noble.20260903.065856 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-smac-planner [1.3.11-1noble.20260412.062222] (1.3.13-1noble.20260903.032637 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-smoother [1.3.11-1noble.20260412.062225] (1.3.13-1noble.20260903.031926 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-theta-star-planner [1.3.11-1noble.20260412.062223] (1.3.13-1noble.20260903.031907 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-velocity-smoother [1.3.11-1noble.20260412.073111] (1.3.13-1noble.20260903.025045 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-robot-localization [3.8.3-1noble.20260412.054254] (3.8.3-1noble.20260903.023731 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-nav2-waypoint-follower [1.3.11-1noble.20260412.062235] (1.3.13-1noble.20260903.071402 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-opennav-docking-core [1.3.11-1noble.20260412.060417] (1.3.13-1noble.20260903.025100 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-opennav-docking [1.3.11-1noble.20260412.063140] (1.3.13-1noble.20260903.033326 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-opennav-docking-bt [1.3.11-1noble.20260412.063003] (1.3.13-1noble.20260903.031904 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-navigation2 [1.3.11-1noble.20260412.073445] (1.3.13-1noble.20260905.072714 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-omni-wheel-drive-controller [4.39.0-1noble.20260412.065241] (4.42.1-1noble.20260905.073628 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-parallel-gripper-controller [4.39.0-1noble.20260412.063954] (4.42.1-1noble.20260905.073118 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-pid-controller [4.39.0-1noble.20260412.063957] (4.42.1-1noble.20260905.073116 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-pose-broadcaster [4.39.0-1noble.20260412.065247] (4.42.1-1noble.20260905.074212 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-position-controllers [4.39.0-1noble.20260412.065512] (4.42.1-1noble.20260905.074448 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-py-trees [2.4.0-1noble.20260225.060143] (2.5.0-1noble.20260714.081616 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-range-sensor-broadcaster [4.39.0-1noble.20260412.065248] (4.42.1-1noble.20260905.073649 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros-gz-interfaces [1.0.22-1noble.20260412.034812] (1.0.24-1noble.20260902.041547 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-vision-msgs [4.1.1-3noble.20260412.035702] (4.1.1-3noble.20260902.034028 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros-gz-bridge [1.0.22-1noble.20260412.043437] (1.0.24-1noble.20260905.070149 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros-gz-image [1.0.22-1noble.20260412.051928] (1.0.24-1noble.20260905.072745 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-simulation-interfaces [1.5.0-1noble.20260412.034853] (1.5.1-1noble.20260902.041638 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros-gz-sim [1.0.22-1noble.20260412.044601] (1.0.24-1noble.20260905.085151 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros-gz-sim-demos [1.0.22-1noble.20260412.072030] (1.0.24-1noble.20260905.085920 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros-gz [1.0.22-1noble.20260412.072535] (1.0.24-1noble.20260905.090616 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2-control-test-assets [4.44.0-1noble.20260403.074054] (4.48.0-1noble.20260902.194632 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2controlcli [4.44.0-1noble.20260412.065523] (4.48.0-1noble.20260905.074402 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-transmission-interface [4.44.0-1noble.20260412.054049] (4.48.0-1noble.20260905.072703 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2-control [4.44.0-1noble.20260412.070723] (4.48.0-1noble.20260905.075042 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-state-interfaces-broadcaster [4.39.0-1noble.20260412.065246] (4.42.1-1noble.20260905.074300 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tricycle-controller [4.39.0-1noble.20260412.065359] (4.42.1-1noble.20260905.073703 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-tricycle-steering-controller [4.39.0-1noble.20260412.065959] (4.42.1-1noble.20260905.074204 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-velocity-controllers [4.39.0-1noble.20260412.065514] (4.42.1-1noble.20260905.074523 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Inst ros-jazzy-ros2-controllers [4.39.0-1noble.20260412.073633] (4.42.1-1noble.20260905.075205 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf python3-graphviz (0.20.2-1 Ubuntu:24.04/noble [all])
+Conf ros-jazzy-fastcdr (2.2.8-1noble.20260901.205404 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-ament-index-python (1.8.4-1noble.20260519.010916 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rcutils (6.7.6-1noble.20260603.152220 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-typesupport-interface (4.6.9-1noble.20260612.045126 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rosidl-runtime-c (4.6.9-1noble.20260612.045513 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-dynamic-typesupport (0.1.2-3noble.20260612.045843 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rmw (7.3.3-1noble.20260612.050218 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-cli (4.6.9-1noble.20260612.045120 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rosidl-adapter (4.6.9-1noble.20260612.045507 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rosidl-parser (4.6.9-1noble.20260612.045810 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rosidl-pycommon (4.6.9-1noble.20260612.045929 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rosidl-cmake (4.6.9-1noble.20260612.050210 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rosidl-generator-type-description (4.6.9-1noble.20260612.050043 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-generator-c (4.6.9-1noble.20260612.050418 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rcpputils (2.11.4-1noble.20260603.152446 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-typesupport-c (3.2.3-1noble.20260612.050857 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-generator-py (0.22.2-1noble.20260612.051058 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-runtime-cpp (4.6.9-1noble.20260612.045852 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-typesupport-cpp (3.2.3-1noble.20260612.051324 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-domain-coordinator (0.12.1-1noble.20260603.150342 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ament-cmake-ros (0.12.1-1noble.20260603.150631 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-fastrtps-cmake-module (3.6.4-1noble.20260603.150331 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rosidl-generator-cpp (4.6.9-1noble.20260612.050852 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-typesupport-fastrtps-cpp (3.6.4-1noble.20260901.222810 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-typesupport-fastrtps-c (3.6.4-1noble.20260901.223423 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-typesupport-introspection-c (4.6.9-1noble.20260612.050623 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-typesupport-introspection-cpp (4.6.9-1noble.20260612.051103 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-core-runtime (0.2.1-1noble.20260902.013745 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-builtin-interfaces (2.0.4-1noble.20260902.013948 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-service-msgs (2.0.4-1noble.20260902.015102 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-unique-identifier-msgs (2.5.1-1noble.20260902.014005 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-action-msgs (2.0.4-1noble.20260902.015426 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-default-runtime (1.6.1-1noble.20260902.015921 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-std-msgs (5.3.8-1noble.20260902.022418 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ackermann-msgs (2.0.2-6noble.20260902.023644 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-geometry-msgs (5.3.8-1noble.20260902.030745 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-sensor-msgs (5.3.8-1noble.20260902.041633 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-trajectory-msgs (5.3.8-1noble.20260902.041818 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-control-msgs (5.9.0-1noble.20260902.042746 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ament-index-cpp (1.8.4-1noble.20260519.011052 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-console-bridge-vendor (1.7.2-1noble.20260603.150411 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-class-loader (2.7.1-1noble.20260604.024917 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-pluginlib (5.4.6-1noble.20260831.165748 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-libyaml-vendor (1.6.4-2noble.20260603.150356 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rcl-interfaces (2.0.4-1noble.20260902.021729 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rcl-logging-interface (3.1.1-1noble.20260603.152452 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-spdlog-vendor (1.6.2-1noble.20260603.150612 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rcl-logging-spdlog (3.1.1-1noble.20260604.025148 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rcl-yaml-param-parser (9.2.11-1noble.20260612.050432 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-fastrtps (2.14.6-1noble.20260901.222814 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rmw-dds-common (3.1.1-1noble.20260902.031038 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tracetools (8.2.6-1noble.20260603.152223 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rmw-fastrtps-shared-cpp (8.4.4-1noble.20260902.041127 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-dynamic-typesupport-fastrtps (0.1.0-3noble.20260902.013600 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rmw-fastrtps-cpp (8.4.4-1noble.20260902.041916 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rmw-implementation (2.15.6-1noble.20260902.043425 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-type-description-interfaces (2.0.4-1noble.20260902.015447 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rcl (9.2.11-1noble.20260902.044558 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-statistics-msgs (2.0.4-1noble.20260902.022352 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-libstatistics-collector (1.7.4-1noble.20260902.051231 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosgraph-msgs (2.0.4-1noble.20260902.031408 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rclcpp (28.1.22-1noble.20260902.055335 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-lifecycle-msgs (2.0.4-1noble.20260902.030832 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rcl-lifecycle (9.2.11-1noble.20260902.051007 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rclcpp-lifecycle (28.1.22-1noble.20260903.011547 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rcl-action (9.2.11-1noble.20260902.045222 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rclcpp-action (28.1.22-1noble.20260902.103722 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-realtime-tools (3.12.0-1noble.20260903.202759 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-urdfdom-headers (1.1.3-1noble.20260603.150728 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-urdfdom (4.0.2-1noble.20260603.151654 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-urdf-parser-plugin (2.10.1-2noble.20260603.151118 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-urdf (2.10.1-2noble.20260831.232032 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-joint-limits (4.48.0-1noble.20260905.031740 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-pal-statistics-msgs (2.8.2-1noble.20260902.030951 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rclpy (7.1.12-1noble.20260902.053513 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-pal-statistics (2.8.2-1noble.20260903.011933 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-gz-cmake-vendor (0.0.12-1noble.20260618.173318 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-gz-utils-vendor (0.0.5-1noble.20260618.173807 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-gz-math-vendor (0.0.11-1noble.20260905.031649 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-gz-tools-vendor (0.0.8-1noble.20260820.143431 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-sdformat-vendor (0.0.14-1noble.20260905.033543 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-sdformat-urdf (1.0.2-1noble.20260905.070219 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-hardware-interface (4.48.0-1noble.20260905.070541 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-controller-interface (4.48.0-1noble.20260905.072534 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-std-srvs (5.3.8-1noble.20260902.031157 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-generate-parameter-library-py (0.7.6-1noble.20260810.122749 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-tcb-span (1.3.2-1noble.20260618.160922 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rsl (1.3.0-1noble.20260902.084118 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tl-expected (1.3.2-1noble.20260618.160931 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-parameter-traits (0.7.6-1noble.20260903.014924 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-generate-parameter-library (0.7.6-1noble.20260903.015253 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav-msgs (5.3.8-1noble.20260902.041413 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tf2 (0.36.22-1noble.20260902.041654 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-eigen3-cmake-module (0.3.1-1noble.20260603.150413 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-orocos-kdl-vendor (0.5.2-1noble.20260603.150813 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-message-filters (4.11.17-1noble.20260902.103742 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-composition-interfaces (2.0.4-1noble.20260902.024252 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rclcpp-components (28.1.22-1noble.20260902.062054 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tf2-msgs (0.36.22-1noble.20260902.041736 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tf2-ros (0.36.22-1noble.20260903.021700 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tf2-py (0.36.22-1noble.20260902.102727 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tf2-ros-py (0.36.22-1noble.20260903.022808 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tf2-geometry-msgs (0.36.22-1noble.20260903.022912 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-steering-controllers-library (4.42.1-1noble.20260905.073642 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ackermann-steering-controller (4.42.1-1noble.20260905.074200 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-action-tutorials-interfaces (0.33.11-1noble.20260902.024042 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-action-tutorials-cpp (0.33.11-1noble.20260903.065104 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-action-tutorials-py (0.33.11-1noble.20260902.054844 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-actionlib-msgs (5.3.8-1noble.20260902.034206 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-actuator-msgs (0.0.1-4noble.20260902.024100 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-filters (2.2.2-1noble.20260902.082527 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-control-toolbox (4.11.1-1noble.20260905.031621 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-kinematics-interface (1.7.1-1noble.20260903.065629 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tf2-eigen (0.36.22-1noble.20260903.022246 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-python-orocos-kdl-vendor (0.5.2-1noble.20260603.151028 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-tf2-kdl (0.36.22-1noble.20260903.022912 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-admittance-controller (4.42.1-1noble.20260905.074107 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-battery-state-broadcaster (4.42.1-1noble.20260905.073119 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-behaviortree-cpp (4.10.0-1noble.20260902.082337 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-bicycle-steering-controller (4.42.1-1noble.20260905.074206 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-bond (4.2.0-1noble.20260902.034242 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-bondcpp (4.2.0-1noble.20260903.012116 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-chained-filter-controller (4.42.1-1noble.20260905.073140 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-random-numbers (2.0.5-1noble.20260617.135141 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-resource-retriever (3.4.4-1noble.20260603.152233 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-shape-msgs (5.3.8-1noble.20260902.034008 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-visualization-msgs (5.3.8-1noble.20260902.042956 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-geometric-shapes (2.3.4-1noble.20260902.103805 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-urdfdom-py (1.2.1-3noble.20260902.082036 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-srdfdom (2.0.7-1noble.20260903.070931 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-diagnostic-msgs (5.3.8-1noble.20260902.041325 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-stereo-msgs (5.3.8-1noble.20260902.043227 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-common-interfaces (5.3.8-1noble.20260902.043650 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-kdl-parser (2.11.0-3noble.20260901.011356 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-object-recognition-msgs (2.0.0-5noble.20260902.043010 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-octomap-msgs (2.0.1-1noble.20260902.033932 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-msgs (2.6.0-1noble.20260902.043510 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-core (2.12.4-1noble.20260903.075716 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-chomp-motion-planner (2.12.4-1noble.20260903.085448 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-example-interfaces (0.12.1-1noble.20260902.030327 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-launch (3.4.11-1noble.20260603.150356 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-launch-ros (0.26.12-1noble.20260902.054847 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-composition (0.33.11-1noble.20260902.064433 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-cv-bridge (4.1.0-1noble.20260902.080510 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-image-transport (5.1.8-1noble.20260903.065618 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-compressed-depth-image-transport (4.0.7-1noble.20260903.071753 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-compressed-image-transport (4.0.7-1noble.20260903.072043 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-controller-manager-msgs (4.48.0-1noble.20260902.194724 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-diagnostic-updater (4.2.7-1noble.20260902.061455 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-launch-xml (3.4.11-1noble.20260603.150705 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-launch-yaml (3.4.11-1noble.20260603.150711 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-launch-testing (3.4.11-1noble.20260603.150907 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-launch-testing-ros (0.26.12-1noble.20260902.081433 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2cli (0.32.12-1noble.20260902.102710 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2node (0.32.12-1noble.20260902.103130 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-runtime-py (0.13.2-1noble.20260612.050026 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-ros2topic (0.32.12-1noble.20260903.070408 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2service (0.32.12-1noble.20260903.074340 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2param (0.32.12-1noble.20260903.084453 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-controller-manager (4.48.0-1noble.20260905.073118 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-sensor-msgs-py (5.3.8-1noble.20260902.043313 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-laser-geometry (2.7.2-1noble.20260902.075605 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-map-msgs (2.4.1-2noble.20260902.043113 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-geographic-msgs (1.0.6-2noble.20260902.041337 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-generator-rs (0.5.0-1noble.20260813.022251 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-core-generators (0.2.1-1noble.20260902.013715 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosidl-default-generators (1.6.1-1noble.20260902.021422 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-msgs (1.3.13-1noble.20260902.082014 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-common (1.3.13-1noble.20260902.081418 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-util (1.3.13-1noble.20260903.023450 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-voxel-grid (1.3.13-1noble.20260902.082710 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tf2-sensor-msgs (0.36.22-1noble.20260903.022912 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-costmap-2d (1.3.13-1noble.20260903.024922 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-costmap-queue (1.3.13-1noble.20260903.030125 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-demo-nodes-cpp (0.33.11-1noble.20260902.063221 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-demo-nodes-cpp-native (0.33.11-1noble.20260902.064746 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-demo-nodes-py (0.33.11-1noble.20260902.102522 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-image-geometry (4.1.0-1noble.20260902.043318 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-depthimage-to-laserscan (2.5.1-3noble.20260902.075602 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-dummy-map-server (0.33.11-1noble.20260902.075357 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-dummy-sensors (0.33.11-1noble.20260902.080635 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-robot-state-publisher (3.3.4-1noble.20260903.022201 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-dummy-robot-bringup (0.33.11-1noble.20260903.022631 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclcpp-minimal-action-client (0.19.7-1noble.20260903.065417 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclcpp-minimal-action-server (0.19.7-1noble.20260903.065431 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclcpp-minimal-client (0.19.7-1noble.20260902.062743 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclcpp-minimal-composition (0.19.7-1noble.20260902.064809 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclcpp-minimal-publisher (0.19.7-1noble.20260902.061549 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclcpp-minimal-service (0.19.7-1noble.20260902.062803 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclcpp-minimal-subscriber (0.19.7-1noble.20260902.064818 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclcpp-minimal-timer (0.19.7-1noble.20260902.083213 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclcpp-multithreaded-executor (0.19.7-1noble.20260902.061530 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclpy-executors (0.19.7-1noble.20260902.054611 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclpy-minimal-action-client (0.19.7-1noble.20260902.102503 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclpy-minimal-action-server (0.19.7-1noble.20260902.054901 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclpy-minimal-client (0.19.7-1noble.20260902.054625 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclpy-minimal-publisher (0.19.7-1noble.20260902.054643 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclpy-minimal-service (0.19.7-1noble.20260902.054633 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-examples-rclpy-minimal-subscriber (0.19.7-1noble.20260902.054657 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-image-tools (0.33.11-1noble.20260902.064925 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-intra-process-demo (0.33.11-1noble.20260902.061501 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-joy (3.3.0-3noble.20260902.075937 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-lifecycle (0.33.11-1noble.20260903.011939 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-logging-demo (0.33.11-1noble.20260903.065815 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-pcl-msgs (1.0.0-9noble.20260902.043037 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-pcl-conversions (2.6.5-1noble.20260903.065915 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-pendulum-msgs (0.33.11-1noble.20260902.021732 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tlsf (0.9.1-2noble.20260603.150632 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-tlsf-cpp (0.17.1-3noble.20260902.061550 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-pendulum-control (0.33.11-1noble.20260902.062516 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-quality-of-service-demo-cpp (0.33.11-1noble.20260902.064446 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-quality-of-service-demo-py (0.33.11-1noble.20260902.054736 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tf2-bullet (0.36.22-1noble.20260903.022532 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tf2-eigen-kdl (0.36.22-1noble.20260902.042605 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tf2-tools (0.36.22-1noble.20260903.022914 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-geometry2 (0.36.22-1noble.20260903.023449 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-launch-testing-ament-cmake (3.4.11-1noble.20260603.151149 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2action (0.32.12-1noble.20260903.070315 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2pkg (0.32.12-1noble.20260903.070408 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2component (0.32.12-1noble.20260903.084755 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2doctor (0.32.12-1noble.20260902.103121 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2interface (0.32.12-1noble.20260902.103123 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2launch (0.26.12-1noble.20260903.074444 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2lifecycle (0.32.12-1noble.20260903.084439 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2multicast (0.32.12-1noble.20260902.103136 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2plugin (5.4.6-1noble.20260903.074527 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2run (0.32.12-1noble.20260903.074618 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-sros2 (0.13.6-1noble.20260903.070845 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2cli-common-extensions (0.3.1-1noble.20260903.085021 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-sros2-cmake (0.13.6-1noble.20260903.075137 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros-core (0.11.0-1noble.20260903.085113 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosbag2-storage (0.26.11-1noble.20260902.082620 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosbag2-cpp (0.26.11-1noble.20260902.083107 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosbag2-compression (0.26.11-1noble.20260903.070441 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosbag2-interfaces (0.26.11-1noble.20260902.022225 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosbag2-transport (0.26.11-1noble.20260903.085220 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosbag2-py (0.26.11-1noble.20260903.090602 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-liblz4-vendor (0.26.11-1noble.20260603.150356 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-zstd-vendor (0.26.11-1noble.20260603.150731 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-mcap-vendor (0.26.11-1noble.20260603.151024 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rosbag2-storage-mcap (0.26.11-1noble.20260903.070458 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-sqlite3-vendor (0.26.11-1noble.20260603.150654 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rosbag2-storage-sqlite3 (0.26.11-1noble.20260903.070451 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosbag2-storage-default-plugins (0.26.11-1noble.20260903.075127 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2bag (0.26.11-1noble.20260903.091706 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosbag2-compression-zstd (0.26.11-1noble.20260903.075117 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosbag2 (0.26.11-1noble.20260903.092044 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros-base (0.11.0-1noble.20260903.093452 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-qt-gui (2.7.6-1noble.20260519.011141 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rqt-gui (1.6.4-1noble.20260902.081721 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-gui-py (1.6.4-1noble.20260902.105041 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-py-common (1.6.4-1noble.20260902.081726 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-console (2.2.2-1noble.20260903.070638 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-msg (1.5.3-1noble.20260903.075044 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-action (2.2.1-1noble.20260903.085542 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-bag (1.5.6-1noble.20260903.095136 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-qt-gui-py-common (2.7.6-1noble.20260519.011126 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-rqt-plot (1.4.5-1noble.20260902.105705 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-bag-plugins (1.5.6-1noble.20260903.095306 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-graph (1.5.6-1noble.20260903.070642 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-qt-gui-cpp (2.7.6-1noble.20260831.231955 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-gui-cpp (1.6.4-1noble.20260902.082559 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-image-view (1.3.0-2noble.20260903.073052 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-publisher (1.7.3-1noble.20260903.070647 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-py-console (1.2.3-1noble.20260902.105741 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-reconfigure (1.6.4-1noble.20260903.075116 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-service-caller (1.2.2-1noble.20260903.070727 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-shell (1.2.3-1noble.20260903.070729 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-srv (1.2.3-1noble.20260903.085520 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-topic (1.7.5-1noble.20260903.074359 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rqt-common-plugins (1.2.0-4noble.20260903.095347 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rviz-ogre-vendor (14.1.23-1noble.20260715.010827 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-interactive-markers (2.5.5-1noble.20260903.023910 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-point-cloud-transport (4.0.9-1noble.20260903.070003 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rviz-assimp-vendor (14.1.23-1noble.20260715.010624 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rviz-rendering (14.1.23-1noble.20260715.013933 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rviz-common (14.1.23-1noble.20260903.022201 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rviz-default-plugins (14.1.23-1noble.20260905.033533 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rviz2 (14.1.23-1noble.20260905.070259 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-teleop-twist-joy (2.6.5-1noble.20260902.080807 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-teleop-twist-keyboard (2.4.1-1noble.20260903.070917 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-topic-monitor (0.33.11-1noble.20260903.070931 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-turtlesim (1.8.4-1noble.20260903.071057 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-desktop (0.11.0-1noble.20260905.070740 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-diff-drive-controller (4.42.1-1noble.20260905.073042 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav-2d-msgs (1.3.13-1noble.20260902.033922 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-dwb-msgs (1.3.13-1noble.20260902.043539 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav-2d-utils (1.3.13-1noble.20260903.025051 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-behavior-tree (1.3.13-1noble.20260903.024922 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-core (1.3.13-1noble.20260903.031226 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-dwb-core (1.3.13-1noble.20260903.031920 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-dwb-critics (1.3.13-1noble.20260903.032514 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-dwb-plugins (1.3.13-1noble.20260903.032445 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-forward-command-controller (4.42.1-1noble.20260905.073543 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-effort-controllers (4.42.1-1noble.20260905.074447 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-force-torque-sensor-broadcaster (4.42.1-1noble.20260905.073518 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-rosx-introspection (2.3.0-1noble.20260902.084129 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-foxglove-bridge (3.5.0-1noble.20260902.084741 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-gpio-controllers (4.42.1-1noble.20260905.073532 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-gps-msgs (3.1.1-1noble.20260902.030750 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-gps-sensor-broadcaster (4.42.1-1noble.20260905.073603 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-gripper-controllers (4.42.1-1noble.20260905.073042 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-gz-common-vendor (0.0.10-1noble.20260905.033536 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-gz-msgs-vendor (0.0.8-1noble.20260905.033532 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-gz-fuel-tools-vendor (0.0.6-1noble.20260905.065120 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-gz-plugin-vendor (0.0.5-1noble.20260820.145930 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-gz-rendering-vendor (0.0.7-1noble.20260905.065113 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-gz-transport-vendor (0.0.9-1noble.20260905.065154 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-gz-gui-vendor (0.0.5-1noble.20260905.071619 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-gz-physics-vendor (0.0.9-1noble.20260905.065116 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-gz-sensors-vendor (0.0.6-1noble.20260905.071631 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-gz-sim-vendor (0.0.13-1noble.20260905.073557 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-ros2-control-cmake (0.4.0-1noble.20260429.101922 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-gz-ros2-control (1.2.20-1noble.20260905.083607 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-theora-image-transport (4.0.7-1noble.20260903.073409 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-zstd-image-transport (4.0.7-1noble.20260903.073902 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-image-transport-plugins (4.0.7-1noble.20260903.082819 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-imu-sensor-broadcaster (4.42.1-1noble.20260905.073612 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-joint-state-broadcaster (4.42.1-1noble.20260905.074155 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-joint-state-publisher (2.4.3-1noble.20260902.054703 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-joint-state-publisher-gui (2.4.3-1noble.20260902.060308 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-joint-trajectory-controller (4.42.1-1noble.20260905.073033 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-xacro (2.1.1-1noble.20260519.011123 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-launch-param-builder (0.1.1-4noble.20260902.081343 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-magnetometer-broadcaster (4.42.1-1noble.20260905.073622 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-marine-acoustic-msgs (2.1.0-2noble.20260902.033749 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-mecanum-drive-controller (4.42.1-1noble.20260905.073053 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-planners-chomp (2.12.4-1noble.20260903.090215 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-ros-occupancy-map-monitor (2.12.4-1noble.20260903.085744 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-ros-planning (2.12.4-1noble.20260903.090648 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-planners-ompl (2.12.4-1noble.20260903.093406 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-stomp (0.1.2-4noble.20260825.010421 jazzy/2026-09-11/ubuntu noble:noble, ROS noble:noble [amd64])
+Conf ros-jazzy-moveit-planners-stomp (2.12.4-1noble.20260903.085657 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-kinematics (2.12.4-1noble.20260903.093347 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-ros-move-group (2.12.4-1noble.20260903.094420 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-pilz-industrial-motion-planner (2.12.4-1noble.20260903.100010 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-planners (2.12.4-1noble.20260903.101201 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-simple-controller-manager (2.12.4-1noble.20260903.085318 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-plugins (2.12.4-1noble.20260903.093345 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-warehouse-ros (2.0.9-1noble.20260903.023241 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-ros-warehouse (2.12.4-1noble.20260903.093415 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-configs-utils (2.12.4-1noble.20260903.075820 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-ros-benchmarks (2.12.4-1noble.20260903.094815 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-ros-planning-interface (2.12.4-1noble.20260903.100014 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-ros-robot-interaction (2.12.4-1noble.20260903.093404 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-ros-visualization (2.12.4-1noble.20260905.072108 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-ros (2.12.4-1noble.20260905.074657 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-setup-framework (2.12.4-1noble.20260905.074650 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-setup-app-plugins (2.12.4-1noble.20260905.075833 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-setup-controllers (2.12.4-1noble.20260905.075917 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-setup-core-plugins (2.12.4-1noble.20260905.075903 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-setup-srdf-plugins (2.12.4-1noble.20260905.075931 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit-setup-assistant (2.12.4-1noble.20260905.082035 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-moveit (2.12.4-1noble.20260905.083030 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-amcl (1.3.13-1noble.20260903.024944 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-behaviors (1.3.13-1noble.20260903.032321 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-bt-navigator (1.3.13-1noble.20260903.032108 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-collision-monitor (1.3.13-1noble.20260903.031125 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-constrained-smoother (1.3.13-1noble.20260903.031935 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-controller (1.3.13-1noble.20260903.032018 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-dwb-controller (1.3.13-1noble.20260903.033038 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-graceful-controller (1.3.13-1noble.20260903.032134 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-lifecycle-manager (1.3.13-1noble.20260903.024931 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-map-server (1.3.13-1noble.20260903.025026 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-mppi-controller (1.3.13-1noble.20260903.032340 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-navfn-planner (1.3.13-1noble.20260903.031832 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-planner (1.3.13-1noble.20260903.031918 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-regulated-pure-pursuit-controller (1.3.13-1noble.20260903.031928 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-rotation-shim-controller (1.3.13-1noble.20260903.032741 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-route (1.3.13-1noble.20260903.032339 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-rviz-plugins (1.3.13-1noble.20260905.070215 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-simple-commander (1.3.13-1noble.20260903.065856 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-smac-planner (1.3.13-1noble.20260903.032637 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-smoother (1.3.13-1noble.20260903.031926 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-theta-star-planner (1.3.13-1noble.20260903.031907 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-velocity-smoother (1.3.13-1noble.20260903.025045 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-robot-localization (3.8.3-1noble.20260903.023731 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-nav2-waypoint-follower (1.3.13-1noble.20260903.071402 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-opennav-docking-core (1.3.13-1noble.20260903.025100 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-opennav-docking (1.3.13-1noble.20260903.033326 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-opennav-docking-bt (1.3.13-1noble.20260903.031904 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-navigation2 (1.3.13-1noble.20260905.072714 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-omni-wheel-drive-controller (4.42.1-1noble.20260905.073628 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-parallel-gripper-controller (4.42.1-1noble.20260905.073118 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-pid-controller (4.42.1-1noble.20260905.073116 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-pose-broadcaster (4.42.1-1noble.20260905.074212 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-position-controllers (4.42.1-1noble.20260905.074448 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-py-trees (2.5.0-1noble.20260714.081616 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-range-sensor-broadcaster (4.42.1-1noble.20260905.073649 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros-gz-interfaces (1.0.24-1noble.20260902.041547 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-vision-msgs (4.1.1-3noble.20260902.034028 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros-gz-bridge (1.0.24-1noble.20260905.070149 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros-gz-image (1.0.24-1noble.20260905.072745 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-simulation-interfaces (1.5.1-1noble.20260902.041638 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros-gz-sim (1.0.24-1noble.20260905.085151 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros-gz-sim-demos (1.0.24-1noble.20260905.085920 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros-gz (1.0.24-1noble.20260905.090616 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2-control-test-assets (4.48.0-1noble.20260902.194632 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2controlcli (4.48.0-1noble.20260905.074402 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-transmission-interface (4.48.0-1noble.20260905.072703 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2-control (4.48.0-1noble.20260905.075042 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-state-interfaces-broadcaster (4.42.1-1noble.20260905.074300 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tricycle-controller (4.42.1-1noble.20260905.073703 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-tricycle-steering-controller (4.42.1-1noble.20260905.074204 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-velocity-controllers (4.42.1-1noble.20260905.074523 jazzy/2026-09-11/ubuntu noble:noble [amd64])
+Conf ros-jazzy-ros2-controllers (4.42.1-1noble.20260905.075205 jazzy/2026-09-11/ubuntu noble:noble [amd64])
