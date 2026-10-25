@@ -1,0 +1,31 @@
+# systemd SYSTEM unit (root): the Orin at MAXN + jetson_clocks while the
+# stack runs, the previous power mode back after. Installed by
+# `sudo scripts/orin/perf_mode.sh install`, which copies perf_mode.sh to
+# /usr/local/sbin/f1tenth-perf-mode.
+#
+#   systemctl status f1tenth-perf
+#   journalctl -u f1tenth-perf -f
+#   sudo systemctl stop f1tenth-perf     # restores the mode; no boost until started
+#
+# Settings: /etc/default/f1tenth-perf, F1T_PERF_* (see perf_mode.sh).
+[Unit]
+Description=f1tenth: MAXN + jetson_clocks while the stack runs
+After=nvpmodel.service nvfancontrol.service
+
+[Service]
+ExecStart=/usr/local/sbin/f1tenth-perf-mode watch
+EnvironmentFile=-/etc/default/f1tenth-perf
+# jetson_clocks keeps the fan state it stores in $HOME.
+Environment=HOME=/root
+StateDirectory=f1tenth-perf
+Nice=10
+# SIGTERM to the watcher only: it restores the mode before it exits, and a
+# jetson_clocks or nvpmodel it is running at that moment finishes first.
+KillMode=mixed
+Restart=on-failure
+RestartSec=5
+# A bad setting (perf_mode.sh exits 2) would fail the same way again.
+RestartPreventExitStatus=2
+
+[Install]
+WantedBy=multi-user.target

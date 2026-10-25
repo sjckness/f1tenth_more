@@ -86,3 +86,18 @@ the terminal's Ctrl-C reaching the child through the process group.
 silently downgrades the package type to plain `python`, which then shows up as
 a runtime-only "package not found" crash long after the build reported success.
 Use a single hyphen in comment prose.
+
+## Orin power mode
+
+### The stack runs at MAXN, the Orin idles at MODE_50W
+
+`f1tenth-perf.service` (`scripts/orin/perf_mode.sh`, installed once with
+sudo) switches the Orin to MAXN with `jetson_clocks` while a stack process
+runs: CPU locked at 2.2 GHz, GPU and EMC at their maximum. 30 s after the last
+stack process is gone it puts back the mode from before. Check it with
+`scripts/orin/perf_mode.sh status`, or `journalctl -u f1tenth-perf`.
+
+The Orin's earlier CPU and timing numbers (`output/cpu/`,
+`output/perf/yolo_recon.md`, phase 5d) were taken at MODE_50W with the clocks
+free: CPU capped at 1.5 GHz, GPU at 816 MHz and idling at 306. Others carry no
+mode at all. Compare a measurement only with one taken at the same mode.
