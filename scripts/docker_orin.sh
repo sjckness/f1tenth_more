@@ -590,13 +590,37 @@ cmd_report() {
       echo "== labels"
       docker image inspect -f '{{range $k, $v := .Config.Labels}}{{$k}}={{$v}}
 {{end}}' "$IMAGE" | grep -E '^(f1tenth\.|org\.opencontainers\.image\.(revision|version))' | sed 's/^/  /'
-      echo "== docker diff $CTR (expected: /tmp, /run, /var/tmp, the user's ~/.config ~/.cache ~/.local outside the mounts, Ultralytics settings)"
-      docker diff "$CTR" 2>/dev/null | awk '{
-        p = $2
-        ok = (p ~ "^/(tmp|run|var/tmp)(/|$)" || p ~ "^/home/fabiocar(/\\.config|/\\.cache|/\\.local|/\\.python_history|/\\.bash_history|/\\.wget-hsts)?(/|$)" \
-              || p == "/home" || p ~ "^/dev(/|$)" || p == "/var" || p == "/etc/localtime")
-        printf "  %s %s %s\n", (ok ? "ok        " : "UNEXPECTED"), $1, p
-      }' | sort | uniq | head -200
+      echo "== docker diff $CTR (expected: /tmp, /run, /var/tmp, the user's ~/.config ~/.cache ~/.local ~/.nv outside the mounts, Ultralytics settings, the ZED SDK's .log; 'runtime' = put there by the nvidia runtime's CSV mounts)"
+      # The nvidia runtime (CSV mode) mounts the host's L4T files listed in
+      # host-files-for-container.d into the container layer: each such path,
+      # its parent directories and the ldconfig it runs belong to the runtime.
+      local rt_list
+      rt_list=$(mktemp)
+      cat /etc/nvidia-container-runtime/host-files-for-container.d/*.csv 2>/dev/null \
+        | awk -F', *' 'NF >= 2 && $2 ~ "^/" {print $1, $2}' >"$rt_list"
+      docker diff "$CTR" 2>/dev/null | awk -v rl="$rt_list" '
+        BEGIN {
+          while ((getline l < rl) > 0) {
+            split(l, a, " ")
+            if (a[2] ~ "^/lib/") a[2] = "/usr" a[2]   # merged /usr on 24.04
+            rt[a[2]] = 1
+            if (a[1] == "dir") rdir[a[2]] = 1
+            n = split(a[2], parts, "/"); pre = ""
+            for (i = 2; i < n; i++) { pre = pre "/" parts[i]; parent[pre] = 1 }
+          }
+        }
+        {
+          p = $2
+          ok = (p ~ "^/(tmp|run|var/tmp)(/|$)" || p ~ "^/home/fabiocar(/\\.config|/\\.cache|/\\.local|/\\.nv|/\\.python_history|/\\.bash_history|/\\.wget-hsts)?(/|$)" \
+                || p == "/home" || p ~ "^/dev(/|$)" || p == "/var" || p == "/etc/localtime" || p == "/usr/local" || p ~ "^/usr/local/zed(/\\.log(/|$)|$)")
+          run = (p in rt) || (p in parent)
+          for (d in rdir) if (index(p, d "/") == 1) run = 1
+          if (p ~ "^/(etc/ld\\.so\\.cache|etc/ld\\.so\\.conf\\.d(/00-nvcr-[0-9]+\\.conf)?|var/cache(/ldconfig(/aux-cache)?)?|usr/sbin/docker-init|etc/nv_tegra_release|etc)$") run = 1
+          # Not in the CSV, mounted by the runtime as well (Xorg driver, GLX, the libv4l links).
+          if (p ~ "^/usr/lib/xorg(/|$)" || p ~ "^/usr/lib/aarch64-linux-gnu/(nvidia/libGLX_indirect\\.so\\.0|libv4l(2|convert)\\.so\\.0)$") run = 1
+          printf "  %s %s %s\n", (ok ? "ok        " : (run ? "runtime   " : "UNEXPECTED")), $1, p
+        }' | sort | uniq | head -400
+      rm -f -- "$rt_list"
       echo "== processes in $CTR"
       docker top "$CTR" -o pid,ppid,ni,cls,rtprio,etime,args 2>/dev/null | cut -c1-200 | head -80
     fi

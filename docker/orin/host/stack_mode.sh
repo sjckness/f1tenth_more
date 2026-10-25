@@ -158,7 +158,14 @@ cmd_container() {
   say "-> container (archive $archive$( [ "$allow" = 1 ] && echo ', allow drift'); $CTR: $st)"
   # 1. the native side, completely
   if [ -x "$NATIVE_CTL" ]; then
-    run "$NATIVE_CTL" killall --reset-discovery --json || fail "native f1tenth_ctl killall failed"
+    # Right after native mode came up (the gateway's own startup probes are
+    # still running) killall can report failure; once more after 5 s
+    # (P8, 2026-10-25: back-to-back switches).
+    if ! run "$NATIVE_CTL" killall --reset-discovery --json; then
+      say "native f1tenth_ctl killall failed (above); once more in 5 s"
+      sleep 5
+      run "$NATIVE_CTL" killall --reset-discovery --json || fail "native f1tenth_ctl killall failed"
+    fi
   else
     say "no native f1tenth_ctl at $NATIVE_CTL: nothing native to stop"
   fi
