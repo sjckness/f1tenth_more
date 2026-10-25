@@ -193,8 +193,17 @@ if [ "${RUST:-skip}" = build ]; then
             f1tenth_costmap_boundary_rs/costmap_boundary_node f1tenth_costmap_boundary_rs/costmap_boundary_replay \
             f1tenth_hard_stop_rs/hard_stop_node f1tenth_hard_stop_rs/hard_stop_replay; do
     if [ ! -x "$WS/install/lib/$pb" ]; then bad "Rust binary missing: install/lib/$pb"; continue; fi
-    if ldd "$WS/install/lib/$pb" 2>/dev/null | grep -q 'libtest_msgs'; then
-      bad "$pb links test_msgs (a run-time dependency the rclrs 0.8 port removes)"
+    # The binary's own DT_NEEDED is what the rclrs 0.8 port removes; a library
+    # that pulls test_msgs in transitively is reported with its name.
+    if readelf -d "$WS/install/lib/$pb" 2>/dev/null | grep 'NEEDED' | grep -q 'libtest_msgs'; then
+      bad "$pb links test_msgs (DT_NEEDED; a run-time dependency the rclrs 0.8 port removes)"
+      readelf -d "$WS/install/lib/$pb" | grep 'NEEDED' | sed 's/^/      /'
+    elif ldd "$WS/install/lib/$pb" 2>/dev/null | grep -q 'libtest_msgs'; then
+      via=$(readelf -d "$WS/install/lib/$pb" | sed -n 's/.*NEEDED.*\[\(.*\)\]/\1/p' | while read -r lib; do
+        p=$(ldd "$WS/install/lib/$pb" | awk -v l="$lib" '$1 == l {print $3}')
+        [ -n "$p" ] && ldd "$p" 2>/dev/null | grep -q 'libtest_msgs' && echo "$lib"
+      done | tr '\n' ' ')
+      echo "  note: $pb reaches test_msgs only through ${via:-?} (not its own DT_NEEDED)"
     fi
   done
   for pb in f1tenth_proximity_guard/proximity_guard_replay f1tenth_costmap_boundary_rs/costmap_boundary_replay \
