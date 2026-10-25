@@ -1,10 +1,12 @@
 """
 The process manager end to end, with dummy processes instead of ros2 launch.
 
-Real transient units under `systemd --user`, through the CLI's JSON. Every
-unit is named f1t-test-<pid>-<name>.service, so these tests can never touch
-the real f1t-stack/planner/logger units of a machine they run on. Skipped
-where there is no user manager (containers, CI).
+Every test runs on both backends (F1T_PROCESS_BACKEND): real transient units
+under `systemd --user`, and the proc backend's runners (the container's,
+procunits.py), through the CLI's JSON: the same assertions hold for both.
+Every unit is named f1t-test-<pid>-<name>.service, so these tests can never
+touch the real f1t-stack/planner/logger units of a machine they run on. The
+systemd half is skipped where there is no user manager (containers, CI).
 """
 
 import json
@@ -12,7 +14,7 @@ import os
 import subprocess
 import time
 
-from f1tenth_ctl import cli, config
+from f1tenth_ctl import cli, config, procunits
 import pytest
 
 PREFIX = f'f1t-test-{os.getpid()}-'
@@ -27,21 +29,28 @@ def _user_manager_ok():
     return out in ('running', 'degraded')
 
 
-pytestmark = pytest.mark.skipif(not _user_manager_ok(), reason='no systemd --user')
+BACKENDS = ('systemd', 'proc')
 
 IGNORES_SIGINT = ("python3 -c 'import signal, time; "
                   "signal.signal(signal.SIGINT, signal.SIG_IGN); time.sleep(300)'")
 
 
-@pytest.fixture
-def env_file(tmp_path):
-    path = tmp_path / 'test.env'
+@pytest.fixture(params=BACKENDS)
+def backend(request):
+    if request.param == 'systemd' and not _user_manager_ok():
+        pytest.skip('no systemd --user')
+    return request.param
+
+
+def _write_env(directory, backend):
+    path = directory / 'test.env'
     path.write_text(f"""
+F1T_PROCESS_BACKEND={backend}
 F1T_UNIT_PREFIX={PREFIX}
-F1T_STATE_DIR={tmp_path}/state
+F1T_STATE_DIR={directory}/state
 F1T_GRAPH_CHECK=false
 F1T_MONITOR=false
-F1T_READY_FILE={tmp_path}/ready.yaml
+F1T_READY_FILE={directory}/ready.yaml
 F1T_STACK_CMD="sleep 300"
 F1T_STACK_MATCH="sleep 3[0-9]{{2}}$"
 F1T_PLANNER_CMD="cat"
@@ -50,13 +59,26 @@ F1T_LOGGER_CMD="{IGNORES_SIGINT}"
 F1T_STOP_SIGINT_WAIT_S=1
 F1T_STOP_SIGTERM_WAIT_S=1
 """)
-    (tmp_path / 'ready.yaml').write_text(
+    (directory / 'ready.yaml').write_text(
         'window_s: 0.5\nchecks:\n  - {name: scan, kind: topic_rate, topic: /scan, '
         'type: sensor_msgs/msg/LaserScan, min_hz: 1}\n')
-    yield str(path)
+    return str(path)
+
+
+def _clean_up(path, backend):
+    if backend == 'proc':
+        procunits.sweep(config.load(path))
+        return
     units = [f'{PREFIX}{n}.service' for n in ('stack', 'planner', 'logger', 'monitor')]
     subprocess.run(['systemctl', '--user', 'stop', *units], capture_output=True)
     subprocess.run(['systemctl', '--user', 'reset-failed', *units], capture_output=True)
+
+
+@pytest.fixture
+def env_file(tmp_path, backend):
+    path = _write_env(tmp_path, backend)
+    yield path
+    _clean_up(path, backend)
 
 
 def ctl(env_file, *args, capsys):
@@ -299,3 +321,36 @@ def test_check_warns_when_the_discovery_server_has_no_super_client(env_file, cap
         f.write('ROS_SUPER_CLIENT=TRUE\n')
     _code, out = ctl(env_file, 'check', capsys=capsys)
     assert next(i for i in out['items'] if i['name'] == 'super_client')['ok'] is True
+
+
+VOLATILE = ('time', 'elapsed_s', 'env_file', 'pid', 'since', 'log', 'unit', 'cursor', 'size')
+
+
+def _shape(value):
+    """Return the keys and value types of a JSON answer, nested: its contract."""
+    if isinstance(value, dict):
+        return {k: (type(v).__name__ if k in VOLATILE else _shape(v)) for k, v in value.items()}
+    return type(value).__name__     # lists by type only: their length is not the contract
+
+
+@pytest.mark.skipif(not _user_manager_ok(), reason='no systemd --user')
+def test_the_json_is_the_same_on_both_backends(tmp_path, capsys):
+    """The bot and the gateway read the same answers whatever runs the processes."""
+    shapes = {}
+    for backend in BACKENDS:
+        directory = tmp_path / backend
+        directory.mkdir()
+        path = _write_env(directory, backend)
+        try:
+            answers = []
+            for args in (('start', 'stack'), ('status',), ('start', 'planner'),
+                         ('send', 'planner', 'hello'), ('planner-log',),
+                         ('stop', 'planner'), ('stop', 'stack'), ('stop', 'logger'),
+                         ('logs', 'stack'), ('killall', '--dry-run')):
+                code, out = ctl(path, *args, capsys=capsys)
+                answers.append((args, code, _shape(out)))
+            shapes[backend] = answers
+        finally:
+            _clean_up(path, backend)
+    for sysd, proc in zip(shapes['systemd'], shapes['proc']):
+        assert sysd == proc

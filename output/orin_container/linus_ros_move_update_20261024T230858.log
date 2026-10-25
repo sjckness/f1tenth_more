@@ -1,0 +1,22 @@
+Get:1 https://cli.github.com/packages stable InRelease [3,917 B]
+Hit:2 https://download.docker.com/linux/ubuntu noble InRelease
+Hit:3 https://nvidia.github.io/libnvidia-container/stable/deb/amd64  InRelease
+Get:4 http://snapshots.ros.org/jazzy/2026-09-11/ubuntu noble InRelease [13.8 kB]
+Hit:5 https://downloads.claude.ai/claude-desktop/apt/stable stable InRelease
+Hit:6 http://archive.ubuntu.com/ubuntu noble InRelease
+Get:7 https://pkgs.tailscale.com/stable/ubuntu noble InRelease
+Hit:8 http://security.ubuntu.com/ubuntu noble-security InRelease
+Get:9 http://snapshots.ros.org/jazzy/2026-09-11/ubuntu noble/main amd64 Packages [939 kB]
+Hit:10 http://archive.ubuntu.com/ubuntu noble-updates InRelease
+Hit:11 https://ppa.launchpadcontent.net/kicad/kicad-8.0-releases/ubuntu noble InRelease
+Hit:12 https://app.eduvpn.org/linux/v4/deb noble InRelease
+Hit:13 http://packages.ros.org/ros2/ubuntu noble InRelease
+Get:14 https://repo.protonvpn.com/debian stable InRelease [2,967 B]
+Hit:15 http://archive.ubuntu.com/ubuntu noble-backports InRelease
+Err:14 https://repo.protonvpn.com/debian stable InRelease
+  The following signatures couldn't be verified because the public key is not available: NO_PUBKEY EDA3E22630349F1C
+Hit:16 https://packages.osrfoundation.org/gazebo/ubuntu-stable noble InRelease
+Get:17 https://repo.librewolf.net librewolf InRelease [5,665 B]
+Reading package lists...
+W: GPG error: https://repo.protonvpn.com/debian stable InRelease: The following signatures couldn't be verified because the public key is not available: NO_PUBKEY EDA3E22630349F1C
+E: The repository 'https://repo.protonvpn.com/debian stable InRelease' is not signed.

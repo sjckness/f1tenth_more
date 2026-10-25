@@ -28,6 +28,7 @@ BASE_KEYS = ('HOME', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TERM', 'SHELL',
 BASE_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
 
 MANAGED = ('stack', 'planner', 'logger')
+PROCESS_BACKENDS = ('auto', 'systemd', 'proc')
 
 
 class ConfigError(Exception):
@@ -138,6 +139,12 @@ class Settings:
     mission_max_age_s: float
     mission_countdown_s: float
     mission_discover_s: float
+    # How managed processes run (units.py): 'systemd' (transient user units),
+    # 'proc' (runner.py, no systemd: the container) or 'auto'.
+    process_backend: str = 'auto'
+    # The working directory of every managed process (F1T_WORKDIR, default
+    # $HOME): where relative paths such as MPC_corr's mpc_log.csv land.
+    workdir: str = ''
 
     @property
     def log_dir(self) -> str:
@@ -199,6 +206,13 @@ def settings_from_env(env_file: str, env: Dict[str, str]) -> Settings:
     state_dir = os.path.expanduser(
         env.get('F1T_STATE_DIR') or os.path.join(home, '.local/state/f1tenth_ctl'))
     ready = env.get('F1T_READY_FILE', 'ready.yaml')
+    # Only from the env file, never from the caller's shell: every caller
+    # (ssh, the bot, the gateway) must manage the processes the same way.
+    backend = (env.get('F1T_PROCESS_BACKEND') or 'auto').strip().lower()
+    if backend not in PROCESS_BACKENDS:
+        raise ConfigError(f'F1T_PROCESS_BACKEND={backend!r} in {env_file}: '
+                          f'expected one of {", ".join(PROCESS_BACKENDS)}')
+    workdir = os.path.expanduser(env.get('F1T_WORKDIR') or home)
     return Settings(
         env_file=os.path.abspath(env_file),
         env=env,
@@ -243,6 +257,8 @@ def settings_from_env(env_file: str, env: Dict[str, str]) -> Settings:
         # running?" although the BT was publishing it the whole time. The
         # callers' own timeout is 25 s, so this had room to spare.
         mission_discover_s=_float(env, 'F1T_MISSION_DISCOVER_S', 15.0),
+        process_backend=backend,
+        workdir=workdir,
     )
 
 

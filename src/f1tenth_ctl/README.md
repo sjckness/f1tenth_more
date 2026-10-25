@@ -74,6 +74,16 @@ of a shell on that target.** The details are in `output/telegram/discovery.md`.
 
   The car's Humble profile (a copy of the Orin's `~/.bashrc`, read on
   2026-10-20) is the one on `campaign-final`.
+- **Car, Jazzy container on the Orin:** `config/ctl_container.env` sources
+  `ctl.env` (the image's `/opt/f1tenth_ws`) and adds what the container
+  needs: the proc backend (below), `F1T_WORKDIR`, the archive trigger file,
+  the image's provenance files, and the **car profile**: the stack starts with
+  the values the native car runs (`enable_intelligence:=true
+  enable_mission_logger:=true enable_comms:=false`, from
+  `output/orin_container/params_delta.md`). One line of extra launch
+  arguments for trials can go in `~/.config/f1tenth_car/stack_args`
+  (`name:=value` words only, else the file is ignored; the stack's log says
+  which).
 - **Sim:** `config/sim_linus.env`: the Isaac sim on one host (`scripts/sim/sim_isaac.sh`'s
   stack environment, `--net local`). See also `output/telegram/test.md`.
 
@@ -151,6 +161,54 @@ ros2cli topic list
 
 **Survives the ssh session:** the user manager keeps the units. On the Orin
 Linger is on; check it with `loginctl show-user $USER -p Linger`.
+
+## Without systemd: the proc backend (the container)
+
+A container has no user systemd manager, so `systemd-run --user` cannot
+hold the processes. `F1T_PROCESS_BACKEND` in the env file picks how they
+run:
+
+| Value | Backend |
+|---|---|
+| `systemd` | transient user units, as above |
+| `proc` | one runner process per managed process (`f1tenth_ctl/runner.py`) |
+| `auto` (default) | `proc` inside a container (`/.dockerenv`, `/run/.containerenv`) or where no user manager answers, else `systemd` |
+
+It is read from the env file only, never from the caller's shell.
+`config/ctl_container.env` sets `proc`. `units.py` is the same facade for
+both (`procunits.py` is the proc side): same unit names, logs, FIFOs, desired
+states, stop ladder and JSON. `test_process_manager.py` runs every test on
+both backends and compares the JSON of both.
+
+**What the runner does in place of systemd:**
+
+- **Detaches.** Double fork + `setsid`, so it belongs neither to the caller
+  (ssh, `docker exec`, the gateway) nor to the caller's session. The
+  container's init (tini) adopts it.
+- **Child subreaper.** Orphans of the process (daemons, grandchildren whose
+  parent died) are re-parented to the runner, not to init. The runner's
+  descendants are the unit's "control group" (`unit_pids`).
+- **Runs the process like a unit.** Own session and process group, so SIGINT
+  to the group is Ctrl-C. `F1T_WORKDIR` (default `$HOME`) as working
+  directory, stdin `/dev/null` (or the FIFO, through the same script),
+  output appended to the log.
+- **KillMode=control-group.** When the process ends, whatever is left below
+  the runner gets SIGTERM, then SIGKILL after `F1T_STOP_SIGTERM_WAIT_S`.
+  `stop`'s SIGTERM and SIGKILL steps go to the whole tree, like `systemctl kill`.
+
+**Records,** in `~/.local/state/f1tenth_ctl/proc/<unit>/`:
+
+- `proc.json`: runner and main pid with their `/proc` start times and the
+  boot id. A pid that was reused is never taken for the process.
+- `exit.json`: how the process ended, in systemd's terms. A clean signal
+  (SIGINT, SIGTERM, SIGHUP, SIGPIPE) or exit 0 counts as success, as systemd's
+  default `SuccessExitStatus` does.
+- `<unit>.lock`: so two callers never start the same unit twice.
+
+`check` reports `process_backend` and `workdir` instead of `systemd_user`
+and `linger`. The container's main process (`docker/orin/container/`)
+resets all records when it starts: a new container starts as "everything
+stopped".
 
 ## status and READY
 
