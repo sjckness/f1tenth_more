@@ -1,0 +1,29 @@
+# Archive sync on request from the car container (plan P6.5, finding F3).
+#
+# In the container there is no user systemd: when F1TENTH_ARCHIVE_TRIGGER is
+# set (ctl_container.env), the mission logger writes that file atomically
+# after each finalized run instead of calling `systemctl --user start
+# f1tenth-archive.service`. The file is the container's
+# ~/.local/state/f1tenth_archive_trigger/request, i.e. on the host
+# /scratch/fabiocar/f1tenth_container/archive_trigger/request (compose.yaml).
+# Each write (a rename onto it) starts the host's existing
+# f1tenth-archive.service (rsync to linus), exactly as the native logger does.
+# A start while the service runs is coalesced into that run; the 15-min timer
+# stays the catch-up.
+#
+# With `docker_orin.sh up --archive separate` the container's runs are in
+# /scratch/fabiocar/f1tenth_container/archive, which f1tenth-archive.service
+# does not sync: the trigger is then only proven to work (plan P8); with
+# --archive shared they are in ~/f1tenth_archive and synced.
+#
+# Installed and enabled by docker/orin/host/install.sh (harmless while the
+# container is down: nothing writes the file).
+[Unit]
+Description=f1tenth car container: archive sync requested by its mission logger
+
+[Path]
+PathChanged=/scratch/fabiocar/f1tenth_container/archive_trigger/request
+Unit=f1tenth-archive.service
+
+[Install]
+WantedBy=default.target

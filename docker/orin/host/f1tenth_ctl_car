@@ -1,0 +1,96 @@
+#!/bin/bash
+# f1tenth_ctl on the car, on whichever side runs (plan P6.5). The Telegram
+# bot's car config calls it over ssh (ctl_command: ~/.local/bin/f1tenth_ctl_car,
+# a symlink made by docker/orin/host/install.sh):
+#   f1tenth_ctl_car <f1tenth_ctl arguments> --json
+# Arguments, stdout, stderr and the exit code are f1tenth_ctl's own.
+#
+#   the container f1tenth_car runs, role car   -> docker exec f1tenth_car <its f1tenth_ctl>
+#       (ctl_container.env through the container's F1T_CTL_ENV), whatever its
+#       health: while it runs the native ctl must never start anything (two
+#       stacks on one car), and f1tenth_ctl itself does not need the gateway
+#       the healthcheck also watches;
+#   it runs with another role (the D3 harness) -> refused: one JSON line, exit 1;
+#   it is absent, created, exited or dead, or the Docker daemon is down
+#                                               -> the native checkout's f1tenth_ctl;
+#   its state cannot be read (e.g. no permission on the Docker socket)
+#                                               -> refused: one JSON line, exit 1.
+#
+# Whether f1tenth_car exists is decided from exit codes and `docker ps -a`
+# (an exact name match), never from Docker's message texts: Docker 29 changed
+# them ("error: no such object: ..."), and its failed `inspect -f` prints an
+# empty line first. Only "the daemon is down" is read from the text, because
+# no exit code tells it apart from "no permission" (both texts, old and new,
+# matched case-insensitively). Docker calls: container side inspect + exec;
+# native side inspect + ps.
+#
+#   f1tenth_ctl_car --which    prints the side (container, native, refused: <why>), exit 0/1
+# Env: F1T_NATIVE_CTL (~/dev_ws/f1tenth_more/src/f1tenth_ctl/bin/f1tenth_ctl),
+# F1T_CONTAINER_CTL (/opt/f1tenth_ws/src/f1tenth_ctl/bin/f1tenth_ctl).
+set -u
+CTR=f1tenth_car
+NATIVE_CTL=${F1T_NATIVE_CTL:-$HOME/dev_ws/f1tenth_more/src/f1tenth_ctl/bin/f1tenth_ctl}
+CONTAINER_CTL=${F1T_CONTAINER_CTL:-/opt/f1tenth_ws/src/f1tenth_ctl/bin/f1tenth_ctl}
+
+refuse() {
+  # f1tenth_ctl's JSON shape: the bot prints `error`.
+  local msg=${1//\\/\\\\}
+  msg=${msg//\"/\\\"}
+  printf '{"ok": false, "error": "f1tenth_ctl_car: %s", "side": "refused"}\n' "$msg"
+  exit 1
+}
+
+# The last non-empty line of a Docker error output.
+last_line() { printf '%s\n' "$1" | grep -v '^[[:space:]]*$' | tail -1; }
+
+# side: container | native | refused:<reason>
+side() {
+  local out ps status role lc
+  if ! command -v docker > /dev/null 2>&1; then
+    echo native; return
+  fi
+  # The running case in one call: first line the state, then one line per
+  # environment variable.
+  if out=$(docker inspect --type container \
+             -f '{{.State.Status}}{{println}}{{range .Config.Env}}{{println .}}{{end}}' "$CTR" 2>&1); then
+    status=$(printf '%s\n' "$out" | head -1)
+    role=$(printf '%s\n' "$out" | sed -n 's/^F1T_CONTAINER_ROLE=//p' | head -1)
+    case "$status" in
+      created|exited|dead) echo native ;;
+      running)
+        if [ "${role:-car}" = car ]; then echo container
+        else echo "refused:$CTR runs as '$role' (the D3 harness), not as the car: no f1tenth_ctl on either side until it is down"
+        fi ;;
+      *) echo "refused:$CTR is $status (neither running nor stopped): docker_orin status" ;;
+    esac
+    return
+  fi
+  # inspect failed: no such container, or Docker itself did not answer.
+  if ps=$(docker ps -a --filter "name=$CTR" --format '{{.Names}}' 2>&1); then
+    if printf '%s\n' "$ps" | tr ',' '\n' | grep -qxF "$CTR"; then
+      echo "refused:$CTR exists, but its state cannot be read: $(last_line "$out")"
+    else
+      echo native
+    fi
+    return
+  fi
+  lc=${ps,,}
+  case "$lc" in
+    *"cannot connect to the docker daemon"*|*"failed to connect to the docker api"*) echo native ;;
+    *) echo "refused:cannot ask Docker about $CTR: $(last_line "$ps")" ;;
+  esac
+}
+
+s=$(side)
+if [ "${1:-}" = --which ]; then
+  echo "$s"
+  case "$s" in refused:*) exit 1 ;; esac
+  exit 0
+fi
+case "$s" in
+  container) exec docker exec "$CTR" "$CONTAINER_CTL" "$@" ;;
+  native)
+    [ -x "$NATIVE_CTL" ] || refuse "no native f1tenth_ctl at $NATIVE_CTL and $CTR is not running"
+    exec "$NATIVE_CTL" "$@" ;;
+  refused:*) refuse "${s#refused:}" ;;
+esac

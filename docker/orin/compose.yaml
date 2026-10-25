@@ -1,0 +1,127 @@
+# The car's Jazzy container on the Orin (plan P6.1): project f1tenth_car,
+# service car, container f1tenth_car.
+#
+# DO NOT run `docker compose up` by hand: scripts/docker_orin.sh up resolves
+# and checks what this file needs (the pinned image, the host's group IDs, the
+# hidraw major, the state directories, the guard against a native stack, the
+# drift check) and exports it; every such variable is ${VAR:?}, so a bare
+# `docker compose up` fails instead of starting wrong. The usual entry point is
+# docker/orin/host/stack_mode.sh container (or the user unit
+# f1tenth-car-container.service).
+#
+# Host networking only (CLAUDE.md "Orin Docker": no bridge on this kernel).
+# There is no `build:` section: the image is built only by
+# docker/orin/build.sh (host network, staged named contexts), so compose never
+# builds or pulls it (pull_policy: never). If a build section is ever added it
+# must say `network: host`.
+#
+# Process model: tini is PID 1 (init: true) and reaps every orphan;
+# f1tenth_container_main.py (docker/orin/container) runs the preflight, the
+# discovery server and the gateway, and on SIGTERM stops the stack in order;
+# stop_grace_period leaves it 120 s. Nothing restarts the container by itself
+# (restart: "no"): a crash leaves the car stopped, as a native crash does.
+#
+# State lives on the NVMe under F1T_STATE (/scratch/fabiocar/f1tenth_container),
+# created by docker/orin/host/install.sh. Bind mounts use create_host_path:
+# false, so a missing host path fails `up` instead of Docker creating a
+# root-owned directory.
+name: f1tenth_car
+
+services:
+  car:
+    image: ${F1TENTH_IMAGE:?F1TENTH_IMAGE is set by scripts/docker_orin.sh (the pinned image)}
+    pull_policy: never
+    container_name: f1tenth_car
+    runtime: nvidia
+    network_mode: host        # lidar on eno1, Discovery Server 127.0.0.1:11811, gateway 127.0.0.1:8770, linus over Tailscale
+    ipc: host                 # the host's /dev/shm: Fast DDS shared memory as on bare metal
+    # pid: private (default). The guard keeps native and container stacks
+    # apart; a shared PID namespace would let kill_ros2.py and the
+    # supervisor's SHM sweep reach host processes.
+    init: true
+    # By name: Docker then applies the image's /etc/group memberships too.
+    user: fabiocar
+    group_add:                # the host's GIDs, resolved and checked against the image's labels by docker_orin.sh
+      - "${GID_VIDEO:?}"
+      - "${GID_RENDER:?}"
+      - "${GID_DIALOUT:?}"
+      - "${GID_INPUT:?}"
+      - "${GID_ZED:?}"
+      - "${GID_JTOP:?}"
+    # SYS_NICE only takes effect for root (`docker exec -u 0`): Docker puts an
+    # added capability in the bounding set alone for a non-root user (finding
+    # F1, 2026-10-08). The user's priorities come from the ulimits below.
+    cap_add: [SYS_NICE]
+    ulimits:
+      rtprio: {soft: 99, hard: 99}      # chrt -f (SCHED_FIFO)
+      memlock: {soft: -1, hard: -1}
+      nice: {soft: 40, hard: 40}        # F1: os.nice(-5) in MPC_corr needs RLIMIT_NICE (40 = down to -20)
+    # No cpuset/cpus: the launch files' taskset prefixes need all 12 cores.
+    # /dev is bind-mounted so hot-plugged devices (VESC, joystick, ZED) appear;
+    # these rules grant access by device major (no privileged mode).
+    device_cgroup_rules:
+      - "c 166:* rmw"                   # ttyACM (VESC, /dev/sensors/vesc)
+      - "c 188:* rmw"                   # ttyUSB
+      - "c 189:* rmw"                   # usb_device (/dev/bus/usb: ZED)
+      - "c ${HIDRAW_MAJOR:?}:* rmw"     # hidraw (ZED IMU), dynamic major from /proc/devices
+      - "c 81:* rmw"                    # video4linux (ZED UVC)
+      - "c 13:* rmw"                    # input (joystick js*/event*)
+    restart: "no"
+    stop_signal: SIGTERM
+    stop_grace_period: 120s
+    logging:
+      driver: json-file
+      options: {max-size: "20m", max-file: "5"}
+    environment:
+      F1T_CONTAINER_ROLE: car
+      F1T_AUTOSTART: ${F1T_AUTOSTART:-none}
+      F1T_CTL_ENV: /opt/f1tenth_ws/src/f1tenth_ctl/config/ctl_container.env
+      F1T_GATEWAY_VENV: /opt/f1tenth_gateway/venv
+      F1T_GATEWAY_CONFIG: /opt/f1tenth_ws/docker/orin/container/gateway.yaml
+      F1T_GATEWAY_ENV_FILE: /home/fabiocar/.config/f1tenth_gateway/env
+      # Provenance, for logs and the gateway's run records.
+      F1TENTH_IMAGE_REF: ${F1TENTH_IMAGE:?}
+      F1TENTH_IMAGE_ID: ${F1TENTH_IMAGE_ID:?}
+    command: ["python3", "/opt/f1tenth_ws/docker/orin/container/f1tenth_container_main.py"]
+    volumes:
+      - {type: bind, source: /dev, target: /dev, bind: {create_host_path: false}}
+      # ---- state on the NVMe (read-write, owned by fabiocar)
+      - {type: bind, source: "${F1T_STATE:?}/ros", target: /home/fabiocar/.ros, bind: {create_host_path: false}}
+      # --archive separate: ${F1T_STATE}/archive; --archive shared: the native ~/f1tenth_archive.
+      - {type: bind, source: "${F1T_ARCHIVE_DIR:?}", target: /home/fabiocar/f1tenth_archive, bind: {create_host_path: false}}
+      - {type: bind, source: "${F1T_STATE:?}/ctl", target: /home/fabiocar/.local/state/f1tenth_ctl, bind: {create_host_path: false}}
+      - {type: bind, source: "${F1T_STATE:?}/gateway", target: /home/fabiocar/.local/state/f1tenth_gateway, bind: {create_host_path: false}}
+      # The mission logger writes <dir>/request after each run; the host's
+      # f1tenth-archive-trigger.path starts f1tenth-archive.service (rsync to linus).
+      - {type: bind, source: "${F1T_STATE:?}/archive_trigger", target: /home/fabiocar/.local/state/f1tenth_archive_trigger, bind: {create_host_path: false}}
+      # A copy of the host's ZED calibration (install.sh seeds it once); the
+      # host's SDK 4.2.5 settings directory itself is never mounted.
+      - {type: bind, source: "${F1T_STATE:?}/zed_settings", target: /usr/local/zed/settings, bind: {create_host_path: false}}
+      # faster-whisper downloads its model here on the first voice command.
+      - {type: bind, source: "${F1T_STATE:?}/hf_cache", target: /home/fabiocar/.cache/huggingface, bind: {create_host_path: false}}
+      - {type: bind, source: "${F1T_STATE:?}/missions/mission_reports", target: /opt/f1tenth_ws/src/f1tenth_behavior/mission_reports, bind: {create_host_path: false}}
+      - {type: bind, source: "${F1T_STATE:?}/missions/mission_videos", target: /opt/f1tenth_ws/mission_videos, bind: {create_host_path: false}}
+      - {type: bind, source: "${F1T_STATE:?}/missions/llm_generated", target: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated, bind: {create_host_path: false}}
+      - {type: bind, source: "${F1T_STATE:?}/missions/corridors_jsons", target: /opt/f1tenth_ws/src/f1tenth_control/corridors_jsons, bind: {create_host_path: false}}
+      # ---- caches (named volumes, initialised from the image's fabiocar-owned dirs)
+      - {type: volume, source: zed_resources, target: /usr/local/zed/resources}
+      - {type: volume, source: cuda_cache, target: /var/cache/f1tenth/cuda}
+      - {type: volume, source: trt_engines, target: /var/cache/f1tenth/trt}
+      # ---- read-only inputs from the host
+      - {type: bind, source: "${HOME:?}/projects/llm/models", target: /home/fabiocar/projects/llm/models, read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: "${HOME:?}/.config/f1tenth_gateway/env", target: /home/fabiocar/.config/f1tenth_gateway/env, read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: "${HOME:?}/.local/share/f1tenth_gateway/www", target: /home/fabiocar/.local/share/f1tenth_gateway/www, read_only: true, bind: {create_host_path: false}}
+      # Optional ~/.config/f1tenth_car/stack_args (one line of extra launch
+      # arguments, e.g. a Rust switch for a trial; ctl_container.env logs it).
+      - {type: bind, source: "${HOME:?}/.config/f1tenth_car", target: /home/fabiocar/.config/f1tenth_car, read_only: true, bind: {create_host_path: false}}
+      # jtop client (system_observer); the host's jtop service owns the socket.
+      - {type: bind, source: "${F1T_JTOP_SOCK:-/run/jtop.sock}", target: /run/jtop.sock, bind: {create_host_path: false}}
+      - {type: bind, source: /etc/localtime, target: /etc/localtime, read_only: true, bind: {create_host_path: false}}
+
+volumes:
+  zed_resources:
+    name: f1tenth_car_zed_resources
+  cuda_cache:
+    name: f1tenth_car_cuda
+  trt_engines:
+    name: f1tenth_car_trt

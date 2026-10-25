@@ -1,8 +1,16 @@
-# Build context of docker/orin/Dockerfile is docker/orin itself; only these are COPYed.
+# Build context of docker/orin/Dockerfile is docker/orin itself (build.sh: a
+# git archive of docker/orin at the commit). Allowlist: only what the
+# Dockerfile COPYs from this context. The sources, scripts/export_yolo_engine.sh,
+# SOURCES and CAR_SYNC.json come from the `src` context (stage_sources.sh), the
+# binary inputs from `inputs`. compose*.yaml, host/, checks/, thor_capture/ and
+# the manifest are run-side or report files and stay out of the build.
 *
+!keys/ros-snapshots.asc
 !ros_packages.txt
 !constraints.txt
+!gateway-requirements.txt
 !entrypoint.sh
-!set_llama_paths.py
+!set_installed_params.py
 !build_checks.sh
-!keys/ros-snapshots.asc
+!cargo_lock_check.py
+!container

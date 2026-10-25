@@ -1,0 +1,53 @@
+# The PWA gateway's venv in the Orin image: /opt/f1tenth_gateway/venv,
+# created with --system-site-packages and installed with
+#   pip install --no-deps --only-binary=:all: -r gateway-requirements.txt
+# then `pip check` (Dockerfile, py stage). So this file is the COMPLETE list of
+# what the venv itself installs, every version exact; a dependency left out
+# fails pip check, the build stops.
+#
+# Not listed, because the image's system site provides them (apt or the py
+# stage's pip, the venv reuses them): numpy 1.26.4, PyYAML 6.0.1, packaging,
+# idna, typing_extensions 4.16.0 (pinned in the py stage: pydantic and anyio
+# need >= 4.16), filelock, fsspec, sympy, mpmath, protobuf, onnxruntime 1.23.2
+# (+ coloredlogs, humanfriendly, flatbuffers; faster-whisper needs onnxruntime
+# for its VAD), and rclpy and the message packages from /opt/ros/jazzy
+# (PYTHONPATH).
+#
+# Resolved 2026-10-24 for CPython 3.12 / manylinux aarch64 (pip 24.0
+# --platform ... --only-binary=:all:) against the image's system site; every
+# package has a cp312 or py3 aarch64 wheel. The set was installed in a scratch
+# venv on linus (x86_64): pip check clean, every module imports,
+# faster-whisper's Silero VAD loads through onnxruntime (output/orin_container/w2.md).
+#
+# The gateway (src/f1tenth_gateway/requirements.txt), unchanged versions:
+fastapi==0.115.6
+uvicorn==0.32.1
+websockets==14.1
+python-multipart==0.0.20
+qrcode==8.0
+# Voice commands (transcribe_worker.py): faster-whisper on the CPU, int8. The
+# Orin's PyPI CTranslate2 has no CUDA (aarch64 wheels are CPU only). PyAV 17+
+# breaks faster-whisper 1.2.1 ('metadata_errors'); 16.1.0 is the version the
+# Telegram bot runs on linus (output/telegram/test.md). ctranslate2, tokenizers,
+# huggingface_hub and hf-xet as in that tested venv.
+faster-whisper==1.2.1
+av==16.1.0
+ctranslate2==4.8.3
+tokenizers==0.23.3
+huggingface_hub==2.2.0
+hf-xet==1.7.0
+# Transitive, resolved. httpx2/httpcore2 (huggingface_hub 2.x's HTTP client)
+# 2.3.0, not the bot venv's 2.15.1: 2.15.1 needs idna>=3.18 and the venv keeps
+# the system's apt idna 3.6 rather than shadowing it.
+annotated-types==0.8.0
+anyio==4.15.1
+click==8.5.0
+h11==0.16.0
+httpcore2==2.3.0
+httpx2==2.3.0
+pydantic==2.14.1
+pydantic_core==2.50.1
+starlette==0.41.3
+tqdm==4.70.1
+truststore==0.10.5
+typing-inspection==0.4.4

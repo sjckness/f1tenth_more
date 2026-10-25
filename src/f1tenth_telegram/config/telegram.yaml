@@ -10,10 +10,18 @@ target:
   ssh_key: ~/.ssh/id_ed25519
   ssh_options: []
   connect_timeout_s: 5
-  # f1tenth_ctl from the car's checkout: runs without a build or ROS sourced
-  # (non-interactive ssh does not read ~/.bashrc).
-  ctl_command: ~/dev_ws/f1tenth_more/src/f1tenth_ctl/bin/f1tenth_ctl
-  # --env for f1tenth_ctl; empty = its config/ctl.env.
+  # f1tenth_ctl on whichever side of the car runs, the native Humble checkout
+  # or the Jazzy container f1tenth_car: the wrapper
+  # docker/orin/host/f1tenth_ctl_car, symlinked here by
+  # docker/orin/host/install.sh. While f1tenth_car runs as the car it runs the
+  # container's f1tenth_ctl (docker exec); while it runs as the D3 harness it
+  # refuses; otherwise it runs the native
+  # ~/dev_ws/f1tenth_more/src/f1tenth_ctl/bin/f1tenth_ctl. No build or ROS
+  # sourced needed (non-interactive ssh does not read ~/.bashrc). Deploy this
+  # config only after install.sh ran on the car (plan P8).
+  ctl_command: ~/.local/bin/f1tenth_ctl_car
+  # --env for f1tenth_ctl; empty = that side's own (native config/ctl.env,
+  # the container's ctl_container.env). Keep it empty with the wrapper.
   ctl_env:
   ping: true
 
