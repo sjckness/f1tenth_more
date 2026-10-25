@@ -1,0 +1,20 @@
+# The gateway inside the car's Jazzy container (docker/orin/compose.yaml,
+# started by f1tenth_container_main.py). Every key and its default:
+# src/f1tenth_gateway/f1tenth_gateway/config.py. The same as the native car's
+# src/f1tenth_gateway/config/gateway.yaml except:
+# - archive.workspace: the image's workspace (mission reports, mission videos),
+#   not the native checkout ~/dev_ws/f1tenth_more;
+# - ctl_env: the container's f1tenth_ctl env file, named here as well as in
+#   F1T_CTL_ENV, so the gateway can only drive the container's processes.
+# The token is NOT here: F1T_GATEWAY_TOKEN, from ~/.config/f1tenth_gateway/env
+# (mounted read-only; the main process passes it to the gateway alone).
+listen:
+  host: 127.0.0.1      # tailscale serve on the host forwards https://<orin>.ts.net here
+  port: 8770           # host networking: the native gateway must be stopped first
+www_dir: ~/.local/share/f1tenth_gateway/www     # the host's PWA build, mounted read-only
+ctl_env: /opt/f1tenth_ws/src/f1tenth_ctl/config/ctl_container.env
+archive:
+  root: ~/f1tenth_archive
+  workspace: /opt/f1tenth_ws
+transcription:
+  model: small         # base: faster, worse on Italian

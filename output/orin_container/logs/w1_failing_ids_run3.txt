@@ -1,0 +1,10 @@
+| Package | Tests | Pass | Failures | Errors | Skipped |
+|---|---:|---:|---:|---:|---:|
+| f1tenth_ctl | 171 | 170 | 1 | 0 | 0 |
+| f1tenth_gateway | 111 | 75 | 0 | 0 | 36 |
+| f1tenth_logger | 345 | 338 | 6 | 0 | 1 |
+
+failures+errors: 7; NEW (not in baseline): 2
+  NEW failure f1tenth_ctl::f1tenth_ctl.test.test_missions::test_start_needs_the_loaded_one_and_a_fresh_plan
+  NEW failure f1tenth_logger::f1tenth_logger.test.test_campaign.test_logger_node_roundtrip::test_the_standstill_floor_is_below_the_driving_jerk
+baseline failures of these packages that now pass: 0

@@ -119,7 +119,7 @@ def _strays(settings: Settings, name: str, procs=None, excl=None):
         return []
     procs = procscan.all_procs() if procs is None else procs
     excl = procscan.own_exclusions() if excl is None else excl
-    excl = excl | set(units.unit_pids(spec.unit))
+    excl = excl | set(units.unit_pids(spec.unit, settings))
     return procscan.matching(procs, spec.match, os.getuid(), excl)
 
 
@@ -172,14 +172,18 @@ def cmd_check(settings: Settings, args=None) -> dict:
              required=False,
              why='ROS_SUPER_CLIENT is not TRUE: `ros2 topic list --no-daemon` from a '
                  'shell with this env file would list no topics')
-    sysd = units.systemctl(['is-system-running'])
-    state = sysd.stdout.strip()
-    item('systemd_user', state in ('running', 'degraded'), state,
-         why='systemd --user not reachable (no user session?)')
-    linger = subprocess.run(['loginctl', 'show-user', env.get('USER', ''), '-p', 'Linger'],
-                            capture_output=True, text=True, timeout=5).stdout.strip()
-    item('linger', linger.endswith('yes'), linger or 'unknown', required=False,
-         why='Linger off: units die when the last session closes')
+    if units.backend(settings) == 'proc':
+        # No systemd (the container): the runner backend's own items.
+        items.extend(units.proc_check(settings))
+    else:
+        sysd = units.systemctl(['is-system-running'])
+        state = sysd.stdout.strip()
+        item('systemd_user', state in ('running', 'degraded'), state,
+             why='systemd --user not reachable (no user session?)')
+        linger = subprocess.run(['loginctl', 'show-user', env.get('USER', ''), '-p', 'Linger'],
+                                capture_output=True, text=True, timeout=5).stdout.strip()
+        item('linger', linger.endswith('yes'), linger or 'unknown', required=False,
+             why='Linger off: units die when the last session closes')
     try:
         thr = _thresholds(settings)
         item('ready_file', True, f'{settings.ready_file} ({len(thr["checks"])} checks)')
@@ -619,7 +623,7 @@ def planner_plan_only(settings: Settings) -> bool:
     loads and starts every mission it plans. The bot refuses to plan unless
     this is true.
     """
-    for pid in units.unit_pids(settings.procs['planner'].unit):
+    for pid in units.unit_pids(settings.procs['planner'].unit, settings):
         p = procscan.read_proc(pid)
         if p and any('llm_planner_node' in a for a in p.argv) and '--dry-run' in p.argv:
             return True

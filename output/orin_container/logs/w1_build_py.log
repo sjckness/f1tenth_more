@@ -1,0 +1,9 @@
+Starting >>> f1tenth_ctl
+Starting >>> f1tenth_logger
+Finished <<< f1tenth_logger [2.21s]
+Finished <<< f1tenth_ctl [2.23s]
+Starting >>> f1tenth_gateway
+Finished <<< f1tenth_gateway [1.81s]
+
+Summary: 3 packages finished [4.51s]
+py rc=0

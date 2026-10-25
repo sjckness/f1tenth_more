@@ -1,0 +1,11 @@
+Starting >>> f1tenth_messages
+Starting >>> zed_msgs
+[Processing: f1tenth_messages, zed_msgs]
+[Processing: f1tenth_messages, zed_msgs]
+Finished <<< zed_msgs [1min 13s]
+[Processing: f1tenth_messages]
+[Processing: f1tenth_messages]
+Finished <<< f1tenth_messages [2min 35s]
+
+Summary: 2 packages finished [2min 36s]
+cmake rc=0

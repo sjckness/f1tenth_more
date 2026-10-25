@@ -4,7 +4,8 @@
   <name>f1tenth_ctl</name>
   <version>0.0.1</version>
   <description>Process manager CLI for the car: start and stop the stack, the LLM
-  planner and the mission logger as systemd user units, report READY, trigger the
+  planner and the mission logger as systemd user units (in a container: runner
+  processes), report READY, trigger the
   emergency stop and kill every ROS 2 process. JSON output for the Telegram bot.
   The CLI itself is stdlib Python and runs without ROS sourced; only its probe
   imports rclpy, inside the environment of config/ctl.env.</description>

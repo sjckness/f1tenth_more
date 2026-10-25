@@ -105,3 +105,51 @@ def test_car_env_matches_the_stack_defaults():
     assert stack == 'ros2 launch f1tenth_bringup supervisor_bringup.launch.py'
     logger = re.search(r'^F1T_LOGGER_CMD="(.+)"', text, re.M).group(1)
     assert 'enable_mission_logger:=true' in logger
+
+
+# ---- the container's env file (needs ROS Jazzy: it sources scripts/env/jazzy.sh) ----
+
+CONTAINER_ENV = os.path.join(PKG, 'config', 'ctl_container.env')
+needs_jazzy = pytest.mark.skipif(not os.path.isfile('/opt/ros/jazzy/setup.bash'),
+                                 reason='ctl_container.env sources ROS Jazzy')
+
+
+@needs_jazzy
+def test_the_container_env_is_the_proc_backend_with_the_car_profile(tmp_path, monkeypatch):
+    monkeypatch.setenv('HOME', str(tmp_path))
+    s = config.load(CONTAINER_ENV)
+    assert s.process_backend == 'proc'
+    assert s.workdir == f'{tmp_path}/.local/state/f1tenth_ctl/cwd'
+    words = s.procs['stack'].cmd.split()
+    assert words[:4] == ['ros2', 'launch', 'f1tenth_bringup', 'supervisor_bringup.launch.py']
+    assert words[4:] == ['enable_intelligence:=true', 'enable_mission_logger:=true',
+                         'enable_comms:=false']
+    assert s.env['F1TENTH_ARCHIVE_TRIGGER'] == (
+        f'{tmp_path}/.local/state/f1tenth_archive_trigger/request')
+    assert s.env['F1TENTH_IMAGE_SOURCES'] == '/opt/f1tenth_ws/SOURCES'
+    assert s.env['F1TENTH_CAR_SYNC'] == '/opt/f1tenth_ws/CAR_SYNC.json'
+    assert s.env['F1T_STACK_ARGS_STATUS'] == 'absent'
+    # Everything else is ctl.env's: the car's discovery server, the processes.
+    assert s.discovery_address == ('127.0.0.1', 11811) and s.env['ROS_DISTRO'] == 'jazzy'
+    assert s.procs['planner'].stdin_fifo and '--dry-run' in s.procs['planner'].cmd
+    assert not [k for k in s.env if k.startswith('_f1t')]
+
+
+@needs_jazzy
+@pytest.mark.parametrize('content,extra', [
+    ('f1tenth_mpc_solver:=rust\n', ['f1tenth_mpc_solver:=rust']),
+    ('a:=1  b:=x/y.yaml\n\n', ['a:=1', 'b:=x/y.yaml']),
+    ('a:=1\nb:=2\n', []),                  # more than one line: ignored
+    ('a:=1; touch /tmp/x\n', []),          # not name:=value words: ignored
+    ('*\n', []),
+    ('\n', []),
+])
+def test_stack_args_are_one_line_of_launch_arguments(tmp_path, monkeypatch, content, extra):
+    monkeypatch.setenv('HOME', str(tmp_path))
+    args = tmp_path / '.config' / 'f1tenth_car' / 'stack_args'
+    args.parent.mkdir(parents=True)
+    args.write_text(content)
+    s = config.load(CONTAINER_ENV)
+    assert s.procs['stack'].cmd.split()[7:] == extra
+    want = 'applied' if extra else ('empty' if not content.strip() else 'IGNORED')
+    assert s.env['F1T_STACK_ARGS_STATUS'].startswith(want)

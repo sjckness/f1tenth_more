@@ -1,0 +1,42 @@
+Starting >>> f1tenth_ctl
+--- stderr: f1tenth_ctl
+
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=187344) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+[Processing: f1tenth_ctl]
+[Processing: f1tenth_ctl]
+Finished <<< f1tenth_ctl [1min 11s]
+Starting >>> f1tenth_gateway
+Finished <<< f1tenth_gateway [8.01s]
+Starting >>> f1tenth_logger
+--- stderr: f1tenth_logger
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=196648) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+[Processing: f1tenth_logger]
+Finished <<< f1tenth_logger [49.5s]	[ with test failures ]
+
+Summary: 3 packages finished [2min 9s]
+  2 packages had stderr output: f1tenth_ctl f1tenth_logger
+  1 package had test failures: f1tenth_logger
