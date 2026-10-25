@@ -193,17 +193,17 @@ if [ "${RUST:-skip}" = build ]; then
             f1tenth_costmap_boundary_rs/costmap_boundary_node f1tenth_costmap_boundary_rs/costmap_boundary_replay \
             f1tenth_hard_stop_rs/hard_stop_node f1tenth_hard_stop_rs/hard_stop_replay; do
     if [ ! -x "$WS/install/lib/$pb" ]; then bad "Rust binary missing: install/lib/$pb"; continue; fi
-    # The binary's own DT_NEEDED is what the rclrs 0.8 port removes; a library
-    # that pulls test_msgs in transitively is reported with its name.
+    # Every library the binary needs must resolve in the image. On aarch64 the
+    # link keeps a DT_NEEDED entry for the typesupport of every interface
+    # package ros-env compiled in (the linus x86 link drops the unused ones,
+    # as-needed): test_msgs among them, which the image installs. Reported,
+    # not fatal (first RUST=build image on the Orin, 2026-10-25).
+    if ldd "$WS/install/lib/$pb" 2>/dev/null | grep -q 'not found'; then
+      bad "$pb: a needed library does not resolve: $(ldd "$WS/install/lib/$pb" | grep 'not found' | tr '\n' ' ')"
+    fi
+    n_ts=$(readelf -d "$WS/install/lib/$pb" 2>/dev/null | grep 'NEEDED' | grep -c '__rosidl_typesupport_c' || true)
     if readelf -d "$WS/install/lib/$pb" 2>/dev/null | grep 'NEEDED' | grep -q 'libtest_msgs'; then
-      bad "$pb links test_msgs (DT_NEEDED; a run-time dependency the rclrs 0.8 port removes)"
-      readelf -d "$WS/install/lib/$pb" | grep 'NEEDED' | sed 's/^/      /'
-    elif ldd "$WS/install/lib/$pb" 2>/dev/null | grep -q 'libtest_msgs'; then
-      via=$(readelf -d "$WS/install/lib/$pb" | sed -n 's/.*NEEDED.*\[\(.*\)\]/\1/p' | while read -r lib; do
-        p=$(ldd "$WS/install/lib/$pb" | awk -v l="$lib" '$1 == l {print $3}')
-        [ -n "$p" ] && ldd "$p" 2>/dev/null | grep -q 'libtest_msgs' && echo "$lib"
-      done | tr '\n' ' ')
-      echo "  note: $pb reaches test_msgs only through ${via:-?} (not its own DT_NEEDED)"
+      echo "  note: $pb has $n_ts typesupport libraries in DT_NEEDED, test_msgs among them (installed in the image)"
     fi
   done
   for pb in f1tenth_proximity_guard/proximity_guard_replay f1tenth_costmap_boundary_rs/costmap_boundary_replay \
