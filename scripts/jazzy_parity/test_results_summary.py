@@ -5,6 +5,10 @@
 `colcon test-result --all` listing when it is given (the authoritative
 totals); the failing/erroring/skipped test IDs come from the JUnit XML.
 
+Runs on: anywhere (reads files only). P9.1: colcon_test_ids.sh calls it in the
+harness container and on linus (the reference at the same commit);
+parity_gates.py tests compares the two --ids files.
+
 usage: test_results_summary.py RESULT_DIR [TEST_RESULT_ALL.txt] [--ids OUT.txt]
        test_results_summary.py --compare A_IDS.txt B_IDS.txt
 """
