@@ -76,3 +76,24 @@ switch is trusted on the car. **All switches stay py**; nothing here affects the
 - The Orin repo's auto-gc logs `bad object worktrees/f1tenth_car/HEAD` during bundle fetches
   (all objects present; `.git/gc.log` now suppresses auto-gc there): to look at.
 - `docker_orin exec` reads stdin (scripts must pass `</dev/null`).
+
+## Performance on the Orin (2026-10-25 evening, MODE_50W, no jetson_clocks)
+Same conditions both sides: full car stack, no VESC, no lidar link, ZED unusable (USB 2), so
+perception is near idle: this is the stack's base load, not driving load. 90 s warm-up, 120 s
+window, `scripts/jazzy_parity/sys_sample.py` on the host (`perf/`, `perf/compare.txt`).
+| | native Humble | Jazzy container |
+|---|---:|---:|
+| Orin total CPU (12 cores) | 24.8 % | **17.5 %** |
+| stack CPU, sum (% of one core) | 179 | **101** |
+| of which the Discovery Server | 72.1 | **1.1** |
+| stack without the Discovery Server | 107 | 100 |
+| stack RSS | 8.15 GB | 9.55 GB |
+Where it differs: Humble's fast-discovery-server burns 72 % of a core (Jazzy's 1 %);
+swept_clearance retired (7.6 % → 0); detection_3d / obstacle_projector with /tf_static-only TF
+(2.9 / 2.5 % → 0.2); foxglove 5.1 → 1.0 %. Higher in the container: mpc_corr 27.0 → 31.8 %,
+semantic_layer 4.9 → 7.1 %, hard_stop 4.2 → 5.3 %. Memory: yolo_detector 705 → 1,513 MB (torch
+2.8 / CUDA 12.9), the other nodes ~+10 MB each.
+
+MPC solver on the Orin (`bench_solve.py`, 723 ticks x 7, CPU 5, harness container): Python mean
+18.2 ms, p95 24.4 ms; **Rust mean 2.6 ms, p95 4.2 ms (5.8x)**; live configuration
+(offset_free, 8 obstacles, 4 walls) p95 24.7 → 4.4 ms. linus x86 for comparison: 10.4 → 2.0 ms.
