@@ -1,262 +1,377 @@
 # f1tenth_more
 
-ROS 2 Jazzy workspace (branch `jazzy-campaign`: the campaign-final stack ported from Humble, see
-`output/jazzy_port/`) for a physical F1TENTH autonomous racing car (VESC drive stack,
-ZED2 stereo camera or a webcam fallback, Hokuyo LiDAR, Jetson Orin/Thor), plus a Gazebo
-Fortress simulation. Real hardware and simulation are separate, non-overlapping entry
-points that share the same robot description, EKF config, and most node code.
+ROS 2 software for a 1/10-scale F1TENTH car that drives scripted missions
+indoors: sensor bringup, localization, camera and LiDAR perception, a corridor
+MPC, a behavior tree that runs JSON missions, layered safety stops, and the
+tools around them (process manager, phone app, Telegram bot, mission logger,
+replay and analysis).
 
-This README reflects the workspace after a full package-by-package reorganization
-(the "Phase 0-10" reorg referenced in commit history and in the since-removed
-`workspace_inventory.md`, the original read-only audit that scoped the work).
+> **This is `main-jazzy`: `main` ported to ROS 2 Jazzy (Ubuntu 24.04), plus the
+> Isaac Sim mode.** It replaces `main` once it has passed on the Thor and in the
+> car's Jazzy container. Until then the car runs Humble (`main`).
 
-## Quick start — the two bringup entry points
+## Branches
 
-| | `stack_bringup.launch.py` | `supervisor_bringup.launch.py` |
+| Branch | ROS 2 | What it holds |
 |---|---|---|
-| **Run** | `ros2 launch f1tenth_bringup stack_bringup.launch.py` | `ros2 launch f1tenth_bringup supervisor_bringup.launch.py` (add `enable_mission_logger:=true` to record the run: opt-in since 2026-10-16) |
-| **Process model** | One `ros2 launch` process, one process tree. | Spawns each functional group ("component") as its own `ros2 launch` subprocess, independently restartable. |
-| **Restart a subsystem without restarting everything?** | No — killing/restarting the launch tears down the whole stack. | Yes — `ros2 service call /restart_component ...` (see below). |
-| **Crash recovery** | None built in. | A watchdog auto-respawns crashed components (bounded by a restart budget), except ones you've explicitly stopped. |
-| **When to use** | Simplest option; default choice for normal driving sessions. | Development/debugging where you want to bounce one subsystem (e.g. perception after a camera hiccup) without losing localization/control. |
+| `main` | Humble, Ubuntu 22.04 | The consolidated stack: `campaign-final` plus the LLM2 parameter node, the YOLO GPU pipeline, the comms link and the fixes made on the car (car-sync). Humble fixes land there. |
+| **`main-jazzy`** (this one) | Jazzy, Ubuntu 24.04 | `main` ported to Jazzy, plus the Isaac Sim mode. |
+| `main-jazzy-rust` | Jazzy, Ubuntu 24.04 | `main-jazzy` plus Rust ports of the hot paths (every switch defaults to Python) and the Docker image for the car. |
+| `campaign-final` | Humble | The code the first test campaign ran on. **Frozen**: never commit to it, merge into it or rebase it. |
 
-Both read every default from `f1tenth_params/config/stack_params.yaml` and both are
-kept in sync by hand — `stack_bringup.launch.py` is the working fallback and is
-intentionally left untouched by the supervisor's existence.
+Each branch contains the one above it: `main` is merged into `main-jazzy`, and
+`main-jazzy` into `main-jazzy-rust`. A Humble fix goes on `main` and is merged
+forward; Jazzy-only work goes here. This branch is never merged into `main`:
+at the cutover it replaces it.
 
-Simulation is a third, separate entry point, unrelated to the two above:
+## Status (2026-10-25)
+
+| Step | State |
+|---|---|
+| Build and tests on linus | Done. Every failing test is in the recorded baseline ([output/jazzy_main/report.md](output/jazzy_main/report.md)). |
+| Isaac Sim end-to-end on one machine | `tools/e2e_test.sh`, passed 9/9 on the port ([output/jazzy_port/report.md](output/jazzy_port/report.md)) |
+| The car's Jazzy container | Image built on the Orin and checked without actuation; built from `main-jazzy-rust` ([report](https://github.com/sjckness/f1tenth_more/blob/main-jazzy-rust/output/orin_container/report.md) on that branch) |
+| Open | The run on the Thor; container parity with sensors; wheels-up and floor tests on the car; the cutover |
+
+## What differs from `main`
+
+| Area | `main` (Humble) | `main-jazzy` |
+|---|---|---|
+| ZED wrapper | humble-v4.2.5 | v5.4.1, topic remaps for v5 |
+| VESC serial library | `transport_drivers` submodule | `serial_driver` from apt |
+| DDS | Discovery Server | Discovery Server, and every participant loads `f1tenth_bringup/config/fastdds_profile.xml` (5 s lease). Hand-started processes get it from `scripts/env/jazzy.sh` |
+| Simulation | `f1tenth_sim` (Gazebo Fortress), separate bringup | `supervisor_bringup.launch.py sim:=isaac` against Isaac Sim. `f1tenth_sim` has a `COLCON_IGNORE` (Gazebo Harmonic port deferred) |
+| Defaults | — | `detection_3d` and `obstacle_projector` read TF from `/tf_static` only; `swept_clearance` starts only on demand (`enable_swept_clearance: false`) |
+| Static checks | Python 3.10 (the car) | Python 3.12 |
+| Car tooling | — | `f1tenth_ctl` profiles for the container and the Isaac sim; `docker/orin/` for the car's image |
+
+## The car and the machines
+
+| Part | What |
+|---|---|
+| Drive | VESC motor controller: speed, steering servo, wheel odometry and IMU |
+| LiDAR | Hokuyo 2D LiDAR on Ethernet (`urg_node`, `/scan` at 40 Hz) |
+| Camera | Stereolabs ZED 2, RGB and depth. A USB webcam is the fallback (`camera_source`) |
+| Computer | NVIDIA Jetson AGX Orin (JetPack 6). Native Humble today; Jazzy in a container |
+
+| Machine | Role |
+|---|---|
+| Orin (`jetson-orin`) | The car. The Jazzy image is built and tested on it. |
+| Thor (`jetson-thor`) | Jetson AGX Thor, Ubuntu 24.04 and Jazzy: the stack host for the two-machine Isaac sim. |
+| linus | x86_64 workstation, Ubuntu 24.04 and Jazzy: Isaac Sim, builds and test runs, the Telegram bot. |
+
+The Jazzy machines and the car's image install `ros-jazzy-*` from the same ROS
+apt snapshot (2026-09-11; `tools/linus/ros_snapshot_move.sh`).
+
+## How the stack fits together
+
 ```
-ros2 launch f1tenth_sim sim_bringup.launch.py
+sensors      Hokuyo LiDAR /scan        ZED 2 RGB + depth          VESC odometry + IMU
+                  │                          │                          │
+perception   slam_toolbox (map)         YOLO26 segmentation,        robot_localization EKF
+             LiDAR wall tracker         2D -> 3D with depth,        (odom -> base_link)
+             corridor extraction        front clearance
+                  └────────────┬─────────────┘
+                     f1tenth_costmap: occupancy + semantic objects + boundaries
+                               │
+decision     behavior_executor: py_trees BT, JSON missions  <── f1tenth_ctl, phone app, LLM planner
+                               │ /mpc/goal_*, /mpc/hold
+control      mpc_corr: corridor MPC (OSQP, RTI), reverse manoeuvre
+                               │ /drive (priority 10)
+arbitration  ackermann_mux  <── /teleop (100): joystick, phone app
+                            <── /safety_stop (200): BT emergency stops, hard_stop_node
+                               │
+actuation    ackermann_to_vesc -> VESC
 ```
 
-## Model-validation diagnostics
-
-Per-control-step CSV logging in `mpc_corr` and the offline analysis script
-`tools/mpc_model_check.py`: see [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md). It is
-step 1 of a deliberate sequence (log and analyse -> steering calibration on the
-car -> only then MPC weight tuning).
+The BT does not steer. It picks what the car does next (a mission move, a
+stop, a reverse) and hands the goal to `mpc_corr`, which plans around walls
+and objects and publishes the drive command. Everything that stops the car
+publishes on the highest-priority mux lane.
 
 ## Packages
 
-### Core stack (real hardware)
+**Core stack**
 
-| Package | Purpose |
+| Package | What it does |
 |---|---|
-| `f1tenth_params` | Single source of truth for every launch-parameter default (`config/stack_params.yaml`) + the `param_defaults` helper every other package's launch files import. Dependency-free leaf package (avoids a build-order cycle). |
-| `f1tenth_hardware` | VESC drive chain: battery pre-flight gate, optional live covariance calibration, `ackermann_to_vesc_node`, `vesc_to_odom_node` (backup/KF-free variant), `vesc_driver_node`, static `base_link→imu` TF. |
-| `f1tenth_description` | URDF/xacro + meshes + `robot_state_publisher`. Single entry point for the robot model *and* the real-hardware static sensor TFs (`base_link→laser`). Shared by real hardware and sim. |
-| `f1tenth_localization` | `map→odom`: either `robot_localization` EKF (fuses `/odom` + VESC IMU) or a raw unfiltered mirror of `/odom` — selected by `localization_source`. |
-| `f1tenth_perception` | Camera bringup (ZED2 wrapper or `v4l2` webcam, selected by `camera_source`) + YOLO 2D/3D detection fusion. Owns the ZED2's static TF too. |
-| `f1tenth_control` | `ackermann_mux` (arbitrates drive-command sources by priority) + the MPC controller (`mpc_controller`; `MPC_corr.py`/`mpc_corr` is the drive-command source `f1tenth_navigation/navigation.launch.py` brings up when `enable_nav2:=false` — see that package's row below. `andre_mpc_node.py`'s own `mpc.launch.py` still exists but isn't included by either bringup path). `safety_stop_controller` (a reactive corridor-stop layer that used to live here) was retired — superseded by `f1tenth_behavior`'s own unconditional `handle_obstacle` lane, see below. |
-| `f1tenth_navigation` | Static map server + the full Nav2 stack (planner/controller/behavior servers, `bt_navigator`, one shared lifecycle manager), split into one launch file per node plus an orchestrator (`nav2.launch.py`). `navigation.launch.py` wraps that orchestrator one level up: Nav2 when `enable_nav2:=true`, `mpc_controller`'s `mpc_corr` (see `f1tenth_control`'s row above) plus a standalone `map_server` (`map_only.launch.py`, its own single-node lifecycle manager) when `false` — `/map` stays published either way — the single site both bringup paths include instead of branching this themselves. |
-| `f1tenth_behavior` | py_trees behavior tree: emergency-stop / obstacle-stop / Nav2-goal-navigation priority lanes (see below), plus the Nav2-readiness gate and the Twist→Ackermann bridge. |
-| `f1tenth_diagnostics` | Calibration tooling (gyro bias, IMU/odom covariance) + `system_observer_node` (CPU/GPU/RAM, gated by `enable_sys_obs`) + `diagnostics_server_node` (continuous battery monitoring + on-demand diagnostics service, never gated). |
-| `f1tenth_bringup` | Owns both top-level entry points, `component_supervisor_node`, the Foxglove bridge, the boot-time steering-sweep self-check, and most shared hardware config (`vesc.yaml`, `ekf.yaml`, `mux.yaml`, ...). |
-| `f1tenth_intelligence/llm` (ROS package name: `llm`) | `llama-server` bringup + an LLM-driven natural-language mission planner (`llm_planner_node`, manually invoked, delivers via `/mission/load_mission`+`/mission/start_mission`). `llama-server` is started by `component_supervisor_node`'s `intelligence` component when `enable_intelligence` is true (default `false` on main since 2026-10-22; pass `enable_intelligence:=true` to `supervisor_bringup.launch.py`). |
-| `f1tenth_messages` | Shared custom interfaces: `SystemStatus.msg`, `BatteryStatus.msg`, `RestartComponent.srv`, `ComponentControl.srv`, `RunDiagnostics.srv`. `ament_cmake` (the only interfaces-only package — everything else here is `ament_python`). |
-| `f1tenth_more` | Top-level metapackage. Aggregates every first-party package (no code of its own). |
+| `f1tenth_params` | Every launch default and its description, in `config/stack_params.yaml`. A dependency-free leaf package that every launch file reads from. |
+| `f1tenth_messages` | Custom messages and services (the only `ament_cmake` interface package). |
+| `f1tenth_bringup` | The two top-level launch files, `component_supervisor_node`, the Fast DDS Discovery Server and profile, Foxglove bridge, the boot-time steering sweep, the shared hardware config (`vesc.yaml`, `ekf.yaml`, `mux.yaml`, `components.yaml`) and the sim overlays (`config/sim/`). |
+| `f1tenth_hardware` | The VESC chain: battery pre-flight gate, `ackermann_to_vesc`, VESC odometry, the driver (submodule `vesc`), covariance calibration. |
+| `f1tenth_description` | URDF/xacro, meshes, `robot_state_publisher` and the static sensor TFs. |
+| `f1tenth_localization` | `robot_localization` EKF over wheel odometry and the VESC IMU, or raw odometry (`localization_source`). |
+| `f1tenth_perception` | ZED 2 or webcam, the LiDAR, YOLO detection and segmentation, depth fusion to 3D, front clearance, the LiDAR front-wall tracker and scene labels. |
+| `corridor_perception` | Corridor structure from the 2D LiDAR: line extraction, corridor axis, surface classes. The core is numpy only and runs without ROS. `corridor_perception_c` is a C port of the extractor, loaded through ctypes. |
+| `f1tenth_costmap` | Occupancy from slam_toolbox plus a semantic layer of tracked objects, the boundary constraints for the MPC, a PNG render for Foxglove. |
+| `f1tenth_navigation` | `map_server`, slam_toolbox (mapping mode) and Nav2. Nav2 is off by default (`enable_nav2`). |
+| `f1tenth_control` + `mpc_controller` | The mux wiring, `hard_stop_node` (the last-resort LiDAR stop) and `mpc_corr`, the corridor MPC that drives the car. |
+| `f1tenth_behavior` | The behavior tree, the mission loader and the example missions in `missions/`. |
+| `f1tenth_diagnostics` | Calibration tools (gyro bias, covariance, steering), `system_observer_node` (CPU, GPU, temperatures), `diagnostics_server_node` (battery). |
+| `f1tenth_logger` | Per-mission rosbag2 recording (sqlite3), a SQLite index of the runs, replay and report tools. |
+| `llm` (`f1tenth_intelligence/llm`) | `llama-server` bringup, the natural-language mission planner and the LLM2 MPC-parameter node. Both off by default. |
+| `f1tenth_more` | Metapackage over every first-party package. |
 
-### Simulation
+**Operating the car** (these run beside the stack, not inside it)
 
-| Package | Purpose |
+| Package | What it does |
 |---|---|
-| `f1tenth_sim` | Gazebo Fortress bringup: spawns the shared `f1tenth_description` model, bridges sim sensors onto the same topic names the real stack uses, drives via `ros2_control` + an Ackermann controller. Reuses `ekf.yaml` and the SLAM config verbatim. No VESC/ZED SDK/urg_node. |
+| `f1tenth_ctl` | CLI on the car: starts and stops the stack, planner and logger (systemd user units natively, runner processes in the container), reports READY, triggers the e-stop, kills every ROS process. JSON output. |
+| `f1tenth_gateway` | Backend of the phone app: REST and a WebSocket, teleop with a 250 ms watchdog, e-stop, missions, the run archive. Runs on the car behind `tailscale serve`. |
+| `apps/pwa` | **F1Tenth Lab Control**, the phone app (Vite, TypeScript). |
+| `f1tenth_telegram` | Telegram control panel. Runs on linus and reaches the car only over ssh and `f1tenth_ctl`. |
+| `f1tenth_comms` | Car-to-base link monitor (heartbeat, hotspot reconnect) and Wi-Fi coverage maps. Off by default (`enable_comms`). |
 
-### Vendored (git submodules, under `f1tenth_external/` and `f1tenth_hardware/vesc/`)
+**Submodules** (not first-party): `vesc` (fork, branch `jazzy`), `ackermann_mux`
+(fork), `teleop_tools`, `zed_ros2_wrapper` (v5.4.1), `zed-ros2-interfaces`.
 
-`vesc` (driver + odometry + msgs, personal fork with local commits), `ackermann_mux`
-(personal fork), `teleop_tools` (joystick teleop), `zed_ros2_wrapper` +
-`zed-ros2-interfaces` (ZED2 SDK wrapper, clean upstream; v5.4.1 on Jazzy). The serial I/O
-library `vesc_driver` links against (`serial_driver`/`io_context`) comes from apt on Jazzy
-(`ros-jazzy-serial-driver ros-jazzy-io-context ros-jazzy-asio-cmake-module`), no longer a
-`transport_drivers` submodule. Not first-party code — not covered by the
-reorg or this README's param reference.
+## Repository layout
 
-## The 4 stack-wide branching args
-
-These are **not** `DeclareLaunchArgument`s anywhere in the workspace — every file that
-needs one reads it directly from `stack_params.yaml` as a plain Python value at parse
-time. The only way to change one is editing that file; passing it on the CLI
-(`camera_source:=webcam`) is silently ignored, since no launch argument by that name
-exists to receive it.
-
-| Arg | Default | Meaning |
-|---|---|---|
-| `camera_source` | `zed` | `'zed'` \| `'webcam'` — camera hardware selection. |
-| `localization_source` | `raw_odom` | `'ekf'` \| `'raw_odom'` — `map→odom` source. **Default is raw, not EKF.** |
-| `use_behavior_tree` | `true` | `true`: the py_trees BT drives the `ackermann_mux` "navigation" lane (via Nav2, when `enable_nav2` is also true). `false`: the BT does not run — see `enable_nav2` for what drives the mux instead. |
-| `enable_nav2` | `true` | `true`: bring up the Nav2 stack (idles with no goal, puts nothing on the mux by itself). `false`: `navigation.launch.py` brings up `mpc_corr` instead, which does drive the mux directly. Independent of `use_behavior_tree`. |
-
-(`enable_llm`, a 5th stack-wide branching arg that used to gate `llm.launch.py` from
-`stack_bringup.launch.py`, was removed outright — `component_supervisor_node`'s own
-`enable_intelligence` is now the sole gate for `llama-server` auto-start, and
-`stack_bringup.launch.py` no longer includes `llm.launch.py` at all.)
-
-## Full parameter reference (`f1tenth_params/config/stack_params.yaml`)
-
-Every other param below is a normal `DeclareLaunchArgument` — its owning launch file
-still declares it, so CLI overrides and `ros2 launch <file> --show-args` work exactly
-as you'd expect; only the *default value* and *description* are sourced centrally.
-
-### Hardware
-| Param | Default | What it does |
-|---|---|---|
-| `vesc_config` | `config/vesc.yaml` | VESC calibration (speed/steering gains, limits), shared by the whole VESC chain. |
-| `calibration` | `false` | Run a live message-level covariance calibration before releasing EKF/Nav2, then relaunch with fresh values. |
-| `calibration_duration_sec` | `60.0` | Stationary sampling window for the auto-calibration path above. |
-| `min_battery_voltage` | `10.8` | Startup veto threshold (volts) — also the continuous-monitoring threshold feeding the BT emergency lane. |
-| `release_downstream` | `true` | Whether `vesc.launch.py` releases EKF/Nav2 itself after calibration (`false` for the component-supervisor path, which tracks them independently). |
-
-### Localization/TF
-| Param | Default | What it does |
-|---|---|---|
-| `ekf_config` | `config/ekf.yaml` | `robot_localization` EKF config: fuses `/odom` + VESC IMU, publishes `map→odom`. |
-
-### Perception
-| Param | Default | What it does |
-|---|---|---|
-| `confidence_threshold` | `0.3` | Minimum YOLO detection score kept before publishing to `Detection3DArray`. |
-| `yolo_device` | `cuda` | Torch inference device: `'cuda'` or `'cpu'`. |
-| `yolo_model` | `yolo26s.engine` | YOLO weights filename (TensorRT `.engine` or portable `.pt`). |
-| `use_lidar` | `false` | Start the Hokuyo LiDAR (`urg_node`) — also what Nav2's costmap gets, since `nav2.launch.py` doesn't override it. |
-| `sensors_config` | `config/sensors.yaml` | Hokuyo LiDAR IP/port/frame config. |
-
-### Command/Control
-| Param | Default | What it does |
-|---|---|---|
-| `mux_config` | `config/mux.yaml` | `ackermann_mux` priority/lock/topic config. |
-| `joy_config` | `config/joy_teleop.yaml` | Joystick button/axis mapping for manual control. |
-| `mpc_node_name` | `/mpc_corr` | Fully-qualified MPC node name, used by the LLM MPC tuner for `SetParameters` calls. |
-| `qn`, `qalpha`, `qddelta` | `50.0`, `30.0`, `2.0` | MPC rollout cost weights: radial tracking error, heading error, steering-rate smoothness. |
-| `qv` | `50.0` | Declared MPC cost weight — **currently unused** by `andre_mpc_node.py`'s own cost function (pre-existing gap in the node). |
-| `alat_max` | `10.0` | Lateral acceleration soft-constraint limit [m/s²]. |
-| `a_min` | `-3.0` | Declared MPC deceleration limit — **currently unused** by the node's own control loop (pre-existing gap). |
-| `a_max` | `3.0` | Acceleration rate-limit toward `v_ref` [m/s²]. |
-| `v_min`, `v_max` | `-1.5`, `1.5` | MPC speed floor/ceiling [m/s]. |
-| `v_ref` | `1.0` | Center of the MPC's open-loop sine speed profile. |
-| `sine_amp`, `sine_period` | `0.0`, `4.0` | Amplitude/period of that sine profile (`0.0` amplitude = constant speed). |
-| `car_radius` | `0.20` | Car's physical footprint radius [m] — single source of truth shared by `MPC_corr.py` (`car_radius`/soft-avoidance trigger radius, `dmin`) and the BT's `IsObstacleDetected`/`IsProximityTooClose` (corridor + proximity thresholds, see below). Replaces `safety_stop_controller`'s now-deleted, drifted-out-of-agreement corridor params. |
-| `obstacle_safety_margin_m` | `0.12` | Shared base safety-margin buffer [m] beyond `car_radius`, combined per-mechanism (see `car_radius` above and `stack_params.yaml`'s own comment on this key for the full derivation). |
-| `proximity_front_extra_margin_m` | `0.08` | Small extra conservatism [m] added only to `IsProximityTooClose`'s front standoff (raw-sensor last resort behind the front direction's already-covered YOLO lane). |
-
-### Autonomy (Nav2 + BT)
-| Param | Default | What it does |
-|---|---|---|
-| `map` | `maps/square_100m.yaml` | Map file `map_server` serves (resolved against `f1tenth_navigation`). |
-| `autostart` | `true` | Auto-activate the Nav2 lifecycle-managed nodes on startup. |
-| `nav2_params_config` | `config/nav2_params.yaml` | Shared Nav2 params file (controller/planner/behavior/bt_navigator + costmaps). |
-| `enable_nav2_map`, `enable_nav2_controller`, `enable_nav2_planner`, `enable_nav2_behavior_server`, `enable_nav2_bt_navigator` | all `true` | Per-node opt-outs from `nav2.launch.py`'s bring-up. |
-| `nav2_readiness_service` | `/lifecycle_manager_navigation/is_active` | Service polled before starting the BT nodes. |
-| `nav2_readiness_timeout_sec` | `90.0` | How long to wait for Nav2 readiness before giving up (BT will not launch). |
-| `bt_setup_timeout_sec` | `90.0` | The BT's own `tree.setup()` timeout — an independent safety margin. |
-| `sys_obs_max_temp_c` | `85.0` | Shared CPU/GPU temp threshold for the BT emergency lane's overheat check. |
-| `sys_obs_max_load_percent` | `95.0` | Shared CPU/GPU load threshold, same check. |
-
-### Diagnostics & Intelligence
-| Param | Default | What it does |
-|---|---|---|
-| `enable_sys_obs` | `true` | Run `system_observer_node` and include the overheat check in the BT. `false` fully skips both, not just idles them. |
-| `imu_topic` | `/sensors/imu/raw` | Topic sampled by the gyro-bias and covariance calibration nodes. |
-| `gyro_sample_duration_sec` | `30.0` | Gyro-bias calibration sampling window. |
-| `min_samples` | `150` | Warn if gyro-bias calibration collected fewer samples than this. |
-| `odom_topic` | `/odom` | Topic sampled by the covariance calibration node. |
-| `covariance_sample_duration_sec` | `60.0` | Covariance calibration sampling window (standalone entry point). |
-| `publish_rate_hz` | `1.0` | `system_observer_node`'s `SystemStatus` publish rate. |
-| `battery_check_rate_hz` | `2.0` | `diagnostics_server_node`'s `BatteryStatus` publish rate — faster than the line above since it feeds a continuously-ticking BT condition. |
-| `start_server` | `true` | Whether `llm.launch.py` starts `llama-server` itself, vs. assuming one's already running. |
-| `model` | `qwen_mpc_pruned` | Model name key into `llm/config/models.yaml`. |
-| `interrogation` | `mpc_tuner` | Interrogation name key into `llm/config/interrogations.yaml`. |
-| `llama_server_path` | `/scratch/fabiocar/llama.cpp/build/bin/llama-server` | Absolute path to the `llama-server` binary. |
-| `llama_server_cwd` | `/scratch/fabiocar/llama.cpp` | Working directory to launch it from (the llama.cpp project root — not derivable from the binary path, two directory levels up). |
-
-### Description/Simulation
-| Param | Default | What it does |
-|---|---|---|
-| `use_sim` | `false` | Emit the `ign_ros2_control` Gazebo plugin + sim sensors in the URDF. Real-hardware-safe default; `f1tenth_sim` overrides to `true`. |
-| `enable_sensors` | `false` | Include LiDAR/camera/IMU sensor *links* in the URDF. **Must stay `false` on real hardware** — those frames come from `static_transform_publisher` nodes instead; the URDF and the static publishers would otherwise fight over the same transforms. `f1tenth_sim` overrides to `true`. |
-| `control_config` | `''` | Path to the `ros2_control` controllers.yaml (sim only). |
-
-### Component Supervisor
-| Param | Default | What it does |
-|---|---|---|
-| `components_config` | `config/components.yaml` | Registry mapping component name → the `ros2 launch` command(s) that bring it up. |
-| `restart_timeout_sec` | `10.0` | How long the supervisor waits for SIGINT before escalating to SIGKILL. |
-| `log_dir` | `~/.ros/log/component_supervisor` | Per-component stdout/stderr log directory. |
-| `watchdog_period_sec` | `2.0` | How often the watchdog polls for crashed components. |
-| `max_auto_restarts` | `3` | Auto-respawns allowed per process within the trailing budget window. |
-| `restart_budget_window_sec` | `60.0` | That trailing window, in seconds — a sliding-window crash-loop budget. |
-
-### Dev Tools
-| Param | Default | What it does |
-|---|---|---|
-| `enable_foxglove` | `true` | Launch `foxglove_bridge` (port 8765). `false` fully skips it. |
-| `startup_delay` | `5.0` | Seconds to wait before the boot-time steer-sweep self-check starts. |
-| `right_duration`, `left_duration`, `center_duration` | `2.0`, `2.0`, `1.0` | How long each phase of the sweep holds. |
-| `max_steering_angle` | `0.18` | Max steering angle [rad] during the sweep. |
-| `startup_command_topic` | `/teleop` | High-priority mux input topic used for the sweep. |
-
-`use_sim_time` is deliberately **not** in `stack_params.yaml` — it's declared per-file
-with a locally-appropriate default, since real hardware and simulation genuinely need
-different values and a shared default would be wrong for one of them.
-
-## Component supervisor: restart/control service
-
-`supervisor_bringup.launch.py` starts exactly one node, `component_supervisor_node`,
-which spawns every registered component (see `components.yaml`) as its own `ros2
-launch` subprocess in its own process group, and exposes two services:
-
-```bash
-# Kill-and-relaunch one component
-ros2 service call /restart_component f1tenth_messages/srv/RestartComponent \
-    "{component_name: 'navigation'}"
-
-# Fine-grained control: SHUTDOWN=0 (kill, stays down, no auto-respawn),
-# START=1 (spawn if not running), RESTART=2 (kill-if-running then respawn)
-ros2 service call /component_supervisor_node/control_component \
-    f1tenth_messages/srv/ComponentControl "{component_name: 'navigation', action: 0}"
+```
+src/                  ROS 2 packages; submodules in src/f1tenth_external/ and src/f1tenth_hardware/vesc
+apps/pwa/             the phone app
+docker/orin/          the car's Jazzy image (built from main-jazzy-rust)
+docker/, .devcontainer/  the older Humble dev images: cpu and gpu (x86_64), jetson-thor (arm64)
+scripts/              operational scripts: env/jazzy.sh, sim/ (Isaac), jazzy_parity/ (Humble vs Jazzy
+                      parity harness), stackctl.py, kill_ros2.py, YOLO engine export, base/, orin/
+tools/                offline replay and analysis, tools/sim/ (e2e checks), tools/e2e_test.sh,
+                      tools/car_sync/ (capture what the car runs)
+docs/                 setup, procedures, analyses, the project log (docs/history/LOG.md), the PWA spec
+first_test_campaign/  missions M01-M05 and the results of the first test campaign
+output/               reports and evidence from work sessions: jazzy_port/, jazzy_main/, consolidation/, ...
+CLAUDE.md             build, test, DDS and Docker gotchas that have already cost debugging time
 ```
 
-Registered components: `hardware`, `localization`, `perception`, `control`,
-`navigation`, `behavior`, `diagnostics`, `intelligence`, `dev_tools`,
-`startup_sequence` (all auto-start except `behavior`/`intelligence`, which are
-gated on `use_behavior_tree`/`enable_intelligence` respectively — `navigation` always
-auto-starts, its own `navigation.launch.py` branches Nav2 vs. `mpc_corr` on
-`enable_nav2` itself), plus `calibrate_hardware` (registered but never
-auto-started — on-demand recalibration only, via `restart_component`).
+## Build
 
-A watchdog polls every tracked process; anything that exits on its own (a crash, not
-a requested stop) gets auto-respawned, up to `max_auto_restarts` within a trailing
-`restart_budget_window_sec` — past that, the watchdog leaves it down and logs clearly
-until you `START`/`RESTART` it manually.
+```bash
+git clone --recurse-submodules -b main-jazzy git@github.com:sjckness/f1tenth_more.git
+cd f1tenth_more            # in an existing clone: git submodule update --init --recursive
 
-## BT priority-lane architecture
+source /opt/ros/jazzy/setup.bash
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --symlink-install
+source install/setup.bash
+```
 
-`f1tenth_behavior`'s `behavior_executor_node` runs a py_trees tree with a root
-Selector of 3 priority lanes, ticked continuously from one timer (`bt_tick_hz`, default
-10 Hz; tick timing p50/p95 on `/diagnostics`) — first child that succeeds wins:
+- rosdep does not cover every Python dependency: `osqp` (the MPC), `ultralytics`
+  and `torch` (YOLO), `pyarrow`. Install them with pip (a venv on `PYTHONPATH`
+  works).
+- On a machine without the ZED SDK (linus), leave out the ZED wrapper and the
+  VESC driver:
+  `colcon build --symlink-install --packages-ignore $(cat output/jazzy_port/linus_skip.txt)`.
+  Pass the same `--packages-ignore` to every later `--packages-select` build.
+- **After any `ros-jazzy-*` apt upgrade, clean-rebuild every CMake package**: an
+  ABI change inside the distro builds fine and fails at startup
+  (`undefined symbol`). The commands and the check are in CLAUDE.md,
+  "Rebuild policy".
+- In every interactive shell, `source scripts/env/jazzy.sh` instead of the bare
+  ROS setup file (bash or zsh). It sources ROS and the workspace, loads the
+  Fast DDS profile and points the shell at the Discovery Server; without it a
+  hand-started `ros2` command sees none of the stack.
 
-1. **`emergency`** — `(IsBatteryLow OR IsSystemOverheated) → Stop`. `IsBatteryLow` is
-   unconditional (battery safety is never gateable). `IsSystemOverheated` only exists
-   in the tree at all if `enable_sys_obs` is true — when disabled, it's structurally
-   absent, not just failing, so "sys_obs off" can never be mistaken for "system
-   healthy."
-2. **`handle_obstacle`** — `IsObstacleDetected → Stop`. Corridor check against
-   `/camera/detections_3d`.
-3. **`navigation`** — `HasGoalPose → NavigateThroughPosesClient`. Does nothing until a
-   `/goal_pose` message has actually been received (e.g. RViz2's "2D Goal Pose" tool).
+## Test
 
-Both `emergency` and `handle_obstacle` publish onto the same `safety_stop` topic via
-the same generic `Stop` behaviour — the mux doesn't care which BT branch published,
-only that something did.
+```bash
+# Keep test nodes off the stack's graph and away from other runs
+unset ROS_DISCOVERY_SERVER ROS_SUPER_CLIENT FASTRTPS_DEFAULT_PROFILES_FILE
+export ROS_DOMAIN_ID=93 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 
-`ackermann_mux` (`f1tenth_bringup/config/mux.yaml`) arbitrates the final drive command
-by priority:
+colcon test --packages-ignore $(cat output/jazzy_port/linus_skip.txt)
+colcon test-result --verbose
 
-| Lane | Topic | Priority |
+# New failures only: compare against the recorded baseline
+python3 tools/r3_failing_ids.py build output/jazzy_main/test_failing_ids.txt
+
+# Static checks, no build needed (Python 3.12 syntax, launch, YAML/JSON/XML, stack_params keys, ...)
+python3 -I output/consolidation/static_checks.py
+```
+
+The baseline (`output/jazzy_main/test_failing_ids.txt`) holds the failures that
+predate the port: ament lint in a few packages, the LLM planner stub tests, MPC
+tests that pin older defaults, upstream lint in the submodules.
+
+`colcon test` only runs pytest for a package whose `setup.py` declares
+`extras_require={'test': ['pytest']}`. Without it, the package reports
+`Ran 0 tests ... OK`. Every new `ament_python` package needs that line
+(CLAUDE.md, "Testing").
+
+## Run
+
+```bash
+ros2 launch f1tenth_bringup supervisor_bringup.launch.py
+ros2 launch f1tenth_bringup supervisor_bringup.launch.py --show-args   # every argument
+```
+
+`supervisor_bringup.launch.py` starts the Discovery Server and one node,
+`component_supervisor_node`. It launches each component from
+`f1tenth_bringup/config/components.yaml` as its own `ros2 launch` process:
+`hardware`, `localization`, `perception`, `lidar_front_wall`, `control`,
+`navigation`, `slam`, `behavior`, `diagnostics`, `dev_tools`,
+`startup_sequence`, and the optional ones (`intelligence`, `comms`,
+`calibrate_hardware`, ...). A watchdog restarts a crashed component, at most
+`max_auto_restarts` times within `restart_budget_window_sec`. This is what
+`f1tenth_ctl start stack` runs.
+
+```bash
+# Restart one component
+ros2 service call /restart_component f1tenth_messages/srv/RestartComponent \
+    "{component_name: 'perception'}"
+
+# SHUTDOWN=0 (stays down), START=1, RESTART=2
+ros2 service call /component_supervisor_node/control_component \
+    f1tenth_messages/srv/ComponentControl "{component_name: 'perception', action: 0}"
+```
+
+`stack_bringup.launch.py` is the single-process alternative: one launch tree,
+no per-component restart. A new top-level launch file must set
+`ROS_DISCOVERY_SERVER` and `FASTRTPS_DEFAULT_PROFILES_FILE` the same way these
+two do.
+
+Foxglove connects to the bridge on port 8765.
+
+### Missions
+
+A mission is a JSON list of moves (a distance, a pose, a turn or an open-ended
+drive), each ending on a stop condition, with optional reactions to detected
+objects. The schema is in
+[src/f1tenth_behavior/README.md](src/f1tenth_behavior/README.md); examples are
+in `src/f1tenth_behavior/missions/`. Loading a mission does not move the car;
+starting it does.
+
+```bash
+M=$(ros2 pkg prefix f1tenth_behavior)/share/f1tenth_behavior/missions/drive_test_straight_2m.json
+ros2 service call /mission/load_mission f1tenth_messages/srv/LoadMission "{path: '$M'}"
+ros2 service call /mission/start_mission std_srvs/srv/Trigger
+ros2 service call /mission/abort_mission std_srvs/srv/Trigger
+ros2 topic echo /mission/status
+```
+
+### On the car
+
+Use `f1tenth_ctl` rather than starting launch files by hand
+([src/f1tenth_ctl/README.md](src/f1tenth_ctl/README.md)):
+
+```bash
+f1tenth_ctl start stack        # also: planner, logger
+f1tenth_ctl status             # processes and READY
+f1tenth_ctl estop              # e-stop service + zero drive; never kills a process
+f1tenth_ctl estop-reset
+f1tenth_ctl stop stack
+f1tenth_ctl killall            # every ROS 2 process of this user
+```
+
+- **Phone:** the F1Tenth Lab Control app talks to `f1tenth_gateway` over
+  Tailscale ([src/f1tenth_gateway/README.md](src/f1tenth_gateway/README.md)).
+  **The app's emergency button is not the primary e-stop**: it goes through
+  Wi-Fi, Tailscale and the gateway. Whenever the car can move, hold the RC
+  transmitter or the physical switch.
+- **Telegram:** [src/f1tenth_telegram/README.md](src/f1tenth_telegram/README.md).
+- **LLM planner:** `enable_intelligence:=true` starts `llama-server`; then
+  `f1tenth_ctl start planner` and `f1tenth_ctl send planner "go ahead 2 meters"`
+  ([src/f1tenth_intelligence/llm/README.md](src/f1tenth_intelligence/llm/README.md)).
+
+### Simulation (Isaac Sim)
+
+`sim:=isaac` runs the same bringup as the car: the VESC, LiDAR and ZED drivers
+are replaced by Isaac Sim, every node runs on `/clock`, and
+`f1tenth_bringup/config/sim/isaac.yaml` is loaded after the normal parameters.
+The Isaac side is the [isaac_ws](https://github.com/sjckness/isaac_ws) repo,
+branch `f1tenth`, checked out at `~/isaac_ws`.
+
+```bash
+# Everything on one machine (linus); Ctrl+C stops both
+scripts/sim/sim_isaac.sh all --scene base_room
+
+# Two machines on the direct Ethernet link, Discovery Server on the Thor
+scripts/sim/sim_isaac.sh isaac --net eth --scene base_room    # linus
+scripts/sim/sim_stack.sh                                      # Thor
+scripts/sim/llm.sh "go to the person"                         # Thor: one planner command
+
+scripts/sim/sim_isaac.sh shell        # a shell that sees the whole graph
+scripts/sim/sim_isaac.sh reset        # /sim/reset
+
+# End-to-end test: Isaac + stack up, graph, rates, TF, perception, a 2 m mission
+tools/e2e_test.sh
+```
+
+`sim_isaac.sh` refuses to start Isaac with less than 25 GB free on `/`. Scenes
+and layouts: `sim_isaac.sh --help`.
+
+## Configuration
+
+`src/f1tenth_params/config/stack_params.yaml` holds the default and the
+description of every launch parameter (about 650 keys). Override one on the
+command line (`key:=value`), or change the default in that file.
+
+Four stack-wide values are read from the file when the launch files are parsed
+and have **no launch argument**: `camera_source`, `localization_source`,
+`use_behavior_tree` and `enable_nav2`. Passing them on the command line is
+silently ignored; edit the file.
+
+| Key | Default | Meaning |
 |---|---|---|
-| `safety_stop` | `safety_stop` | **200** (highest — beats everything) |
-| `joystick` | `teleop` | 100 |
-| `navigation` | `drive` | 10 (lowest) |
+| `camera_source` | `zed` | `zed` or `webcam` |
+| `localization_source` | `ekf` | `ekf` or `raw_odom` |
+| `use_behavior_tree` | `true` | Run the behavior tree |
+| `enable_nav2` | `false` | `false`: `mpc_corr` drives. `true`: bring up Nav2 |
+| `enable_slam` | `true` | slam_toolbox mapping, the occupancy layer of the costmap |
+| `enable_mission_logger` | `true` | Record a rosbag2 per mission |
+| `yolo_model` | `yolo26s-seg.pt` | YOLO weights; `yolo_backend: engine` uses a TensorRT engine (`scripts/export_yolo_engine.sh`) |
+| `yolo_gpu_pipeline` | `true` | Pre- and post-processing on the GPU, detection capped at 15 Hz |
+| `enable_intelligence` | `false` | `llama-server` and the LLM mission planner |
+| `enable_llm2` | `false` | Second LLM that proposes MPC parameters |
+| `enable_comms` | `false` | Car-to-base link monitor |
+| `enable_swept_clearance` | `false` | Start `swept_clearance` with the stack instead of on demand |
+| `lidar_front_wall_door_detection_enabled` | `false` | Door detection in the LiDAR wall tracker |
+| `enable_foxglove` | `true` | `foxglove_bridge` on port 8765 |
 
-So a BT emergency-stop or obstacle-stop always wins over manual joystick input, which
-in turn always wins over autonomous driving.
+A test that asserts a default is coupled to this file: change both in the same
+commit. Launch writes parameters through YAML, so a string parameter never
+takes `on`, `off`, `yes` or `no` as a value (YAML makes them booleans).
+
+## Safety layers
+
+`ackermann_mux` (`f1tenth_bringup/config/mux.yaml`) forwards the
+highest-priority lane that is publishing:
+
+| Lane | Topic | Priority | Who publishes |
+|---|---|---|---|
+| `safety_stop` | `/safety_stop` | 200 | BT emergency lane, BT obstacle lane, `hard_stop_node` |
+| `joystick` | `/teleop` | 100 | Joystick, phone app |
+| `calibration` | `/calibration_drive` | 50 | Steering calibration |
+| `navigation` | `/drive` | 10 | `mpc_corr` (or Nav2) |
+
+- **BT emergency lane:** low battery, the operator e-stop
+  (`/mission/emergency_stop`, latched), overheating (with `enable_sys_obs`)
+  and a raw-sensor proximity check on the ZED depth and `/scan`, independent of
+  YOLO.
+- **BT obstacle lane:** a stop on camera detections, off by default
+  (`enable_camera_obstacle_stop`).
+- **`hard_stop_node`:** a stop on the raw `/scan`, every scan, outside the BT.
+  It keeps working if the BT is down.
+
+Each stop sets its own `header.frame_id` (`base_link/emergency`,
+`base_link/obstacle`, `base_link/hard_stop`). The mux forwards the message
+unchanged, so a bag shows which layer stopped the car.
+
+## More documentation
+
+| Topic | Where |
+|---|---|
+| The Jazzy port: decisions, per-package results, Isaac sim mode | [output/jazzy_port/report.md](output/jazzy_port/report.md) |
+| `main-jazzy` build and test results | [output/jazzy_main/report.md](output/jazzy_main/report.md) |
+| Package by package (nodes, topics, parameters) | [src/f1tenth_more/README.md](src/f1tenth_more/README.md) |
+| Mission JSON schema | [src/f1tenth_behavior/README.md](src/f1tenth_behavior/README.md) |
+| Perception (YOLO, depth, walls) | [src/f1tenth_perception/README.md](src/f1tenth_perception/README.md) |
+| Calibration tools | [src/f1tenth_diagnostics/README.md](src/f1tenth_diagnostics/README.md) |
+| MPC model-validation logging | [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md) |
+| Phone app spec | [docs/pwa/SPEC.md](docs/pwa/SPEC.md) |
+| Comms link setup | [src/f1tenth_comms/README.md](src/f1tenth_comms/README.md) |
+| What `main` is made of, the bug backlog | [output/consolidation/report.md](output/consolidation/report.md), [known_bugs.md](output/consolidation/known_bugs.md) |
+| Project log | [docs/history/LOG.md](docs/history/LOG.md) |
+| Workspace gotchas (DDS, rebuilds, Docker on the Orin) | [CLAUDE.md](CLAUDE.md) |
+
+## License
+
+MIT, see [LICENSE](LICENSE).
