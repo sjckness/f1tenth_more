@@ -1,0 +1,344 @@
+{
+ "host": "jetson-orin",
+ "machine": "aarch64",
+ "python": "3.12.3",
+ "numpy": "1.26.4",
+ "library": "/opt/f1tenth_ws/install/lib/f1tenth_mpc_core/libf1tenth_mpc_core.so",
+ "library_version": "0.1.0",
+ "library_build": "build: cargo profile debug, opt-level 3, debug_assertions on",
+ "tolerance": 1e-12,
+ "started": "2026-10-25T10:20:51+0100",
+ "rebuilds": {
+  "geometry": {
+   "cases": 1344,
+   "identical": 1344,
+   "within_tol": 1344,
+   "failures": 0,
+   "failure_examples": [],
+   "values": 2434944,
+   "values_bit_identical": 2434944,
+   "values_nan_bits_differ": 0,
+   "nan_bits_cases": 0,
+   "nan_bits_all_nonfinite_inputs": true,
+   "nan_bits_case_examples": [],
+   "max_abs_diff": 0.0,
+   "exceptions_matched": 0,
+   "exception_mismatch": 0,
+   "exception_mismatch_examples": []
+  },
+  "queries": {
+   "cases": 22848,
+   "identical": 17808,
+   "within_tol": 22848,
+   "failures": 0,
+   "failure_examples": [],
+   "values": 205632,
+   "values_bit_identical": 200592,
+   "values_nan_bits_differ": 0,
+   "nan_bits_cases": 0,
+   "nan_bits_all_nonfinite_inputs": true,
+   "nan_bits_case_examples": [],
+   "max_abs_diff": 2.220446049250313e-16,
+   "exceptions_matched": 0,
+   "exception_mismatch": 0,
+   "exception_mismatch_examples": []
+  },
+  "feasible_true": 1256,
+  "ramp_clamped_true": 112,
+  "rebuilds": 24,
+  "cases": 1344
+ },
+ "sweep": {
+  "count": 10000,
+  "seed": 20261023,
+  "geometry": {
+   "cases": 8937,
+   "identical": 8905,
+   "within_tol": 8937,
+   "failures": 0,
+   "failure_examples": [],
+   "values": 14102307,
+   "values_bit_identical": 14099213,
+   "values_nan_bits_differ": 3094,
+   "nan_bits_cases": 32,
+   "nan_bits_all_nonfinite_inputs": true,
+   "nan_bits_case_examples": [
+    "sweep#247 ramp u_end==u_start non-finite: corridor_curves(-0.98333436106281, 0.7358532222113581, -1.8814191475377018, nan, 0.5747730108604798, 120){'dpsi': -6.283185307179586, 'u_start': 1.0, 'u_end': 1.0, 'w0': 1e-09, 'w1': 0.7667, 'r_min': 1e-09, 'length_ref': 1000000000.0, 'walls': 'bezier'}",
+    "sweep#661 pose backwards non-finite: corridor_curves_to_pose(-1.0887238328562043, -2.179049650281944, nan, -1.5539237046410554, -1.4200554572775759, -1.0209336791570138, 2){'handle_a': 2.0, 'handle_b': 0.0, 'w0': 2.0, 'w1': 0.7667, 'r_min': None, 'length_ref': None, 'walls': 'bezier'}",
+    "sweep#1432 ramp non-finite: corridor_curves(-5.147025713694526, 1.225079023837457, nan, -1.1124867877428715, 11.38501336741852, 120){'dpsi': None, 'u_start': 0.0, 'u_end': 0.4, 'w0': 0.4333, 'w1': 0.7667, 'r_min': 0.923, 'length_ref': None, 'walls': 'bezier'}",
+    "sweep#1433 ramp inverted L~0 non-finite: corridor_curves(0.3534998327037806, -8.62157280124962, nan, 0.3063147825988146, 0.0, 2){'dpsi': 2.3037659586358403, 'u_start': 0.7785976049329866, 'u_end': 0.08489588485725744, 'w0': 0.4333, 'w1': 0.7667, 'r_min': 0.923, 'length_ref': 1e-09, 'walls': 'bezier'",
+    "sweep#1539 pose non-finite: corridor_curves_to_pose(3.827679265591638, -746111.2779602979, -7.0, 5.306880874456166, -746110.534482918, nan, 120){'handle_a': 2.0, 'handle_b': 0.4, 'w0': 0.0, 'w1': 0.7667, 'r_min': 1e-09, 'length_ref': 0.0, 'walls': 'bezier'}",
+    "sweep#1579 ramp non-finite: corridor_curves(-3.599113403833715, 0.09247063732928514, -7.0, nan, 0.03272658656481087, 2){'dpsi': None, 'u_start': 0.0, 'u_end': 1e-09, 'w0': 0.65, 'w1': 0.7667, 'r_min': None, 'length_ref': 0.0, 'walls': 'bezier'}",
+    "sweep#1731 ramp L~0 non-finite: corridor_curves(-3.8138490302669092, 2.853417639506093, 0.24169917176859146, nan, 1e-06, 120){'dpsi': 9.037359002820278, 'u_start': 0.1, 'u_end': 0.4, 'w0': 1e-09, 'w1': 1e-09, 'r_min': 1e-09, 'length_ref': 1e-09, 'walls': 'bezier'}",
+    "sweep#2112 ramp non-finite: corridor_curves(-7.030583216842814, 0.4988414569475599, nan, 9.42477796076938, 3.064053121589464, 120){'dpsi': 5.495091657820186, 'u_start': 0.0, 'u_end': 1.0, 'w0': 1e-09, 'w1': 1e-09, 'r_min': -1.0, 'length_ref': 1e-09, 'walls': 'bezier'}",
+    "sweep#2129 ramp L~0 non-finite: corridor_curves(-3.0201718022769617, 2.9924863655926752, nan, -1.4565144916640205, 1e-09, 206){'dpsi': -2.952506244069763, 'u_start': 0.0, 'u_end': 0.6, 'w0': 0.0, 'w1': 0.7667, 'r_min': 100.0, 'length_ref': None, 'walls': 'bezier'}",
+    "sweep#2351 ramp outside [0,1] non-finite: corridor_curves(3.013439314478214, 0.0, 0.1025363099776575, nan, 0.6353897140099067, 120){'dpsi': -0.48713600115456046, 'u_start': -0.3872784128026488, 'u_end': 1.0953981657799803, 'w0': 0.0, 'w1': 5.0, 'r_min': 0.923, 'length_ref': 0.0, 'walls': 'bezier'}"
+   ],
+   "max_abs_diff": 0.0,
+   "exceptions_matched": 1063,
+   "exception_mismatch": 0,
+   "exception_mismatch_examples": []
+  },
+  "queries": {
+   "cases": 43987,
+   "identical": 39377,
+   "within_tol": 43987,
+   "failures": 0,
+   "failure_examples": [],
+   "values": 395883,
+   "values_bit_identical": 391273,
+   "values_nan_bits_differ": 252,
+   "nan_bits_cases": 252,
+   "nan_bits_all_nonfinite_inputs": true,
+   "nan_bits_case_examples": [
+    "sweep#106 pose non-finite: corridor_curves_to_pose(nan, -3.8774859387908256, -2.4423085896501933, -4.178574099844461, -5.10249021774185, 5.14524764434702, 120){'handle_a': 0.4, 'handle_b': 0.4, 'w0': 0.65, 'w1': 0.7667, 'r_min': 1e-09, 'length_ref': -1.0, 'walls': 'bezier'} p=[0.0, 0.0]",
+    "sweep#138 ramp outside [0,1] L~0 non-finite: corridor_curves(-5.513696359779973, 3.31989726815749, 3.141592653589793, 2.429705444201839, -inf, 3){'dpsi': None, 'u_start': -0.29230331706507084, 'u_end': 1.4201139810054662, 'w0': 1e-09, 'w1': 1.15, 'r_min': None, 'length_ref': 1e-09, 'walls': 'bezier'",
+    "sweep#156 ramp non-finite: corridor_curves(nan, -0.4172101022041592, -0.9930820707423793, 1.7176884564605617, 3.480040273452428, 2){'dpsi': 0.9882563200834582, 'u_start': 0.3, 'u_end': 0.4, 'w0': 1e-09, 'w1': 1.15, 'r_min': None, 'length_ref': None, 'walls': 'bezier'} p=[0.0, 0.0]",
+    "sweep#316 ramp outside [0,1] L~0 non-finite: corridor_curves(nan, -3.6657007022553825, -7.0, -7.853981633974483, 1e-15, 5){'dpsi': None, 'u_start': -0.34156971150261173, 'u_end': 1.075553281297735, 'w0': 0.65, 'w1': 0.65, 'r_min': 0.923, 'length_ref': -1.0, 'walls': 'bezier'} p=[0.0, 0.0]",
+    "sweep#348 ramp outside [0,1] L~0 non-finite: corridor_curves(-4.021484941822222, -6.6570086294483675, -7.853981633974483, nan, 1e-300, 2){'dpsi': None, 'u_start': -0.41979403669229426, 'u_end': 1.027458776450994, 'w0': 1e-09, 'w1': 1e-09, 'r_min': None, 'length_ref': None, 'walls': 'trapezoid'} p=[0",
+    "sweep#367 pose non-finite: corridor_curves_to_pose(inf, 1.7393169043590948, 2.5003988248201203, -1687519.974704888, 3.645258401069124, -2.088907030970886, 120){'handle_a': 0.4, 'handle_b': 0.4, 'w0': 2.0, 'w1': 5.0, 'r_min': 1e-09, 'length_ref': 1e-09, 'walls': 'bezier'} p=[0.0, 0.0]",
+    "sweep#506 pose backwards non-finite: corridor_curves_to_pose(4.270328538931482, 1000000000000000.0, -6.283185307179586, 2.142923449617525, inf, -0.9123603520955961, 120){'handle_a': 1e-09, 'handle_b': 0.0, 'w0': 2.0, 'w1': 5.0, 'r_min': 1e-09, 'length_ref': 1e-09, 'walls': 'bezier'} p=[0.0, 0.0]",
+    "sweep#525 pose non-finite: corridor_curves_to_pose(-8.116917386483228, -400792.51847128023, 1.7667317878239466, inf, -400793.76484237553, -0.36155836022140697, 388){'handle_a': 0.4, 'handle_b': 0.0, 'w0': 2.0, 'w1': 0.0, 'r_min': 0.923, 'length_ref': None, 'walls': 'trapezoid'} p=[0.0, 0.0]",
+    "sweep#533 pose non-finite: corridor_curves_to_pose(1.110802143082691, -0.06468372540305684, 2.5630427612508413, 0.23488268227929932, -1.0391255875190508, nan, 120){'handle_a': 0.4, 'handle_b': 5.0, 'w0': 2.0, 'w1': 0.0, 'r_min': 0.923, 'length_ref': 3.0, 'walls': 'trapezoid'} p=[0.0, 0.0]",
+    "sweep#592 pose non-finite: corridor_curves_to_pose(4.534984219936713, -inf, -7.6822331273016475, 8.775717851329404, -5.861426350436421, -3.6612494769010624, 84){'handle_a': 2.0, 'handle_b': 0.35, 'w0': 2.0, 'w1': 2.0, 'r_min': -1.0, 'length_ref': 1e-09, 'walls': 'bezier'} p=[0.0, 0.0]"
+   ],
+   "max_abs_diff": 8.881784197001252e-16,
+   "exceptions_matched": 0,
+   "exception_mismatch": 0,
+   "exception_mismatch_examples": []
+  },
+  "families": {
+   "pose": {
+    "cases": 2753,
+    "built": 2284,
+    "raised_both": 469,
+    "failures": 0
+   },
+   "pose backwards": {
+    "cases": 510,
+    "built": 423,
+    "raised_both": 87,
+    "failures": 0
+   },
+   "pose backwards non-finite": {
+    "cases": 30,
+    "built": 21,
+    "raised_both": 9,
+    "failures": 0
+   },
+   "pose non-finite": {
+    "cases": 136,
+    "built": 93,
+    "raised_both": 43,
+    "failures": 0
+   },
+   "pose tiny chord": {
+    "cases": 901,
+    "built": 735,
+    "raised_both": 166,
+    "failures": 0
+   },
+   "pose tiny chord backwards": {
+    "cases": 170,
+    "built": 143,
+    "raised_both": 27,
+    "failures": 0
+   },
+   "pose tiny chord backwards non-finite": {
+    "cases": 11,
+    "built": 6,
+    "raised_both": 5,
+    "failures": 0
+   },
+   "pose tiny chord non-finite": {
+    "cases": 38,
+    "built": 23,
+    "raised_both": 15,
+    "failures": 0
+   },
+   "ramp": {
+    "cases": 1758,
+    "built": 1697,
+    "raised_both": 61,
+    "failures": 0
+   },
+   "ramp L~0": {
+    "cases": 1094,
+    "built": 1042,
+    "raised_both": 52,
+    "failures": 0
+   },
+   "ramp L~0 dpsi=+-pi": {
+    "cases": 76,
+    "built": 73,
+    "raised_both": 3,
+    "failures": 0
+   },
+   "ramp L~0 dpsi=+-pi non-finite": {
+    "cases": 2,
+    "built": 2,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp L~0 non-finite": {
+    "cases": 63,
+    "built": 50,
+    "raised_both": 13,
+    "failures": 0
+   },
+   "ramp dpsi=+-pi": {
+    "cases": 142,
+    "built": 140,
+    "raised_both": 2,
+    "failures": 0
+   },
+   "ramp dpsi=+-pi non-finite": {
+    "cases": 3,
+    "built": 2,
+    "raised_both": 1,
+    "failures": 0
+   },
+   "ramp inverted": {
+    "cases": 294,
+    "built": 284,
+    "raised_both": 10,
+    "failures": 0
+   },
+   "ramp inverted L~0": {
+    "cases": 202,
+    "built": 200,
+    "raised_both": 2,
+    "failures": 0
+   },
+   "ramp inverted L~0 dpsi=+-pi": {
+    "cases": 15,
+    "built": 15,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp inverted L~0 non-finite": {
+    "cases": 2,
+    "built": 2,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp inverted dpsi=+-pi": {
+    "cases": 21,
+    "built": 21,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp inverted non-finite": {
+    "cases": 14,
+    "built": 11,
+    "raised_both": 3,
+    "failures": 0
+   },
+   "ramp non-finite": {
+    "cases": 99,
+    "built": 77,
+    "raised_both": 22,
+    "failures": 0
+   },
+   "ramp outside [0,1]": {
+    "cases": 290,
+    "built": 284,
+    "raised_both": 6,
+    "failures": 0
+   },
+   "ramp outside [0,1] L~0": {
+    "cases": 210,
+    "built": 202,
+    "raised_both": 8,
+    "failures": 0
+   },
+   "ramp outside [0,1] L~0 dpsi=+-pi": {
+    "cases": 15,
+    "built": 14,
+    "raised_both": 1,
+    "failures": 0
+   },
+   "ramp outside [0,1] L~0 dpsi=+-pi non-finite": {
+    "cases": 1,
+    "built": 1,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp outside [0,1] L~0 non-finite": {
+    "cases": 14,
+    "built": 14,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp outside [0,1] dpsi=+-pi": {
+    "cases": 22,
+    "built": 20,
+    "raised_both": 2,
+    "failures": 0
+   },
+   "ramp outside [0,1] dpsi=+-pi non-finite": {
+    "cases": 1,
+    "built": 1,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp outside [0,1] non-finite": {
+    "cases": 14,
+    "built": 10,
+    "raised_both": 4,
+    "failures": 0
+   },
+   "ramp u_end==u_start": {
+    "cases": 561,
+    "built": 543,
+    "raised_both": 18,
+    "failures": 0
+   },
+   "ramp u_end==u_start L~0": {
+    "cases": 411,
+    "built": 401,
+    "raised_both": 10,
+    "failures": 0
+   },
+   "ramp u_end==u_start L~0 dpsi=+-pi": {
+    "cases": 27,
+    "built": 27,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp u_end==u_start L~0 dpsi=+-pi non-finite": {
+    "cases": 4,
+    "built": 1,
+    "raised_both": 3,
+    "failures": 0
+   },
+   "ramp u_end==u_start L~0 non-finite": {
+    "cases": 25,
+    "built": 18,
+    "raised_both": 7,
+    "failures": 0
+   },
+   "ramp u_end==u_start dpsi=+-pi": {
+    "cases": 38,
+    "built": 36,
+    "raised_both": 2,
+    "failures": 0
+   },
+   "ramp u_end==u_start dpsi=+-pi non-finite": {
+    "cases": 2,
+    "built": 2,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp u_end==u_start non-finite": {
+    "cases": 31,
+    "built": 19,
+    "raised_both": 12,
+    "failures": 0
+   }
+  }
+ },
+ "replay": [],
+ "seconds": 36.977967500686646,
+ "gate_pass": true
+}

@@ -1,0 +1,114 @@
+{
+ "seed": 20261023,
+ "replay": "/opt/f1tenth_ws/install/lib/f1tenth_hard_stop_rs/hard_stop_replay",
+ "git_head": "",
+ "replay_build": "hard_stop_replay build: cargo profile debug, opt-level 3, debug_assertions on",
+ "tests": {
+  "file": "src/rust/f1tenth_hard_stop_rs/tests/data/test_cases.jsonl",
+  "current": true,
+  "tests": 42,
+  "ops": 279,
+  "rust_deps": [
+   "rclrs",
+   "ros-env",
+   "serde_json",
+   "builtin_interfaces",
+   "std_msgs",
+   "sensor_msgs",
+   "ackermann_msgs",
+   "f1tenth_messages"
+  ],
+  "forbidden_deps": []
+ },
+ "format": {
+  "values": 30187,
+  "ops": 392431
+ },
+ "functions": {
+  "ops": 76200
+ },
+ "sessions": {
+  "sessions": 581,
+  "ops": 169403,
+  "skipped_missing_launch_value": 19
+ },
+ "groups": {
+  "tests": {
+   "ops": 279,
+   "diffs": 0,
+   "examples": [],
+   "py_s": 1.6959966160356998e-06,
+   "rs_s": 0.023543337010778487,
+   "by_op": {
+    "fn": 191,
+    "node": 18,
+    "scan": 55,
+    "republish": 8,
+    "set_state": 1,
+    "lane": 6
+   },
+   "stops": 19,
+   "engages": 0,
+   "scans": 55
+  },
+  "tests:committed_vs_python": {
+   "ops": 279,
+   "diffs": 0,
+   "examples": [],
+   "py_s": 0.0,
+   "rs_s": 0.0,
+   "by_op": {},
+   "stops": 0,
+   "engages": 0,
+   "scans": 0
+  },
+  "format": {
+   "ops": 392431,
+   "diffs": 0,
+   "examples": [],
+   "py_s": 5.9180933110183105,
+   "rs_s": 2.073462964995997,
+   "by_op": {
+    "fn": 392431
+   },
+   "stops": 0,
+   "engages": 0,
+   "scans": 0
+  },
+  "functions": {
+   "ops": 76200,
+   "diffs": 0,
+   "examples": [],
+   "py_s": 10.431031542015262,
+   "rs_s": 1.7110712599824183,
+   "by_op": {
+    "fn": 76200
+   },
+   "stops": 0,
+   "engages": 0,
+   "scans": 0
+  },
+  "sessions": {
+   "ops": 169403,
+   "diffs": 0,
+   "examples": [],
+   "py_s": 114.9185717079963,
+   "rs_s": 9.043756264989497,
+   "by_op": {
+    "node": 581,
+    "scan": 100869,
+    "republish": 42095,
+    "lane": 25336,
+    "set_state": 522
+   },
+   "stops": 32740,
+   "engages": 2348,
+   "scans": 100869
+  }
+ },
+ "total_diffs": 0,
+ "total_ops": 638592,
+ "seconds": 213.7,
+ "sections": "tests,format,functions,sessions",
+ "gate": "PASS"
+}

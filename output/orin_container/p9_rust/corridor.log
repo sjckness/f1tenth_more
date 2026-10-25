@@ -1,0 +1,73 @@
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:122: RuntimeWarning: invalid value encountered in multiply
+  return ((1 - uu) ** 3 * p0
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:123: RuntimeWarning: invalid value encountered in multiply
+  + 3 * (1 - uu) ** 2 * uu * c0
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:124: RuntimeWarning: invalid value encountered in multiply
+  + 3 * (1 - uu) * uu ** 2 * c1
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:125: RuntimeWarning: invalid value encountered in multiply
+  + uu ** 3 * p1)
+/usr/lib/python3/dist-packages/numpy/lib/function_base.py:1238: RuntimeWarning: invalid value encountered in subtract
+  out[tuple(slice1)] = (f[tuple(slice4)] - f[tuple(slice2)]) / (2. * ax_dx)
+/usr/lib/python3/dist-packages/numpy/lib/function_base.py:1259: RuntimeWarning: invalid value encountered in scalar subtract
+  out[tuple(slice1)] = (f[tuple(slice2)] - f[tuple(slice3)]) / dx_0
+/usr/lib/python3/dist-packages/numpy/lib/function_base.py:1266: RuntimeWarning: invalid value encountered in scalar subtract
+  out[tuple(slice1)] = (f[tuple(slice2)] - f[tuple(slice3)]) / dx_n
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:198: RuntimeWarning: invalid value encountered in multiply
+  s = length * u
+/usr/lib/python3/dist-packages/numpy/lib/function_base.py:1452: RuntimeWarning: invalid value encountered in subtract
+  a = op(a[slice1], a[slice2])
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/mpc_controller/mpc_solver.py:1831: RuntimeWarning: invalid value encountered in subtract
+  dy = corridor["yc"] - p[1]
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/mpc_controller/mpc_solver.py:1820: RuntimeWarning: invalid value encountered in subtract
+  d_lat = float(n @ (p - pc))
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:277: RuntimeWarning: invalid value encountered in subtract
+  'halfWidth': 0.5 * np.sqrt((x_l - x_r) ** 2 + (y_l - y_r) ** 2),
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:366: RuntimeWarning: invalid value encountered in multiply
+  pts = ((1 - t) ** 3 * p0 + 3 * (1 - t) ** 2 * t * p1
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:367: RuntimeWarning: invalid value encountered in multiply
+  + 3 * (1 - t) * t ** 2 * p2 + t ** 3 * p3)
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:368: RuntimeWarning: invalid value encountered in multiply
+  d1 = (3 * (1 - t) ** 2 * (p1 - p0) + 6 * (1 - t) * t * (p2 - p1)
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:366: RuntimeWarning: invalid value encountered in add
+  pts = ((1 - t) ** 3 * p0 + 3 * (1 - t) ** 2 * t * p1
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:368: RuntimeWarning: invalid value encountered in subtract
+  d1 = (3 * (1 - t) ** 2 * (p1 - p0) + 6 * (1 - t) * t * (p2 - p1)
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:368: RuntimeWarning: invalid value encountered in add
+  d1 = (3 * (1 - t) ** 2 * (p1 - p0) + 6 * (1 - t) * t * (p2 - p1)
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:369: RuntimeWarning: invalid value encountered in multiply
+  + 3 * t ** 2 * (p3 - p2))
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:370: RuntimeWarning: invalid value encountered in add
+  d2 = 6 * (1 - t) * (p2 - 2 * p1 + p0) + 6 * t * (p3 - 2 * p2 + p1)
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:370: RuntimeWarning: invalid value encountered in multiply
+  d2 = 6 * (1 - t) * (p2 - 2 * p1 + p0) + 6 * t * (p3 - 2 * p2 + p1)
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:358: RuntimeWarning: invalid value encountered in add
+  p1 = p0 + a * e_start
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:370: RuntimeWarning: invalid value encountered in subtract
+  d2 = 6 * (1 - t) * (p2 - 2 * p1 + p0) + 6 * t * (p3 - 2 * p2 + p1)
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:421: RuntimeWarning: invalid value encountered in divide
+  ty = dy / dn
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:359: RuntimeWarning: invalid value encountered in multiply
+  p2 = p3 - b * e_end
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:230: RuntimeWarning: invalid value encountered in cos
+  xc = x0 + np.cumsum(np.cos(theta) * ds)
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:231: RuntimeWarning: invalid value encountered in sin
+  yc = y0 + np.cumsum(np.sin(theta) * ds)
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:369: RuntimeWarning: invalid value encountered in subtract
+  + 3 * t ** 2 * (p3 - p2))
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:359: RuntimeWarning: invalid value encountered in subtract
+  p2 = p3 - b * e_end
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:358: RuntimeWarning: invalid value encountered in multiply
+  p1 = p0 + a * e_start
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:248: RuntimeWarning: invalid value encountered in multiply
+  cl1 = p_l1 - k * e1
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:250: RuntimeWarning: invalid value encountered in multiply
+  cr1 = p_r1 - k * e1
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:436: RuntimeWarning: invalid value encountered in subtract
+  'halfWidth': 0.5 * np.sqrt((x_l - x_r) ** 2 + (y_l - y_r) ** 2),
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:420: RuntimeWarning: invalid value encountered in divide
+  tx = dx / dn
+/opt/f1tenth_ws/install/lib/python3.12/site-packages/f1tenth_params/corridor_geometry.py:267: RuntimeWarning: invalid value encountered in multiply
+  hw = w0 + (w1_eff - w0) * u
+rebuilds: geometry 1344 cases, 1344 bit-identical, 0 failures, 0 matched exceptions, 0 exception mismatches, max |d| 0.0; queries 22848 / 17808 identical / 0 failures
+sweep: geometry 8937 cases, 8905 bit-identical, 0 failures, 1063 matched exceptions, 0 exception mismatches, max |d| 0.0; queries 43987 / 39377 identical / 0 failures
+GATE PASS (37.0 s)

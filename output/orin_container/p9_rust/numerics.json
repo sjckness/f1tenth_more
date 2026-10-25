@@ -1,0 +1,78 @@
+{
+ "library": "/opt/f1tenth_ws/install/lib/f1tenth_wall_tracker_core/libf1tenth_wall_tracker_core.so",
+ "build": "build: cargo profile debug, opt-level 3, debug_assertions on",
+ "n": 200000,
+ "solve2": {
+  "cases": 200000,
+  "mismatches": 64479,
+  "expected_differences": 0,
+  "first": {
+   "case": "(array([[ 49.38046382, -53.23861068],\n       [-53.23861068,  59.45545977]]), array([ 2.42151494, -0.99931014]))",
+   "py": "('ok', array([0.89351048, 0.78327451]))",
+   "rust": "('ok', array([0.89351048, 0.78327451]))"
+  }
+ },
+ "inv2": {
+  "cases": 200000,
+  "mismatches": 127345,
+  "expected_differences": 0,
+  "first": {
+   "case": "(array([[178.9630736 , -32.76549208],\n       [-32.76549208, 108.97803343]]),)",
+   "py": "('ok', array([[0.00591325, 0.00177789],\n       [0.00177789, 0.0097107 ]]))",
+   "rust": "('ok', array([[0.00591325, 0.00177789],\n       [0.00177789, 0.0097107 ]]))"
+  }
+ },
+ "lsa": {
+  "cases": 20000,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "hypot": {
+  "cases": 200009,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "pow2": {
+  "cases": 200009,
+  "mismatches": 0,
+  "expected_differences": 1,
+  "first": null
+ },
+ "wrap_pi": {
+  "cases": 200007,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "sum": {
+  "cases": 50003,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "arange": {
+  "cases": 20000,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "searchsorted": {
+  "cases": 10000,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "svd_vt": {
+  "cases": 20000,
+  "mismatches": 16977,
+  "expected_differences": 0,
+  "first": {
+   "case": "(array([[ 1.40334888, -0.16752343],\n       [ 1.53972597, -0.1849044 ],\n       [-1.86867533,  0.22541574],\n       [ 1.18975892, -0.14272942],\n       [-0.15701612,  0.01811697],\n       [-1.88410426,  0.2260336 ],\n       [-1.33216701,  0.15861226],\n       [-0.33074133,  0.03932132],\n       [ 1.39727431, -0.166457  ],\n       [-0.87801274,  0.10448161],\n       [-0.12354295,  0.01531121],\n       [ 0.786",
+   "py": "('ok', array([[-0.992898  ,  0.11896875],\n       [ 0.11896875,  0.992898  ]]))",
+   "rust": "('ok', array([[-0.992898  ,  0.11896875],\n       [ 0.11896875,  0.992898  ]]))"
+  }
+ },
+ "total_mismatches": 208801
+}
