@@ -37,13 +37,16 @@ use std::process::ExitCode;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-use f1tenth_messages::msg::{BoundaryConstraint, BoundaryConstraintArray};
-use nav_msgs::msg::{OccupancyGrid, Odometry};
 use rclrs::{
     log_error, log_info, log_warn, Context, CreateBasicExecutor, IntoPrimitiveOptions,
     IntoTimerOptions, Node, RclrsErrorFilter, SpinOptions, ToLogParams,
 };
-use std_msgs::msg::{Float32, String as StringMsg};
+// The generated message crates, compiled into ros-env (src/rust/Cargo.toml);
+// f1tenth_messages is the workspace's, found on AMENT_PREFIX_PATH.
+use ros_env::builtin_interfaces;
+use ros_env::f1tenth_messages::msg::{BoundaryConstraint, BoundaryConstraintArray};
+use ros_env::nav_msgs::msg::{OccupancyGrid, Odometry};
+use ros_env::std_msgs::msg::{Float32, String as StringMsg};
 
 use f1tenth_costmap_boundary_rs::build_info;
 use f1tenth_costmap_boundary_rs::config::{validate, StartupParams};

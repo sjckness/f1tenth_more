@@ -1,0 +1,117 @@
+## python3 tools/rust_parity/wall_tracker/parity_wall_tracker.py /home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T14-35-30_mission-straight_until_potted_plant /home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T15-50-16_mission-go_to_person_1m /home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T14-55-23_mission-person_then_potted_plant /home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-21T12-25-22_mission-20261021T142038-bf7938.mission --stereo full --json /home/andreas/dev_ws/f1tenth_more_r0b/output/rust_main/r0b_parity/wt_parity_full.json (2026-10-24T23:46:12+02:00)
+== /home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T14-35-30_mission-straight_until_potted_plant (car, full, doors False)
+[INFO] [1792878375.738180963] [front_clearance_node]: front_clearance_node up: depth "/camera/depth/image_raw", detections "/camera/detections", masks "/camera/detection_masks", obstacles "/perception/obstacles_2d" -> /perception/front_distance, front_wall, front_clearance, front_blocked; distances from base_front, 0.405 m ahead of base_link
+[INFO] [1792878375.754134176] [front_clearance_node]: base_link <- laser: x=0.305 y=0.000 yaw=0.0 deg
+[INFO] [1792878375.778074931] [front_clearance_node]: inferred floor: LUT rebuilt for 640x360, laser at x=0.305 yaw=0.0 deg, 1081 beams, r_max 3.00 m: 79087 of 230400 pixels can be inferred
+[INFO] [1792878375.800411074] [front_clearance_node]: base_link <- zed2_left_camera_optical_frame: x=0.229 y=0.060 yaw=-90.0 deg
+[INFO] [1792878375.801054030] [front_clearance_node]: front_wall None -> False (bg_pixels=18262, front_distance=2.13 m)
+[INFO] [1792878375.801347224] [front_clearance_node]: front_blocked None -> False (front_clearance=2.13 m)
+[INFO] [1792878375.819261256] [front_clearance_node]: front_wall False -> True (bg_pixels=18056, front_distance=2.11 m)
+[INFO] [1792878380.348472231] [lidar_front_wall_node]: wall tracker: py (f1tenth_perception.multi_wall_tracker)
+[INFO] [1792878380.361631914] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall; door detection OFF
+[WARN] [1792878380.362932962] [rcl.logging_rosout]: Publisher already registered for node name: 'lidar_front_wall_node'. If this is due to multiple nodes with the same name then all logs for the logger named 'lidar_front_wall_node' will go out over the existing publisher. As soon as any node with that name is destructed it will unregister the publisher, preventing any further logs for that name from being published on the rosout topic.
+[INFO] [1792878380.372875608] [lidar_front_wall_node]: wall tracker: rust (f1tenth_wall_tracker_core 0.1.0, /home/andreas/dev_ws/f1tenth_more_r0b/install/f1tenth_wall_tracker_core/lib/f1tenth_wall_tracker_core/libf1tenth_wall_tracker_core.so, build: cargo profile debug, opt-level 3, debug_assertions on)
+[INFO] [1792878380.381944792] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall; door detection OFF
+[INFO] [1792878380.383595626] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792878380.391312807] [lidar_front_wall_node]: 3 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 166 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878380.393065022] [lidar_front_wall_node]: 1 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[INFO] [1792878380.393900034] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792878380.394880928] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792878380.399770389] [lidar_front_wall_node]: 3 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 166 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878380.402229617] [lidar_front_wall_node]: 1 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[INFO] [1792878380.403049306] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792878384.812542015] [lidar_front_wall_node]: wall tracker: 203 scans, per-scan ms p50 8.35 p95 13.24 max 16.78
+[INFO] [1792878384.821653257] [lidar_front_wall_node]: wall tracker: 203 scans, per-scan ms p50 4.40 p95 5.64 max 45.37
+[INFO] [1792878384.945994252] [lidar_front_wall_node]: wall acquired at 9.175 m after none (nan m): jump +nan m, nan s since the last accepted fit
+[INFO] [1792878384.954174920] [lidar_front_wall_node]: wall acquired at 9.175 m after none (nan m): jump +nan m, nan s since the last accepted fit
+[INFO] [1792878385.291977365] [lidar_front_wall_node]: wall tracker: front track 54 dropped (gone); virtual wall CLEAR (strip 12.144883323281112)
+[INFO] [1792878385.299910227] [lidar_front_wall_node]: wall tracker: front track 54 dropped (gone); virtual wall CLEAR (strip 12.144883323281112)
+[WARN] [1792878385.409512251] [lidar_front_wall_node]: 4 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 245 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878385.417047933] [lidar_front_wall_node]: 4 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 245 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+   286 cycles, 286 tracker steps, 750 track states, 1991 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 286, 'p50': 9.4088, 'p95': 13.4913} rust {'n': 286, 'p50': 4.5792, 'p95': 5.8994}; 6.5 s
+== /home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T15-50-16_mission-go_to_person_1m (car, full, doors False)
+[INFO] [1792878389.233465627] [front_clearance_node]: front_clearance_node up: depth "/camera/depth/image_raw", detections "/camera/detections", masks "/camera/detection_masks", obstacles "/perception/obstacles_2d" -> /perception/front_distance, front_wall, front_clearance, front_blocked; distances from base_front, 0.405 m ahead of base_link
+[INFO] [1792878389.238353607] [front_clearance_node]: base_link <- laser: x=0.305 y=0.000 yaw=0.0 deg
+[INFO] [1792878389.258029699] [front_clearance_node]: inferred floor: LUT rebuilt for 640x360, laser at x=0.305 yaw=0.0 deg, 1081 beams, r_max 3.00 m: 79083 of 230400 pixels can be inferred
+[INFO] [1792878389.275913654] [front_clearance_node]: base_link <- zed2_left_camera_optical_frame: x=0.229 y=0.060 yaw=-90.0 deg
+[INFO] [1792878389.276511849] [front_clearance_node]: front_wall None -> False (bg_pixels=16133, front_distance=2.48 m)
+[INFO] [1792878389.276781063] [front_clearance_node]: front_blocked None -> False (front_clearance=2.48 m)
+[INFO] [1792878389.299002971] [front_clearance_node]: front_wall False -> True (bg_pixels=15418, front_distance=2.50 m)
+[INFO] [1792878393.590913223] [lidar_front_wall_node]: wall tracker: py (f1tenth_perception.multi_wall_tracker)
+[INFO] [1792878393.643723070] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall; door detection OFF
+[WARN] [1792878393.644918354] [rcl.logging_rosout]: Publisher already registered for node name: 'lidar_front_wall_node'. If this is due to multiple nodes with the same name then all logs for the logger named 'lidar_front_wall_node' will go out over the existing publisher. As soon as any node with that name is destructed it will unregister the publisher, preventing any further logs for that name from being published on the rosout topic.
+[INFO] [1792878393.653694951] [lidar_front_wall_node]: wall tracker: rust (f1tenth_wall_tracker_core 0.1.0, /home/andreas/dev_ws/f1tenth_more_r0b/install/f1tenth_wall_tracker_core/lib/f1tenth_wall_tracker_core/libf1tenth_wall_tracker_core.so, build: cargo profile debug, opt-level 3, debug_assertions on)
+[INFO] [1792878393.662450424] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall; door detection OFF
+[INFO] [1792878393.663764849] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792878393.666844240] [lidar_front_wall_node]: wall tracker: no /odometry/filtered pose at the scan stamp; skipped
+[INFO] [1792878393.667319513] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792878393.667806175] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792878393.670498855] [lidar_front_wall_node]: wall tracker: no /odometry/filtered pose at the scan stamp; skipped
+[INFO] [1792878393.670892583] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[WARN] [1792878393.701169973] [lidar_front_wall_node]: 5 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 267 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878393.704063212] [lidar_front_wall_node]: 1 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[WARN] [1792878393.709038642] [lidar_front_wall_node]: 5 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 267 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878393.711590437] [lidar_front_wall_node]: 1 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[WARN] [1792878398.710311586] [lidar_front_wall_node]: 5 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 193 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878398.721103381] [lidar_front_wall_node]: 5 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 193 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[INFO] [1792878399.565911893] [lidar_front_wall_node]: wall tracker: 220 scans, per-scan ms p50 11.69 p95 14.53 max 16.10
+[INFO] [1792878399.576230693] [lidar_front_wall_node]: wall tracker: 220 scans, per-scan ms p50 5.44 p95 6.51 max 7.66
+[INFO] [1792878399.841971337] [lidar_front_wall_node]: wall acquired at 3.635 m after none (nan m): jump +nan m, nan s since the last accepted fit
+[INFO] [1792878399.851476171] [lidar_front_wall_node]: wall acquired at 3.635 m after none (nan m): jump +nan m, nan s since the last accepted fit
+[INFO] [1792878401.053072938] [lidar_front_wall_node]: wall acquired at 5.668 m after seeded (2.764 m): jump +2.904 m, 6.73 s since the last accepted fit
+[INFO] [1792878401.061092172] [lidar_front_wall_node]: wall acquired at 5.668 m after seeded (2.764 m): jump +2.904 m, 6.73 s since the last accepted fit
+   293 cycles, 288 tracker steps, 1421 track states, 2033 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 288, 'p50': 11.9291, 'p95': 14.4835} rust {'n': 288, 'p50': 5.4629, 'p95': 6.4248}; 7.8 s
+== /home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T14-55-23_mission-person_then_potted_plant (car, full, doors False)
+[INFO] [1792878402.543864235] [front_clearance_node]: front_clearance_node up: depth "/camera/depth/image_raw", detections "/camera/detections", masks "/camera/detection_masks", obstacles "/perception/obstacles_2d" -> /perception/front_distance, front_wall, front_clearance, front_blocked; distances from base_front, 0.405 m ahead of base_link
+[INFO] [1792878402.548002260] [front_clearance_node]: base_link <- laser: x=0.305 y=0.000 yaw=0.0 deg
+[INFO] [1792878402.567723119] [front_clearance_node]: inferred floor: LUT rebuilt for 640x360, laser at x=0.305 yaw=0.0 deg, 1081 beams, r_max 3.00 m: 79087 of 230400 pixels can be inferred
+[INFO] [1792878402.583831914] [front_clearance_node]: base_link <- zed2_left_camera_optical_frame: x=0.229 y=0.060 yaw=-90.0 deg
+[INFO] [1792878402.584543091] [front_clearance_node]: front_wall None -> False (bg_pixels=12178, front_distance=3.60 m)
+[INFO] [1792878402.584807943] [front_clearance_node]: front_blocked None -> False (front_clearance=3.60 m)
+[INFO] [1792878402.605897073] [front_clearance_node]: front_wall False -> True (bg_pixels=12101, front_distance=3.59 m)
+[INFO] [1792878405.178455118] [lidar_front_wall_node]: wall tracker: py (f1tenth_perception.multi_wall_tracker)
+[INFO] [1792878405.187768010] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall; door detection OFF
+[WARN] [1792878405.188795202] [rcl.logging_rosout]: Publisher already registered for node name: 'lidar_front_wall_node'. If this is due to multiple nodes with the same name then all logs for the logger named 'lidar_front_wall_node' will go out over the existing publisher. As soon as any node with that name is destructed it will unregister the publisher, preventing any further logs for that name from being published on the rosout topic.
+[INFO] [1792878405.196526112] [lidar_front_wall_node]: wall tracker: rust (f1tenth_wall_tracker_core 0.1.0, /home/andreas/dev_ws/f1tenth_more_r0b/install/f1tenth_wall_tracker_core/lib/f1tenth_wall_tracker_core/libf1tenth_wall_tracker_core.so, build: cargo profile debug, opt-level 3, debug_assertions on)
+[INFO] [1792878405.205443622] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall; door detection OFF
+[INFO] [1792878405.207723445] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792878405.215091252] [lidar_front_wall_node]: 2 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 159 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878405.217039829] [lidar_front_wall_node]: 2 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[INFO] [1792878405.217644731] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792878405.218235984] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792878405.221924003] [lidar_front_wall_node]: 2 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 159 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878405.223715599] [lidar_front_wall_node]: 2 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[INFO] [1792878405.224261698] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+   209 cycles, 209 tracker steps, 103 track states, 1460 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 209, 'p50': 7.0761, 'p95': 8.1339} rust {'n': 209, 'p50': 3.5891, 'p95': 4.2617}; 3.3 s
+== /home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-21T12-25-22_mission-20261021T142038-bf7938.mission (car, full, doors False)
+[INFO] [1792878409.551833274] [front_clearance_node]: front_clearance_node up: depth "/camera/depth/image_raw", detections "/camera/detections", masks "/camera/detection_masks", obstacles "/perception/obstacles_2d" -> /perception/front_distance, front_wall, front_clearance, front_blocked; distances from base_front, 0.405 m ahead of base_link
+[INFO] [1792878409.575444353] [front_clearance_node]: base_link <- zed2_left_camera_optical_frame: x=0.229 y=0.060 yaw=-90.0 deg
+[INFO] [1792878409.576058856] [front_clearance_node]: front_wall None -> False (bg_pixels=22956, front_distance=2.52 m)
+[INFO] [1792878409.576339109] [front_clearance_node]: front_blocked None -> False (front_clearance=2.36 m)
+[INFO] [1792878409.582113015] [front_clearance_node]: base_link <- laser: x=0.305 y=0.000 yaw=0.0 deg
+[INFO] [1792878409.602282658] [front_clearance_node]: inferred floor: LUT rebuilt for 640x360, laser at x=0.305 yaw=0.0 deg, 1081 beams, r_max 3.00 m: 79087 of 230400 pixels can be inferred
+[INFO] [1792878409.622102479] [front_clearance_node]: front_wall False -> True (bg_pixels=23036, front_distance=2.52 m)
+[INFO] [1792878410.934349956] [front_clearance_node]: front_blocked False -> True (front_clearance=0.45 m)
+[INFO] [1792878411.211596419] [front_clearance_node]: front_blocked True -> False (front_clearance=1.39 m)
+[INFO] [1792878411.714053222] [lidar_front_wall_node]: wall tracker: py (f1tenth_perception.multi_wall_tracker)
+[INFO] [1792878411.722978646] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall; door detection OFF
+[WARN] [1792878411.724002073] [rcl.logging_rosout]: Publisher already registered for node name: 'lidar_front_wall_node'. If this is due to multiple nodes with the same name then all logs for the logger named 'lidar_front_wall_node' will go out over the existing publisher. As soon as any node with that name is destructed it will unregister the publisher, preventing any further logs for that name from being published on the rosout topic.
+[INFO] [1792878411.732110085] [lidar_front_wall_node]: wall tracker: rust (f1tenth_wall_tracker_core 0.1.0, /home/andreas/dev_ws/f1tenth_more_r0b/install/f1tenth_wall_tracker_core/lib/f1tenth_wall_tracker_core/libf1tenth_wall_tracker_core.so, build: cargo profile debug, opt-level 3, debug_assertions on)
+[INFO] [1792878411.741585004] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall; door detection OFF
+[INFO] [1792878411.742770098] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792878411.751331180] [lidar_front_wall_node]: 5 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 209 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[INFO] [1792878411.754610432] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792878411.755312460] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792878411.760080797] [lidar_front_wall_node]: 5 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 209 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[INFO] [1792878411.763016042] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[WARN] [1792878411.997660896] [lidar_front_wall_node]: 1 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[WARN] [1792878412.006813555] [lidar_front_wall_node]: 1 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[INFO] [1792878412.630243792] [lidar_front_wall_node]: wall acquired at 5.705 m after seeded (2.905 m): jump +2.800 m, nan s since the last accepted fit
+[INFO] [1792878412.639063625] [lidar_front_wall_node]: wall acquired at 5.705 m after seeded (2.905 m): jump +2.800 m, nan s since the last accepted fit
+[INFO] [1792878413.414663603] [lidar_front_wall_node]: wall acquired at 4.481 m after dead_reckoned (4.506 m): jump -0.025 m, 3.00 s since the last accepted fit
+[INFO] [1792878413.421856454] [lidar_front_wall_node]: wall acquired at 4.481 m after dead_reckoned (4.506 m): jump -0.025 m, 3.00 s since the last accepted fit
+[INFO] [1792878413.687222515] [lidar_front_wall_node]: wall acquired at 4.057 m after dead_reckoned (4.103 m): jump -0.046 m, 0.30 s since the last accepted fit
+[INFO] [1792878413.697271939] [lidar_front_wall_node]: wall acquired at 4.057 m after dead_reckoned (4.103 m): jump -0.046 m, 0.30 s since the last accepted fit
+   130 cycles, 130 tracker steps, 462 track states, 902 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 130, 'p50': 9.3214, 'p95': 14.0672} rust {'n': 130, 'p50': 4.5054, 'p95': 6.0892}; 2.8 s
+wrote /home/andreas/dev_ws/f1tenth_more_r0b/output/rust_main/r0b_parity/wt_parity_full.json
+## exit 0, 42 s

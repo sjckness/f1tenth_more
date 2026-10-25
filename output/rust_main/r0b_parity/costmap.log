@@ -1,0 +1,687 @@
+## python3 tools/rust_parity/costmap_boundary/parity_costmap_boundary.py --out /home/andreas/dev_ws/f1tenth_more_r0b/output/rust_main/r0b_parity/parity_costmap_boundary.json (2026-10-24T23:42:58+02:00)
+[INFO] [1792878179.646038189] [costmap_boundary_node]: costmap_boundary_node started -- map_topic=/slam/map pose_topic=/ekf_global/odometry/filtered extraction_rate_hz=10.0 (periodic-publish pass: publishes every tick from whatever is currently cached, regardless of how recently either input last updated -- fail-safe empty/withheld only if a message of that kind has never arrived at all yet. See module docstring for why gating on upstream recency was removed.)
+[INFO] [1792878179.663619708] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1792878181.665605997] [costmap_boundary_node]: n_constraints=3 front_clearance=1.36m
+synthetic+malformed: {"synthetic": {"maps": 16, "poses": 804, "diffs": 0, "py_raised": 0, "constraints": 1975, "empty": 48}, "malformed": {"maps": 6, "poses": 7, "diffs": 0, "py_raised": 5, "constraints": 0, "empty": 1, "intended": 1}}
+[INFO] [1792878188.821523814] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T14-35-50_mission-test_01/bag/2026-09-01T14-35-50_mission-test_01_0.db3' for READ_ONLY.
+[INFO] [1792878188.895726474] [costmap_boundary_node]: n_constraints=3 front_clearance=0.39m
+bag 1/235: {"maps": 7, "poses": 450, "diffs": 0, "py_raised": 0, "constraints": 1350, "empty": 0}
+[INFO] [1792878190.864487388] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-00-06_mission-llm_plan_1788274806/bag/2026-09-01T15-00-06_mission-llm_plan_1788274806_0.db3' for READ_ONLY.
+[INFO] [1792878190.958894506] [costmap_boundary_node]: n_constraints=3 front_clearance=3.00m
+[INFO] [1792878192.959160462] [costmap_boundary_node]: n_constraints=3 front_clearance=0.08m
+[INFO] [1792878193.497604089] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-03-07_mission-bottle_then_person/bag/2026-09-01T15-03-07_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878195.269278429] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-04-45_mission-bottle_then_person/bag/2026-09-01T15-04-45_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878195.384361349] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878197.387495124] [costmap_boundary_node]: n_constraints=3 front_clearance=0.02m
+[INFO] [1792878199.389146314] [costmap_boundary_node]: n_constraints=3 front_clearance=0.04m
+[INFO] [1792878200.283110835] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-06-45_mission-llm_plan_1788275205/bag/2026-09-01T15-06-45_mission-llm_plan_1788275205_0.db3' for READ_ONLY.
+[INFO] [1792878201.391589640] [costmap_boundary_node]: n_constraints=3 front_clearance=3.22m
+[INFO] [1792878202.991756060] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-08-12_mission-llm_plan_1788275291/bag/2026-09-01T15-08-12_mission-llm_plan_1788275291_0.db3' for READ_ONLY.
+[INFO] [1792878203.392891576] [costmap_boundary_node]: n_constraints=3 front_clearance=4.23m
+[INFO] [1792878205.396122900] [costmap_boundary_node]: n_constraints=3 front_clearance=2.46m
+[INFO] [1792878207.857051445] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-09-43_mission-bottle_then_person/bag/2026-09-01T15-09-43_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878207.998570325] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[INFO] [1792878210.016860987] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878212.018711944] [costmap_boundary_node]: n_constraints=3 front_clearance=3.73m
+[INFO] [1792878214.121547144] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-11-29_mission-bottle_then_person/bag/2026-09-01T15-11-29_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878214.207600131] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878216.209261547] [costmap_boundary_node]: n_constraints=3 front_clearance=0.79m
+[INFO] [1792878216.851985858] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-33-43_mission-llm_plan_1788341623/bag/2026-09-02T09-33-43_mission-llm_plan_1788341623_0.db3' for READ_ONLY.
+[INFO] [1792878218.210437403] [costmap_boundary_node]: n_constraints=3 front_clearance=0.06m
+[INFO] [1792878219.902386414] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-34-40_mission-llm_plan_1788341680/bag/2026-09-02T09-34-40_mission-llm_plan_1788341680_0.db3' for READ_ONLY.
+[INFO] [1792878220.214091971] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878222.218379711] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878224.476950422] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-35-04_mission-llm_plan_1788341702/bag/2026-09-02T09-35-04_mission-llm_plan_1788341702_0.db3' for READ_ONLY.
+[INFO] [1792878224.568854974] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878226.570248715] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878228.022963534] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-35-23_mission-llm_plan_1788341723/bag/2026-09-02T09-35-23_mission-llm_plan_1788341723_0.db3' for READ_ONLY.
+[INFO] [1792878228.571583211] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878229.744235393] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-37-08_mission-llm_plan_1788341827/bag/2026-09-02T09-37-08_mission-llm_plan_1788341827_0.db3' for READ_ONLY.
+[INFO] [1792878230.574335579] [costmap_boundary_node]: n_constraints=3 front_clearance=3.91m
+[INFO] [1792878231.407145878] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-40-44_mission-bottle_then_person/bag/2026-09-02T09-40-44_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878232.577202945] [costmap_boundary_node]: n_constraints=3 front_clearance=0.05m
+[INFO] [1792878234.639964735] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-44-30_mission-bottle_then_person/bag/2026-09-02T09-44-30_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878234.690995732] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878235.996139453] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-46-43_mission-bottle_then_person/bag/2026-09-02T09-46-43_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878236.691324022] [costmap_boundary_node]: n_constraints=3 front_clearance=0.56m
+[INFO] [1792878237.742934719] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-48-45_mission-bottle_then_person/bag/2026-09-02T09-48-45_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878238.694303157] [costmap_boundary_node]: n_constraints=3 front_clearance=2.59m
+[INFO] [1792878240.696082989] [costmap_boundary_node]: n_constraints=3 front_clearance=0.17m
+[INFO] [1792878241.036616373] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-51-30_mission-bottle_then_person/bag/2026-09-02T09-51-30_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878242.698098703] [costmap_boundary_node]: n_constraints=3 front_clearance=0.01m
+[INFO] [1792878243.124796939] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-54-30_mission-llm_plan_1788342870/bag/2026-09-02T09-54-30_mission-llm_plan_1788342870_0.db3' for READ_ONLY.
+[INFO] [1792878244.698322617] [costmap_boundary_node]: n_constraints=3 front_clearance=2.04m
+[INFO] [1792878245.287386710] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-13-32_mission-bottle_then_person/bag/2026-09-02T15-13-32_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878246.700725995] [costmap_boundary_node]: n_constraints=3 front_clearance=0.18m
+[INFO] [1792878248.701825424] [costmap_boundary_node]: n_constraints=3 front_clearance=2.77m
+[INFO] [1792878250.537043429] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-15-50_mission-bottle_then_person/bag/2026-09-02T15-15-50_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878250.702646380] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878252.703387658] [costmap_boundary_node]: n_constraints=3 front_clearance=0.23m
+bag 21/235: {"maps": 91, "poses": 15092, "diffs": 0, "py_raised": 0, "constraints": 45124, "empty": 0}
+[INFO] [1792878257.046563237] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-17-49_mission-bottle_then_person/bag/2026-09-02T15-17-49_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878257.295478448] [costmap_boundary_node]: n_constraints=3 front_clearance=4.35m
+[INFO] [1792878259.296002852] [costmap_boundary_node]: n_constraints=3 front_clearance=0.20m
+[INFO] [1792878261.300549272] [costmap_boundary_node]: n_constraints=3 front_clearance=1.66m
+[INFO] [1792878263.181859337] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-19-52_mission-bottle_then_person/bag/2026-09-02T15-19-52_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878263.303908161] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878265.308034793] [costmap_boundary_node]: n_constraints=3 front_clearance=0.34m
+[INFO] [1792878267.246738527] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-21-57_mission-bottle_then_person/bag/2026-09-02T15-21-57_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878267.331611103] [costmap_boundary_node]: n_constraints=3 front_clearance=1.07m
+[INFO] [1792878269.334843375] [costmap_boundary_node]: n_constraints=3 front_clearance=0.03m
+[INFO] [1792878270.735451265] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-24-27_mission-bottle_then_person/bag/2026-09-02T15-24-27_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878271.338095257] [costmap_boundary_node]: n_constraints=3 front_clearance=3.68m
+[INFO] [1792878273.221782391] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-26-23_mission-bottle_then_person/bag/2026-09-02T15-26-23_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878273.340973519] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878275.508049715] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-27-43_mission-bottle_then_person/bag/2026-09-02T15-27-43_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878275.633271962] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878277.798626630] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-29-24_mission-llm_plan_1788362958/bag/2026-09-02T15-29-24_mission-llm_plan_1788362958_0.db3' for READ_ONLY.
+[INFO] [1792878277.842700074] [costmap_boundary_node]: n_constraints=2 front_clearance=2.46m
+[INFO] [1792878279.266285716] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-31-05_mission-llm_plan_1788363065/bag/2026-09-02T15-31-05_mission-llm_plan_1788363065_0.db3' for READ_ONLY.
+[INFO] [1792878279.846059724] [costmap_boundary_node]: n_constraints=3 front_clearance=3.29m
+[INFO] [1792878280.920984185] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-34-45_mission-bottle_then_person/bag/2026-09-02T15-34-45_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878281.848782323] [costmap_boundary_node]: n_constraints=3 front_clearance=2.50m
+[INFO] [1792878283.849717788] [costmap_boundary_node]: n_constraints=3 front_clearance=0.15m
+[INFO] [1792878284.997215806] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-36-16_mission-bottle_then_person/bag/2026-09-02T15-36-16_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878285.850412850] [costmap_boundary_node]: n_constraints=3 front_clearance=2.15m
+[INFO] [1792878288.527680359] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-37-53_mission-bottle_then_person/bag/2026-09-02T15-37-53_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878288.623371955] [costmap_boundary_node]: n_constraints=3 front_clearance=4.35m
+[INFO] [1792878290.623534749] [costmap_boundary_node]: n_constraints=3 front_clearance=0.20m
+[INFO] [1792878291.592038343] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-03T12-45-06_mission-bottle_then_person/bag/2026-09-03T12-45-06_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792878292.625059571] [costmap_boundary_node]: n_constraints=3 front_clearance=0.61m
+[INFO] [1792878293.590616350] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-03T12-48-40_mission-llm_plan_1788439720/bag/2026-09-03T12-48-40_mission-llm_plan_1788439720_0.db3' for READ_ONLY.
+[INFO] [1792878294.237222122] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-03T12-49-07_mission-llm_plan_1788439746/bag/2026-09-03T12-49-07_mission-llm_plan_1788439746_0.db3' for READ_ONLY.
+[INFO] [1792878294.586692806] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T13-22-23_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878294.663517274] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878296.674308105] [costmap_boundary_node]: n_constraints=3 front_clearance=4.39m
+[INFO] [1792878296.937541705] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T14-12-39_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878298.133070053] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T14-15-16_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878298.677821534] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878299.558809705] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T14-31-49_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878300.679945057] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878301.776896031] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-18-08_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878302.681744560] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878303.269398026] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-21-20_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878304.682752826] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+bag 41/235: {"maps": 150, "poses": 24250, "diffs": 0, "py_raised": 0, "constraints": 72517, "empty": 0}
+[INFO] [1792878306.938289434] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-23-48_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878307.054311407] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878309.055799578] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878311.052177842] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-55-27_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878311.176880842] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878313.177261731] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878315.151031539] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-58-24_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878315.219706322] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878317.097364932] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T16-02-20_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878317.220856185] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878319.508310700] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T16-05-43_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878319.616836060] [costmap_boundary_node]: n_constraints=3 front_clearance=0.14m
+[INFO] [1792878321.618284679] [costmap_boundary_node]: n_constraints=3 front_clearance=0.14m
+[INFO] [1792878322.416879248] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T11-49-54_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878323.621404033] [costmap_boundary_node]: n_constraints=3 front_clearance=0.94m
+[INFO] [1792878324.874712525] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-10-13_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878325.622837860] [costmap_boundary_node]: n_constraints=3 front_clearance=1.06m
+[INFO] [1792878327.393251913] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-14-03_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878327.635062358] [costmap_boundary_node]: n_constraints=3 front_clearance=1.02m
+[INFO] [1792878329.637288829] [costmap_boundary_node]: n_constraints=3 front_clearance=1.02m
+[INFO] [1792878330.357327833] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-20-37_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878331.666747660] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-22-13_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878331.739839294] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878333.740233711] [costmap_boundary_node]: n_constraints=3 front_clearance=3.70m
+[INFO] [1792878334.072128042] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-29-52_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878334.640821553] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-39-23_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878335.743111534] [costmap_boundary_node]: n_constraints=3 front_clearance=3.86m
+[INFO] [1792878337.906611033] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-41-14_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878337.975317836] [costmap_boundary_node]: n_constraints=3 front_clearance=3.06m
+[INFO] [1792878340.116224896] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-48-40_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878340.211007832] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[INFO] [1792878342.212266794] [costmap_boundary_node]: n_constraints=3 front_clearance=0.71m
+[INFO] [1792878343.334066245] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T11-41-39_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878344.214117179] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878345.334847553] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T11-43-06_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878346.216385748] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878347.120777454] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T11-51-59_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878347.900802987] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T12-23-20_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878348.219332528] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878350.222957167] [costmap_boundary_node]: n_constraints=3 front_clearance=3.67m
+[INFO] [1792878352.488502974] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T12-27-37_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878352.744100478] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878354.746829659] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878356.748645464] [costmap_boundary_node]: n_constraints=3 front_clearance=3.15m
+[INFO] [1792878358.750856258] [costmap_boundary_node]: n_constraints=3 front_clearance=3.15m
+[INFO] [1792878360.754900057] [costmap_boundary_node]: n_constraints=3 front_clearance=3.15m
+[INFO] [1792878362.758385055] [costmap_boundary_node]: n_constraints=3 front_clearance=3.15m
+[INFO] [1792878364.763091015] [costmap_boundary_node]: n_constraints=3 front_clearance=3.15m
+[INFO] [1792878364.993633163] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T12-36-28_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+bag 61/235: {"maps": 235, "poses": 38062, "diffs": 0, "py_raised": 0, "constraints": 113786, "empty": 0}
+[INFO] [1792878366.627277852] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-09-57_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878366.765748777] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878367.306562462] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-22-34_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878368.767961909] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878370.770724745] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878371.792997734] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-27-00_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878372.773632176] [costmap_boundary_node]: n_constraints=3 front_clearance=0.84m
+[INFO] [1792878374.777153311] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878376.782698082] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878377.799667646] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-46-47_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878378.787207195] [costmap_boundary_node]: n_constraints=3 front_clearance=1.32m
+[INFO] [1792878379.073395089] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-48-35_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878380.031121729] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-50-52_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878380.789222281] [costmap_boundary_node]: n_constraints=3 front_clearance=1.29m
+[INFO] [1792878382.183260656] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T16-25-59_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878382.791621291] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878384.793822911] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878385.059594309] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-24-35_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878386.796509231] [costmap_boundary_node]: n_constraints=3 front_clearance=4.43m
+[INFO] [1792878388.798657118] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878390.802716936] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878391.231139817] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-25-04_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878392.806188569] [costmap_boundary_node]: n_constraints=3 front_clearance=3.24m
+[INFO] [1792878394.810958945] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878396.832176095] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878397.430101789] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-25-48_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878398.833244684] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878400.837116162] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878402.838163211] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878404.841774886] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878406.845392273] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878408.846831731] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878410.850811464] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878412.857421806] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878414.388592074] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-34-24_mission-llm_plan_1788964463/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878414.858861425] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878416.861518429] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878418.862671462] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878420.590822015] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-49-58_mission-llm_plan_1788965397/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878420.864135077] [costmap_boundary_node]: n_constraints=3 front_clearance=0.06m
+[INFO] [1792878422.583503821] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-54-12_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878422.865702722] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878423.207464828] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-55-31_mission-test_04_turn_accuracy/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878424.158807898] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T15-09-11_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878424.866226626] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878426.732455479] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T15-12-08_mission-test_04_turn_accuracy/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878426.867569042] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878428.598943028] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-18-35_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878428.869628121] [costmap_boundary_node]: n_constraints=3 front_clearance=0.86m
+[INFO] [1792878430.869732706] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878432.872588101] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878433.573915869] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-19-03_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878434.877425045] [costmap_boundary_node]: n_constraints=3 front_clearance=2.43m
+[INFO] [1792878435.222333265] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-20-58_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878436.877615238] [costmap_boundary_node]: n_constraints=3 front_clearance=0.32m
+[INFO] [1792878437.799800056] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-24-11_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878438.879740677] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878440.879896362] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878442.880822943] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878444.884511339] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878446.887423715] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878448.888947424] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878450.890250984] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878452.894711894] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878454.900182611] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+bag 81/235: {"maps": 323, "poses": 54545, "diffs": 0, "py_raised": 0, "constraints": 163235, "empty": 0}
+[INFO] [1792878456.338830917] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-25-45_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878456.904265533] [costmap_boundary_node]: n_constraints=3 front_clearance=4.11m
+[INFO] [1792878458.908934619] [costmap_boundary_node]: n_constraints=3 front_clearance=0.23m
+[INFO] [1792878460.395781932] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-09-41_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878460.910835865] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878461.305593199] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-09-54_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878462.915791801] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878463.160180513] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-18-28_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878463.362904701] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-25-17_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878464.918683560] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878466.116909072] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-33-01_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878466.923474307] [costmap_boundary_node]: n_constraints=3 front_clearance=2.73m
+[INFO] [1792878467.253735357] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-34-38_mission-test_04_turn_accuracy/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878468.924670361] [costmap_boundary_node]: n_constraints=3 front_clearance=1.78m
+[INFO] [1792878470.401755757] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-35-05_mission-test_04_turn_accuracy/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878470.783176548] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-44-55_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878470.932775196] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878472.732372212] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-45-34_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878472.942386829] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878474.130507359] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-46-06_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878474.179833754] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-46-38_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878474.436282469] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-47-08_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878474.799986670] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-48-19_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878474.946499680] [costmap_boundary_node]: n_constraints=3 front_clearance=0.33m
+[INFO] [1792878475.877724388] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-07-04_mission-drive_turn_180/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878476.947890944] [costmap_boundary_node]: n_constraints=3 front_clearance=0.25m
+[INFO] [1792878477.010252562] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-10-58_mission-drive_turn_180/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878477.212249448] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-31-58_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878478.272559785] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-34-09_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878478.950276528] [costmap_boundary_node]: n_constraints=3 front_clearance=2.14m
+[INFO] [1792878479.871596105] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-35-06_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878480.503178634] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-39-04_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878480.972391151] [costmap_boundary_node]: n_constraints=3 front_clearance=0.89m
+bag 101/235: {"maps": 365, "poses": 59352, "diffs": 0, "py_raised": 0, "constraints": 177656, "empty": 0}
+[INFO] [1792878483.044590019] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-57-23_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878483.111303639] [costmap_boundary_node]: n_constraints=3 front_clearance=1.87m
+[INFO] [1792878484.833687777] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-33-46_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878485.111457842] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878487.113954657] [costmap_boundary_node]: n_constraints=3 front_clearance=0.24m
+[INFO] [1792878488.696994673] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-35-24_mission-straight_then_wall_turn_3m/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878489.114981377] [costmap_boundary_node]: n_constraints=3 front_clearance=4.54m
+[INFO] [1792878491.118582000] [costmap_boundary_node]: n_constraints=3 front_clearance=1.76m
+[INFO] [1792878493.123993028] [costmap_boundary_node]: n_constraints=3 front_clearance=0.28m
+[INFO] [1792878495.069783999] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-40-16_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878495.124156102] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878495.337984619] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-42-13_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878495.566534499] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-42-31_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878496.162795774] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-44-26_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878496.273149728] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-53-36_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878496.368421767] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-54-57_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878496.712654330] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-56-51_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878497.125210250] [costmap_boundary_node]: n_constraints=3 front_clearance=0.34m
+[INFO] [1792878499.126588022] [costmap_boundary_node]: n_constraints=3 front_clearance=0.24m
+[INFO] [1792878500.247013127] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T16-15-47_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878501.130547139] [costmap_boundary_node]: n_constraints=3 front_clearance=2.70m
+[INFO] [1792878502.264373107] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T12-54-50_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878503.132398582] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878505.136143464] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878507.137376440] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878509.142743676] [costmap_boundary_node]: n_constraints=3 front_clearance=4.13m
+[INFO] [1792878509.706782318] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-30-26_mission-turn_90_left/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878510.717687098] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-37-27_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878511.146167915] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878513.150206724] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878515.154622466] [costmap_boundary_node]: n_constraints=3 front_clearance=3.42m
+[INFO] [1792878515.990359228] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-39-45_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878517.154883323] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878519.161295323] [costmap_boundary_node]: n_constraints=3 front_clearance=1.35m
+[INFO] [1792878521.365868968] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-42-06_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878521.634904059] [costmap_boundary_node]: n_constraints=3 front_clearance=1.17m
+[INFO] [1792878523.636977442] [costmap_boundary_node]: n_constraints=3 front_clearance=1.11m
+[INFO] [1792878525.640032817] [costmap_boundary_node]: n_constraints=3 front_clearance=1.72m
+[INFO] [1792878527.643287066] [costmap_boundary_node]: n_constraints=3 front_clearance=0.46m
+[INFO] [1792878529.646957723] [costmap_boundary_node]: n_constraints=3 front_clearance=0.46m
+[INFO] [1792878531.656217730] [costmap_boundary_node]: n_constraints=3 front_clearance=0.46m
+[INFO] [1792878533.665330843] [costmap_boundary_node]: n_constraints=3 front_clearance=0.46m
+[INFO] [1792878535.670234060] [costmap_boundary_node]: n_constraints=3 front_clearance=0.46m
+[INFO] [1792878537.677806628] [costmap_boundary_node]: n_constraints=3 front_clearance=0.45m
+[INFO] [1792878539.999983670] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-49-54_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878541.513053314] [costmap_boundary_node]: n_constraints=3 front_clearance=0.86m
+[INFO] [1792878543.519475908] [costmap_boundary_node]: n_constraints=3 front_clearance=0.38m
+[INFO] [1792878545.523954366] [costmap_boundary_node]: n_constraints=3 front_clearance=0.38m
+[INFO] [1792878547.524776440] [costmap_boundary_node]: n_constraints=3 front_clearance=0.37m
+[INFO] [1792878549.546967536] [costmap_boundary_node]: n_constraints=3 front_clearance=0.38m
+[INFO] [1792878551.555711757] [costmap_boundary_node]: n_constraints=3 front_clearance=0.38m
+[INFO] [1792878553.560245029] [costmap_boundary_node]: n_constraints=3 front_clearance=0.38m
+[INFO] [1792878555.573916445] [costmap_boundary_node]: n_constraints=3 front_clearance=0.38m
+[INFO] [1792878557.601373144] [costmap_boundary_node]: n_constraints=3 front_clearance=0.38m
+[INFO] [1792878559.626470433] [costmap_boundary_node]: n_constraints=3 front_clearance=0.38m
+[INFO] [1792878561.628832306] [costmap_boundary_node]: n_constraints=3 front_clearance=0.38m
+[INFO] [1792878563.633039295] [costmap_boundary_node]: n_constraints=3 front_clearance=0.38m
+[INFO] [1792878565.634919718] [costmap_boundary_node]: n_constraints=3 front_clearance=0.38m
+[INFO] [1792878567.640642430] [costmap_boundary_node]: n_constraints=3 front_clearance=0.38m
+[INFO] [1792878569.645237068] [costmap_boundary_node]: n_constraints=3 front_clearance=0.38m
+[INFO] [1792878570.870351429] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-58-53_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878571.651773840] [costmap_boundary_node]: n_constraints=3 front_clearance=3.43m
+[INFO] [1792878573.674054020] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T14-00-39_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878573.866705689] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878575.875061795] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878577.876250476] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878579.882777937] [costmap_boundary_node]: n_constraints=3 front_clearance=3.35m
+[INFO] [1792878581.885233836] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878589.365318422] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T14-03-25_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878589.942565176] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878591.943083679] [costmap_boundary_node]: n_constraints=3 front_clearance=1.51m
+[INFO] [1792878593.945540306] [costmap_boundary_node]: n_constraints=3 front_clearance=0.52m
+[INFO] [1792878595.955534285] [costmap_boundary_node]: n_constraints=3 front_clearance=0.61m
+[INFO] [1792878597.956624210] [costmap_boundary_node]: n_constraints=3 front_clearance=0.61m
+[INFO] [1792878599.965725942] [costmap_boundary_node]: n_constraints=3 front_clearance=0.57m
+[INFO] [1792878601.968885800] [costmap_boundary_node]: n_constraints=3 front_clearance=0.56m
+[INFO] [1792878603.988368427] [costmap_boundary_node]: n_constraints=3 front_clearance=0.56m
+[INFO] [1792878605.993521761] [costmap_boundary_node]: n_constraints=3 front_clearance=0.56m
+[INFO] [1792878607.997349326] [costmap_boundary_node]: n_constraints=3 front_clearance=0.56m
+[INFO] [1792878610.012297200] [costmap_boundary_node]: n_constraints=3 front_clearance=0.56m
+[INFO] [1792878612.014717384] [costmap_boundary_node]: n_constraints=3 front_clearance=0.56m
+bag 121/235: {"maps": 450, "poses": 73570, "diffs": 0, "py_raised": 0, "constraints": 220239, "empty": 0}
+[INFO] [1792878614.030972702] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T14-14-24_mission-llm_plan_1789136064/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878614.717657585] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878616.719091913] [costmap_boundary_node]: n_constraints=3 front_clearance=3.00m
+[INFO] [1792878618.722225683] [costmap_boundary_node]: n_constraints=3 front_clearance=0.57m
+[INFO] [1792878620.725322453] [costmap_boundary_node]: n_constraints=3 front_clearance=0.44m
+[INFO] [1792878622.728723686] [costmap_boundary_node]: n_constraints=3 front_clearance=0.44m
+[INFO] [1792878624.728861578] [costmap_boundary_node]: n_constraints=3 front_clearance=0.43m
+[INFO] [1792878626.731593018] [costmap_boundary_node]: n_constraints=3 front_clearance=0.70m
+[INFO] [1792878628.732456398] [costmap_boundary_node]: n_constraints=3 front_clearance=0.70m
+[INFO] [1792878630.733158417] [costmap_boundary_node]: n_constraints=3 front_clearance=0.16m
+[INFO] [1792878632.733225884] [costmap_boundary_node]: n_constraints=3 front_clearance=0.11m
+[INFO] [1792878633.986812575] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T16-11-08_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878634.734246646] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878636.734804825] [costmap_boundary_node]: n_constraints=3 front_clearance=0.30m
+[INFO] [1792878638.737402586] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878640.738858822] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878642.742190079] [costmap_boundary_node]: n_constraints=3 front_clearance=3.18m
+[INFO] [1792878643.782146518] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T16-16-35_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878644.746475045] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878646.747447805] [costmap_boundary_node]: n_constraints=3 front_clearance=2.34m
+[INFO] [1792878648.765345336] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-26-04_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878649.049490107] [costmap_boundary_node]: n_constraints=3 front_clearance=3.79m
+[INFO] [1792878651.052653442] [costmap_boundary_node]: n_constraints=3 front_clearance=3.79m
+[INFO] [1792878653.055664249] [costmap_boundary_node]: n_constraints=3 front_clearance=3.79m
+[INFO] [1792878655.058619701] [costmap_boundary_node]: n_constraints=3 front_clearance=3.79m
+[INFO] [1792878657.058690099] [costmap_boundary_node]: n_constraints=3 front_clearance=3.79m
+[INFO] [1792878659.059626808] [costmap_boundary_node]: n_constraints=3 front_clearance=3.79m
+[INFO] [1792878661.062533366] [costmap_boundary_node]: n_constraints=3 front_clearance=3.79m
+[INFO] [1792878663.062967094] [costmap_boundary_node]: n_constraints=3 front_clearance=3.79m
+[INFO] [1792878663.979507210] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-28-28_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878665.063138805] [costmap_boundary_node]: n_constraints=3 front_clearance=3.77m
+[INFO] [1792878667.063149645] [costmap_boundary_node]: n_constraints=3 front_clearance=3.77m
+[INFO] [1792878669.064427738] [costmap_boundary_node]: n_constraints=3 front_clearance=3.77m
+[INFO] [1792878671.064626761] [costmap_boundary_node]: n_constraints=3 front_clearance=3.77m
+[INFO] [1792878673.065047996] [costmap_boundary_node]: n_constraints=3 front_clearance=3.77m
+[INFO] [1792878675.066612250] [costmap_boundary_node]: n_constraints=3 front_clearance=3.77m
+[INFO] [1792878677.550319287] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-32-08_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878677.829593002] [costmap_boundary_node]: n_constraints=3 front_clearance=1.54m
+[INFO] [1792878679.831062866] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878681.831395234] [costmap_boundary_node]: n_constraints=3 front_clearance=0.17m
+[INFO] [1792878683.833953152] [costmap_boundary_node]: n_constraints=3 front_clearance=0.20m
+[INFO] [1792878685.834793217] [costmap_boundary_node]: n_constraints=3 front_clearance=0.20m
+[INFO] [1792878687.838602612] [costmap_boundary_node]: n_constraints=3 front_clearance=0.20m
+[INFO] [1792878689.840629799] [costmap_boundary_node]: n_constraints=3 front_clearance=0.20m
+[INFO] [1792878691.841906616] [costmap_boundary_node]: n_constraints=3 front_clearance=0.20m
+[INFO] [1792878692.751650160] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-37-48_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878693.843097721] [costmap_boundary_node]: n_constraints=3 front_clearance=1.63m
+[INFO] [1792878695.847830234] [costmap_boundary_node]: n_constraints=3 front_clearance=0.12m
+[INFO] [1792878697.850032308] [costmap_boundary_node]: n_constraints=3 front_clearance=0.12m
+[INFO] [1792878698.104490998] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-54-42_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878699.850597010] [costmap_boundary_node]: n_constraints=3 front_clearance=0.03m
+[INFO] [1792878700.138174757] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T14-05-47_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878701.854444048] [costmap_boundary_node]: n_constraints=3 front_clearance=2.12m
+[INFO] [1792878702.289076650] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T14-07-58_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878703.857334967] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878705.862141455] [costmap_boundary_node]: n_constraints=3 front_clearance=2.55m
+[INFO] [1792878706.710079123] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-20-04_mission-llm_d364fea9685e/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878707.865022117] [costmap_boundary_node]: n_constraints=3 front_clearance=1.46m
+[INFO] [1792878709.865196686] [costmap_boundary_node]: n_constraints=3 front_clearance=0.18m
+[INFO] [1792878711.869361915] [costmap_boundary_node]: n_constraints=3 front_clearance=0.26m
+[INFO] [1792878713.634204123] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-22-38_mission-llm_d364fea9685e/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878713.873061890] [costmap_boundary_node]: n_constraints=3 front_clearance=2.92m
+[INFO] [1792878715.775350318] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-24-53_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878715.873113621] [costmap_boundary_node]: n_constraints=3 front_clearance=4.17m
+[INFO] [1792878716.548304935] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-29-53_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878717.877714010] [costmap_boundary_node]: n_constraints=3 front_clearance=2.08m
+[INFO] [1792878718.363558393] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-32-12_mission-llm_d364fea9685e/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878719.879392701] [costmap_boundary_node]: n_constraints=3 front_clearance=2.51m
+[INFO] [1792878722.289761159] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-42-05_mission-llm_d364fea9685e/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878722.486837898] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[INFO] [1792878724.488668998] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878726.491854128] [costmap_boundary_node]: n_constraints=3 front_clearance=0.04m
+[INFO] [1792878728.492083439] [costmap_boundary_node]: n_constraints=3 front_clearance=0.03m
+[INFO] [1792878729.996344720] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-47-59_mission-llm_18fef65c3e62/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878730.494159602] [costmap_boundary_node]: n_constraints=2 front_clearance=3.24m
+[INFO] [1792878732.495374616] [costmap_boundary_node]: n_constraints=3 front_clearance=2.29m
+[INFO] [1792878734.495484247] [costmap_boundary_node]: n_constraints=3 front_clearance=0.28m
+[INFO] [1792878736.500481913] [costmap_boundary_node]: n_constraints=3 front_clearance=0.28m
+[INFO] [1792878736.798177213] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-17T12-44-24_mission-go_to_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878737.394961037] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-17T12-59-58_mission-llm_f7c3305e21e1/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878738.502209426] [costmap_boundary_node]: n_constraints=3 front_clearance=3.86m
+[INFO] [1792878740.502501464] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878741.650664466] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-17T14-12-24_mission-llm_a32488caaaff/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878742.505421550] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+bag 141/235: {"maps": 569, "poses": 96739, "diffs": 0, "py_raised": 0, "constraints": 289609, "empty": 0}
+[INFO] [1792878743.849198383] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T11-32-15_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878744.508231360] [costmap_boundary_node]: n_constraints=3 front_clearance=0.88m
+[INFO] [1792878746.510458348] [costmap_boundary_node]: n_constraints=3 front_clearance=0.88m
+[INFO] [1792878747.097412704] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T11-37-16_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878747.653705885] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T11-38-24_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878747.861450898] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-24-55_mission-llm_86cff518e42d/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878748.513585169] [costmap_boundary_node]: n_constraints=3 front_clearance=3.15m
+[INFO] [1792878750.090570291] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-35-12_mission-llm_86cff518e42d/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878750.514454200] [costmap_boundary_node]: n_constraints=3 front_clearance=2.55m
+[INFO] [1792878752.514983440] [costmap_boundary_node]: n_constraints=3 front_clearance=0.10m
+[INFO] [1792878754.515599584] [costmap_boundary_node]: n_constraints=3 front_clearance=0.06m
+[INFO] [1792878756.248424064] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-37-10_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878756.519008647] [costmap_boundary_node]: n_constraints=3 front_clearance=3.54m
+[INFO] [1792878757.120522068] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-41-53_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878757.394887040] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-43-47_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878757.846826959] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-45-23_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878758.464130820] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-47-34_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878758.568069525] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-52-54_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878758.602344616] [costmap_boundary_node]: n_constraints=3 front_clearance=3.82m
+[INFO] [1792878759.270833412] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-55-11_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878759.908220585] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-57-14_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878760.605763335] [costmap_boundary_node]: n_constraints=3 front_clearance=2.58m
+[INFO] [1792878760.705274578] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-58-58_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878761.509882363] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T13-00-26_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878762.221409306] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T13-02-00_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878762.606728102] [costmap_boundary_node]: n_constraints=3 front_clearance=3.07m
+[INFO] [1792878762.876188377] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-16-25_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878763.010277247] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-19-13_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878763.307869061] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-21-08_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878763.906342863] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-30-53_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+bag 161/235: {"maps": 609, "poses": 101634, "diffs": 0, "py_raised": 0, "constraints": 304139, "empty": 0}
+[INFO] [1792878764.460582188] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-34-02_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878764.661686675] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-57-03_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878764.689494113] [costmap_boundary_node]: n_constraints=3 front_clearance=4.33m
+[INFO] [1792878765.257673056] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-23-22_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878766.323035488] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-25-27_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878766.692585189] [costmap_boundary_node]: n_constraints=3 front_clearance=2.27m
+[INFO] [1792878766.896370730] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-27-15_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878767.189112824] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-29-02_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878767.952930124] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-31-01_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878768.409869675] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-32-48_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878768.693314550] [costmap_boundary_node]: n_constraints=3 front_clearance=2.59m
+[INFO] [1792878769.094947910] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-37-43_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878769.732335775] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-38-59_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878770.277635020] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-23T15-00-02_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878770.812272620] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-23T15-12-28_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878770.892706329] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878772.893810711] [costmap_boundary_node]: n_constraints=3 front_clearance=3.96m
+[INFO] [1792878774.346101334] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-23T15-17-59_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878774.897420768] [costmap_boundary_node]: n_constraints=3 front_clearance=4.15m
+[INFO] [1792878776.902405559] [costmap_boundary_node]: n_constraints=3 front_clearance=3.00m
+[INFO] [1792878778.903655116] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878780.907140068] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878782.913347577] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878784.914923355] [costmap_boundary_node]: n_constraints=3 front_clearance=3.64m
+[INFO] [1792878786.262793647] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-47-02_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878786.972504405] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-49-14_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878787.006571889] [costmap_boundary_node]: n_constraints=3 front_clearance=2.51m
+[INFO] [1792878787.563788816] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-51-44_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878787.749139291] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-53-44_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878788.668122536] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-02-02_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878789.008645878] [costmap_boundary_node]: n_constraints=3 front_clearance=2.02m
+[INFO] [1792878791.011241587] [costmap_boundary_node]: n_constraints=3 front_clearance=0.36m
+[INFO] [1792878791.896702103] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-04-33_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878793.011355437] [costmap_boundary_node]: n_constraints=3 front_clearance=2.78m
+[INFO] [1792878795.014454084] [costmap_boundary_node]: n_constraints=3 front_clearance=0.14m
+[INFO] [1792878795.448614640] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-09-55_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878797.016648331] [costmap_boundary_node]: n_constraints=3 front_clearance=2.08m
+[INFO] [1792878799.020386060] [costmap_boundary_node]: n_constraints=3 front_clearance=2.08m
+bag 181/235: {"maps": 654, "poses": 108110, "diffs": 0, "py_raised": 0, "constraints": 323565, "empty": 0}
+[INFO] [1792878799.352630019] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-13-06_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878801.021178378] [costmap_boundary_node]: n_constraints=3 front_clearance=0.62m
+[INFO] [1792878802.728806703] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-15-33_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878803.024656407] [costmap_boundary_node]: n_constraints=3 front_clearance=2.15m
+[INFO] [1792878805.026093646] [costmap_boundary_node]: n_constraints=3 front_clearance=1.08m
+[INFO] [1792878806.970463157] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-19-28_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878807.097444512] [costmap_boundary_node]: n_constraints=3 front_clearance=2.29m
+[INFO] [1792878809.099859833] [costmap_boundary_node]: n_constraints=3 front_clearance=0.92m
+[INFO] [1792878810.926663167] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-22-01_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878811.105169930] [costmap_boundary_node]: n_constraints=3 front_clearance=1.92m
+[INFO] [1792878813.107020354] [costmap_boundary_node]: n_constraints=3 front_clearance=0.10m
+[INFO] [1792878814.013285371] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-24-22_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878815.109637425] [costmap_boundary_node]: n_constraints=3 front_clearance=1.23m
+[INFO] [1792878816.767604778] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-28-19_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878817.109751493] [costmap_boundary_node]: n_constraints=3 front_clearance=2.63m
+[INFO] [1792878817.959743486] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-30-03_mission-llm_d467d7d7ba04/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878819.612669763] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-31-28_mission-llm_d467d7d7ba04/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878819.763272799] [costmap_boundary_node]: n_constraints=3 front_clearance=3.38m
+[INFO] [1792878821.765285598] [costmap_boundary_node]: n_constraints=3 front_clearance=3.38m
+[INFO] [1792878823.844131394] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-34-28_mission-llm_d467d7d7ba04/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878823.885130918] [costmap_boundary_node]: n_constraints=3 front_clearance=2.80m
+[INFO] [1792878824.576571080] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-36-35_mission-llm_d467d7d7ba04/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878825.885345731] [costmap_boundary_node]: n_constraints=3 front_clearance=1.22m
+[INFO] [1792878826.235453001] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-38-17_mission-llm_d467d7d7ba04/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878827.423514565] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-39-54_mission-llm_d467d7d7ba04/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878827.886340964] [costmap_boundary_node]: n_constraints=3 front_clearance=2.26m
+[INFO] [1792878828.637283454] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-16-37_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878829.417737432] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-19-14_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878829.887992543] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878830.716455033] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-22-05_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878831.948345538] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-24-50_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878831.992891443] [costmap_boundary_node]: n_constraints=3 front_clearance=2.86m
+[INFO] [1792878833.695076056] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-29-36_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878833.994423382] [costmap_boundary_node]: n_constraints=3 front_clearance=2.06m
+[INFO] [1792878834.661293506] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-33-02_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878835.998353333] [costmap_boundary_node]: n_constraints=3 front_clearance=1.75m
+[INFO] [1792878836.541997589] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-36-57_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878838.000915179] [costmap_boundary_node]: n_constraints=3 front_clearance=1.52m
+[INFO] [1792878845.979124787] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-08T11-27-18_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878847.878888015] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878849.879757083] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878851.881815711] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878853.885422604] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878855.885540917] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878857.886977404] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878859.888180469] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878861.889984000] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878863.892630963] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878865.893714978] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878867.894378251] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878869.895889791] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878871.897876958] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878873.900824687] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878875.902007592] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878877.910651453] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878879.911854537] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878881.913681967] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878883.916009760] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878885.916876126] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878887.916928864] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878889.917192888] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878891.919481225] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878893.920186749] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878895.922874631] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878897.925468732] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878899.926220658] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878901.927676320] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878903.928765003] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878905.929751323] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+bag 201/235: {"maps": 784, "poses": 134772, "diffs": 0, "py_raised": 0, "constraints": 403523, "empty": 0}
+[INFO] [1792878908.454173206] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-08T11-34-26_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878908.806737804] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878910.807650263] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878912.808955643] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878914.811251423] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878916.813879013] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878918.814066905] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878920.761376899] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-08T11-39-35_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878920.814750161] [costmap_boundary_node]: n_constraints=3 front_clearance=3.34m
+[INFO] [1792878921.054434258] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-08T12-25-10_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878921.873605851] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-08T12-29-44_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878922.817440554] [costmap_boundary_node]: n_constraints=3 front_clearance=4.14m
+[INFO] [1792878924.818455346] [costmap_boundary_node]: n_constraints=3 front_clearance=4.15m
+[INFO] [1792878926.820038740] [costmap_boundary_node]: n_constraints=3 front_clearance=4.15m
+[INFO] [1792878928.790285457] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-13T11-10-47_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878928.905713237] [costmap_boundary_node]: n_constraints=3 front_clearance=4.50m
+[INFO] [1792878930.907636941] [costmap_boundary_node]: n_constraints=3 front_clearance=3.74m
+[INFO] [1792878932.487607366] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-13T11-17-36_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878932.908795163] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[INFO] [1792878934.996615938] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-13T11-33-21_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878935.052893276] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[INFO] [1792878936.625627634] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-13T15-05-41_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878937.053750098] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878939.056336958] [costmap_boundary_node]: n_constraints=3 front_clearance=2.32m
+[INFO] [1792878939.759349593] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-13T15-13-56_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878941.058659335] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878943.062396496] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878944.502235599] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-14T13-11-30_mission-llm_be55eb2392c4/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878945.063284777] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878945.921070075] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-14T13-12-37_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878946.761651575] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-14T13-15-20_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878947.233500576] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-15T15-18-27_mission-llm_86cff518e42d/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878947.300102546] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878949.677648932] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-21T12-25-22_mission-20261021T142038-bf7938.mission/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878949.753384882] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878951.516913186] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T12-05-38_mission-llm_5e38c1a86f41/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878951.793174464] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T12-07-54_mission-20261022T140738-2661d2.mission/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878951.868738667] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878952.877224844] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T12-09-17_mission-20261022T140856-2661d2.mission/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878953.739390294] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T12-11-04_mission-20261022T141051-bf7938.mission/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878953.912625401] [costmap_boundary_node]: n_constraints=3 front_clearance=4.54m
+[INFO] [1792878955.914692888] [costmap_boundary_node]: n_constraints=3 front_clearance=0.16m
+[INFO] [1792878958.360746045] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-35-30_mission-straight_until_potted_plant/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878958.543686609] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878960.544274829] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878962.549554539] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878963.085659333] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-41-16_mission-straight_until_potted_plant/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878964.553583683] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+bag 221/235: {"maps": 874, "poses": 147288, "diffs": 0, "py_raised": 0, "constraints": 440482, "empty": 0}
+[INFO] [1792878965.702539363] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-50-53_mission-person_then_potted_plant/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878966.555776101] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878966.634411977] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-54-01_mission-person_then_potted_plant/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878967.328542580] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-55-23_mission-person_then_potted_plant/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878968.559209489] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878970.138809482] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-56-20_mission-straight_until_potted_plant/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878970.562000961] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878972.444702923] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T15-40-33_mission-go_to_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878972.582347982] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878974.586582289] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878976.627335375] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T15-46-24_mission-go_to_person_1m/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878976.709545307] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878979.284257192] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T15-50-16_mission-go_to_person_1m/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878979.442156416] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878981.442870524] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792878983.153697246] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T13-55-40_mission-llm_38d747d91edf/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878983.445527973] [costmap_boundary_node]: n_constraints=3 front_clearance=0.22m
+[INFO] [1792878986.345466062] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-01-54_mission-llm_38d747d91edf/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878986.898663773] [costmap_boundary_node]: n_constraints=3 front_clearance=0.02m
+[INFO] [1792878988.899060406] [costmap_boundary_node]: n_constraints=3 front_clearance=0.02m
+[INFO] [1792878990.899441928] [costmap_boundary_node]: n_constraints=3 front_clearance=0.02m
+[INFO] [1792878992.900954874] [costmap_boundary_node]: n_constraints=3 front_clearance=0.02m
+[INFO] [1792878994.901050116] [costmap_boundary_node]: n_constraints=3 front_clearance=0.02m
+[INFO] [1792878996.109645389] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-08-26_mission-approach_wall_then_chair/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792878996.903580851] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[INFO] [1792878998.904659803] [costmap_boundary_node]: n_constraints=3 front_clearance=1.52m
+[INFO] [1792878999.560107261] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-09-11_mission-approach_wall_then_chair/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792879000.905972552] [costmap_boundary_node]: n_constraints=3 front_clearance=6.00m
+[INFO] [1792879001.220563678] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-09-51_mission-approach_wall_then_chair/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792879002.893813468] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-13-35_mission-approach_wall_then_chair/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792879003.114357434] [costmap_boundary_node]: n_constraints=3 front_clearance=3.25m
+[INFO] [1792879005.114744674] [costmap_boundary_node]: n_constraints=3 front_clearance=3.25m
+[INFO] [1792879007.152592487] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T15-26-28_mission-llm_ac24d6eb5bda/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792879007.206173435] [costmap_boundary_node]: n_constraints=3 front_clearance=1.14m
+{
+ "groups": {
+  "synthetic": {
+   "maps": 16,
+   "poses": 804,
+   "diffs": 0,
+   "py_raised": 0,
+   "constraints": 1975,
+   "empty": 48
+  },
+  "malformed": {
+   "maps": 6,
+   "poses": 7,
+   "diffs": 0,
+   "py_raised": 5,
+   "constraints": 0,
+   "empty": 1,
+   "intended": 1
+  },
+  "bag": {
+   "maps": 970,
+   "poses": 155353,
+   "diffs": 0,
+   "py_raised": 0,
+   "constraints": 464234,
+   "empty": 0
+  }
+ },
+ "max_normal_diff": 2.220446049250313e-16,
+ "max_offset_diff": 8.881784197001252e-16,
+ "max_clearance_ulps": 0,
+ "bitexact_constraints": 463062,
+ "compared_constraints": 466209,
+ "py_tick_ms": {
+  "p50": 4.10487549379468,
+  "p95": 7.6154940819833445,
+  "max": 60.528216999955475,
+  "n": 156164
+ }
+}
+TOTAL diffs 0; python raised on 5 poses
+## exit 0, 830 s

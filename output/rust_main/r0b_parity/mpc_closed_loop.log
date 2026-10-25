@@ -1,0 +1,37 @@
+## python3 src/f1tenth_control/mpc_controller/test/closed_loop_parity.py --json /home/andreas/dev_ws/f1tenth_more_r0b/output/rust_main/r0b_parity/closed_loop_parity.json (2026-10-24T23:42:56+02:00)
+PASS  approach/ahead 4 m/none            solves   61/  61  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  approach/ahead 4 m/footprint       solves   61/  61  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  approach/45 deg off, 4 m/none      solves   63/  63  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  approach/45 deg off, 4 m/footprint solves   63/  63  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  approach/70 deg off, 2.5 m/none    solves   38/  38  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  approach/70 deg off, 2.5 m/footprint solves   38/  38  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  approach/lateral 0.3 m/s, 8 s/none solves   85/  85  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  approach/lateral 0.3 m/s, 8 s/footprint solves   85/  85  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  approach/jitter 5 cm @ 12.5 Hz/none solves   59/  59  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  approach/jitter 5 cm @ 12.5 Hz/footprint solves   59/  59  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  person/legacy/0.0                  solves  250/ 250  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  person/legacy/0.3                  solves   73/  73  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  person/legacy/0.6                  solves   69/  69  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  person/footprint/0.0               solves   71/  71  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  person/footprint/0.3               solves   69/  69  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  person/footprint/0.6               solves   70/  70  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  speed/legacy/obs0/walls0           solves   87/  87  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  speed/legacy/obs0/walls4           solves   87/  87  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  speed/legacy/obs1/walls0           solves   91/  91  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  speed/legacy/obs1/walls4           solves   88/  88  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  speed/legacy/obs8/walls0           solves   88/  88  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  speed/legacy/obs8/walls4           solves   88/  88  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  speed/offset_free/obs0/walls0      solves   83/  83  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  speed/offset_free/obs0/walls4      solves   83/  83  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  speed/offset_free/obs1/walls0      solves   87/  87  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  speed/offset_free/obs1/walls4      solves   85/  85  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  speed/offset_free/obs8/walls0      solves   85/  85  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  speed/offset_free/obs8/walls4      solves   85/  85  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  direct/0                           solves    1/   1  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  direct/1                           solves    1/   1  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  direct/2                           solves    1/   1  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  direct/3                           solves    1/   1  sha =  pose 0.00e+00 m  yaw 0.00e+00
+golden SHA (py reference, 20 runs): py 20/20, rust 20/20 equal
+32/32 runs pass, 32 bit-identical; time in the rigs py 17.3 s, rust 3.6 s
+PASS
+## exit 0, 32 s

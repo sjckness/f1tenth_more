@@ -1,0 +1,80 @@
+## python3 tools/rust_parity/wall_tracker/parity_wall_tracker.py /home/andreas/bags/yolo_gpu/corridor10m_20261015T171753 --cycles every --json /home/andreas/dev_ws/f1tenth_more_r0b/output/rust_main/r0b_parity/wt_parity_every.json (2026-10-24T23:45:24+02:00)
+== /home/andreas/bags/yolo_gpu/corridor10m_20261015T171753 (every, rec, doors False)
+[INFO] [1792878326.913808006] [lidar_front_wall_node]: wall tracker: py (f1tenth_perception.multi_wall_tracker)
+[INFO] [1792878326.929986823] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall; door detection OFF
+[WARN] [1792878326.932259514] [rcl.logging_rosout]: Publisher already registered for node name: 'lidar_front_wall_node'. If this is due to multiple nodes with the same name then all logs for the logger named 'lidar_front_wall_node' will go out over the existing publisher. As soon as any node with that name is destructed it will unregister the publisher, preventing any further logs for that name from being published on the rosout topic.
+[INFO] [1792878326.941511772] [lidar_front_wall_node]: wall tracker: rust (f1tenth_wall_tracker_core 0.1.0, /home/andreas/dev_ws/f1tenth_more_r0b/install/f1tenth_wall_tracker_core/lib/f1tenth_wall_tracker_core/libf1tenth_wall_tracker_core.so, build: cargo profile debug, opt-level 3, debug_assertions on)
+[INFO] [1792878326.951163897] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall; door detection OFF
+[INFO] [1792878326.952869387] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792878326.963423633] [lidar_front_wall_node]: 3 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 171 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[INFO] [1792878326.965998865] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792878326.966632725] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792878326.970504655] [lidar_front_wall_node]: 3 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 171 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[INFO] [1792878326.972899724] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[WARN] [1792878327.224149313] [lidar_front_wall_node]: stereo columns +0.612 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878327.231107206] [lidar_front_wall_node]: stereo columns +0.612 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878329.057579787] [lidar_front_wall_node]: 1 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[WARN] [1792878329.064375605] [lidar_front_wall_node]: 1 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[WARN] [1792878331.980355451] [lidar_front_wall_node]: 4 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 174 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878331.986948225] [lidar_front_wall_node]: 4 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 174 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878335.215816133] [lidar_front_wall_node]: stereo columns +0.601 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878335.221399279] [lidar_front_wall_node]: stereo columns +0.601 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878336.993644310] [lidar_front_wall_node]: 3 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 177 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878337.001956509] [lidar_front_wall_node]: 3 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 177 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878339.659285135] [lidar_front_wall_node]: 1 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[WARN] [1792878339.666712050] [lidar_front_wall_node]: 1 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[WARN] [1792878340.226549135] [lidar_front_wall_node]: stereo columns +0.704 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878340.234346824] [lidar_front_wall_node]: stereo columns +0.704 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878342.013800240] [lidar_front_wall_node]: 3 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 172 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878342.020850774] [lidar_front_wall_node]: 3 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 172 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878345.376080860] [lidar_front_wall_node]: stereo columns +0.610 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878345.382102494] [lidar_front_wall_node]: stereo columns +0.610 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878345.936408612] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[WARN] [1792878345.941129008] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[INFO] [1792878345.999819883] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792878346.005617976] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792878346.460390072] [lidar_front_wall_node]: wall tracker: 1040 scans, per-scan ms p50 9.31 p95 12.16 max 15.26
+[INFO] [1792878346.468162387] [lidar_front_wall_node]: wall tracker: 1040 scans, per-scan ms p50 4.25 p95 5.35 max 26.56
+[WARN] [1792878347.199885816] [lidar_front_wall_node]: 2 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 123 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878347.206907503] [lidar_front_wall_node]: 2 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 123 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878350.219105297] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[WARN] [1792878350.224562814] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[INFO] [1792878350.275553467] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792878350.282585961] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792878350.309981004] [lidar_front_wall_node]: wall tracker: front track 341 dropped (gone); virtual wall CLEAR (strip 16.481579482527636)
+[INFO] [1792878350.315311583] [lidar_front_wall_node]: wall tracker: front track 341 dropped (gone); virtual wall CLEAR (strip 16.481579482527636)
+[WARN] [1792878350.381129174] [lidar_front_wall_node]: stereo columns +3.116 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878350.390652974] [lidar_front_wall_node]: stereo columns +3.116 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878350.931763187] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[WARN] [1792878350.938354728] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[INFO] [1792878351.020983562] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792878351.028685990] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[WARN] [1792878351.572275886] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[WARN] [1792878351.578689574] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[INFO] [1792878351.591681779] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792878351.598092860] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[WARN] [1792878352.209763285] [lidar_front_wall_node]: 6 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 234 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878352.218465988] [lidar_front_wall_node]: 6 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 234 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878354.768682167] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[WARN] [1792878354.776068831] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[INFO] [1792878354.788319913] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792878354.794187500] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[WARN] [1792878355.396098176] [lidar_front_wall_node]: stereo columns +2.872 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878355.405464052] [lidar_front_wall_node]: stereo columns +2.872 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878357.210610977] [lidar_front_wall_node]: 5 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 195 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878357.238545959] [lidar_front_wall_node]: 5 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 197 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878361.243719990] [lidar_front_wall_node]: stereo columns +0.628 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878361.250788211] [lidar_front_wall_node]: stereo columns +0.628 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[INFO] [1792878362.171159234] [lidar_front_wall_node]: wall tracker: 784 scans, per-scan ms p50 9.82 p95 12.17 max 18.67
+[INFO] [1792878362.179325952] [lidar_front_wall_node]: wall tracker: 784 scans, per-scan ms p50 4.35 p95 5.38 max 8.86
+[WARN] [1792878362.759532865] [lidar_front_wall_node]: 5 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 206 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878362.771223752] [lidar_front_wall_node]: 5 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 206 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878366.301914560] [lidar_front_wall_node]: 1 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[WARN] [1792878366.308340327] [lidar_front_wall_node]: 1 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[WARN] [1792878366.924602886] [lidar_front_wall_node]: stereo columns +0.608 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878366.931888004] [lidar_front_wall_node]: stereo columns +0.608 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[WARN] [1792878367.765239405] [lidar_front_wall_node]: 3 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 201 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792878367.773001623] [lidar_front_wall_node]: 3 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 201 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+   2292 cycles, 2292 tracker steps, 11477 track states, 14336 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 2292, 'p50': 9.5643, 'p95': 12.1232} rust {'n': 2292, 'p50': 4.3498, 'p95': 5.3446}; 45.0 s
+wrote /home/andreas/dev_ws/f1tenth_more_r0b/output/rust_main/r0b_parity/wt_parity_every.json
+## exit 0, 48 s

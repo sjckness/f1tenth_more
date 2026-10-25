@@ -1,0 +1,17 @@
+== substitute f1tenth_logger rerun (00:43:54, load 2.69)
+   5 failed, 331 passed, 8 warnings in 45.37s
+== capture f1tenth_logger rerun (00:44:40, load 2.13)
+   5 failed, 331 passed, 8 warnings in 44.93s
+f1tenth_logger   capture       336 tests  passed   331  failure   5  error   0  skipped   0  differs from py 0
+f1tenth_logger   py            336 tests  passed   331  failure   5  error   0  skipped   0  differs from py 0
+f1tenth_logger   rust          336 tests  passed   331  failure   5  error   0  skipped   0  differs from py 0
+f1tenth_logger   substitute    336 tests  passed   331  failure   5  error   0  skipped   0  differs from py 0
+f1tenth_params   capture        80 tests  passed    80  failure   0  error   0  skipped   0  differs from py 0
+f1tenth_params   py             80 tests  passed    80  failure   0  error   0  skipped   0  differs from py 0
+f1tenth_params   rust           80 tests  passed    80  failure   0  error   0  skipped   0  differs from py 0
+f1tenth_params   substitute     80 tests  passed    80  failure   0  error   0  skipped   0  differs from py 0
+mpc_controller   capture      1687 tests  passed  1669  failure  15  error   0  skipped   3  differs from py 0
+mpc_controller   py           1687 tests  passed  1669  failure  15  error   0  skipped   3  differs from py 0
+mpc_controller   rust         1687 tests  passed  1669  failure  15  error   0  skipped   3  differs from py 0
+mpc_controller   substitute   1687 tests  passed  1669  failure  15  error   0  skipped   3  differs from py 0
+IDENTICAL OUTCOMES
