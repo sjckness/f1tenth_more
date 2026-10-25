@@ -251,8 +251,10 @@ RUN apt-get update \
 FROM ros AS py
 # PEP 668: system-wide pip on 24.04. Order: apt (above), then pip with the
 # constraints, then `pip check` and the no-PyPI-CUDA check, both fatal.
+# Long timeout and retries: the Orin downloads over Wi-Fi, and a PyPI read
+# timeout killed the first build on the Orin (2026-10-25).
 ENV PIP_BREAK_SYSTEM_PACKAGES=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_CONSTRAINT=/etc/pip-constraints.txt
+    PIP_CONSTRAINT=/etc/pip-constraints.txt PIP_DEFAULT_TIMEOUT=120 PIP_RETRIES=10
 COPY constraints.txt /etc/pip-constraints.txt
 RUN --mount=type=bind,from=inputs,source=torch-2.8.0-cp312-cp312-linux_aarch64.whl,target=/tmp/w/torch-2.8.0-cp312-cp312-linux_aarch64.whl \
     --mount=type=bind,from=inputs,source=torchvision-0.23.0-cp312-cp312-linux_aarch64.whl,target=/tmp/w/torchvision-0.23.0-cp312-cp312-linux_aarch64.whl \
