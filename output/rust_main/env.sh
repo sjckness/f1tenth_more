@@ -1,13 +1,22 @@
 # Build/test environment for branch main-jazzy-rust on linus (bash; source it).
 #   source output/rust_main/env.sh; cd $WS
-# jc_env: linus apt-gap underlay (slam_toolbox, py_trees_ros, topic_tools) + jc_venv on PYTHONPATH
-# rust_underlay: test_msgs for rclrs 0.7 (ros2_rust#557 workaround; build time only)
+# WS is the worktree this file is in. Since 2026-10-24 (R0b) linus's ros-jazzy-* come from the
+# ROS snapshot 2026-09-11 (tools/linus/ros_snapshot_move.sh): slam_toolbox, py_trees_ros,
+# topic_tools, test_msgs and serial_driver are apt packages, so no user-space underlay is
+# sourced (jc_deps_ws and rust_underlay were built against the old apt set; never source them
+# again). jc_venv stays on PYTHONPATH for the pip-only deps (osqp, pyarrow, ultralytics, torch).
+# src/rust/build_env.sh: QDLDL for osqp-sys from src/rust/third_party (no network).
 set +u
-source "$HOME/dev_ws/jc_env.sh"
-source "$HOME/dev_ws/rust_underlay/install/local_setup.bash"
+source /opt/ros/jazzy/setup.bash
+_site="$HOME/dev_ws/jc_venv/lib/python3.12/site-packages"
+case ":${PYTHONPATH:-}:" in *":$_site:"*) ;; *) export PYTHONPATH="$_site${PYTHONPATH:+:$PYTHONPATH}";; esac
+unset _site
 export PATH="$HOME/.cargo/bin:$PATH"
-export WS=/home/andreas/dev_ws/f1tenth_more_rust
-export SKIP="$(cat $WS/output/jazzy_port/linus_skip.txt | tr '\n' ' ')"
+WS=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+export WS
+SKIP="$(tr '\n' ' ' < "$WS/output/jazzy_port/linus_skip.txt")"
+export SKIP
+source "$WS/src/rust/build_env.sh"
 [ -f "$WS/install/setup.bash" ] && source "$WS/install/setup.bash"
 # Build:  colcon build --symlink-install --packages-ignore $SKIP        (never two colcon builds at once in $WS)
 # Tests (isolated DDS, never the live graph):

@@ -16,16 +16,11 @@ name = "costmap_boundary_replay"
 path = "src/bin/costmap_boundary_replay.rs"
 
 [dependencies]
-# See ../Cargo.toml for why exactly 0.7.0.
-rclrs = "=0.7.0"
-builtin_interfaces = "*"
-std_msgs = "*"
-nav_msgs = "*"
-geometry_msgs = "*"
-f1tenth_messages = "*"
-# ros2-rust/ros2_rust#557 (see f1tenth_proximity_guard/Cargo.toml).
-example_interfaces = "*"
-test_msgs = "*"
+# See ../Cargo.toml for these two pins.
+rclrs = "=0.8.0"
+# Every message type (builtin_interfaces, std_msgs, nav_msgs, and the
+# workspace's f1tenth_messages), as ros_env::<package>::msg::<Type>.
+ros-env = "=0.3.0"
 serde = { version = "1", features = ["derive"] }
 # float_roundtrip: correctly rounded float parsing. The default parser can be
 # 1 ulp off, which the parity harness would read as an extraction difference.

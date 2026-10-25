@@ -1,0 +1,133 @@
+{
+ "runs": [
+  {
+   "bag": "/home/andreas/bags/corridor10m_20261016T144537",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "doors": true,
+   "cycles": 703,
+   "stepped": 703,
+   "cycles_with_diff": 0,
+   "state_diffs": 0,
+   "message_diffs": 0,
+   "debug_diffs": 0,
+   "max_abs_diff": 0.0,
+   "bit_only_equal": 0,
+   "first_diffs": [],
+   "messages_compared": 5623,
+   "tracks_compared": 2469,
+   "max_tracks": 7,
+   "confirmed_track_steps": 2185,
+   "front_steps": 495,
+   "rect_cycles": 0,
+   "door_cycles": 703,
+   "doors_seen": 0,
+   "roles": {
+    "unknown": 1146,
+    "left": 710,
+    "front": 539,
+    "right": 74
+   },
+   "tracker_ms": {
+    "py": {
+     "n": 703,
+     "p50": 9.5593,
+     "p95": 13.5451
+    },
+    "rust": {
+     "n": 703,
+     "p50": 4.2621,
+     "p95": 5.534
+    }
+   },
+   "wall_s": 17.1,
+   "identical": true
+  },
+  {
+   "bag": "/home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T14-35-30_mission-straight_until_potted_plant",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "doors": true,
+   "cycles": 286,
+   "stepped": 286,
+   "cycles_with_diff": 0,
+   "state_diffs": 0,
+   "message_diffs": 0,
+   "debug_diffs": 0,
+   "max_abs_diff": 0.0,
+   "bit_only_equal": 0,
+   "first_diffs": [],
+   "messages_compared": 2277,
+   "tracks_compared": 784,
+   "max_tracks": 8,
+   "confirmed_track_steps": 648,
+   "front_steps": 11,
+   "rect_cycles": 0,
+   "door_cycles": 286,
+   "doors_seen": 0,
+   "roles": {
+    "left": 305,
+    "right": 78,
+    "unknown": 382,
+    "front": 19
+   },
+   "tracker_ms": {
+    "py": {
+     "n": 286,
+     "p50": 9.9966,
+     "p95": 15.1545
+    },
+    "rust": {
+     "n": 286,
+     "p50": 4.482,
+     "p95": 6.3632
+    }
+   },
+   "wall_s": 7.2,
+   "identical": true
+  },
+  {
+   "bag": "/home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T15-50-16_mission-go_to_person_1m",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "doors": true,
+   "cycles": 293,
+   "stepped": 288,
+   "cycles_with_diff": 0,
+   "state_diffs": 0,
+   "message_diffs": 0,
+   "debug_diffs": 0,
+   "max_abs_diff": 0.0,
+   "bit_only_equal": 0,
+   "first_diffs": [],
+   "messages_compared": 2321,
+   "tracks_compared": 1460,
+   "max_tracks": 9,
+   "confirmed_track_steps": 1293,
+   "front_steps": 17,
+   "rect_cycles": 0,
+   "door_cycles": 293,
+   "doors_seen": 0,
+   "roles": {
+    "right": 299,
+    "unknown": 802,
+    "left": 331,
+    "front": 28
+   },
+   "tracker_ms": {
+    "py": {
+     "n": 288,
+     "p50": 13.3768,
+     "p95": 17.4329
+    },
+    "rust": {
+     "n": 288,
+     "p50": 5.964,
+     "p95": 7.6498
+    }
+   },
+   "wall_s": 9.9,
+   "identical": true
+  }
+ ]
+}

@@ -1,0 +1,24 @@
+# 2026-10-25T00:08:15+02:00 colcon test --packages-select f1tenth_proximity_guard f1tenth_costmap_boundary_rs f1tenth_hard_stop_rs f1tenth_mpc_core f1tenth_wall_tracker_core (after the build.rs fix)
+Starting >>> f1tenth_wall_tracker_core
+Starting >>> f1tenth_costmap_boundary_rs
+Starting >>> f1tenth_hard_stop_rs
+Finished <<< f1tenth_wall_tracker_core [0.32s]
+Starting >>> f1tenth_mpc_core
+Finished <<< f1tenth_mpc_core [0.25s]
+Starting >>> f1tenth_proximity_guard
+[Processing: f1tenth_costmap_boundary_rs, f1tenth_hard_stop_rs, f1tenth_proximity_guard]
+[Processing: f1tenth_costmap_boundary_rs, f1tenth_hard_stop_rs, f1tenth_proximity_guard]
+Finished <<< f1tenth_costmap_boundary_rs [1min 12s]
+Finished <<< f1tenth_proximity_guard [1min 11s]
+Finished <<< f1tenth_hard_stop_rs [1min 13s]
+
+Summary: 5 packages finished [1min 20s]
+# colcon test exit 0
+# f1tenth_proximity_guard: unit=pass fmt=pass
+# f1tenth_costmap_boundary_rs: unit=pass fmt=pass
+# f1tenth_hard_stop_rs: unit=pass fmt=pass
+# f1tenth_mpc_core: unit=pass fmt=pass
+# f1tenth_wall_tracker_core: unit=pass fmt=pass
+# cargo gates exit 0
+# install checks exit 0
+# done 2026-10-25T00:09:46+02:00

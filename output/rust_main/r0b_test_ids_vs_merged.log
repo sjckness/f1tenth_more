@@ -1,0 +1,56 @@
+| Package | Tests | Pass | Failures | Errors | Skipped |
+|---|---:|---:|---:|---:|---:|
+| corridor_perception | 95 | 76 | 0 | 0 | 19 |
+| f1tenth_behavior | 532 | 532 | 0 | 0 | 0 |
+| f1tenth_bringup | 92 | 89 | 3 | 0 | 0 |
+| f1tenth_comms | 73 | 73 | 0 | 0 | 0 |
+| f1tenth_control | 80 | 80 | 0 | 0 | 0 |
+| f1tenth_costmap | 409 | 409 | 0 | 0 | 0 |
+| f1tenth_ctl | 113 | 113 | 0 | 0 | 0 |
+| f1tenth_description | 22 | 22 | 0 | 0 | 0 |
+| f1tenth_diagnostics | 155 | 151 | 3 | 0 | 1 |
+| f1tenth_gateway | 111 | 75 | 0 | 0 | 36 |
+| f1tenth_hardware | 0 | 0 | 0 | 0 | 0 |
+| f1tenth_localization | 16 | 16 | 0 | 0 | 0 |
+| f1tenth_logger | 336 | 331 | 5 | 0 | 0 |
+| f1tenth_more | 0 | 0 | 0 | 0 | 0 |
+| f1tenth_navigation | 12 | 12 | 0 | 0 | 0 |
+| f1tenth_params | 80 | 80 | 0 | 0 | 0 |
+| f1tenth_perception | 1319 | 1319 | 0 | 0 | 0 |
+| f1tenth_telegram | 103 | 85 | 0 | 0 | 18 |
+| joy_teleop | 18 | 16 | 2 | 0 | 0 |
+| key_teleop | 3 | 3 | 0 | 0 | 0 |
+| llm | 336 | 298 | 14 | 0 | 24 |
+| mouse_teleop | 4 | 4 | 0 | 0 | 0 |
+| mpc_controller | 1687 | 1669 | 15 | 0 | 3 |
+| vesc_tuning | 16 | 16 | 0 | 0 | 0 |
+
+failures+errors: 42; NEW (not in baseline): 26
+  NEW failure f1tenth_diagnostics::f1tenth_diagnostics.test.test_copyright::test_copyright
+  NEW failure f1tenth_diagnostics::f1tenth_diagnostics.test.test_flake8::test_flake8
+  NEW failure f1tenth_diagnostics::f1tenth_diagnostics.test.test_pep257::test_pep257
+  NEW failure f1tenth_logger::f1tenth_logger.test.test_copyright::test_copyright
+  NEW failure f1tenth_logger::f1tenth_logger.test.test_flake8::test_flake8
+  NEW failure f1tenth_logger::f1tenth_logger.test.test_pep257::test_pep257
+  NEW failure f1tenth_logger::f1tenth_logger.test.test_campaign.test_robot_logger::test_the_upward_search_finds_the_workspace
+  NEW failure f1tenth_logger::f1tenth_logger.test.test_campaign.test_robot_logger::test_the_working_directory_is_never_consulted
+  NEW failure joy_teleop::joy_teleop.joy_teleop.test.test_flake8::test_flake8
+  NEW failure joy_teleop::joy_teleop.joy_teleop.test.test_parameter_failures::test_parameter_failures
+  NEW failure llm::llm.test.test_flake8::test_flake8
+  NEW failure llm::llm.test.test_intent_go_to.TestDisabledPlanner::test_a_go_to_answer_terminates_as_unsupported_not_exhaustion
+  NEW failure llm::llm.test.test_intent_go_to.TestDisabledPlanner::test_exhaustion_does_not_fall_back_to_the_last_valid_plan
+  NEW failure llm::llm.test.test_intent_go_to.TestDisabledPlanner::test_a_complied_refusal_prints_the_banner_it_always_printed
+  NEW failure llm::llm.test.test_intent_go_to.TestEnabledPlanner::test_a_go_to_answer_plans_first_time
+  NEW failure llm::llm.test.test_intent_go_to.TestEnabledPlanner::test_the_clamp_note_reaches_the_operator
+  NEW failure llm::llm.test.test_intent_go_to.TestEnabledPlanner::test_a_still_unsupported_request_keeps_the_banner
+  NEW failure llm::llm.test.test_intent_go_to.TestEnabledPlanner::test_ambiguity_and_unsupported_do_not_share_a_message
+  NEW failure llm::llm.test.test_pep257::test_pep257
+  NEW failure llm::llm.test.test_planner_path::test_an_invalid_intent_is_retried_then_succeeds
+  NEW failure llm::llm.test.test_planner_path::test_an_intent_that_never_validates_emits_no_mission
+  NEW failure llm::llm.test.test_planner_path::test_an_empty_plan_is_not_retried
+  NEW failure llm::llm.test.test_planner_path::test_a_v2_failure_never_falls_back_to_legacy
+  NEW failure llm::llm.test.test_planner_path::test_unsupported_is_carried_out_of_the_planner
+  NEW failure mpc_controller::mpc_controller.test.test_wall_turn_increment.TestCommitLead::test_the_lead_moves_the_trigger_out_by_exactly_the_lead
+  NEW failure mpc_controller::mpc_controller.test.test_wall_turn_increment.TestChatter::test_without_the_ratchet_the_same_jitter_would_retreat
+baseline failures of these packages that now pass: 1
+  FIXED failure f1tenth_bringup::f1tenth_bringup.test.test_rust_switches::test_stack_bringup_forwards_both_mpc_switches_to_navigation

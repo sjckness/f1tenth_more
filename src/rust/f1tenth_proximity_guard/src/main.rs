@@ -19,14 +19,16 @@ use std::process::ExitCode;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-use ackermann_msgs::msg::AckermannDriveStamped;
-use diagnostic_msgs::msg::{DiagnosticStatus, KeyValue};
 use rclrs::{
     log_error, log_info, log_warn, ClockType, Context, CreateBasicExecutor, IntoPrimitiveOptions,
     Node, Publisher, QoSProfile, RclrsErrorFilter, SpinOptions, ToLogParams,
 };
-use sensor_msgs::msg::LaserScan;
-use tf2_msgs::msg::TFMessage;
+// The generated message crates, compiled into ros-env (src/rust/Cargo.toml).
+use ros_env::ackermann_msgs::msg::AckermannDriveStamped;
+use ros_env::builtin_interfaces;
+use ros_env::diagnostic_msgs::msg::{DiagnosticStatus, KeyValue};
+use ros_env::sensor_msgs::msg::LaserScan;
+use ros_env::tf2_msgs::msg::TFMessage;
 
 use f1tenth_proximity_guard::build_info;
 use f1tenth_proximity_guard::decision::{

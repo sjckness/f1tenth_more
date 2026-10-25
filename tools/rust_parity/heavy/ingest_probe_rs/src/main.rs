@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use rclrs::{Context, CreateBasicExecutor, IntoPrimitiveOptions, QoSProfile, SpinOptions};
+use ros_env::sensor_msgs;
 
 #[derive(Default)]
 struct Count {

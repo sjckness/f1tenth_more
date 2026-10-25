@@ -8,10 +8,34 @@
 # inherit from, and colcon-ros-cargo then fails to parse it. Dependency
 # versions and lints are therefore repeated in every member.
 #
-# rclrs is pinned to =0.7.0 in every member: the newest release on
-# rosidl_runtime_rs 0.6, the runtime the installed rosidl_generator_rs
-# (ros-jazzy 0.4.11) generates message crates against. rclrs 0.8 needs
-# runtime 0.7 (generator 0.5).
+# The rclrs members pin rclrs =0.8.0 and ros-env =0.3.0 (R0b, 2026-10-24):
+# the versions for the ROS snapshot every machine shares
+# (snapshots.ros.org/jazzy/2026-09-11, ros-jazzy-rosidl-generator-rs 0.5.0:
+# linus, the Thor, the Orin image). Messages come through ros-env
+# (`use ros_env::sensor_msgs::msg::LaserScan`). Its build script include!()s
+# the generated sources of every interface package on AMENT_PREFIX_PATH
+# (share/<pkg>/rust, opted in by `[package.metadata.ros-env] include = true`)
+# and compiles them against its own rosidl_runtime_rs 0.7, the one rclrs 0.8
+# uses. cargo never resolves the generated crates' own Cargo.toml (which
+# says rosidl_runtime_rs = "0.6"), so the members declare no message crates.
+# What follows from that:
+# - an interface package is visible to a member only if its install prefix
+#   is on AMENT_PREFIX_PATH when the member builds. Each package.xml keeps
+#   its <depend>s for colcon's build order, and the image builds the Rust
+#   packages in a second colcon run after everything else
+#   (output/rust_main/r0b.md);
+# - ros-env compiles every interface package it finds (about 60), and one
+#   broken generated crate on the prefix breaks every rclrs member;
+# - rclrs 0.8 vendors no test_msgs / example_interfaces (0.6 and 0.7 did,
+#   ros2-rust/ros2_rust#557): neither is a dependency any more;
+# - colcon-ros-cargo still writes a [patch.crates-io] entry per generated
+#   crate into .cargo/config.toml. None is used; cargo records them as
+#   [[patch.unused]] in Cargo.lock on every build. Those blocks are
+#   machine-specific and are not committed (output/rust/setup.md).
+#
+# f1tenth_mpc_core's osqp-sys builds OSQP C with CMake, and OSQP's CMake
+# takes QDLDL from third_party/qdldl instead of github.com when
+# build_env.sh is sourced (third_party/README.md).
 [workspace]
 resolver = "2"
 members = [

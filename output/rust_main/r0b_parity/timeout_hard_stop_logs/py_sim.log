@@ -1,0 +1,56 @@
+[INFO] [1792880030.952623025] [hs_py_sim]: HARD STOP enabled: range <= 0.200 m from the laser at x=0.305 (bumper 0.405), debounce 2 scans, clear hold 0.50 s, self-mask x[-0.120,+0.425] y[-0.156,+0.156], stop -> /live/py_sim_stop as base_link/hard_stop, reverse allowed past an obstacle ahead
+[WARN] [1792880064.614676709] [hs_py_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792880064.640778195] [hs_py_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #1]
+[INFO] [1792880065.726704663] [hs_py_sim]: hard stop RELEASED after 0.50 s clear (trigger #1)
+[WARN] [1792880067.309087075] [hs_py_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792880067.335247319] [hs_py_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #2]
+[INFO] [1792880068.417271680] [hs_py_sim]: hard stop RELEASED after 0.50 s clear (trigger #2)
+[WARN] [1792880070.103565649] [hs_py_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792880070.131184040] [hs_py_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #3]
+[INFO] [1792880071.227631228] [hs_py_sim]: hard stop RELEASED after 0.50 s clear (trigger #3)
+[WARN] [1792880073.148081392] [hs_py_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792880073.174226389] [hs_py_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #4]
+[INFO] [1792880074.292294581] [hs_py_sim]: hard stop RELEASED on the clear hold with no further scans (trigger #4)
+[WARN] [1792880076.692994462] [hs_py_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792880076.719159413] [hs_py_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #5]
+[INFO] [1792880077.791650576] [hs_py_sim]: hard stop RELEASED on the clear hold with no further scans (trigger #5)
+[WARN] [1792880079.499033240] [hs_py_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792880079.523722163] [hs_py_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #6]
+[INFO] [1792880080.765746439] [hs_py_sim]: hard stop RELEASED after 0.50 s clear (trigger #6)
+[WARN] [1792880082.192228231] [hs_py_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792880082.218346874] [hs_py_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #7]
+[INFO] [1792880083.546002788] [hs_py_sim]: hard stop RELEASED on the clear hold with no further scans (trigger #7)
+[WARN] [1792880084.986850038] [hs_py_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792880085.013058622] [hs_py_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #8]
+[INFO] [1792880086.595556764] [hs_py_sim]: hard stop RELEASED on the clear hold with no further scans (trigger #8)
+[WARN] [1792880088.031407494] [hs_py_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792880088.057550120] [hs_py_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #9]
+[INFO] [1792880090.149737218] [hs_py_sim]: hard stop RELEASED after 0.50 s clear (trigger #9)
+[WARN] [1792880091.575948836] [hs_py_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792880091.602162993] [hs_py_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #10]
+[INFO] [1792880092.954197832] [hs_py_sim]: hard stop RELEASED after 0.50 s clear (trigger #10)
+[WARN] [1792880094.380722267] [hs_py_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792880094.406679014] [hs_py_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #11]
+[WARN] [1792880095.394889462] [hs_py_sim]: HARD STOP ENGAGED (40/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[INFO] [1792880096.434953154] [hs_py_sim]: hard stop RELEASED after 0.50 s clear (trigger #11)
+[WARN] [1792880097.861306772] [hs_py_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792880097.887683424] [hs_py_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #12]
+[WARN] [1792880098.875540080] [hs_py_sim]: HARD STOP ENGAGED (40/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[INFO] [1792880100.067227076] [hs_py_sim]: hard stop RELEASED on the clear hold with no further scans (trigger #12)
+[WARN] [1792880101.498033991] [hs_py_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792880101.524115680] [hs_py_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #13]
+[WARN] [1792880102.512155855] [hs_py_sim]: HARD STOP ENGAGED (40/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[INFO] [1792880103.968347727] [hs_py_sim]: hard stop RELEASED after 0.50 s clear (trigger #13)
+Traceback (most recent call last):
+  File "/home/andreas/dev_ws/f1tenth_more_r0b/install/f1tenth_control/lib/f1tenth_control/hard_stop_node", line 33, in <module>
+    sys.exit(load_entry_point('f1tenth-control', 'console_scripts', 'hard_stop_node')())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/andreas/dev_ws/f1tenth_more_r0b/build/f1tenth_control/f1tenth_control/hard_stop_node.py", line 276, in main
+    rclpy.shutdown()
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/__init__.py", line 134, in shutdown
+    _shutdown(context=context)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/utilities.py", line 82, in shutdown
+    context.shutdown()
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/context.py", line 129, in shutdown
+    self.__context.shutdown()
+rclpy._rclpy_pybind11.RCLError: failed to shutdown: rcl_shutdown already called on the given context, at ./src/rcl/init.c:333

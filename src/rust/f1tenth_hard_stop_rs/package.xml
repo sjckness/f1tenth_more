@@ -7,19 +7,14 @@
   <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
   <license>Apache-2.0</license>
 
+  <!-- The interface packages whose messages the node uses (through ros-env, src/rust/Cargo.toml):
+       Cargo.toml names none of them, so these tags are what makes colcon build and install them
+       before this package, and what puts their prefixes on its AMENT_PREFIX_PATH. -->
   <depend>builtin_interfaces</depend>
   <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>ackermann_msgs</depend>
-  <!-- ros2-rust/ros2_rust#557: rclrs 0.7 links these through its vendored
-       test crates; see output/rust/setup.md (test_msgs underlay). -->
-  <depend>example_interfaces</depend>
-  <depend>test_msgs</depend>
-  <!-- Not used by this crate (see f1tenth_proximity_guard/package.xml): cargo resolves EVERY
-       member of the src/rust workspace when it builds one, and colcon-ros-cargo patches only
-       the message crates visible to the package it builds. f1tenth_costmap_boundary_rs needs
-       the WORKSPACE-built f1tenth_messages, so without this line this package cannot build
-       alone, nor in a clean build that starts it before f1tenth_messages. -->
+  <!-- Not used by this crate; build order only (see f1tenth_proximity_guard/package.xml). -->
   <build_depend>f1tenth_messages</build_depend>
 
   <export>

@@ -25,13 +25,16 @@ use std::process::ExitCode;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
-use ackermann_msgs::msg::AckermannDriveStamped;
 use rclrs::{
     log_error, log_info, log_warn, Clock, ClockType, Context, CreateBasicExecutor,
     IntoPrimitiveOptions, IntoTimerOptions, Node, Publisher, QoSProfile, RclrsErrorFilter,
     ReadOnlyParameter, SpinOptions, TimerOptions, ToLogParams,
 };
-use sensor_msgs::msg::LaserScan;
+// The generated message crates, compiled into ros-env (src/rust/Cargo.toml).
+use ros_env::ackermann_msgs::msg::AckermannDriveStamped;
+use ros_env::builtin_interfaces;
+use ros_env::sensor_msgs::msg::LaserScan;
+use ros_env::std_msgs;
 
 use f1tenth_hard_stop_rs::build_info;
 use f1tenth_hard_stop_rs::config::{NodeParams, HARD_STOP_FRAME_ID};
@@ -106,7 +109,7 @@ impl Outputs {
 }
 
 /// The declared parameters' handles. rclrs undeclares a parameter when its
-/// handle is dropped (rclrs 0.7 parameter.rs, `Drop for ReadOnlyParameter`):
+/// handle is dropped (rclrs 0.7 and 0.8 parameter.rs, `Drop for ReadOnlyParameter`):
 /// kept for the node's lifetime so `ros2 param list/get` show all of them, as
 /// they show the Python node's.
 type Declared = RefCell<Vec<Box<dyn Any>>>;

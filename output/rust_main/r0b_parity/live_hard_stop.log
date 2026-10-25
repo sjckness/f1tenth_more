@@ -1,0 +1,128 @@
+## python3 tools/rust_parity/hard_stop/live_hard_stop_test.py --out /home/andreas/dev_ws/f1tenth_more_r0b/output/rust_main/r0b_parity/live_hard_stop.json --log-dir /home/andreas/dev_ws/f1tenth_more_r0b/output/rust_main/r0b_parity/live_hard_stop_logs (2026-10-25T00:13:14+02:00, load 3.03 4.95 5.20)
+ok   qos.scan_subscription
+ok   qos.drive_subscription
+ok   qos.teleop_subscription
+ok   qos.calibration_drive_subscription
+ok   qos.stop_publisher
+ok   qos.diag_publisher
+ok   params.all_listed
+ok   params.all_read_back
+ok   params.same_values
+ok   A_trigger.same_engage_scan
+ok   A_trigger.same_release_scan
+ok   A_trigger.identical_diags
+ok   A_trigger.stop_frame
+ok   A_trigger.stop_counts_close
+ok   A_trigger.first_stop_on_the_engaging_scan
+ok   B_dead_lidar.republished_through_the_gap
+ok   B_dead_lidar.released_on_the_hold
+ok   B_dead_lidar.same_release_time
+ok   B_dead_lidar.quiet_after
+ok   C_reverse_gate.quiet_while_reversing
+ok   C_reverse_gate.reclaimed_at_once
+ok   C_reverse_gate.same_passing_count
+ok   D_lane_timeout.lane_timeout
+ok   D_lane_timeout.same_time
+ok   alive_at_end
+ok   clean_shutdown
+{
+ "A_trigger": {
+  "scans_sent": 110,
+  "trip_scans": 39,
+  "py": {
+   "diags": 110,
+   "engage_scan": 25,
+   "release_scan": 82,
+   "trigger_count": 1,
+   "stops": 86,
+   "first_stop_after_2nd_trip_scan_ms": 0.95,
+   "last_stop_after_last_trip_scan_ms": 495.1,
+   "frame_ids": [
+    "base_link/hard_stop"
+   ],
+   "all_zero": true
+  },
+  "rs": {
+   "diags": 110,
+   "engage_scan": 25,
+   "release_scan": 82,
+   "trigger_count": 1,
+   "stops": 86,
+   "first_stop_after_2nd_trip_scan_ms": 0.53,
+   "last_stop_after_last_trip_scan_ms": 494.6,
+   "frame_ids": [
+    "base_link/hard_stop"
+   ],
+   "all_zero": true
+  },
+  "diag_sequences_identical": true,
+  "diag_differences": 0,
+  "checks": {
+   "same_engage_scan": true,
+   "same_release_scan": true,
+   "identical_diags": true,
+   "stop_frame": true,
+   "stop_counts_close": true,
+   "first_stop_on_the_engaging_scan": true
+  }
+ },
+ "B_dead_lidar": {
+  "py": {
+   "gap_stops": 10,
+   "last_gap_stop_ms": 464.8,
+   "stops_after_resume": 0
+  },
+  "rs": {
+   "gap_stops": 10,
+   "last_gap_stop_ms": 481.3,
+   "stops_after_resume": 0
+  },
+  "checks": {
+   "republished_through_the_gap": true,
+   "released_on_the_hold": true,
+   "same_release_time": true,
+   "quiet_after": true
+  }
+ },
+ "C_reverse_gate": {
+  "py": {
+   "stops_while_reversing": 0,
+   "reclaim_ms": 0.77,
+   "passing_reverse_diags": 38
+  },
+  "rs": {
+   "stops_while_reversing": 0,
+   "reclaim_ms": 0.52,
+   "passing_reverse_diags": 38
+  },
+  "checks": {
+   "quiet_while_reversing": true,
+   "reclaimed_at_once": true,
+   "same_passing_count": true
+  }
+ },
+ "D_lane_timeout": {
+  "py": {
+   "claim_again_ms": 208.8
+  },
+  "rs": {
+   "claim_again_ms": 200.9
+  },
+  "checks": {
+   "lane_timeout": true,
+   "same_time": true
+  }
+ },
+ "E_cpu": {
+  "py": {
+   "cpu_percent": 5.02
+  },
+  "rs": {
+   "cpu_percent": 0.99
+  },
+  "wall_s": 20.1,
+  "scan_hz": 40
+ }
+}
+PASS
+## exit 0, 36 s

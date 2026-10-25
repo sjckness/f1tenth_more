@@ -1,0 +1,322 @@
+{
+ "domain": "194",
+ "qos": {
+  "scan_subscription": {
+   "hs_py": [
+    "BEST_EFFORT",
+    "VOLATILE",
+    "UNKNOWN",
+    0
+   ],
+   "hs_rs": [
+    "BEST_EFFORT",
+    "VOLATILE",
+    "UNKNOWN",
+    0
+   ]
+  },
+  "drive_subscription": {
+   "hs_py": [
+    "RELIABLE",
+    "VOLATILE",
+    "UNKNOWN",
+    0
+   ],
+   "hs_rs": [
+    "RELIABLE",
+    "VOLATILE",
+    "UNKNOWN",
+    0
+   ]
+  },
+  "teleop_subscription": {
+   "hs_py": [
+    "RELIABLE",
+    "VOLATILE",
+    "UNKNOWN",
+    0
+   ],
+   "hs_rs": [
+    "RELIABLE",
+    "VOLATILE",
+    "UNKNOWN",
+    0
+   ]
+  },
+  "calibration_drive_subscription": {
+   "hs_py": [
+    "RELIABLE",
+    "VOLATILE",
+    "UNKNOWN",
+    0
+   ],
+   "hs_rs": [
+    "RELIABLE",
+    "VOLATILE",
+    "UNKNOWN",
+    0
+   ]
+  },
+  "stop_publisher": {
+   "py": [
+    [
+     "RELIABLE",
+     "VOLATILE",
+     "UNKNOWN",
+     0
+    ]
+   ],
+   "rs": [
+    [
+     "RELIABLE",
+     "VOLATILE",
+     "UNKNOWN",
+     0
+    ]
+   ]
+  },
+  "diag_publisher": {
+   "py": [
+    [
+     "RELIABLE",
+     "VOLATILE",
+     "UNKNOWN",
+     0
+    ]
+   ],
+   "rs": [
+    [
+     "RELIABLE",
+     "VOLATILE",
+     "UNKNOWN",
+     0
+    ]
+   ]
+  },
+  "checks": {
+   "scan_subscription": true,
+   "drive_subscription": true,
+   "teleop_subscription": true,
+   "calibration_drive_subscription": true,
+   "stop_publisher": true,
+   "diag_publisher": true
+  }
+ },
+ "params": {
+  "py": {
+   "names": [
+    "diag_topic",
+    "footprint_front_x_m",
+    "footprint_half_width_m",
+    "footprint_rear_x_m",
+    "footprint_self_margin_m",
+    "hard_stop_allow_reverse",
+    "hard_stop_clear_s",
+    "hard_stop_debounce_scans",
+    "hard_stop_enabled",
+    "hard_stop_range_m",
+    "hard_stop_republish_hz",
+    "lane_timeout_s",
+    "laser_x_m",
+    "scan_topic",
+    "start_type_description_service",
+    "stop_topic",
+    "use_sim_time"
+   ],
+   "values": {
+    "hard_stop_enabled": true,
+    "hard_stop_range_m": 0.2,
+    "hard_stop_debounce_scans": 2,
+    "hard_stop_clear_s": 0.5,
+    "hard_stop_republish_hz": 20.0,
+    "scan_topic": "/live/scan",
+    "stop_topic": "/live/py_stop",
+    "diag_topic": "/live/py_diag",
+    "footprint_front_x_m": 0.405,
+    "footprint_rear_x_m": -0.1,
+    "footprint_half_width_m": 0.136,
+    "footprint_self_margin_m": 0.02,
+    "laser_x_m": 0.305,
+    "hard_stop_allow_reverse": true,
+    "lane_timeout_s": 0.2
+   }
+  },
+  "rs": {
+   "names": [
+    "diag_topic",
+    "footprint_front_x_m",
+    "footprint_half_width_m",
+    "footprint_rear_x_m",
+    "footprint_self_margin_m",
+    "hard_stop_allow_reverse",
+    "hard_stop_clear_s",
+    "hard_stop_debounce_scans",
+    "hard_stop_enabled",
+    "hard_stop_range_m",
+    "hard_stop_republish_hz",
+    "lane_timeout_s",
+    "laser_x_m",
+    "scan_topic",
+    "stop_topic",
+    "use_sim_time"
+   ],
+   "values": {
+    "hard_stop_enabled": true,
+    "hard_stop_range_m": 0.2,
+    "hard_stop_debounce_scans": 2,
+    "hard_stop_clear_s": 0.5,
+    "hard_stop_republish_hz": 20.0,
+    "scan_topic": "/live/scan",
+    "stop_topic": "/live/rs_stop",
+    "diag_topic": "/live/rs_diag",
+    "footprint_front_x_m": 0.405,
+    "footprint_rear_x_m": -0.1,
+    "footprint_half_width_m": 0.136,
+    "footprint_self_margin_m": 0.02,
+    "laser_x_m": 0.305,
+    "hard_stop_allow_reverse": true,
+    "lane_timeout_s": 0.2
+   }
+  },
+  "checks": {
+   "all_listed": true,
+   "all_read_back": true,
+   "same_values": true
+  },
+  "differing": []
+ },
+ "A_trigger": {
+  "scans_sent": 110,
+  "trip_scans": 39,
+  "py": {
+   "diags": 110,
+   "engage_scan": 25,
+   "release_scan": 82,
+   "trigger_count": 1,
+   "stops": 86,
+   "first_stop_after_2nd_trip_scan_ms": 0.95,
+   "last_stop_after_last_trip_scan_ms": 495.1,
+   "frame_ids": [
+    "base_link/hard_stop"
+   ],
+   "all_zero": true
+  },
+  "rs": {
+   "diags": 110,
+   "engage_scan": 25,
+   "release_scan": 82,
+   "trigger_count": 1,
+   "stops": 86,
+   "first_stop_after_2nd_trip_scan_ms": 0.53,
+   "last_stop_after_last_trip_scan_ms": 494.6,
+   "frame_ids": [
+    "base_link/hard_stop"
+   ],
+   "all_zero": true
+  },
+  "diag_sequences_identical": true,
+  "diag_differences": 0,
+  "checks": {
+   "same_engage_scan": true,
+   "same_release_scan": true,
+   "identical_diags": true,
+   "stop_frame": true,
+   "stop_counts_close": true,
+   "first_stop_on_the_engaging_scan": true
+  }
+ },
+ "B_dead_lidar": {
+  "py": {
+   "gap_stops": 10,
+   "last_gap_stop_ms": 464.8,
+   "stops_after_resume": 0
+  },
+  "rs": {
+   "gap_stops": 10,
+   "last_gap_stop_ms": 481.3,
+   "stops_after_resume": 0
+  },
+  "checks": {
+   "republished_through_the_gap": true,
+   "released_on_the_hold": true,
+   "same_release_time": true,
+   "quiet_after": true
+  }
+ },
+ "C_reverse_gate": {
+  "py": {
+   "stops_while_reversing": 0,
+   "reclaim_ms": 0.77,
+   "passing_reverse_diags": 38
+  },
+  "rs": {
+   "stops_while_reversing": 0,
+   "reclaim_ms": 0.52,
+   "passing_reverse_diags": 38
+  },
+  "checks": {
+   "quiet_while_reversing": true,
+   "reclaimed_at_once": true,
+   "same_passing_count": true
+  }
+ },
+ "D_lane_timeout": {
+  "py": {
+   "claim_again_ms": 208.8
+  },
+  "rs": {
+   "claim_again_ms": 200.9
+  },
+  "checks": {
+   "lane_timeout": true,
+   "same_time": true
+  }
+ },
+ "E_cpu": {
+  "py": {
+   "cpu_percent": 5.02
+  },
+  "rs": {
+   "cpu_percent": 0.99
+  },
+  "wall_s": 20.1,
+  "scan_hz": 40
+ },
+ "alive_at_end": {
+  "py": true,
+  "rs": true
+ },
+ "shutdown": {
+  "py": "SIGINT, exit 1",
+  "rs": "SIGINT, exit -2"
+ },
+ "checks": {
+  "qos.scan_subscription": true,
+  "qos.drive_subscription": true,
+  "qos.teleop_subscription": true,
+  "qos.calibration_drive_subscription": true,
+  "qos.stop_publisher": true,
+  "qos.diag_publisher": true,
+  "params.all_listed": true,
+  "params.all_read_back": true,
+  "params.same_values": true,
+  "A_trigger.same_engage_scan": true,
+  "A_trigger.same_release_scan": true,
+  "A_trigger.identical_diags": true,
+  "A_trigger.stop_frame": true,
+  "A_trigger.stop_counts_close": true,
+  "A_trigger.first_stop_on_the_engaging_scan": true,
+  "B_dead_lidar.republished_through_the_gap": true,
+  "B_dead_lidar.released_on_the_hold": true,
+  "B_dead_lidar.same_release_time": true,
+  "B_dead_lidar.quiet_after": true,
+  "C_reverse_gate.quiet_while_reversing": true,
+  "C_reverse_gate.reclaimed_at_once": true,
+  "C_reverse_gate.same_passing_count": true,
+  "D_lane_timeout.lane_timeout": true,
+  "D_lane_timeout.same_time": true,
+  "alive_at_end": true,
+  "clean_shutdown": true
+ },
+ "pass": true
+}

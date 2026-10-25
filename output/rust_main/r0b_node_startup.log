@@ -1,0 +1,40 @@
+## proximity_guard_node: /home/andreas/dev_ws/f1tenth_more_r0b/install/f1tenth_proximity_guard/lib/f1tenth_proximity_guard/proximity_guard_node --ros-args -p base_front_x_m:=0.405
+-- ros2 node info (publishers)
+  Publishers:
+    /proximity_guard/decision: diagnostic_msgs/msg/DiagnosticStatus
+    /rosout: rcl_interfaces/msg/Log
+  Service Servers:
+-- exit 143 (SIGTERM; a background job of a script inherits SIGINT ignored)
+-- node output
+[INFO] [1792880399.524415587] [proximity_guard_node]: proximity_guard_node build: cargo profile debug, opt-level 3, debug_assertions on
+[INFO] [1792880399.528003994] [proximity_guard_node]: proximity_guard_node started: mode=shadow threshold=0.150 m from base_front (x=0.405 m), cone +-45.0 deg, scan timeout 200 ms (steady clock), max invalid fraction 0.50, decisions on /proximity_guard/decision (shadow: no commands)
+[WARN] [1792880399.578243011] [proximity_guard_node]: front proximity no_scan_yet: no /scan for 53 ms (timeout 200 ms)
+[WARN] [1792880401.628183482] [proximity_guard_node]: front proximity no_scan_yet: no /scan for 2103 ms (timeout 200 ms)
+[WARN] [1792880403.628526403] [proximity_guard_node]: front proximity no_scan_yet: no /scan for 4104 ms (timeout 200 ms)
+[WARN] [1792880405.678548058] [proximity_guard_node]: front proximity no_scan_yet: no /scan for 6154 ms (timeout 200 ms)
+## costmap_boundary_rs: /home/andreas/dev_ws/f1tenth_more_r0b/install/f1tenth_costmap_boundary_rs/lib/f1tenth_costmap_boundary_rs/costmap_boundary_node --ros-args -r __node:=costmap_boundary_rs -p base_front_x_m:=0.405 -p front_side_limit_m:=0.186 -p min_front_distance_m:=0.01
+-- ros2 node info (publishers)
+  Publishers:
+    /costmap/boundaries: f1tenth_messages/msg/BoundaryConstraintArray
+    /costmap/front_clearance: std_msgs/msg/Float32
+    /costmap/safe_corridor_report: std_msgs/msg/String
+    /rosout: rcl_interfaces/msg/Log
+  Service Servers:
+-- exit 143 (SIGTERM; a background job of a script inherits SIGINT ignored)
+-- node output
+[INFO] [1792880407.047303542] [costmap_boundary_rs]: costmap_boundary_node (Rust) build: cargo profile debug, opt-level 3, debug_assertions on
+[INFO] [1792880407.056998090] [costmap_boundary_rs]: costmap_boundary_node (Rust) started -- map_topic=/slam/map pose_topic=/ekf_global/odometry/filtered extraction_rate_hz=10.0 (publishes every tick from whatever is cached; empty/withheld only until a map and a pose have both arrived)
+[WARN] [1792880407.157096537] [costmap_boundary_rs]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1792880412.157482744] [costmap_boundary_rs]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+## hard_stop_node: /home/andreas/dev_ws/f1tenth_more_r0b/install/f1tenth_hard_stop_rs/lib/f1tenth_hard_stop_rs/hard_stop_node --ros-args -p footprint_front_x_m:=0.405 -p footprint_half_width_m:=0.15
+-- ros2 node info (publishers)
+  Publishers:
+    /rosout: rcl_interfaces/msg/Log
+    /safety/hard_stop: std_msgs/msg/String
+    /safety_stop: ackermann_msgs/msg/AckermannDriveStamped
+  Service Servers:
+-- exit 143 (SIGTERM; a background job of a script inherits SIGINT ignored)
+-- node output
+[INFO] [1792880414.417652274] [hard_stop_node]: hard_stop_node (rust) build: cargo profile debug, opt-level 3, debug_assertions on
+[INFO] [1792880414.428102769] [hard_stop_node]: HARD STOP enabled: range <= 0.200 m from the laser at x=0.305 (bumper 0.405), debounce 2 scans, clear hold 0.50 s, self-mask x[-0.120,+0.425] y[-0.170,+0.170], stop -> /safety_stop as base_link/hard_stop, reverse allowed past an obstacle ahead
+[INFO] [1792880414.428174746] [hard_stop_node]: hard_stop_node (rust): clock system time, republish every 50000000 ns on it, subscribed ["/scan", "/teleop", "/calibration_drive", "/drive"]
