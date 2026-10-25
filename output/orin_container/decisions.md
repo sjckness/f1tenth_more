@@ -373,3 +373,262 @@
   (`--which` and `status --json` give native). It is skipped when there is no docker CLI, when Docker does not
   answer, or when f1tenth_car exists. R: the round-1 bug passed its tests only because the fake imitated older
   Docker. The fakes now print Docker 29's texts (FAKE_DOCKER_STYLE=28 keeps the old ones as parametrized cases).
+- Q (round-1 fix, found while re-running the probes): `docker_orin restart --dry-run` passed `--dry-run` only to the
+  `up` half, so its `down` half stopped and removed a running container for real. D: `--dry-run` goes to both halves;
+  a dry restart of a running container then ends in up's "already runs" (exit 1), with nothing stopped. R: a dry
+  run must change nothing. A test now covers it.
+- Q: `docker_orin status`'s pin line used `$(docker image inspect -f ... || echo missing)` (Docker 29: "\nmissing")?
+  D: exit-code based like ctr_state; a missing tag prints "WARNING: the tag is not present". Also `--type container`
+  on the five `docker inspect` calls in docker_orin.sh that still lacked it (up's wait/history, status, engine,
+  report). R: the same empty-line form as the round-1 bug; w2.md says every container inspect is typed.
+
+## W2 manager review, round 2 (2026-10-25)
+- Rulings on the implementer's 7 round-2 questions, all accepted:
+  (1) Wrapper order: `docker inspect --type container` first, then `docker ps -a` with an exact name match only when
+      inspect fails: accepted. R: the container path stays at 2 Docker calls (P10 e-stop gate). Re-probed with the real
+      29.5.3 CLI: no container gives native; a missing socket gives native; a non-socket file gives native.
+  (2) Unanchored `--filter name=f1tenth_car` plus an exact match (awk `$1 == n` / `grep -xF`): accepted. R: correct
+      however Docker anchors the regex. The manager's mutation to a substring match fails the f1tenth_car_old test.
+  (3) Docker not answering is an error (exit 1), never "absent"; `stack_mode container` fails before touching the native
+      side; `native` goes on and the guard decides: accepted. R: re-probed with DOCKER_HOST=unix:///nonexistent.sock
+      (status/down rc 1 with the reason; container --dry-run rc 1 "nothing was changed"; native --dry-run goes on).
+  (4) `docker_orin wait-host` as ExecStartPre (120 s), TimeoutStartSec=420: accepted. R: testable, no systemd
+      escaping. 420 s covers the worst case: 120 s wait + up's 150 s health wait + a failed up's 120 s docker stop.
+  (5) A stale unit's stop is judged by the unit's state, not by the stop's exit code: accepted. R: the manager checked
+      with a transient user unit on linus (ExecStop exits 3). `systemctl --user stop` returns 0 and leaves the unit
+      "failed", so the WARN branch is only a safety net and `start` then works.
+  (6) `restart --dry-run` passes `--dry-run` to both halves: accepted. R: re-probed; no history line is written and
+      nothing is stopped.
+  (7) The `status` pin line uses the exit code; a missing tag prints a WARNING: accepted. R: re-probed with a pinned tag
+      that is gone.
+- Q (manager): p7_build.sh in w2.md section 4 runs `build.sh --dry-run`, which exits 0 even when it lists refusals,
+  and then starts the real build with "build started". D: minor, not blocking. The real build.sh refuses by itself (exit 1
+  in the nohup output), so nothing unsafe happens. Fix later: stop p7_build.sh unless the dry run prints
+  "0 refusal(s)" (or let build.sh --dry-run exit 1 on refusals). R: the operator should not read "build started" for a
+  build that refused.
+- Q (manager): `docker_orin down` runs the exec-process sweep whenever the role is not "car", so an empty or
+  unreadable role counts as the harness. The wrapper treats an empty role as the car. D: minor, not blocking. Fix later:
+  sweep only when the role is exactly "harness". R: compose always sets F1T_CONTAINER_ROLE, so only a container made by
+  hand or an inspect that fails mid-call reaches this; the worst effect is a stop out of order, never a second stack.
+- Q (manager): the unit's TimeoutStopSec=200 is shorter than `down`'s worst case (flock -w 150 + docker stop -t 120).
+  D: minor. That worst case needs a concurrent up/down holding the lock; raise TimeoutStopSec or shorten the wait when
+  it is next touched. R: a normal `down` takes docker stop's time (at most 120 s).
+- Note for the coordinator: the main-jazzy-rust worktree has untracked files that are not W2's: src/husarion_gz_worlds/
+  (a stray submodule checkout from 10-16), output/rust_main/env_r4.sh, env_r6.sh, output/rust_main/merged/new_failing.txt,
+  test.log. Commit W2 by path (the list in w2.md section 1), not with -A. docker/orin/__pycache__ and
+  docker/orin/tests/__pycache__ are gitignored.
+
+## W3 manager review, round 1 (2026-10-25)
+- Rulings on the implementer's 12 questions:
+  (1) Port subset (25 of 46 + lease_probe + the 5 spike gates): accepted. R: P9 compares native vs container on one Orin;
+      the Thor-reference studies and the removed nodes have nothing to compare there.
+  (2) "watchdog 0 false triggers" = the supervisor's process watchdog (0 respawns, 0 budget exhaustions): accepted.
+      R: it is the watchdog main-jazzy and the car have; checked against both supervisors' log strings.
+  (3) Discovery Server outliving the launch and a dead-pid logger lock reported, not gated (a live-pid lock fails):
+      accepted. R: both are reclaimed by design and behave the same on both sides. The shutdown tracebacks (double
+      SIGINT: "rcl_shutdown already called", KeyboardInterrupt) hit about 8 main-jazzy nodes, not only the logger; that
+      is a main-jazzy follow-up, not W3.
+  (4) MPC period from the wall-clock receive times of /mpc/solver_status, solve time from mpc_capture_node: accepted.
+      R: solve_dt_sec is 0.0 under sim time. Added: run >= 3 replays per side and record the same-side run-to-run ratio
+      beside the gate. The manager's two same-side replays on loaded linus gave p95 107.05 vs 115.45 ms (ratio 1.078).
+  (5) Replays from each side's production launch files, play/record lists from the graph, fixed lists for ekf_global
+      and slam: accepted. R: the lists cannot drift from either side's code.
+  (6) logger_check captures the sync request (PATH shim + F1TENTH_ARCHIVE_TRIGGER): accepted. R: never syncs from a
+      check; works for both loggers (the native one calls `systemctl` through PATH, checked on campaign-final).
+  (7) ds_probe gate on topics (a plain client sees node names, not topics): accepted. R: Jazzy behaviour, re-measured.
+  (8) colcon_test_ids.sh copies the sources into WORK and builds there: accepted. Put WORK in the harness container's
+      /tmp (docker data root on the NVMe) and copy failing_ids.txt / summary.md to output/. If the image has no
+      Rust toolchain, `--skip` the ament_cargo packages on BOTH sides. R: same procedure on both sides; results small.
+  (9) Where the harness sees the checkout: NOT as assumed. W2's compose.harness.yaml mounts only
+      $F1T_REPO/{scripts,tools,docker/orin/checks} read-only and $F1T_REPO/output read-write, all at the host path.
+      D: the D3 results root and the D3 input bags live under $REPO/output/orin_container/d3/<ts>/ (the same path on
+      both sides). d3_side.sh container mode refuses an OUT_DIR outside $REPO/output unless D3_PATH_MAP is set. No
+      change requested from W2. R: no cross-package change; /scratch/.../d3 is not mounted in the harness, so the
+      README's pattern fails at need_empty_dir on every container step.
+  (10) Engine vs .pt: same gates as torch vs torch; a miss is a D3 finding, not a relaxed gate: accepted. R: the plan
+      states no other tolerance.
+  (11) linus-only knobs CPU_REMAP, PARITY_IGNORE, scratch ackermann_mux overlay: accepted. They are never set on the
+      Orin. The manager reused the same overlay read-only for the re-run.
+  (12) shellcheck via pip shellcheck-py 0.11.0: accepted (W1 used pipx; same version).
+- Q (manager): in-image healthcheck path? D: /opt/f1tenth_ws/docker/orin/container/healthcheck.sh (lib_checks.sh's
+  F1T_HEALTHCHECK default must change). R: design.md contract (repo-relative docker/orin/container/, repo at
+  /opt/f1tenth_ws); W2's Dockerfile copies container/ there and its HEALTHCHECK runs it. The W3 default
+  /opt/f1tenth_ws/container/ would fail P8.1/8.13 on every cycle.
+- Q (manager): the plan's DS lease gate 4.4-4.7 s? D: parity_gates.py lease passes when every trial is in
+  [3.8, 5.5] s (lease 5 s, minus the 1 s announcement period and 0.2 s, plus 0.5 s check latency). Trials outside the
+  plan's 4.4-4.7 s are printed as a note; default 5 trials. R: removal-after-kill depends on where in the 1 s
+  announcement cycle the kill lands. The manager's two linus runs with the installed profile gave 4.156-5.010 s (2 of 2
+  FAIL on the plan's band). The 20 s default stays more than 14 s outside the widened band, so the check still proves
+  the 5 s profile is in effect.
+- Q (manager): harness missions (phase5_bringup step4/logger) trigger the real archive sync (native: systemctl via
+  PATH; container: the trigger file in compose.yaml's archive_trigger mount, which the harness inherits)? D: redirect it
+  as logger_check does: after CTL_ENV is sourced, set F1TENTH_ARCHIVE_TRIGGER=<run>/archive_trigger/request and put a
+  systemctl shim first in PATH; record what was requested. R: a parity run must not start a host rsync; harmless today,
+  but it is a side effect.
+- Q (manager): `docker inspect f1tenth_car` in lib_checks.sh / run_context.py without --type container? D: add
+  `--type container`. R: W2 fix-round ruling: an image/volume/network named f1tenth_car would otherwise answer.
+
+## W3 fix round 1 (implementer, 2026-10-25)
+- Q: Which harness knobs reach the container: only the ones named in D3_PASS (round 0), or a default list? D:
+  d3_side.sh passes every set harness knob of a fixed list (FEED BAG STACK_ARGS COMPONENTS_ARGS HOLD_SEC HOLD_LOOPS
+  WARMUP_S RATE_S SETTLE_S STABLE_S RUN_GAP KEY_TOPICS LIVE_MISSION LIVE_VESC_OK HARNESS_DOMAIN_ID DS_PORT
+  ALLOW_RUNNING_DS STACK_SUPER_CLIENT CLOCK_HZ LAYER_ARGS MPC_CPU_AFFINITY MPC_PARAMS PLAY_DELAY PLAY_RATE PLAY_TOPICS);
+  D3_PASS adds names; CPU_REMAP, PARITY_IGNORE and CTL_ENV are never passed; the values are recorded in d3_side.txt.
+  R: the native side inherits them anyway, so a forgotten D3_PASS made the two sides run differently (FEED unset in
+  the container = bag, which then aborts on BAG).
+- Q: Which d3_side arguments are path-checked in container mode? D: OUT_DIR, BAG and MPC_PARAMS must lie under
+  $REPO/output (D3_RW_ROOT; refused otherwise unless D3_PATH_MAP); any other absolute argument that exists on the
+  host but under none of the harness mounts (output/, scripts/, tools/, docker/orin/checks/) nor /dev, /proc,
+  /opt/f1tenth_ws gets a warning, not a refusal. The side checks (state, role, native processes) now run before
+  anything is written. R: those three are the paths the harness reads or writes by contract; a generic refusal
+  would block legitimate image paths; a refused run should leave no directory behind.
+- Q: docker_diff_allow.txt without the bind-mount globs: how are the changed parents (C /opt, C /opt/f1tenth_ws)
+  judged? D: docker_diff_check.py accepts a C entry only when an allowed entry of the same diff lies beneath it
+  (deepest first), instead of "a listed glob's prefix lies beneath it". R: the old rule passed parents of paths
+  that never changed; the new one follows what the diff shows. The bind-mount targets are listed in the file's
+  comment as never-allowed (an entry below a mount point = the mount is missing); the image creates every mount
+  point, so only the file mount points /etc/localtime and ~/.config/f1tenth_gateway/env are allowed.
+- Q: state_audit.sh in the harness role? D: refuse unless the container's role is car; a missing mission/volume dir
+  inside the container counts as a failure. R: the harness adds mount points that are not in the image (they would
+  show in docker diff), and P8.5 is about the car role; W2's Dockerfile creates every one of those dirs.
+- Q: FEED=live refusal: which devices? D: /dev/sensors/vesc and any /dev/ttyACM* (overridable with LIVE_VESC_DEVS for
+  the test); LIVE_VESC_OK=1 lets the run proceed. R: ttyACM is the VESC's class (major 166, compose.yaml); a false
+  refusal costs one variable, a missed VESC costs a car without an e-stop.
+- Q: P9.4 statistic over >= 3 replays: median of the per-replay p95, or the p95 of the pooled periods? D: the median
+  of the per-replay p95 (`--min-runs 3`, fewer fails), each side's max/min p95 spread printed beside the gate, solve
+  time tabled the same way. R: one slow replay moves a median less than a pooled tail; the spread is the run-to-run
+  noise floor the manager asked to show.
+- Q: P9.1 without a Rust toolchain: auto-skip the Rust packages, or refuse? D: colcon_test_ids.sh refuses without
+  `cargo` on PATH unless --skip-cargo is given, which skips every (ros.)ament_cargo / cargo package. R: an automatic
+  skip on one side only would give different test sets; an explicit flag is visible in both condition.txt files.
+- Q: The archive-sync redirect also without CTL_ENV (the plain `ros2 launch` path)? D: yes, on both start paths, plus
+  the environ snapshot records each process's F1TENTH_ARCHIVE_TRIGGER and first PATH entry. R: the plain path also
+  runs the logger; the snapshot proves the redirect reached every stack process.
+
+## R0b manager review, round 1 (2026-10-25)
+- Note: an earlier manager instance (scratch /tmp/claude-1000/manager_R0b/, 00:54-01:14) stopped mid-parity with its
+  session. This review re-ran every gate from nothing in /tmp/claude-1000/manager_R0b/run2/ against the same
+  sources (the worktree's last source change is 00:34). The worktree was not modified: `git status` hash and
+  Cargo.lock sha256 02efb461fca4... are the same before and after.
+- Gates re-run by the manager, all pass:
+  * Full build of an independent copy of the worktree (no .git/build/install/.cargo; GIT_ALLOW_PROTOCOL=file,
+    CARGO_NET_OFFLINE=true, proxies to a closed port, `colcon build --symlink-install --packages-ignore $SKIP`):
+    37 packages, exit 0, 244 s; Cargo.lock unchanged. Rebuild of the three rclrs packages with the workspace
+    sourced (the link-fix scenario): exit 0 (it appends 5 [[patch.unused]] blocks, as the implementer said).
+  * Image-like mirror (run2/mirror): phase A merge-install 31 packages, exit 0, 134 s; phase B, the 5
+    ament_cargo packages only, network closed as above: exit 0, 154 s; 2 [[patch.unused]] blocks; the tomllib
+    lock check with the patch table ignored exits 0, and 1 against the be849452 lock.
+  * Both installs: CLAUDE.md `ldd -r` scan empty (58 ELF), no Rust artefact with test_msgs/example_interfaces in
+    DT_NEEDED, no "not found", opt-level 3 from 3/3 replays, 2/2 cdylib build_info and 3/3 node startup logs.
+  * colcon test of the 5 Rust packages (the copy, workspace sourced): unit + fmt pass, 5/5.
+  * cargo (a copy of src/rust outside any colcon workspace): metadata --locked, fmt --check, clippy -D warnings
+    exit 0; cargo test 182 passed; lock unchanged; lock = 102 crates.io entries + the 5 members. Link fix:
+    old build.rs exit 101 ("unable to find library -lzed_msgs__rosidl_typesupport_c"), new exit 0.
+    ingest_probe_rs `cargo check --locked`: exit 0.
+  * QDLDL: `git ls-remote` v0.1.8 = 138fdac58b9c; a fresh clone `diff -r` identical to third_party/qdldl
+    (28 files, all 100644); its tree hash in a throwaway repo = 7bbce655e64e; none git-ignored. Every OSQP build
+    (copy, mirror, cargo) has `_deps` = qdldl-build only, and CMakeCache shows the toolchain file,
+    FETCHCONTENT_SOURCE_DIR_QDLDL = the vendored dir and FULLY_DISCONNECTED ON. Negative control (no
+    build_env.sh, GIT_ALLOW_PROTOCOL=file): exit 101, "transport 'https' not allowed", qdldl-subbuild appears.
+  * Offline parity on the manager's own build: compare_recorded.py 47/47 "ALL EQUAL TO RECORDED" (proximity
+    238 bags, trips 444/9,841/30,858, min_front 244,462/244,462 bit-identical; costmap 155,353 poses, 0 diffs,
+    463,062/466,209 bit-identical; hard_stop 1,130,585 ops, 0 diffs; mpc 26/26, L1/L2 42,909 QPs bit-identical,
+    L3 = R2; closed loop 32/32; corridor sweep + 3 corpora + rigs 20/20 x2; wall tracker numerics, fusion, 16 bag
+    runs, 0 differences); make_test_cases --check current.
+  * Live harnesses on the manager's build: live_guard (phase A 30 s) 237/237 trips stopped both sides,
+    shadow 0, B 36/36 stale stops (first 209.6 ms), C 1 stale stop after 100 ms (the window-edge effect the
+    implementer analysed, reproduced), D 40 invalid_beams; proximity timeout_parity 80/80 cells; live_costmap
+    phase values identical to R0; live_hard_stop PASS (50/50 check flags); hard_stop timeout_parity 23/23.
+  * Corridor suites (4 modes, the copy's run_corridor_tests.sh through the rewritten env.sh,
+    F1TENTH_TEST_DOMAIN=87): IDENTICAL OUTCOMES on the first pass, every test ID in all four modes (mpc_controller 1,687: 1,669 pass / 15 fail / 3 skipped; f1tenth_logger 336: 331 / 5; f1tenth_params 80: 80); capture mode 0 mismatches in all three packages; 2,286 s.
+  * colcon test of the worktree (every package but the 5 ament_cargo ones, whose cargo run would rewrite the
+    tracked Cargo.lock; domain 95, F1TENTH_TEST_DOMAIN=89): exit 0, 5,669 tests, 51 failures. Against
+    output/jazzy_main/test_failing_ids.txt, 6 new IDs: the implementer's 4, plus 2 in f1tenth_logger
+    test_logger_node_roundtrip (pre_roll, standstill_floor). Those 2 failed at load ~18 and pass 24/24 twice when
+    the module is re-run alone (load 5-6). That is a load flake; R0b changes no Python.
+- Rulings on the implementer's 14 questions, all accepted:
+  (1) ros-env consumption: accepted. Checked against ros-env 0.3.0's build.rs. It reads only
+      `[package.metadata.ros-env] include` and the `*` dependency names with cargo_toml, then include!()s
+      the sources into its own crate. All 56 /opt/ros/jazzy crates carry include = true, and no rust_packages
+      ament resource exists.
+  (2) Link fix in our three build.rs: accepted. Confirmed: rclrs 0.8.0's build.rs declares only
+      rerun-if-env-changed=ROS_DISTRO. Reproduced old-vs-new independently.
+  (3) Keep the guard's / hard_stop's <build_depend>f1tenth_messages: accepted (build order; task rule).
+  (4) f1tenth_mpc_core/package.xml stale comment left byte-identical: accepted. A comment-only follow-up after
+      R0b is committed.
+  (5) Dockerfile not edited: accepted. W2's working Dockerfile already consumes the contract exactly: it checks
+      src/rust/build_env.sh and third_party/qdldl, derives CMAKE_TOOLCHAIN_FILE_${triple//-/_}, runs phase B
+      with GIT_ALLOW_PROTOCOL=file, fails on qdldl-subbuild, and checks the lock with cargo_lock_check.py. None
+      of the obsolete phrases r0b.md section 4.1 lists are left in it, so section 4.1 is now only a
+      cross-check.
+  (6) ros_packages.txt unchanged: accepted (no comment syntax; fed to apt-get via $(cat)).
+  (7) Lock check ignoring the patch table, no --locked: accepted (equivalent to W2's cargo_lock_check.py).
+  (8) env.sh rewritten (no underlay, WS from its own path, build_env.sh): accepted. The corridor suites ran
+      through it in the manager's copy.
+  (9) ingest_probe_rs ported: accepted (cargo check --locked exit 0 outside any colcon workspace).
+  (10) Whole tag tree vendored: accepted (tree hash verified).
+  (11) "Equal to recorded" for timing-sensitive harnesses = decisions and outcomes, counts within one at a
+       window edge: accepted.
+  (12) Live guard phase C stop: accepted; reproduced in the manager's run with every phase A/B decision equal.
+  (13) Logger domain collision: accepted.
+  (14) The six interface packages ros-env has never compiled: accepted as the open risk for the first
+       RUST=build image. The fallback is RUST=skip.
+- Q: The 4 failing IDs outside both baselines: pre-existing? D: yes, none from R0b, which changes nothing
+  outside src/rust, tools and output. joy_teleop test_flake8 / test_parameter_failures: the jazzy_main baseline
+  has the package failing at collection ("error joy_teleop::joy_teleop::"), both IDs are in
+  output/rust/test_baseline_failing_ids.txt (2026-10-18), and the submodule is unchanged. The two
+  test_wall_turn_increment IDs (TestCommitLead, TestChatter ratchet) fail identically from `git archive`
+  extracts of be849452, main-jazzy 4bb39fb0 and main ca66fc27. R: proven by running them at the start commit.
+- Q (for the coordinator, outside R0b): the car-sync merge brought 2 failing wall_turn tests into main,
+  main-jazzy and main-jazzy-rust, although P1.3's gate claimed "failing IDs = baseline". D: R0b is not held for
+  it. The tests encode the pre-6137165f behaviour (CLAUDE.md "a test that never runs will contradict the
+  code"), so they need an update or an entry in output/mpc_known_failures.md by the car-sync owner. R: R0b does
+  not touch mpc_controller.
+- Manager housekeeping: the manager's `colcon list` created git-ignored src/rust/log (removed at once), and
+  `colcon test-result` wrote log/test-result_2026-10-25_08-54-48 (git-ignored colcon log). The implementer's
+  /tmp/claude-1000/r0b_mirror (2.7 GB) is left for the coordinator to delete.
+
+## W3 manager review, round 2 (2026-10-25)
+- Rulings on the implementer's 7 fix-round questions, all accepted:
+  (1) d3_side.sh passes every SET harness knob of a fixed list into the container, D3_PASS adds names, CPU_REMAP /
+      PARITY_IGNORE / CTL_ENV never: accepted. R: the native side inherits them anyway; a forgotten D3_PASS made the two
+      sides differ. Probed: values with spaces (STACK_ARGS="a:=1 b:=2") arrive intact, D3_PASS works, CPU_REMAP stays out.
+  (2) OUT_DIR, BAG, MPC_PARAMS refused outside output/ (D3_RW_ROOT) unless D3_PATH_MAP; other host-only argument paths
+      warned: accepted. R: those are the paths the harness reads/writes by contract. Probed: prefix trick (output_evil),
+      `..`, a symlink inside output/ pointing outside, MPC_PARAMS outside: all refused (rc 2) and no directory left.
+  (3) docker diff: a changed (C) parent passes only with an allowed entry of the same diff beneath it; bind-mount targets
+      never allowed; only /etc/localtime and the gateway env file allowed as file mount points: accepted. R: follows what
+      the diff shows; the list is reviewed on the first 10 min run anyway (P8.5).
+  (4) state_audit.sh refuses unless the role is car; a missing mission/volume dir fails: accepted. R: P8.5 is about the
+      car role; the harness adds mount points that are not in the image.
+  (5) FEED=live refused while /dev/sensors/vesc or any /dev/ttyACM* exists unless LIVE_VESC_OK=1: accepted. R: a false
+      refusal costs one variable, a missed VESC costs a car without an e-stop (compose bind-mounts /dev, so the check
+      works in the harness too).
+  (6) P9.4 = median over >= 3 replays per side of the per-replay p95, spread printed: accepted. R: robust to one slow
+      replay; probed with synthetic outputs (1.043 PASS, 1.057 FAIL, 2 replays FAIL).
+  (7) colcon_test_ids.sh refuses without cargo unless --skip-cargo, which skips (ros.)ament_cargo/cargo packages, on BOTH
+      sides: accepted. R: a silent one-sided skip gives different test sets. Re-run on the scratch fixture: refusal rc 2,
+      --skip-cargo skips the cargo package, one failing ID, results copied.
+- Q (manager): the README D3 pattern writes `export FEED=live LIVE_VESC_OK=1`, so a copy-paste always vouches for the ESC.
+  D: minor, fix when next touched: LIVE_VESC_OK=1 on its own line ("only with the VESC attached AND the ESC off"), and add the
+  VESC-unplugged variant (the plan's unattended P9): COMPONENTS_ARGS="--empty hardware" on both sides (vesc_driver.cpp calls
+  rclcpp::shutdown() when the port is missing), with --topics on the rates gate for the /odom-derived topics. R: the
+  refusal should stay a check, not a comment; the unplugged run should not depend on how a dead driver shows up.
+- Q (manager): d3_side.sh checks a RELATIVE BAG / MPC_PARAMS / OUT_DIR against the caller's cwd, but both sides run the
+  command from $REPO (native `cd "$REPO"`, container `-w $REPO_IN`). D: minor; resolve relative paths against $REPO (or
+  refuse them) when next touched. R: the README pattern uses absolute $R, and the README says to run from the checkout.
+- Q (manager): parity_gates.py mpc-timing takes every label carrying period_ms, which would include a `recorded:` label
+  (sim-time header periods in a replay). D: minor; default to wallrx-kind labels for period_ms. R: --label exists and the
+  README pattern feeds only wallrx + capture.
+- Q (manager): colcon_test_ids.sh builds the Rust packages (cargo present) without sourcing src/rust/build_env.sh. D: minor;
+  source "$WORK/src/rust/build_env.sh" when it exists and --skip-cargo is not given. R: without it osqp-sys fetches QDLDL
+  from github.com (works with host networking, but not the image's offline path).
+- Q (manager): phase5_bringup.sh's precheck still asks `docker ps -q -f name=^f1tenth_car$` (anchored filter) where the
+  checks use `docker inspect --type container`. D: minor, defense in depth only (d3_side native refuses through inspect,
+  and the precheck's process scan sees the container's ROS processes in the host PID namespace). Switch to inspect when
+  next touched. R: W2 round-2 ruling (exact names, no reliance on how Docker anchors the regex).
+- Verdict round 2: pass. Gates re-run by the manager: flake8/pep257 only the pre-existing test_results_summary.py findings
+  (identical at 627f5912), py3.10 39/39, shellcheck 0.11.0 rc 0 on 21 scripts, bash -n clean, pytest 47 passed, --help 55/55,
+  lease_probe installed [4.471-4.474] PASS + `none` 19.445 s FAIL, phase5_bringup logger with the REAL main-jazzy
+  ctl_container.env (stub jazzy.sh, trigger re-pointed to a decoy): smoke PASS, trigger in <run>/archive_trigger, decoy
+  empty, 48/48 processes redirected, nothing left running.
