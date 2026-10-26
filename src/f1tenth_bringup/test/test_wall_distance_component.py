@@ -73,12 +73,19 @@ def test_no_scan_consumer_is_in_the_perception_component():
         assert consumer not in perception, consumer
 
 
-# The /scan consumers that start only with their stack_params switch on
-# (default false): wall_distance since cpu-cleanup, swept_clearance since R3
-# (2026-10-23, no subscriber to /perception/swept_clearance).
+# The /scan consumers that start only with their stack_params switch.
+# wall_distance: off by default since cpu-cleanup. swept_clearance: off on
+# main-jazzy from R3 (2026-10-23, no subscriber to /perception/swept_clearance)
+# to 2026-10-26, then aligned back to the car's own behaviour -- it predates
+# this switch and starts swept_clearance_node unconditionally -- for the
+# on-car validation pass (params_delta.md): on by default since.
 _GATED_SCAN_CONSUMERS = {
     'wall_distance': 'enable_wall_distance',
     'swept_clearance': 'enable_swept_clearance',
+}
+_GATED_SCAN_CONSUMERS_DEFAULT = {
+    'enable_wall_distance': False,
+    'enable_swept_clearance': True,
 }
 
 
@@ -98,13 +105,13 @@ def test_every_scan_consumer_auto_starts_or_is_gated_on_its_switch():
             assert name in _ALWAYS_AUTO_START, name
 
 
-def test_the_gated_scan_consumers_default_off():
+def test_the_gated_scan_consumers_default_to_the_cars_behaviour():
     stack_params = os.path.join(
         os.path.dirname(__file__), '..', '..', 'f1tenth_params', 'config', 'stack_params.yaml')
     with open(stack_params) as f:
         params = yaml.safe_load(f)
     for key in _GATED_SCAN_CONSUMERS.values():
-        assert params[key]['default'] is False, key
+        assert params[key]['default'] is _GATED_SCAN_CONSUMERS_DEFAULT[key], key
 
 
 def test_no_component_holds_two_scan_consumers_either():

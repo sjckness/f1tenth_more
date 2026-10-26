@@ -374,8 +374,8 @@ perception_stage_timing:
 # ~87 % of a core. yolo_cpu_threads also sets OMP/MKL/OPENBLAS/OPENCV thread env
 # for the node's process (not set when 0).
 yolo_cpu_threads:
-  default: 2
-  description: "yolo_detector_node: torch intra/inter-op and cv2 thread pool size, plus OMP_NUM_THREADS/MKL_NUM_THREADS/OPENBLAS_NUM_THREADS/OPENCV_FOR_THREADS_NUM of its process. 2 = its two taskset cores. 0 = library defaults (one thread per core, the behaviour before 2026-10-22)."
+  default: 0
+  description: "yolo_detector_node: torch intra/inter-op and cv2 thread pool size, plus OMP_NUM_THREADS/MKL_NUM_THREADS/OPENBLAS_NUM_THREADS/OPENCV_FOR_THREADS_NUM of its process. 0 = library defaults (one thread per core), the car's behaviour before 2026-10-22 and today. 2 (its two taskset cores) was this default's value from 2026-10-22 to 2026-10-26, flipped to match the car for the on-car validation pass (params_delta.md); the image's CPU-budget case for 2 still applies and may need its own launch argument."
 # Consumed by: f1tenth_perception/detection.launch.py (front_clearance_node's
 # process env) and f1tenth_costmap/costmap.launch.py (semantic_layer_node's).
 # The same thread env as yolo_cpu_threads, set by launch (an OpaqueFunction):
@@ -390,11 +390,11 @@ semantic_layer_cpu_threads:
   default: 0
   description: "semantic_layer_node: N > 0 sets OMP_NUM_THREADS/MKL_NUM_THREADS/OPENBLAS_NUM_THREADS/OPENCV_FOR_THREADS_NUM of its process to N. 0 = none of them set (library defaults, one thread per core), as before 2026-10-23."
 yolo_cuda_blocking_sync:
-  default: true
-  description: "yolo_detector_node: CU_CTX_SCHED_BLOCKING_SYNC on the CUDA primary context, so a thread waiting for the GPU sleeps instead of spinning a core. false = CUDA's default (spin with one context)."
+  default: false
+  description: "yolo_detector_node: CU_CTX_SCHED_BLOCKING_SYNC on the CUDA primary context, so a thread waiting for the GPU sleeps instead of spinning a core. false = CUDA's default (spin with one context), the car's behaviour. true was this default's value from 2026-10-22 to 2026-10-26, flipped to match the car for the on-car validation pass (params_delta.md)."
 yolo_max_rate_hz:
-  default: 15.0
-  description: "yolo_detector_node: process at most this many frames per second (stamp-driven drop before any conversion; the 30 Hz ZED stream becomes 15 Hz). 0.0 = every frame the latest-frame QoS delivers."
+  default: 0.0
+  description: "yolo_detector_node: process at most this many frames per second (stamp-driven drop before any conversion; the 30 Hz ZED stream becomes 15 Hz at 15.0). 0.0 = every frame the latest-frame QoS delivers, the car's behaviour. 15.0 was this default's value from 2026-10-22 to 2026-10-26, flipped to match the car for the on-car validation pass (params_delta.md)."
 yolo_backend:
   default: pt
   description: "yolo_detector_node inference backend for a *.pt yolo_model: 'pt' (PyTorch on yolo_device) or 'engine' (the FP16 TensorRT engine exported from it by scripts/export_yolo_engine.sh on the Orin). A missing or failing engine logs a WARN and runs the *.pt on CUDA. Ignored when yolo_model itself is a *.engine."
@@ -402,8 +402,8 @@ yolo_engine_path:
   default: ''
   description: "TensorRT engine for yolo_backend 'engine'. Empty = next to the model: <models>/<yolo_model stem>.trt<TensorRT version>.fp16.engine (the name export_yolo_engine.sh writes)."
 yolo_gpu_pipeline:
-  default: true
-  description: "yolo_detector_node: letterbox, postprocessing, LiDAR-exclusion mask stats and the label image on the GPU (one upload, one small download + the mono8 mask per frame) instead of the Ultralytics call and numpy mask loops. Same outputs (smoke test 2026-10-22: identical detections and masks on 48 frames). false = the classic path, also the per-frame fallback on an error."
+  default: false
+  description: "yolo_detector_node: letterbox, postprocessing, LiDAR-exclusion mask stats and the label image on the GPU (one upload, one small download + the mono8 mask per frame) instead of the Ultralytics call and numpy mask loops. Same outputs (smoke test 2026-10-22: identical detections and masks on 48 frames). false = the classic path, also the per-frame fallback on an error, and the car's behaviour. true was this default's value from 2026-10-22 to 2026-10-26, flipped to match the car for the on-car validation pass (params_delta.md)."
 # Consumed by: f1tenth_perception (lidar.launch.py, perception.launch.py's standalone
 # duplicate). NOT read by f1tenth_navigation/nav2.launch.py -- it includes
 # lidar.launch.py with no override, so this default is what actually reaches Nav2's
@@ -1117,8 +1117,8 @@ enable_wall_distance:
 # registered and restartable by name; the swept_clearance_* keys below stay
 # (swept_clearance_body_half_width_m is read by six other modules).
 enable_swept_clearance:
-  default: false
-  description: "Start swept_clearance_node (/perception/swept_clearance, the steering-arc travel before body contact) with the stack. Off by default since 2026-10-23: nothing consumes it. `scripts/stackctl.py start swept_clearance` starts it on demand; true here starts it at boot as before."
+  default: true
+  description: "Start swept_clearance_node (/perception/swept_clearance, the steering-arc travel before body contact) with the stack. true starts it at boot, the car's behaviour today: it predates this switch and has no such flag. false was this default's value from 2026-10-23 to 2026-10-26 (nothing consumes the topic; `scripts/stackctl.py start swept_clearance` starts it on demand), flipped to match the car for the on-car validation pass (params_delta.md)."
 # All of the following are consumed by:
 # f1tenth_perception/launch/wall_distance.launch.py, forwarded to
 # wall_distance_node under their names without the wall_distance_ prefix.
