@@ -422,6 +422,16 @@ mission, same as native. `stack_live.sh` also samples
 under `min_battery_voltage` -- advisory, the same node that backs the BT's
 own runtime cutout (`f1tenth_diagnostics/battery_voltage_check_node.py`).
 
+Tested live on the Orin, 2026-10-26, Python/.pt defaults: ready in ~15 s;
+`/scan` ~16 Hz, `/camera/image_raw` ~11 Hz, `/camera/detections` ~5 Hz all
+publishing; `foxglove_bridge` listening on `0.0.0.0:8765`; battery
+11.77-11.78 V (min 10.80 V). Two things the scripts work around: `f1tenth_ctl`
+has no console-script on the container's PATH (only `ros2 run` indexes
+`install/lib/f1tenth_ctl/f1tenth_ctl`, so the scripts call that path
+directly), and plain `ros2 topic echo` / `hz` do not see this Fast DDS
+Discovery Server's publishers (CLAUDE.md) -- the battery and topic-rate
+checks go through `rclpy` directly instead.
+
 ## Configuration
 
 `src/f1tenth_params/config/stack_params.yaml` holds the default and the
