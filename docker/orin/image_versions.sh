@@ -23,8 +23,11 @@ echo "[rust]"
 if command -v rustc > /dev/null; then
   echo "rustc $(rustc --version | awk '{print $2}')"
   echo "cargo $(cargo --version | awk '{print $2}')"
-  echo "cargo_ament_build $(cargo install --list 2>/dev/null | awk '/^cargo-ament-build / {print $2}' | tr -d 'v:')"
-  pip list --format=freeze 2>/dev/null | grep -i -E '^colcon-(ros-)?cargo==' | sed 's/==/ /' | tr '-' '_'
+  # cargo install --list needs a write-capable open() on $CARGO_HOME/.crates.toml
+  # (root-owned 0644, not writable by the runtime user) and fails EACCES; the
+  # pip wheel the Dockerfile installs alongside the cargo-install binary, same
+  # version pin, has no such lock.
+  pip list --format=freeze 2>/dev/null | grep -i -E '^(cargo-ament-build|colcon-(ros-)?cargo)==' | sed 's/==/ /' | tr '-' '_'
 else
   echo "rustc none (RUST=skip image)"
 fi
