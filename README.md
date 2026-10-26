@@ -400,6 +400,28 @@ docker_orin status | shell | logs -f | engine | report
 - Base load on the Orin, same conditions: 24.8 % total CPU native Humble, 17.5 %
   in the container, mostly because Humble's Discovery Server burns 72 % of a core.
 
+**A live run with Foxglove**, `scripts/orin/` (each wraps the tools above --
+`stack_mode.sh` / `docker_orin.sh` -- and runs preflight.sh first: ZED on
+USB3, the lidar's Ethernet link, the VESC enumerated over USB):
+
+```bash
+scripts/orin/container_up.sh      # native -> container, autostart=none
+scripts/orin/stack_live.sh        # the full stack, live ZED+lidar+VESC, foxglove_bridge:8765
+#   --trt              yolo_backend:=engine instead of the default .pt
+#   --rust <list|all>  corridor,hard_stop,mpc_solver,wall_tracker -> that *_impl switch to 'rust'
+scripts/orin/stack_stop.sh        # f1tenth_ctl stop stack; container stays up
+scripts/orin/container_down.sh    # container -> native, verified
+scripts/orin/container_shell.sh   # a shell in the running container, ROS sourced
+```
+
+No script sends a motion command: `stack_live.sh` only starts the stack
+idle (perception, control, the BT) and prints the Foxglove WebSocket URL(s)
+(LAN and Tailscale) to open from a laptop; driving needs a joystick or a
+mission, same as native. `stack_live.sh` also samples
+`/diagnostics/battery_status` once the stack is ready and flags a reading
+under `min_battery_voltage` -- advisory, the same node that backs the BT's
+own runtime cutout (`f1tenth_diagnostics/battery_voltage_check_node.py`).
+
 ## Configuration
 
 `src/f1tenth_params/config/stack_params.yaml` holds the default and the
