@@ -412,7 +412,20 @@ scripts/orin/stack_live.sh        # the full stack, live ZED+lidar+VESC, foxglov
 scripts/orin/stack_stop.sh        # f1tenth_ctl stop stack; container stays up
 scripts/orin/container_down.sh    # container -> native, verified
 scripts/orin/container_shell.sh   # a shell in the running container, ROS sourced
+scripts/orin/container_shell.sh llm "vai dritto 2m"   # one-shot: ros2 run llm llm_planner_node "..."
+scripts/orin/container_shell.sh logger                # one-shot: ros2 launch f1tenth_logger mission_logger.launch.py enable_mission_logger:=true
 ```
+
+`container_shell.sh`'s `llm`/`logger` shortcuts exist because running those
+by hand from a bare host shell (`ros2 run llm llm_planner_node "..."`) uses
+whatever workspace happens to be on that shell's `PATH`/`AMENT_PREFIX_PATH`
+-- not the container's -- so the message definitions can disagree with the
+running stack ("sequence size exceeds remaining buffer") and
+`load_mission` can look for the generated mission JSON on a filesystem the
+container never sees. Both shortcuts run inside the container, through the
+same `docker exec` path every other `container_shell.sh` command takes, so
+they share the live stack's install and `ROS_DISCOVERY_SERVER`/
+`ROS_DOMAIN_ID` by construction.
 
 No script sends a motion command: `stack_live.sh` only starts the stack
 idle (perception, control, the BT) and prints the Foxglove WebSocket URL(s)
