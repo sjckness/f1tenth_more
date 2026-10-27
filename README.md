@@ -413,19 +413,35 @@ scripts/orin/stack_stop.sh        # f1tenth_ctl stop stack; container stays up
 scripts/orin/container_down.sh    # container -> native, verified
 scripts/orin/container_shell.sh   # a shell in the running container, ROS sourced
 scripts/orin/container_shell.sh llm "vai dritto 2m"   # one-shot: ros2 run llm llm_planner_node "..."
-scripts/orin/container_shell.sh logger                # one-shot: ros2 launch f1tenth_logger mission_logger.launch.py enable_mission_logger:=true
 ```
 
-`container_shell.sh`'s `llm`/`logger` shortcuts exist because running those
-by hand from a bare host shell (`ros2 run llm llm_planner_node "..."`) uses
+`container_shell.sh`'s `llm` shortcut exists because running it by hand
+from a bare host shell (`ros2 run llm llm_planner_node "..."`) uses
 whatever workspace happens to be on that shell's `PATH`/`AMENT_PREFIX_PATH`
 -- not the container's -- so the message definitions can disagree with the
-running stack ("sequence size exceeds remaining buffer") and
-`load_mission` can look for the generated mission JSON on a filesystem the
-container never sees. Both shortcuts run inside the container, through the
+running stack ("sequence size exceeds remaining buffer"), and
+`load_mission`/`start_mission` hand off through a file
+(`install/share/.../missions/llm_generated/<id>.json`) whose only
+bind-mounted copy is the container's (`compose.yaml`); a native
+`llm_planner_node` writes its own install's copy, which `mission_manager`
+inside the container never sees (ENOENT). The shortcut runs through the
 same `docker exec` path every other `container_shell.sh` command takes, so
-they share the live stack's install and `ROS_DISCOVERY_SERVER`/
+it shares the live stack's install and `ROS_DISCOVERY_SERVER`/
 `ROS_DOMAIN_ID` by construction.
+
+For `test_campaign_logger` (an LLM-driven test campaign's recorder,
+`src/f1tenth_logger/TEST_CAMPAIGN.md`), run it natively instead -- its
+output, `<f1tenth_more checkout>/first_test_campaign`, is git-tracked and
+has no bind mount into this container, so a `docker exec` run would write
+into the container's ephemeral layer and lose the campaign on the next
+`down`:
+
+```bash
+source scripts/env/jazzy.sh && ros2 launch f1tenth_logger test_campaign_logger.launch.py
+```
+
+It reaches the same live stack either way (same `ROS_DISCOVERY_SERVER`/
+`ROS_DOMAIN_ID`, host networking).
 
 No script sends a motion command: `stack_live.sh` only starts the stack
 idle (perception, control, the BT) and prints the Foxglove WebSocket URL(s)

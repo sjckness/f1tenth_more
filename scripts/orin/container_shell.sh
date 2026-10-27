@@ -5,25 +5,32 @@
 #
 #   scripts/orin/container_shell.sh [CMD ...]
 #   scripts/orin/container_shell.sh llm ["PROMPT"]
-#   scripts/orin/container_shell.sh logger [EXTRA_LAUNCH_ARGS ...]
 #
 # No args: an interactive shell. With args: that command, through
-# entrypoint.sh, non-interactively. `llm` and `logger` are shortcuts for the
-# two one-shot commands most often run by hand against an already-live stack:
-#   llm     ros2 run llm llm_planner_node ["PROMPT"]  -- llama-server
-#           (llm.launch.py, part of components.yaml) is already running as a
-#           stack component; this is just the one-shot CLI client. No
-#           PROMPT: interactive, reads stdin (llm_planner_node's own mode).
-#   logger  ros2 launch f1tenth_logger mission_logger.launch.py
-#           enable_mission_logger:=true [EXTRA_LAUNCH_ARGS ...]  -- the
-#           component supervisor only starts mission_logger_node when
-#           enable_mission_logger is already true; this launches it
-#           standalone for an ad hoc recording.
-# Both run inside the container, so they share the stack's own install (not
-# a separate workspace) and its ROS_DISCOVERY_SERVER/ROS_DOMAIN_ID -- the
-# exact mismatch that made `ros2 run llm llm_planner_node` fail from a host
-# shell ("sequence size exceeds remaining buffer"; load_mission ENOENT on
-# the llm_generated path, a different, stale workspace -- see README).
+# entrypoint.sh, non-interactively. `llm` is a shortcut for the one-shot
+# command most often run by hand against an already-live stack:
+#   llm   ros2 run llm llm_planner_node ["PROMPT"]  -- llama-server
+#         (llm.launch.py, part of components.yaml) is already running as a
+#         stack component; this is just the one-shot CLI client. No PROMPT:
+#         interactive, reads stdin (llm_planner_node's own mode).
+# It must run inside the container: load_mission/start_mission hand off
+# through a FILE (install/share/.../missions/llm_generated/<id>.json), and
+# the container's copy of that path is the ONLY one bind-mounted back to
+# $F1T_STATE (compose.yaml). A native llm_planner_node writes to ITS OWN,
+# different install path, which mission_manager inside the container never
+# sees -- that mismatch is exactly "sequence size exceeds remaining buffer"
+# / load_mission ENOENT (see README).
+#
+# Deliberately no `logger` shortcut here. test_campaign_logger
+# (src/f1tenth_logger/TEST_CAMPAIGN.md) writes to <f1tenth_more
+# checkout>/first_test_campaign, a git-tracked, native-only path with no
+# matching bind mount into this container (compose.yaml has none for it):
+# running it through docker exec would write into the container's
+# ephemeral layer and lose the campaign on the next `down`. Run it natively
+# against this same live stack instead (shared ROS_DISCOVERY_SERVER/
+# ROS_DOMAIN_ID over host networking, so it sees the container's topics
+# fine):
+#   source scripts/env/jazzy.sh && ros2 launch f1tenth_logger test_campaign_logger.launch.py
 set -euo pipefail
 HERE=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
@@ -37,8 +44,11 @@ case "${1:-}" in
     shift
     set -- ros2 run llm llm_planner_node "$@" ;;
   logger)
-    shift
-    set -- ros2 launch f1tenth_logger mission_logger.launch.py enable_mission_logger:=true "$@" ;;
+    echo "container_shell.sh: no 'logger' shortcut -- test_campaign_logger writes to" >&2
+    echo "  <f1tenth_more checkout>/first_test_campaign, which has no bind mount into" >&2
+    echo "  this container (see this script's own header). Run it natively instead:" >&2
+    echo "    source scripts/env/jazzy.sh && ros2 launch f1tenth_logger test_campaign_logger.launch.py" >&2
+    exit 1 ;;
 esac
 
 echo "== preflight (informational) ==" >&2
