@@ -1,0 +1,23 @@
+{
+  "mission_id": "enter_nearest_door",
+  "schema_version": "6.0",
+  "description": "Drive to the CONFIRMED door nearest the car and stop in it, facing the way through. Needs the semantic door detector running (semantic_doors_enabled:=true with door_source:=semantic, which also needs the wall tracker and the semantic layer) and global localization; with no confirmed door within 5 s the move fails door_not_found and the mission aborts. Entered means the car is within 0.15 m of the door frame's origin (the midpoint between the jambs) and within 10 deg of its x axis -- standing in the doorway, pointing through it, NOT on the far side.",
+  "moves": [
+    {
+      "id": "move_0_enter_nearest_door",
+      "enter_door": {
+        "type": "enter_door",
+        "door": "nearest",
+        "xy_tol": 0.15,
+        "yaw_tol_deg": 10,
+        "acquire_timeout_sec": 5.0
+      },
+      "stop_condition": {
+        "type": "door_entered"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}

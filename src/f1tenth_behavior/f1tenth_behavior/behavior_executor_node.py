@@ -113,6 +113,7 @@ import rclpy
 
 from f1tenth_behavior.behaviours.advance_move import AdvanceMove
 from f1tenth_behavior.behaviours.check_stop_condition import CheckStopCondition
+from f1tenth_behavior.behaviours.enter_door import EnterDoor
 from f1tenth_behavior.behaviours.go_to_object import GoToObject
 from f1tenth_behavior.behaviours.handle_object_action import HandleObjectAction
 from f1tenth_behavior.behaviours.has_goal_pose import HasGoalPose
@@ -633,7 +634,8 @@ def create_root(
     # GoToObject between PublishMoveGoal and CheckStopCondition: it owns a
     # go_to_object move's goal and its failure outcomes, and is a no-op (bar
     # ending a previous object move) for every other move type. See its own
-    # module docstring. object_params are stack_params.yaml values read in
+    # module docstring. EnterDoor sits next to it, same placement and same
+    # reason, for an enter_door move (schema_version 6.0). object_params are stack_params.yaml values read in
     # main(); the defaults below only serve create_root() callers in tests.
     op = dict(object_params or {})
     # wall_lock_params: the same, for CheckStopCondition's FRONT-WALL LOCK.
@@ -644,6 +646,11 @@ def create_root(
         GoToObject(
             follow_gate_m=op.get('object_follow_gate_m', 0.5),
             tracks_max_gap_sec=op.get('object_tracks_max_gap_sec', 0.5)),
+        # EnterDoor beside GoToObject, and BEFORE CheckStopCondition: the
+        # door_entered condition reads the arrival EnterDoor measures on this
+        # same tick, so it has to have run first. A no-op for every other
+        # move type. See its own module docstring.
+        EnterDoor(),
         CheckStopCondition(
             odom_topic=get_odom_topic(),
             # The wall stop reads the one wall truth (get_wall_distance_topic):
