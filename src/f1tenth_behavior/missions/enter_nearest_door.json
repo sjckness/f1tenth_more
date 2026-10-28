@@ -1,7 +1,7 @@
 {
   "mission_id": "enter_nearest_door",
   "schema_version": "6.0",
-  "description": "Drive to the CONFIRMED door nearest the car and stop in it, facing the way through. Needs the semantic door detector running (semantic_doors_enabled and door_source:=semantic, both now the stack defaults, which also need the wall tracker and the semantic layer) and global localization; with no confirmed door within 5 s the move fails door_not_found and the mission aborts. Entered means the car is within 0.15 m of the door frame's origin (the midpoint between the jambs) and within 10 deg of its x axis -- standing in the doorway, pointing through it, NOT on the far side.",
+  "description": "Drive to the CONFIRMED door nearest the car and stop in it, facing the way through. Needs the semantic door detector running (semantic_doors_enabled and door_source:=semantic, both now the stack defaults, which also need the wall tracker and the semantic layer) and global localization; with no confirmed door within 5 s the move fails door_not_found and the mission aborts. The move runs in two phases: it first drives to a pre-point 0.8 m back on the door's own axis, carrying the door's yaw, so the car is square to the opening before it reaches the jambs, then straight down that axis to the origin; the pre-point is skipped if the car is already in the doorway. Entered means the car is within 0.15 m of the door frame's origin (the midpoint between the jambs) and within 10 deg of its x axis -- standing in the doorway, pointing through it, NOT on the far side, and never during the approach phase.",
   "moves": [
     {
       "id": "move_0_enter_nearest_door",
@@ -10,7 +10,8 @@
         "door": "nearest",
         "xy_tol": 0.15,
         "yaw_tol_deg": 10,
-        "acquire_timeout_sec": 5.0
+        "acquire_timeout_sec": 5.0,
+        "approach_dist_m": 0.8
       },
       "stop_condition": {
         "type": "door_entered"

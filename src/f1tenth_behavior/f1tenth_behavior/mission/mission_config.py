@@ -275,6 +275,10 @@ class DoorSpec:
     Drive to a door the semantic-layer door detector has CONFIRMED and stop
     on it, facing the way through.
 
+    TWO PHASES, see approach_dist_m: APPROACH to a pre-point on the door's
+    own axis, then ENTER to the origin. The move is never "entered" during
+    the first.
+
     WHAT "ENTERED" MEANS, and it is deliberately narrow: the car's map pose
     is within xy_tol of the door frame's ORIGIN (the midpoint between the two
     jambs) and its heading is within yaw_tol_deg of that frame's X AXIS --
@@ -305,6 +309,13 @@ class DoorSpec:
     xy_tol: float          # [m] from the door frame's origin
     yaw_tol_deg: float     # [deg] from the door frame's x axis
     acquire_timeout_sec: float = 5.0   # no confirmed door within this -> door_not_found
+    #: [m] How far back along the door's own x axis the APPROACH pre-point
+    #: sits. The move drives there first, carrying the door's yaw, so the car
+    #: is square to a 0.90 m opening before it reaches the jambs; then it
+    #: drives the last stretch straight down the axis. The pre-point is
+    #: skipped when the car is already in the doorway. See
+    #: behaviours/enter_door.py, THE APPROACH PRE-POINT.
+    approach_dist_m: float = 0.8
 
 
 @dataclass(frozen=True)
@@ -780,9 +791,11 @@ def _parse_door_spec(raw: object, where: str) -> DoorSpec:
     _require(yaw_tol_deg <= 180.0,
              f'{where}: enter_door.yaw_tol_deg must be at most 180 (got {yaw_tol_deg})')
     acquire = _require_positive_number(raw, 'acquire_timeout_sec', where, default=5.0)
+    approach = _require_positive_number(raw, 'approach_dist_m', where, default=0.8)
     return DoorSpec(door=door, xy_tol=float(xy_tol),
                     yaw_tol_deg=float(yaw_tol_deg),
-                    acquire_timeout_sec=float(acquire))
+                    acquire_timeout_sec=float(acquire),
+                    approach_dist_m=float(approach))
 
 
 def _parse_move(raw: object, where: str, gap_limits_for=None) -> Move:

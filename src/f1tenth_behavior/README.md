@@ -196,6 +196,7 @@ it, facing the way through.
 | `xy_tol` | float > 0 | no, default `0.15` | [m] from the door frame's origin, i.e. the midpoint between the two jambs. |
 | `yaw_tol_deg` | float > 0, <= 180 | no, default `10.0` | [deg] from the door frame's x axis. |
 | `acquire_timeout_sec` | float > 0 | no, default `5.0` | No confirmed door matching `door` within this -> the move fails `door_not_found` and the mission aborts. |
+| `approach_dist_m` | float > 0 | no, default `0.8` | How far back along the door's own x axis the APPROACH pre-point sits -- see below. |
 
 An `enter_door` step **requires** `stop_condition.type == "door_entered"` and
 `timeout_sec`, and does not allow `on_object` -- the same three constraints a
@@ -204,6 +205,24 @@ An `enter_door` step **requires** `stop_condition.type == "door_entered"` and
 **"Entered" is standing in the doorway, not through it.** The stop fires on the
 door frame's origin, so a mission that wants the room beyond adds a move after
 this one.
+
+**The move has two phases.** A doorway is ~0.9 m wide and the car is 0.57 m
+wide, so arriving at the origin from an angle means arriving wedged.
+`APPROACH` drives to a pre-point **on the door's own axis**, `approach_dist_m`
+behind the opening (the point `x = -approach_dist_m, y = 0` in the door
+frame), carrying the door's yaw -- the car lines itself up square to the
+opening well before the jambs. `ENTER` then drives the last stretch straight
+down that axis to the origin. `entered` is **false for the whole of
+`APPROACH`**, so the stop_condition cannot fire at the pre-point however close
+the two happen to be, and the errors the move reports are always measured
+against the door, never the pre-point.
+
+The pre-point is **skipped** when the car is already at or past -0.2 m on the
+door's x axis -- it is in the doorway already, and sending it back out to line
+up would make it reverse out of a door it had arrived at. The same test ends
+`APPROACH`, together with "within `xy_tol` of the pre-point", whichever comes
+first. The phase is decided from the current pose on every tick, not latched:
+a car pushed back out goes back to lining up.
 
 **What it needs running**: `semantic_doors_enabled` and
 `door_source:=semantic` (so `semantic_layer_node` publishes
