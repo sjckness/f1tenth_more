@@ -211,6 +211,14 @@ WALL_CONFIRM_ARGS = [
     ('wall_confirm_require_lidar', bool),
 ]
 
+# WHICH DOOR DETECTOR THE STACK RUNS (stack_params.yaml, door_source). Read by
+# this node and by semantic_layer_node, so it has no package prefix and is
+# passed under its own full name, the same way WALL_CONFIRM_ARGS are. This
+# node runs door_detection.py only when it says 'profile'.
+STACK_WIDE_ARGS = [
+    ('door_source', str),
+]
+
 
 def generate_launch_description():
     use_lidar_default, use_lidar_desc = get_default('use_lidar')
@@ -225,7 +233,7 @@ def generate_launch_description():
             description=description))
         params[name] = ParameterValue(
             LaunchConfiguration('lidar_front_wall_' + name), value_type=value_type)
-    for name, value_type in WALL_CONFIRM_ARGS:
+    for name, value_type in WALL_CONFIRM_ARGS + STACK_WIDE_ARGS:
         default, description = get_default(name)
         declared.append(DeclareLaunchArgument(
             name, default_value=str(default), description=description))
