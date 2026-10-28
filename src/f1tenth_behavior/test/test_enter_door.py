@@ -10,6 +10,8 @@ blackboard. The same shape test_go_to_object_behaviour.py uses.
 import math
 import os
 import sys
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -147,3 +149,142 @@ def test_confirmed_doors_skips_candidates():
     assert set(out) == {2}
     assert out[2][0] == (1.0, 2.0)
     assert out[2][1] == pytest.approx(math.pi / 2.0)
+
+
+# ---------------------------------------------------------------------------
+# The approach pre-point
+# ---------------------------------------------------------------------------
+def _door_scene():
+    """A door at (0, 3) in map, crossing direction +y: x_door = y_map - 3."""
+    pytest.importorskip('f1tenth_messages.msg', reason='needs the built workspace')
+    from f1tenth_behavior.behaviours import enter_door as ed
+    return ed, (0.0, 3.0), math.pi / 2.0
+
+
+def test_the_pre_point_sits_back_along_the_door_axis():
+    ed, centre, yaw = _door_scene()
+    assert ed.pre_point(centre, yaw, 0.8) == pytest.approx((0.0, 2.2), abs=1e-9)
+    assert ed.pre_point(centre, yaw, 1.5) == pytest.approx((0.0, 1.5), abs=1e-9)
+    # A door facing -x: the pre-point is on the +x side of it.
+    assert ed.pre_point((4.0, 0.0), math.pi, 0.8) == pytest.approx((4.8, 0.0), abs=1e-9)
+
+
+def test_door_frame_x_is_how_far_through_the_opening():
+    ed, centre, yaw = _door_scene()
+    assert ed.door_frame_xy((0.0, 1.0), centre, yaw)[0] == pytest.approx(-2.0)
+    assert ed.door_frame_xy((0.0, 3.0), centre, yaw)[0] == pytest.approx(0.0)
+    assert ed.door_frame_xy((0.0, 4.0), centre, yaw)[0] == pytest.approx(1.0)
+    # y is the sideways offset from the opening's centre line.
+    assert ed.door_frame_xy((0.5, 3.0), centre, yaw)[1] == pytest.approx(-0.5)
+
+
+@pytest.mark.parametrize('car_y, expect_phase', [
+    (0.0, 'APPROACH'),     # 3 m short: line up first
+    (2.0, 'APPROACH'),     # x_door = -1.0, still short of the skip threshold
+    (2.85, 'ENTER'),       # x_door = -0.15, past APPROACH_SKIP_X_M: in the doorway
+    (3.5, 'ENTER'),        # already through it
+])
+def test_the_pre_point_is_skipped_when_the_car_is_already_in_the_doorway(
+        car_y, expect_phase):
+    ed, centre, yaw = _door_scene()
+    x_door = ed.door_frame_xy((0.0, car_y), centre, yaw)[0]
+    phase = ed.PHASE_ENTER if x_door > ed.APPROACH_SKIP_X_M else ed.PHASE_APPROACH
+    assert phase == expect_phase
+
+
+def test_the_phase_walks_approach_then_enter_and_entered_waits_for_it():
+    """The whole move, driven tick by tick against a fake node."""
+    ed, centre, yaw = _door_scene()
+    from f1tenth_messages.msg import Door, DoorArray
+    from f1tenth_behavior.mission.mission_config import parse_mission
+    from f1tenth_behavior.mission.runtime import (
+        GLOBAL_XY_KEY, GLOBAL_YAW_KEY, MISSION_KEY, MissionRuntimeState)
+
+    config = parse_mission(door_mission())
+    state = MissionRuntimeState()
+    state.config = config
+    state.current_index = 0
+
+    behaviour = ed.EnterDoor(clock=lambda: behaviour._fake_now)
+    behaviour._fake_now = 0.0
+    behaviour.node = MagicMock()
+    behaviour.goal_pose_pub = MagicMock()
+    behaviour.hold_pub = MagicMock()
+    bb = {MISSION_KEY: state, GLOBAL_XY_KEY: (0.0, 0.0), GLOBAL_YAW_KEY: yaw}
+    behaviour.blackboard = SimpleNamespace(**bb)
+    behaviour._bb = lambda key: getattr(behaviour.blackboard, key, None)
+
+    msg = DoorArray()
+    door = Door(id=4, state=Door.STATE_CONFIRMED, width=0.9)
+    door.center.x, door.center.y = centre
+    door.normal.x, door.normal.y = math.cos(yaw), math.sin(yaw)
+    msg.doors = [door]
+    behaviour.doors = ed.confirmed_doors(msg)
+    behaviour.doors_received_sec = 0.0
+
+    def tick(car_xy, car_yaw=yaw):
+        behaviour.blackboard.mission_global_xy = car_xy
+        behaviour.blackboard.mission_global_yaw = car_yaw
+        behaviour._fake_now += 0.1
+        return behaviour.update()
+
+    # Far short of the door: APPROACH, aiming at the pre-point, not entered.
+    tick((0.0, 0.0))
+    record = state.door_record
+    assert record.frame_id == 'door_4'
+    assert record.phase == 'APPROACH'
+    assert record.pre_point_xy == pytest.approx((0.0, 2.2), abs=1e-9)
+    assert record.target_xy == pytest.approx((0.0, 2.2), abs=1e-9)
+    assert record.entered is False
+    # ...and the errors it reports are against the DOOR, not the pre-point.
+    assert record.xy_error_m == pytest.approx(3.0)
+
+    # At the pre-point: hand over to ENTER, now aiming at the origin.
+    tick((0.0, 2.2))
+    assert record.phase == 'ENTER'
+    assert record.target_xy == pytest.approx(centre, abs=1e-9)
+    assert record.entered is False          # 0.8 m from the door still
+
+    # In the doorway, square to it: entered.
+    tick((0.0, 2.95))
+    assert record.entered is True
+    assert record.xy_error_m == pytest.approx(0.05, abs=1e-9)
+    assert record.yaw_error_deg == pytest.approx(0.0, abs=1e-9)
+
+    # Turned 30 deg off the crossing direction: inside xy_tol, not entered.
+    tick((0.0, 2.95), car_yaw=yaw + math.radians(30.0))
+    assert record.yaw_error_deg == pytest.approx(30.0, abs=1e-6)
+    assert record.entered is False
+
+
+def test_a_car_that_starts_in_the_doorway_never_leaves_to_line_up():
+    ed, centre, yaw = _door_scene()
+    from f1tenth_messages.msg import Door, DoorArray
+    from f1tenth_behavior.mission.mission_config import parse_mission
+    from f1tenth_behavior.mission.runtime import (
+        GLOBAL_XY_KEY, GLOBAL_YAW_KEY, MISSION_KEY, MissionRuntimeState)
+
+    state = MissionRuntimeState()
+    state.config = parse_mission(door_mission())
+    behaviour = ed.EnterDoor(clock=lambda: 1.0)
+    behaviour.node = MagicMock()
+    behaviour.goal_pose_pub = MagicMock()
+    behaviour.hold_pub = MagicMock()
+    behaviour.blackboard = SimpleNamespace(**{
+        MISSION_KEY: state, GLOBAL_XY_KEY: (0.0, 2.95), GLOBAL_YAW_KEY: yaw})
+    behaviour._bb = lambda key: getattr(behaviour.blackboard, key, None)
+
+    msg = DoorArray()
+    door = Door(id=1, state=Door.STATE_CONFIRMED, width=0.9)
+    door.center.x, door.center.y = centre
+    door.normal.x, door.normal.y = math.cos(yaw), math.sin(yaw)
+    msg.doors = [door]
+    behaviour.doors = ed.confirmed_doors(msg)
+    behaviour.doors_received_sec = 0.0
+
+    behaviour.update()
+    record = state.door_record
+    assert record.phase == 'ENTER'
+    # It never aimed at the pre-point, which is 0.75 m BEHIND where it stands.
+    assert record.target_xy == pytest.approx(centre, abs=1e-9)
+    assert record.entered is True

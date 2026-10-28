@@ -161,7 +161,8 @@ class DoorApproachRecord:
     flag), read by CheckStopCondition for the door_entered condition and by
     move_scoring when the move ends. One per move.
 
-    `entered` is the ONE thing door_entered tests. It is a measurement, not a
+    `entered` is the ONE thing door_entered tests, and it is false for the
+    whole of the APPROACH phase whatever the errors say. It is a measurement, not a
     latch: EnterDoor sets it true on every tick the car is inside both
     tolerances and false again if it drifts out. Any debounce the mission
     wants is the stop_condition's own (ConditionDebouncer), the same as every
@@ -169,6 +170,11 @@ class DoorApproachRecord:
     """
 
     door: str                                  # what the mission asked for
+    #: APPROACH (driving to the pre-point on the door's axis) or ENTER
+    #: (driving the last stretch to the origin). None until a door is
+    #: resolved, because there is no axis to be lined up with before then.
+    phase: Optional[str] = None
+    pre_point_xy: Optional[Tuple[float, float]] = None   # the APPROACH target
     door_id: Optional[int] = None              # the door it resolved to
     frame_id: Optional[str] = None             # 'door_<id>', the TF it aims at
     target_xy: Optional[Tuple[float, float]] = None

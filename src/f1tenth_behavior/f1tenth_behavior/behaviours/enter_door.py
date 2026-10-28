@@ -12,6 +12,24 @@
   out  /mpc/goal_pose              PoseStamped, map, ONCE per resolved door
        /mpc/hold                   on a failure outcome, which aborts the mission
 
+THE APPROACH PRE-POINT. A doorway is 0.9 m wide and the car is 0.57 m wide:
+arriving at the origin from an angle means arriving wedged. So the move has
+two phases. APPROACH drives to a pre-point ON THE DOOR'S OWN AXIS,
+approach_dist_m behind the opening -- the point (x = -approach_dist_m, y = 0)
+in the door frame -- carrying the door's yaw, so the car lines itself up
+square to the opening before it is anywhere near the jambs. ENTER then drives
+the last approach_dist_m straight down that axis to the origin.
+
+`entered` is false for the whole of APPROACH, so the move's stop_condition
+cannot fire at the pre-point however close the two happen to be.
+
+THE PRE-POINT IS SKIPPED when the car is already at or past
+APPROACH_SKIP_X_M (-0.2 m) along the door's x axis: it is in the doorway
+already, or through it, and sending it back out to line up again would make
+it reverse out of a door it had arrived at. The same test ends the APPROACH
+phase, together with "within xy_tol of the pre-point" -- whichever comes
+first, so a car that overshoots the pre-point does not chase it backwards.
+
 THE DOOR IS RESOLVED ONCE. "nearest" picks the confirmed door nearest the car
 at the moment the move starts and then holds that door's id for the rest of
 the move; "door_<id>" names one outright. Re-picking every tick would let the
@@ -74,6 +92,23 @@ from f1tenth_behavior.mission.runtime import (
 #: would change which doorway the car is driving at.
 REPUBLISH_EPS_M = 0.05
 
+#: Where the pre-point sits on the door's x axis, as a distance BEHIND the
+#: opening [m]. The brief's door_approach_dist_m. A mission overrides it per
+#: move with enter_door.approach_dist_m; this is what it defaults to. 0.8 m is
+#: a little over one car length ahead of the jambs -- far enough that the
+#: final leg is straight, near enough that the car is not asked to line up
+#: from across the room.
+DEFAULT_APPROACH_DIST_M = 0.8
+
+#: The car is "in the doorway already" at or past this x in the door frame
+#: [m]: the pre-point is skipped, and an APPROACH that reaches here is over.
+#: Negative, i.e. just short of the opening, because the point of the phase
+#: is to be lined up BEFORE the jambs, not after them.
+APPROACH_SKIP_X_M = -0.2
+
+#: Phase names, as they appear in the move's record and the log.
+PHASE_APPROACH, PHASE_ENTER = 'APPROACH', 'ENTER'
+
 #: How long [s] the resolved door may be missing from the topic before the
 #: move fails with door_lost. A confirmed door is kept in the map by the
 #: detector and does not normally disappear at all; this covers the detector
@@ -118,6 +153,25 @@ def select_door(doors: dict, want: str, car_xy):
         return None
     return min(doors, key=lambda i: math.hypot(doors[i][0][0] - car_xy[0],
                                                doors[i][0][1] - car_xy[1]))
+
+
+def door_frame_xy(point_xy, centre_xy, yaw):
+    """`point_xy` expressed in the door frame: x along the crossing direction.
+
+    The door frame's x axis is `yaw` (semantic_doors fixes it at the door's
+    first confirmation and never flips it), so x is "how far through the
+    opening", negative on the side the car came from, and y is the sideways
+    offset from the opening's centre line.
+    """
+    dx, dy = point_xy[0] - centre_xy[0], point_xy[1] - centre_xy[1]
+    c, s = math.cos(yaw), math.sin(yaw)
+    return (c * dx + s * dy, -s * dx + c * dy)
+
+
+def pre_point(centre_xy, yaw, approach_dist_m):
+    """The APPROACH target: approach_dist_m back along the door's own x axis."""
+    return (centre_xy[0] - math.cos(yaw) * approach_dist_m,
+            centre_xy[1] - math.sin(yaw) * approach_dist_m)
 
 
 class EnterDoor(py_trees.behaviour.Behaviour):
@@ -228,9 +282,38 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             return py_trees.common.Status.SUCCESS
         self._last_seen_sec = now
 
-        (tx, ty), tyaw = target
-        record.target_xy = (tx, ty)
+        (dx_, dy_), tyaw = target
+        door_xy = (dx_, dy_)
         record.target_yaw = tyaw
+        dist = getattr(spec, 'approach_dist_m', None) or DEFAULT_APPROACH_DIST_M
+        record.pre_point_xy = pre = pre_point(door_xy, tyaw, dist)
+
+        # Which phase. Decided on THIS tick's pose, not latched: a car pushed
+        # back out of the doorway goes back to lining up rather than driving
+        # at an origin it is no longer square to.
+        if record.phase is None:
+            record.phase = PHASE_ENTER if (
+                car_xy is not None
+                and door_frame_xy(car_xy, door_xy, tyaw)[0] > APPROACH_SKIP_X_M
+            ) else PHASE_APPROACH
+            self.node.get_logger().info(
+                f"[enter_door] move '{move.id}': {record.frame_id} phase "
+                f'{record.phase}'
+                + (f' (pre-point {dist:.2f} m back on the door axis)'
+                   if record.phase == PHASE_APPROACH
+                   else ' (already in the doorway -- pre-point skipped)'))
+        elif record.phase == PHASE_APPROACH and car_xy is not None:
+            x_door = door_frame_xy(car_xy, door_xy, tyaw)[0]
+            at_pre = math.hypot(pre[0] - car_xy[0], pre[1] - car_xy[1]) <= spec.xy_tol
+            if at_pre or x_door > APPROACH_SKIP_X_M:
+                record.phase = PHASE_ENTER
+                self.node.get_logger().info(
+                    f"[enter_door] move '{move.id}': {record.frame_id} "
+                    f'{PHASE_APPROACH} -> {PHASE_ENTER} '
+                    + ('(at the pre-point)' if at_pre else '(past it)'))
+
+        tx, ty = door_xy if record.phase == PHASE_ENTER else pre
+        record.target_xy = (tx, ty)
         if (self._published_xy is None
                 or math.hypot(tx - self._published_xy[0],
                               ty - self._published_xy[1]) > REPUBLISH_EPS_M):
@@ -240,9 +323,14 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         if car_xy is None or car_yaw is None:
             record.entered = False
             return py_trees.common.Status.SUCCESS
-        record.xy_error_m = math.hypot(tx - car_xy[0], ty - car_xy[1])
+        # The errors are always against the DOOR, never the pre-point: they are
+        # what the move is judged on and what the report quotes, and a tiny
+        # error against a point 0.8 m short of the doorway would read as
+        # arrival to anyone looking at the number.
+        record.xy_error_m = math.hypot(door_xy[0] - car_xy[0], door_xy[1] - car_xy[1])
         record.yaw_error_deg = abs(wrap_deg(tyaw - car_yaw))
-        record.entered = (record.xy_error_m <= spec.xy_tol
+        record.entered = (record.phase == PHASE_ENTER
+                          and record.xy_error_m <= spec.xy_tol
                           and record.yaw_error_deg <= spec.yaw_tol_deg)
         return py_trees.common.Status.SUCCESS
 
