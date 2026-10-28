@@ -115,6 +115,15 @@ import numpy as np
 #: compares against. The names are what stack_params.yaml spells, because
 #: 'on'/'off'-style words are what YAML mangles (CLAUDE.md) and a bare integer
 #: in a config file says nothing to the person reading it.
+#: Every value door_source may take, and the module that owns each:
+#:   'freespace'  f1tenth_costmap/freespace_doors.py   -- the occupancy grid
+#:   'semantic'   f1tenth_costmap/semantic_doors.py    -- this module's walls
+#:   'profile'    f1tenth_perception/door_detection.py -- the beam profile
+#: Lives here rather than in a config module because all three nodes that
+#: validate door_source already import one of the door modules, and a fourth
+#: place to keep the list in step is a fourth place to forget.
+DOOR_SOURCES = ('freespace', 'semantic', 'profile')
+
 LEVEL_TENTATIVE = 0        # any live track, confirmed or not
 LEVEL_CONFIRMED = 1        # confirmed (or coasting) on ANY evidence, stereo-only included
 LEVEL_LIDAR_CONFIRMED = 2  # confirmed, and the LiDAR has seen it -- THE DEFAULT
