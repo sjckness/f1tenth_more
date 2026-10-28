@@ -83,3 +83,24 @@ bool jamb_height_unknown        # true while no positive sighting has had both
                                 # jamb, or a view clipped below
                                 # door_jamb_min_height_m. The furniture check
                                 # (desks, cabinets) has not vouched for it.
+
+# Appended (freespace scan-jump detector, 2026-10-28); every field above keeps
+# its meaning.
+bool strong                     # HOW MUCH THIS DOOR HAS EARNED. A confirmed
+                                # door is publishable; a STRONG one is one a
+                                # mission may drive at. The detector that set
+                                # it decides what it takes (semantic_doors'
+                                # DoorParams: strong_min_hits sightings,
+                                # strong_min_spread_m between the two robot
+                                # positions furthest apart that saw it, and no
+                                # flags). Both WALL detectors leave those
+                                # thresholds at zero and so publish every
+                                # confirmed door strong, which is the
+                                # behaviour they had before this field
+                                # existed. The scan-jump detector does not:
+                                # from a single scan a doorway and a gap
+                                # between two pieces of furniture are nearly
+                                # the same thing, and only being seen from
+                                # somewhere else tells them apart.
+                                # f1tenth_behavior's enter_door selects over
+                                # STRONG doors only (-> no_strong_door).

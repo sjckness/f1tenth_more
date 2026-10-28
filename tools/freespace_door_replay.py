@@ -208,12 +208,13 @@ def replay(bag, out_dir, params, rate_hz, window_m, use_skeleton=None):
         'ms_max': round(float(np.max(ms)), 2) if ms else None,
         'codes': dict(sorted(code_totals.items(), key=lambda kv: -kv[1])),
         'flags': dict(sorted(flag_totals.items(), key=lambda kv: -kv[1])),
+        'strong_doors': sum(1 for d in doors if d.strong),
         'confirmed_doors': [
             {'id': d.id, 'centre': [round(d.centre[0], 3), round(d.centre[1], 3)],
              'width_m': round(d.width, 3),
              'yaw_deg': round(math.degrees(d.yaw()), 1),
              'hits': d.hits, 'pose_spread_m': round(d.pose_spread(), 2),
-             'flags': list(d.flags)}
+             'strong': bool(d.strong), 'flags': list(d.flags)}
             for d in doors],
     }
     (out_dir / 'freespace_replay.json').write_text(json.dumps(summary, indent=2) + '\n')

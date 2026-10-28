@@ -410,9 +410,14 @@ def _hits(tracker, p, segs, xs, grid=None, t0=0.0):
 
 
 def test_two_hits_from_poses_far_enough_apart_confirm_a_door():
+    """Two sightings, a metre of travel between them -- that is the whole bar.
+
+    A metre and not 0.15 m since the measured sweep: see
+    test_the_shipped_defaults_require_a_metre_of_travel_and_no_fallback.
+    """
     p = fd.FreespaceParams()
     segs = corridor(doors=(3.0,))
-    tracker = _hits(sd.DoorTracker(p.door_params()), p, segs, (0.0, 0.30))
+    tracker = _hits(sd.DoorTracker(p.door_params()), p, segs, (0.0, 1.0))
     assert len(tracker.confirmed()) == 1
 
 
@@ -445,11 +450,11 @@ def test_the_crossing_direction_is_fixed_at_confirmation():
     must not turn round when the car is driven past."""
     p = fd.FreespaceParams()
     segs = corridor(doors=(3.0,))
-    tracker = _hits(sd.DoorTracker(p.door_params()), p, segs, (0.0, 0.3, 0.6))
+    tracker = _hits(sd.DoorTracker(p.door_params()), p, segs, (0.0, 0.6, 1.2))
     door = tracker.confirmed()[0]
     first = door.normal
     assert first[1] > 0.8, 'the crossing direction does not point through the wall'
-    _hits(tracker, p, segs, (2.0, 2.5, 3.0), t0=20.0)
+    _hits(tracker, p, segs, (2.0, 2.6, 3.2), t0=20.0)
     assert tracker.by_id(door.id).normal == first
     assert len(tracker.tracks) == 1
 
@@ -457,7 +462,7 @@ def test_the_crossing_direction_is_fixed_at_confirmation():
 def test_flags_reach_the_track_so_the_markers_can_show_them():
     p = fd.FreespaceParams()
     segs = corridor(doors=(3.0,))
-    tracker = _hits(sd.DoorTracker(p.door_params()), p, segs, (0.0, 0.30))
+    tracker = _hits(sd.DoorTracker(p.door_params()), p, segs, (0.0, 1.0))
     assert 'no_grid' in tracker.confirmed()[0].flags
 
 
@@ -534,32 +539,164 @@ def test_the_wall_detectors_keep_plain_hit_counting():
     assert len(trk.confirmed()) == 1
 
 
-def test_max_tracks_is_a_budget_that_drops_the_weakest_first():
-    """A confirmed door is never forgotten, so the list only grows.
+def test_max_tracks_drops_the_longest_unseen_not_the_youngest():
+    """The budget must not fight the detector.
 
-    Every one costs a TF and five markers per cycle, and the permissive
-    defaults found 98 on a 19 m run through a cluttered room -- about a
-    thousand transforms a second. The cap keeps the best-evidenced doors:
-    confirmed over unconfirmed, then most sightings, then widest pose spread.
+    The obvious ranking -- confirmed first, then most hits -- was measured to
+    be the wrong one: a long-lived door with hundreds of hits always
+    outranked a young but genuine candidate, so the cap evicted candidates
+    BEFORE they could earn strength, and on corridor10m_20261019T131815 a cap
+    of 32 cost 10 of the 29 strong doors the uncapped run found. Recency
+    first: what the car can currently see survives long enough to earn its
+    strength, and the eviction falls on doors long out of view.
     """
-    p = fd.FreespaceParams(max_tracks=3, assoc_max_m=0.10)
+    p = fd.FreespaceParams(max_tracks=2, assoc_max_m=0.10)
     tracker = sd.DoorTracker(p.door_params())
 
     def cand(x):
         return sd.DoorCandidate((x, -0.45), (x, 0.45), fd.CASE_FREESPACE,
                                 fd.NO_WALL_ID, fd.NO_WALL_ID)
-    # Five doors a metre apart; the first two are seen from many poses, the
-    # rest only once.
+    # An old, heavily-evidenced door seen many times and then left behind.
+    for i in range(20):
+        tracker.update([cand(0.0)], (float(i) * 0.2, 0.0), float(i))
+    old = tracker.confirmed()[0]
+    assert old.hits == 20
+
+    # Two fresh candidates, one hit each, long after.
+    tracker.update([cand(5.0), cand(6.0)], (5.5, 0.0), 100.0)
+    kept = sorted(round(t.centre[0], 1) for t in tracker.tracks)
+    assert len(tracker.tracks) == 2
+    assert kept == [5.0, 6.0], 'the budget evicted what the car is looking at'
+    assert tracker.by_id(old.id) is None
+
+
+def test_evidence_still_breaks_ties_between_equally_stale_doors():
+    p = fd.FreespaceParams(max_tracks=1, assoc_max_m=0.10)
+    tracker = sd.DoorTracker(p.door_params())
+
+    def cand(x):
+        return sd.DoorCandidate((x, -0.45), (x, 0.45), fd.CASE_FREESPACE,
+                                fd.NO_WALL_ID, fd.NO_WALL_ID)
+    # Both last seen at the same instant; one has far more behind it.
     for i in range(6):
-        tracker.update([cand(0.0), cand(1.0)], (float(i) * 0.5, 0.0), float(i))
-    for i, x in enumerate((2.0, 3.0, 4.0)):
-        tracker.update([cand(x)], (0.0, 0.0), 10.0 + i)
-    assert len(tracker.tracks) == 3
-    kept = sorted(round(t.centre[0], 1) for t in tracker.confirmed())
-    assert 0.0 in kept and 1.0 in kept, 'the best-evidenced doors were dropped'
+        tracker.update([cand(0.0)], (float(i) * 0.3, 0.0), float(i))
+    tracker.update([cand(0.0), cand(5.0)], (1.5, 0.0), 6.0)
+    assert len(tracker.tracks) == 1
+    assert round(tracker.tracks[0].centre[0], 1) == 0.0
 
 
 def test_the_wall_detectors_are_not_capped():
     """max_tracks 0 is unbounded, which is what semantic_doors keeps: it is
     capped upstream by /perception/walls carrying at most four tracks."""
     assert sd.DoorParams().max_tracks == 0
+
+
+# ---------------------------------------------------------------------------
+# strength: confirmed means publishable, strong means drivable
+# ---------------------------------------------------------------------------
+def test_the_shipped_defaults_require_a_metre_of_travel_and_no_fallback():
+    """The measured sweep's choice, pinned so it cannot drift back.
+
+    confirm_same_pose_hits 0 means A STATIONARY CAR NEVER CONFIRMS A DOOR.
+    That is the point, not an oversight: with the fallback at 3, almost
+    everything seen three times in 0.3 s confirmed and the pose-spread policy
+    barely bit.
+    """
+    p = fd.FreespaceParams()
+    assert p.confirm_pose_spread_m == pytest.approx(1.0)
+    assert p.confirm_same_pose_hits == 0
+    assert p.strong_min_hits == 5
+    assert p.strong_min_spread_m == pytest.approx(1.0)
+
+
+def test_a_door_becomes_strong_only_after_enough_travel_and_sightings():
+    p = fd.FreespaceParams()
+    segs = corridor(doors=(3.0,))
+    grid = Grid().ray_cast(segs)
+    tracker = sd.DoorTracker(p.door_params())
+
+    # Two sightings 1.0 m apart: confirmed, but only two hits.
+    _hits(tracker, p, segs, (0.0, 1.0), grid=grid)
+    door = tracker.confirmed()[0]
+    assert door.hits == 2
+    assert door.strong is False, 'confirmed on arrival is not the same as earned'
+
+    # Keep driving: the hit count catches up and it becomes strong.
+    _hits(tracker, p, segs, (1.2, 1.4, 1.6, 1.8), grid=grid, t0=10.0)
+    door = tracker.by_id(door.id)
+    assert door.hits >= p.strong_min_hits
+    assert door.pose_spread() >= p.strong_min_spread_m
+    assert door.strong is True
+
+
+def test_a_stationary_car_confirms_nothing_with_the_shipped_defaults():
+    p = fd.FreespaceParams()
+    segs = corridor(doors=(3.0,))
+    tracker = _hits(sd.DoorTracker(p.door_params()), p, segs, (0.0,) * 10)
+    assert tracker.confirmed() == []
+    assert len(tracker.tracks) == 1, 'the candidate should still be there, faded'
+
+
+def test_a_flagged_door_is_never_strong_however_often_it_is_seen():
+    """'marginal', 'one_jamb' and 'no_grid' all mean look twice.
+
+    Such a door is published and drawn -- it is real evidence -- but a
+    mission may not resolve to it, because the thing that is uncertain about
+    it is exactly the geometry the car would be driving at.
+    """
+    p = fd.FreespaceParams()
+    segs = corridor(doors=(3.0,))
+    # No grid at all, so every candidate carries 'no_grid'.
+    tracker = _hits(sd.DoorTracker(p.door_params()), p, segs,
+                    (0.0, 0.5, 1.0, 1.5, 2.0, 2.5))
+    door = tracker.confirmed()[0]
+    assert door.hits >= p.strong_min_hits
+    assert door.pose_spread() >= p.strong_min_spread_m
+    assert 'no_grid' in door.flags
+    assert door.strong is False
+
+
+def test_the_wall_detectors_publish_every_confirmed_door_strong():
+    """Both thresholds zero is their setting, and it must mean "unchanged"."""
+    dp = sd.DoorParams()
+    assert dp.strong_min_hits == 0
+    assert dp.strong_min_spread_m == 0.0
+    trk = sd.DoorTracker(dp)
+    cand = sd.DoorCandidate((0.0, -0.45), (0.0, 0.45), 'A', 1, 2)
+    for i in range(dp.confirm_hits):
+        trk.update([cand], (0.0, -2.0), float(i))
+    door = trk.confirmed()[0]
+    assert door.strong is True, 'a wall door stopped being selectable'
+
+
+def test_the_marker_alpha_separates_strong_from_merely_confirmed():
+    from f1tenth_costmap import semantic_door_markers as sdm
+
+    class Fake:
+        case, width, id = 'F', 0.9, 1
+
+        def __init__(self, confirmed, strong, flags=()):
+            self.confirmed, self.strong, self.flags = confirmed, strong, flags
+
+    assert sdm.colour_of(Fake(True, True))[3] == pytest.approx(sdm.STRONG_ALPHA)
+    assert sdm.colour_of(Fake(True, False))[3] == pytest.approx(sdm.CONFIRMED_ALPHA)
+    assert sdm.colour_of(Fake(False, False))[3] == pytest.approx(sdm.CANDIDATE_ALPHA)
+    assert sdm.STRONG_ALPHA > sdm.CONFIRMED_ALPHA > sdm.CANDIDATE_ALPHA
+    assert 'STRONG' in sdm.label_of(Fake(True, True))
+    assert 'STRONG' not in sdm.label_of(Fake(True, False))
+
+
+def test_the_door_message_carries_strong():
+    from f1tenth_messages.msg import Door
+    from f1tenth_costmap import semantic_door_markers as sdm
+    p = fd.FreespaceParams()
+    segs = corridor(doors=(3.0,))
+    grid = Grid().ray_cast(segs)
+    tracker = _hits(sd.DoorTracker(p.door_params()), p, segs,
+                    (0.0, 0.4, 0.8, 1.2, 1.6, 2.0), grid=grid)
+    door = tracker.confirmed()[0]
+    stamp = Door().header.stamp if hasattr(Door(), 'header') else None
+    from builtin_interfaces.msg import Time
+    msg = sdm.door_message(door, Door, Time())
+    assert msg.strong is door.strong
+    assert msg.strong is True

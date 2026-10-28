@@ -75,26 +75,32 @@ ROS, no car, no simulator. `--skeleton` runs the old detector for comparison.
 Two bags in `~/bags` carry all four topics; `corridor10m_20261016T144537` has
 no `/slam/map` and no global EKF pose and cannot be replayed at all.
 
-| bag | cycles | ms med / p95 / max | doors (medial axis) | doors (scan jumps) |
-|---|---|---|---|---|
-| `corridor10m_20261019T131815` | 506 | 11.6 / 14.6 / 21.8 | **0** | **32** (18 strong) |
-| `corridor_obstacles_20261019T135307` | 340 | 15.7 / 17.2 / 18.4 | **0** | **12** (0 strong) |
+| bag | cycles | ms med | doors (medial axis) | confirmed | **strong** |
+|---|---|---|---|---|---|
+| `corridor10m_20261019T131815` | 506 | 12.9 | **0** | 56 | **28** |
+| `corridor_obstacles_20261019T135307` | 340 | 16.6 | **0** | 0 | **0** |
 
-"Strong" means seen from at least 1 m of travel, no flags, at least 5 hits.
 12 ms per cycle at 10 Hz, against the ~70 ms the medial-axis version cost at
 2 Hz: there is no distance transform and no thinning on this path.
 
-**The 32 is the `max_tracks` budget, not the detection count.** Uncapped the
-same run confirms **98** doors. A 19 m drive through a cluttered room does not
-contain 98 doorways, and that is the shape of the trade the permissive defaults
-buy. Measured sweep on that bag, all doors / strong doors:
+**`corridor_obstacles` finds nothing because the car never moves in it.** The
+shipped confirmation is `confirm_pose_spread_m: 1.0` with
+`confirm_same_pose_hits: 0` -- a metre of travel between two sightings, and no
+same-pose fallback -- so a stationary car confirms no door at all. That is the
+deliberate consequence of the sweep below, not an oversight: set the fallback
+back to 3 if a mission has to resolve a door from a standstill, and expect the
+false-positive count to climb.
+
+### The sweep that chose those defaults
+
+Measured on `corridor10m_20261019T131815`, all confirmed / strong:
 
 | change | doors | strong |
 |---|---|---|
-| shipped defaults | 98 | 30 |
+| first, permissive defaults (`spread 0.15`, fallback 3) | 98 | 30 |
 | `confirm_same_pose_hits: 0` | 93 | 29 |
 | ... and `confirm_pose_spread_m: 0.50` | 72 | 29 |
-| ... and `confirm_pose_spread_m: 1.00` | **57** | **29** |
+| ... and **`confirm_pose_spread_m: 1.00`** (shipped) | **57** | **29** |
 | `jump_min_m: 0.80` | 96 | 31 |
 | `beyond_beams_min: 6` | 93 | 27 |
 | detection band = nominal band | 81 | 36 |
@@ -103,20 +109,42 @@ The **confirmation** knobs are the only ones with real leverage, and they cost
 nothing in recall: requiring a metre of travel between two sightings removes 41
 doors and not one strong one. The geometry knobs barely move the count, which
 is the honest signal that from a single scan a doorway and a gap between two
-pieces of furniture are nearly the same thing.
+pieces of furniture are nearly the same thing -- the discrimination has to come
+from *moving*, not from the gates.
 
-`max_tracks` (32) exists because a confirmed door is never forgotten and each
-one costs a TF and five markers every cycle -- 98 of them is about a thousand
-transforms a second into the tree. It drops the weakest evidence first
-(unconfirmed, then fewest hits, then least pose spread) and pins
-`door_candidates` on the debug topic at the limit when it bites, so hitting it
-is a tuning signal rather than silent corruption.
+### Confirmed vs strong
+
+Confirmed means publishable; **strong** means a mission may drive at it
+(`Door.strong`, `semantic_doors.DoorTracker.is_strong`): at least
+`strong_min_hits` sightings, at least `strong_min_spread_m` between the two
+robot positions furthest apart that saw it, and **no flags** -- so a
+`marginal` width, a `one_jamb` opening or one found before any grid arrived
+(`no_grid`) is published and drawn but never selected. `enter_door` resolves
+both `"nearest"` and `"door_<id>"` over strong doors only and fails with
+`no_strong_door` when a matching door exists but has not earned it, which is a
+different answer from `door_not_found` on purpose. Both wall detectors publish
+every confirmed door strong, so nothing changes for them -- and for the
+profile detector that is not a shortcut, since its own confirmation already is
+a viewpoint test.
+
+In Foxglove the three tiers are the marker alpha: **strong solid**, merely
+confirmed half-lit, candidate faint.
+
+### The track budget
+
+`max_tracks` (32) bounds TF and marker cost -- a confirmed door is never
+forgotten and each costs a TF plus five markers per cycle. It drops the
+**longest unseen** first, evidence breaking ties. Recency and not evidence,
+measured: ranking by "confirmed first, then most hits" made a long-lived door
+always outrank a young but genuine candidate, so the budget evicted candidates
+*before* they could earn strength and a cap of 32 cost **10 of the 29 strong
+doors** the uncapped run found. With recency first the same cap costs 1 of 29.
 
 **What this does not establish.** Neither bag contains a known doorway, so none
-of the 32 has been confirmed against ground truth. What the replay shows is
-that the detector runs at 12 ms, finds openings where the skeleton version
-found none, and that its false-positive rate on cluttered indoor data is high
-by design and controlled by one knob.
+of the 28 strong doors has been checked against ground truth. What the replay
+shows is that the detector runs at 13 ms, finds openings where the skeleton
+version found none, and that its false-positive rate on cluttered indoor data
+is high by design and controlled by one knob.
 
 ## 5. Bugs the real data found
 
@@ -162,18 +190,19 @@ each now has a test.
 
 ## 6. Params to tune first
 
-1. **`freespace_doors_confirm_pose_spread_m`** (0.15) with
-   **`freespace_doors_confirm_same_pose_hits`** (3). The only knobs with real
-   leverage on false positives, and they cost no recall. Raise the spread to
-   0.5-1.0 m and set the same-pose fallback to 0 to require genuine pose
-   diversity.
-2. **`freespace_doors_jump_min_m`** (0.50). The first and bluntest gate: below
+1. **`freespace_doors_confirm_pose_spread_m`** (1.0) with
+   **`freespace_doors_confirm_same_pose_hits`** (0). The only knobs with real
+   leverage on false positives, and they cost no recall. Already at the
+   sweep's choice; lower the spread or set the fallback to 3 if doors must be
+   resolvable from a standstill.
+2. **`freespace_doors_strong_min_hits`** (5) and
+   **`freespace_doors_strong_min_spread_m`** (1.0). What a mission is allowed
+   to drive at, separately from what gets published. Tighten these rather than
+   the detection gates when `enter_door` keeps picking doors you would not
+   have picked.
+3. **`freespace_doors_jump_min_m`** (0.50). The first and bluntest gate: below
    it nothing downstream happens. If doors are missing *entirely*, check
    `/viz/doors_freespace_debug` for yellow points at the jambs before touching
    anything else.
-3. **`freespace_doors_beyond_m`** (0.50) and
-   **`freespace_doors_beyond_beams_min`** (2). The through-the-opening evidence.
-   Loosen if real doorways seen edge-on come back as `few_beams`.
 
-`freespace_doors_max_tracks` (32) is a TF budget, not a tuning knob -- raise it
-only if a mission genuinely needs more than 32 doors held at once.
+`freespace_doors_max_tracks` (32) is a TF budget, not a tuning knob.

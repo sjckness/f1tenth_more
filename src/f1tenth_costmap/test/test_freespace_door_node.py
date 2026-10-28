@@ -215,7 +215,9 @@ def test_the_node_builds_its_params_from_stack_params():
 # one cycle, end to end
 # ---------------------------------------------------------------------------
 def test_driving_past_the_door_confirms_it_and_publishes_the_four_outputs():
-    node = _drive(_node(), (0.0, 0.3, 0.6))
+    # A metre of travel: the shipped confirm policy wants a second
+    # viewpoint, not a second look (confirm_pose_spread_m 1.0).
+    node = _drive(_node(), (0.0, 0.6, 1.2))
 
     doors = node.doors_pub.publish.call_args[0][0]
     assert len(doors.doors) == 1
@@ -293,7 +295,7 @@ def test_debug_markers_can_be_turned_off():
 def test_doors_are_found_before_any_grid_has_arrived():
     """Refusing to see doors until a map exists would make the detector
     useless exactly when a mission is most likely to be starting."""
-    node = _drive(_node(), (0.0, 0.3), grid=False)
+    node = _drive(_node(), (0.0, 1.0), grid=False)
     doors = node.doors_pub.publish.call_args[0][0]
     assert len(doors.doors) == 1
     assert _debug(node)['door_flags'].get('no_grid')

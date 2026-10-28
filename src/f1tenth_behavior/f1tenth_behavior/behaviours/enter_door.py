@@ -1,8 +1,8 @@
 """py_trees Action: run the current enter_door move -- doors in, a pose out.
 
   in   /perception/doors_semantic  f1tenth_messages/DoorArray, MAP frame, the
-                                   CONFIRMED doors semantic_layer_node holds
-                                   (f1tenth_costmap/semantic_doors.py)
+                                   CONFIRMED doors whichever detector
+                                   door_source names is holding
        GLOBAL_XY_KEY / GLOBAL_YAW_KEY
                                    the vehicle in the map frame
                                    (CheckStopCondition's global EKF
@@ -30,6 +30,18 @@ it reverse out of a door it had arrived at. The same test ends the APPROACH
 phase, together with "within xy_tol of the pre-point" -- whichever comes
 first, so a car that overshoots the pre-point does not chase it backwards.
 
+ONLY A STRONG DOOR MAY BE SELECTED. `Door.strong` is the detector's own
+verdict on whether a door has earned being driven at -- enough sightings, from
+far enough apart, no flags (Door.msg, semantic_doors.DoorTracker.is_strong).
+A matching door that is merely CONFIRMED fails the move with
+`no_strong_door`, which is a different answer from `door_not_found` on
+purpose: one says "there is a door there but it has not earned it", the other
+says "there is no such door". Strength gates SELECTION only -- once resolved,
+a door is followed through the confirmed list, so one that dips below strong
+mid-approach does not read as `door_lost` and the car finishes the approach it
+committed to. The wall detectors publish every confirmed door strong, so for
+them none of this changes anything.
+
 THE DOOR IS RESOLVED ONCE. "nearest" picks the confirmed door nearest the car
 at the moment the move starts and then holds that door's id for the rest of
 the move; "door_<id>" names one outright. Re-picking every tick would let the
@@ -54,8 +66,9 @@ REPUBLISH_EPS_M the goal goes out again, which is the only case where "once"
 would otherwise leave the car driving at a stale point.
 
 FAILURE IS CLEAN AND IT IS FINAL. No confirmed door to resolve within the
-spec's acquire_timeout_sec -> `door_not_found`; the resolved door gone from
-the topic for LOST_GRACE_SEC -> `door_lost`. Either one ends the move, holds
+spec's acquire_timeout_sec -> `door_not_found`; a matching door that is
+confirmed but not strong, for that long -> `no_strong_door`; the resolved door
+gone from the topic for LOST_GRACE_SEC -> `door_lost`. Either one ends the move, holds
 the car and aborts the mission with the reason on
 MissionRuntimeState.last_stop_reason -- the same shape GoToObject's
 target_not_found has. It never falls back to another door: a mission that
@@ -125,9 +138,37 @@ def confirmed_doors(msg) -> dict:
     rather than from TF keeps this behaviour on ONE input -- a TF lookup
     would be a second clock and a second failure mode for the same number.
     """
+    return _doors(msg, strong_only=False)
+
+
+def strong_doors(msg) -> dict:
+    """{id: (centre_xy, yaw)} of the STRONG doors in a DoorArray.
+
+    What a mission is allowed to drive at. `Door.strong` is set by whichever
+    detector found the door and means "this has earned it" -- enough
+    sightings, from far enough apart, with no flags (see Door.msg and
+    semantic_doors.DoorTracker.is_strong). The two WALL detectors publish
+    every confirmed door strong, so for them this is `confirmed_doors` and
+    nothing changes; the scan-jump detector does not, because from a single
+    scan a doorway and a gap between two pieces of furniture look nearly
+    identical.
+
+    Used for SELECTION ONLY. Once a door is resolved it is followed through
+    `confirmed_doors`, so a door that dips below strong mid-approach does not
+    read as `door_lost` -- the car finishes the approach it committed to.
+    """
+    return _doors(msg, strong_only=True)
+
+
+def _doors(msg, strong_only: bool) -> dict:
     out = {}
     for door in msg.doors:
         if door.state != Door.STATE_CONFIRMED:
+            continue
+        # getattr: a bag recorded before Door.strong existed deserialises
+        # without it, and treating those doors as strong is the right default
+        # -- it is what every detector did back then.
+        if strong_only and not bool(getattr(door, 'strong', True)):
             continue
         out[int(door.id)] = ((float(door.center.x), float(door.center.y)),
                              math.atan2(float(door.normal.y), float(door.normal.x)))
@@ -193,6 +234,10 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         self.goal_pose_pub = None
         self.hold_pub = None
         self.doors = {}
+        #: The subset of `doors` a mission may actually resolve to. Kept
+        #: separate rather than filtering `doors`, so following a resolved
+        #: door is unaffected by its strength changing.
+        self.strong = {}
         self.doors_received_sec = None
         self._active_move_key = None
         self._move_start_sec = None
@@ -221,6 +266,7 @@ class EnterDoor(py_trees.behaviour.Behaviour):
                 f'{self.map_frame!r}; ignored', throttle_duration_sec=2.0)
             return
         self.doors = confirmed_doors(msg)
+        self.strong = strong_doors(msg)
         self.doors_received_sec = self._clock()
 
     def _bb(self, key):
@@ -263,10 +309,16 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         car_yaw = self._bb(GLOBAL_YAW_KEY)
 
         if record.door_id is None:
-            door_id = select_door(self.doors, spec.door, car_xy)
+            door_id = select_door(self.strong, spec.door, car_xy)
             if door_id is None:
                 if now - self._move_start_sec >= spec.acquire_timeout_sec:
-                    return self._fail(state, move, record, 'door_not_found', now)
+                    # Which failure is the useful one: is there a door there
+                    # at all, or is there one that has simply not earned
+                    # being driven at yet? The answer changes what to do
+                    # about it -- drive past it again, or look elsewhere.
+                    matched = select_door(self.doors, spec.door, car_xy)
+                    outcome = 'no_strong_door' if matched is not None else 'door_not_found'
+                    return self._fail(state, move, record, outcome, now)
                 return py_trees.common.Status.SUCCESS
             record.door_id = door_id
             record.frame_id = f'door_{door_id}'
@@ -358,6 +410,13 @@ class EnterDoor(py_trees.behaviour.Behaviour):
                       'running? door_source picks which one, and each has its '
                       'own enable flag)' if self.doors_received_sec is None
                       else f'({len(self.doors)} confirmed door(s) seen, none matched)')),
+               'no_strong_door': (
+                   f'a confirmed door matching {record.door!r} is on '
+                   f'{self._doors_topic} but none is STRONG within '
+                   f'{move.enter_door.acquire_timeout_sec:.1f} s '
+                   f'({len(self.doors)} confirmed, {len(self.strong)} strong) '
+                   '-- a door has to be seen enough times from far enough '
+                   'apart, with no flags, before a mission may drive at it'),
                'door_lost': (
                    f'{record.frame_id} disappeared from {self._doors_topic} for more '
                    f'than {LOST_GRACE_SEC:.1f} s')}[outcome]

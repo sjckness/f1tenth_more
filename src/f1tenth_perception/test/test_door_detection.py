@@ -1533,3 +1533,23 @@ class TestTheCollinearGapRule:
         """A track that spans the doorway anyway (e.g. joined before the rule)."""
         door = only(records(one_wall(), DOOR_SCENE))
         assert door.code == '' and door.parents == (1, 1)
+
+
+def test_the_profile_detector_publishes_confirmed_doors_as_strong():
+    """Or every enter_door mission fails under door_source 'profile'.
+
+    Door.strong gates selection in f1tenth_behavior's EnterDoor. This
+    detector's own confirmation already is the viewpoint test that field
+    asks for -- door_min_viewpoints car positions door_viewpoint_sep_m apart,
+    with a steady width -- so a confirmed door here has earned it by
+    construction, and leaving the field at its False default would make the
+    whole goal type unusable on this source.
+    """
+    import pytest
+    pytest.importorskip('f1tenth_messages.msg', reason='needs the built workspace')
+    import inspect
+
+    from f1tenth_perception import lidar_front_wall_node as node
+    src = inspect.getsource(node.door_message)
+    assert 'm.strong' in src, 'the profile detector stopped setting Door.strong'
+    assert 'STATE_CONFIRMED' in src

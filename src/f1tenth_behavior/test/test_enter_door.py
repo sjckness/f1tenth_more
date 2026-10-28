@@ -218,8 +218,12 @@ def test_the_phase_walks_approach_then_enter_and_entered_waits_for_it():
     door = Door(id=4, state=Door.STATE_CONFIRMED, width=0.9)
     door.center.x, door.center.y = centre
     door.normal.x, door.normal.y = math.cos(yaw), math.sin(yaw)
+    # STRONG, because selection resolves over strong doors only -- these
+    # tests are about the approach phases, not about earning selection.
+    door.strong = True
     msg.doors = [door]
     behaviour.doors = ed.confirmed_doors(msg)
+    behaviour.strong = ed.strong_doors(msg)
     behaviour.doors_received_sec = 0.0
 
     def tick(car_xy, car_yaw=yaw):
@@ -278,8 +282,12 @@ def test_a_car_that_starts_in_the_doorway_never_leaves_to_line_up():
     door = Door(id=1, state=Door.STATE_CONFIRMED, width=0.9)
     door.center.x, door.center.y = centre
     door.normal.x, door.normal.y = math.cos(yaw), math.sin(yaw)
+    # STRONG, because selection resolves over strong doors only -- these
+    # tests are about the approach phases, not about earning selection.
+    door.strong = True
     msg.doors = [door]
     behaviour.doors = ed.confirmed_doors(msg)
+    behaviour.strong = ed.strong_doors(msg)
     behaviour.doors_received_sec = 0.0
 
     behaviour.update()
@@ -326,3 +334,96 @@ def _mission_of(move):
     raw = door_mission()
     raw['moves'] = [move]
     return raw
+
+
+# ---------------------------------------------------------------------------
+# Only a STRONG door may be selected
+# ---------------------------------------------------------------------------
+def _door_msg(door_id, xy, strong, state=None):
+    from f1tenth_messages.msg import Door
+    d = Door(id=door_id, state=Door.STATE_CONFIRMED if state is None else state,
+             width=0.9)
+    d.center.x, d.center.y = float(xy[0]), float(xy[1])
+    d.normal.x, d.normal.y = 0.0, 1.0
+    d.strong = bool(strong)
+    return d
+
+
+def test_strong_doors_filters_and_confirmed_doors_does_not():
+    """Two lists on purpose: strength gates SELECTION, not following.
+
+    Once a door is resolved the move follows it through the confirmed list,
+    so a door that dips below strong mid-approach does not read as
+    `door_lost` and the car finishes the approach it committed to.
+    """
+    pytest.importorskip('f1tenth_messages.msg', reason='needs the built workspace')
+    from f1tenth_messages.msg import DoorArray
+    from f1tenth_behavior.behaviours.enter_door import confirmed_doors, strong_doors
+    msg = DoorArray()
+    msg.doors = [_door_msg(2, (1.0, 2.0), True), _door_msg(3, (0.5, 2.0), False)]
+    assert set(confirmed_doors(msg)) == {2, 3}
+    assert set(strong_doors(msg)) == {2}
+
+
+def test_nearest_skips_a_closer_door_that_is_not_strong():
+    """The case that makes this more than a filter: door 3 is NEARER.
+
+    Resolving "nearest" over the confirmed list would pick a door the
+    detector has not vouched for, and the car would drive at it.
+    """
+    pytest.importorskip('f1tenth_messages.msg', reason='needs the built workspace')
+    from f1tenth_messages.msg import DoorArray
+    from f1tenth_behavior.behaviours import enter_door as ed
+    msg = DoorArray()
+    msg.doors = [_door_msg(2, (3.0, 0.0), True), _door_msg(3, (1.0, 0.0), False)]
+    car = (0.0, 0.0)
+    assert ed.select_door(ed.confirmed_doors(msg), 'nearest', car) == 3
+    assert ed.select_door(ed.strong_doors(msg), 'nearest', car) == 2
+    # And a door named outright is subject to the same rule.
+    assert ed.select_door(ed.strong_doors(msg), 'door_3', car) is None
+    assert ed.select_door(ed.strong_doors(msg), 'door_2', car) == 2
+
+
+def test_a_confirmed_but_not_strong_door_fails_with_no_strong_door():
+    """And an EMPTY topic still fails with door_not_found.
+
+    The two reasons answer different questions -- "there is a door there but
+    it has not earned it" versus "there is no such door" -- and they lead to
+    different things to do about it, so they must not be collapsed.
+    """
+    pytest.importorskip('f1tenth_messages.msg', reason='needs the built workspace')
+    from f1tenth_messages.msg import DoorArray
+    from f1tenth_behavior.behaviours import enter_door as ed
+    from f1tenth_behavior.mission.runtime import (
+        GLOBAL_XY_KEY, GLOBAL_YAW_KEY, MISSION_KEY, MissionRuntimeState)
+
+    def run(doors):
+        state = MissionRuntimeState()
+        state.config = parse_mission(door_mission())
+        clock = [0.0]
+        b = ed.EnterDoor(clock=lambda: clock[0])
+        b.node = MagicMock()
+        b.goal_pose_pub = MagicMock()
+        b.hold_pub = MagicMock()
+        b.blackboard = SimpleNamespace(**{
+            MISSION_KEY: state, GLOBAL_XY_KEY: (0.0, 0.0), GLOBAL_YAW_KEY: 0.0})
+        b._bb = lambda key: getattr(b.blackboard, key, None)
+        msg = DoorArray()
+        msg.doors = doors
+        b._doors_cb(msg)
+        b.update()                                    # resolves, or starts the clock
+        clock[0] = state.config.moves[0].enter_door.acquire_timeout_sec + 1.0
+        b.update()                                    # past acquire_timeout_sec
+        return state
+
+    not_strong = run([_door_msg(3, (0.0, 3.0), False)])
+    assert not_strong.door_record.outcome == 'no_strong_door'
+    assert not_strong.last_stop_reason == 'enter_door:no_strong_door'
+
+    nothing = run([])
+    assert nothing.door_record.outcome == 'door_not_found'
+    assert nothing.last_stop_reason == 'enter_door:door_not_found'
+
+    strong = run([_door_msg(3, (0.0, 3.0), True)])
+    assert strong.door_record.outcome is None
+    assert strong.door_record.door_id == 3
