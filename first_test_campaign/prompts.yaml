@@ -46,5 +46,53 @@
 # expected_sequence: [straight until wall 1.0 m, turn left 90 deg, stop]
 - prompt_num: 5
   mission: M05_turn_left_wall
-  text: "turn left at 1m from the wall"
+  text: "turn left at 1.5m from the wall"
   success_criterion: "starts the left turn at 1.0 m +- 0.2 m from the wall, turns about 90 deg, no contact"
+
+# expected_sequence: [straight until wall, turn left 90 deg, go_to person, stop]
+#   neither leg's distance is named: 1.0 m from the wall (M05's criterion) and
+#   1.0 m +- 0.3 m from the person (M04's criterion, go_to_object's default
+#   gap for the person class) are the criteria, not something the planner is
+#   told, so a translated distance that drifts from either is a finding
+- prompt_num: 6
+  mission: M06_turn_left_wall_then_person
+  text: "turn left at the wall, then go to the person"
+  success_criterion: "starts the left turn at 1.0 m +- 0.2 m from the wall, turns about 90 deg, then stops at 1.0 m +- 0.3 m from the person, no contact in either leg, no e-stop"
+
+# expected_sequence: [go_to chair, straight distance 4.0 m, stop]
+#   the gap to the chair is go_to_object's default_gap(chair) = 0.5 m
+#   (gap_min 0.42 m, no class margin for this class, rounded up to 0.1 m,
+#   same as M03's bottle); the second leg's 4.0 m is named in the prompt,
+#   so M01's tolerance on a named distance (+- 0.15 m) applies
+- prompt_num: 7
+  mission: M07_chair_then_straight_4m
+  text: "go to the chair, then go straight 4m"
+  success_criterion: "stops within 0.5 m of the chair, facing it, no contact, then continues straight and stops 4.0 m +- 0.15 m beyond that point, no contact in either leg, no e-stop"
+
+# expected_sequence: [straight until wall, turn right 90 deg, go_to person, stop]
+#   M06's mirror image, turning right instead of left; same reasoning on both
+#   legs' distances (M05's wall criterion 1.0 m, M04's person gap 1.0 m +-
+#   0.3 m), neither named in the prompt
+- prompt_num: 8
+  mission: M08_turn_right_wall_then_person
+  text: "turn right at the wall then go to a person"
+  success_criterion: "starts the right turn at 1.0 m +- 0.2 m from the wall, turns about 90 deg, then stops at 1.0 m +- 0.3 m from the person, no contact in either leg, no e-stop"
+
+# expected_sequence: [go_to potted plant, straight distance 4.0 m, stop]
+#   the gap to the potted plant is go_to_object's default_gap(potted plant)
+#   = 0.5 m (gap_min 0.42 m, no class margin for this class, rounded up to
+#   0.1 m); the second leg's 4.0 m is named in the prompt, so M01's
+#   tolerance on a named distance (+- 0.15 m) applies
+- prompt_num: 9
+  mission: M09_potted_plant_then_straight_4m
+  text: "go to the potted plant then go straight 4m"
+  success_criterion: "stops within 0.5 m of the potted plant, facing it, no contact, then continues straight and stops 4.0 m +- 0.15 m beyond that point, no contact in either leg, no e-stop"
+
+# expected_sequence: [go_to person, stop]
+#   same mapping as M09 (go_to, not a class-aware front_object guard); this
+#   prompt restates M04's intent in different words, so a translated gap
+#   that drifts from M04's 1.0 m +- 0.3 m is a finding, not a new criterion
+- prompt_num: 10
+  mission: M10_stop_at_person
+  text: "go straight and stop when you see a person"
+  success_criterion: "stops at 1.0 m +- 0.3 m from the person, no contact, no e-stop"
