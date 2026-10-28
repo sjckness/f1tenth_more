@@ -1,4 +1,14 @@
-"""freespace_doors.py on hand-drawn occupancy grids.
+"""THE MEDIAL-AXIS detector (skeleton_candidates) on hand-drawn grids.
+
+Still here and still green, but OFF by default: `use_skeleton` ships false
+because on the real map this detector finds nothing -- a room behind a door
+is a ray fan rather than a region, so "clearance rises on both sides" cannot
+hold there. See the module docstring and output/doors/freespace.md. The
+geometry is sound wherever the map IS filled in, which is why these tests
+stay rather than being deleted with the switch.
+
+test_scan_doors.py covers the detector that actually runs.
+
 
 Every scene below is an int16 array of OccupancyGrid.data values (-1 unknown,
 0 free, 100 occupied) painted by exact cell ranges, so a width assertion is a
@@ -61,11 +71,12 @@ class Grid:
 
     def detect(self, robot_xy, beams=None, p=None):
         """(window, skeleton, candidates) for this grid as seen from robot_xy."""
-        p = p or fd.FreespaceParams()
+        p = p or fd.FreespaceParams(use_skeleton=True)
         window = fd.occupancy_window(self.a.ravel(), CELLS, CELLS, RES,
-                                     ORIGIN[0], ORIGIN[1], robot_xy, p)
+                                     ORIGIN[0], ORIGIN[1], robot_xy, p,
+                                     with_clearance=True)
         skel = fd.skeleton(window, p)
-        return window, skel, fd.candidate_doors(window, skel, beams, robot_xy, p)
+        return window, skel, fd.skeleton_candidates(window, skel, beams, robot_xy, p)
 
     def doors(self, robot_xy, beams=None, p=None):
         return [c for c in self.detect(robot_xy, beams, p)[2] if c.ok]
@@ -217,7 +228,7 @@ def test_the_width_band_is_what_rejects_them():
     being thrown out for some unrelated reason -- a tracking bug, a scan bug,
     a skeleton that never reached them.
     """
-    wide = fd.FreespaceParams(width_min_m=0.30, width_max_m=2.40)
+    wide = fd.FreespaceParams(use_skeleton=True, width_min_m=0.30, width_max_m=2.40)
     for gap in (0.50, 2.00):
         robot = (-2.0, 0.0)
         doors = room_door_room(gap).doors(robot, through_the_gap(robot, gap), wide)
@@ -243,7 +254,7 @@ def test_a_door_with_no_beams_through_it_is_found_but_never_confirmed():
     assert [c.code for c in cands] == ['not_beyond']
     assert cands[0].width == pytest.approx(0.90, abs=RES)
 
-    p = fd.FreespaceParams()
+    p = fd.FreespaceParams(use_skeleton=True)
     tracker = sd.DoorTracker(p.door_params())
     for i in range(3 * p.confirm_hits):
         tracker.update(cands, robot, float(i))
@@ -272,7 +283,7 @@ def test_beams_are_credited_to_the_opening_they_pass_through():
     past the wall 2 m away crosses that line too, and counting it would
     confirm a door from beams that never went near it.
     """
-    p = fd.FreespaceParams()
+    p = fd.FreespaceParams(use_skeleton=True)
     j0, j1 = (0.0, -0.45), (0.0, 0.45)
     laser = (-2.0, 0.0)
     through = fd.ScanBeams(np.array([(2.0, 0.0)]), laser)
@@ -282,7 +293,7 @@ def test_beams_are_credited_to_the_opening_they_pass_through():
 
 
 def test_min_beams_is_the_threshold_not_one_beam():
-    p = fd.FreespaceParams()
+    p = fd.FreespaceParams(use_skeleton=True)
     robot = (-2.0, 0.0)
     g = room_door_room(0.90)
     few = through_the_gap(robot, 0.90, n=p.min_beams - 1)
@@ -360,7 +371,7 @@ def test_the_crossing_direction_is_fixed_at_confirmation_and_survives_crossing()
     mission aiming at the door frame's origin with that yaw would be told to
     turn round in the doorway.
     """
-    p = fd.FreespaceParams()
+    p = fd.FreespaceParams(use_skeleton=True)
     g = room_door_room(0.90)
     tracker = sd.DoorTracker(p.door_params())
 
@@ -392,7 +403,7 @@ def test_the_crossing_direction_is_fixed_at_confirmation_and_survives_crossing()
 def test_a_door_is_kept_in_the_map_after_it_leaves_view():
     """forget_unseen_s 0: confirmed is forever, which is what lets a mission
     drive back to a door it saw earlier."""
-    p = fd.FreespaceParams()
+    p = fd.FreespaceParams(use_skeleton=True)
     tracker = sd.DoorTracker(p.door_params())
     robot = (-2.0, 0.0)
     g = room_door_room(0.90)
@@ -410,12 +421,14 @@ def test_a_door_is_kept_in_the_map_after_it_leaves_view():
 # ---------------------------------------------------------------------------
 def test_code_group_covers_every_code_and_refuses_a_foreign_one():
     assert fd.code_group('') == 'ok'
-    for code in fd.SHAPE_CODES:
-        assert fd.code_group(code) == 'shape'
-    for code in fd.PASSAGE_CODES:
-        assert fd.code_group(code) == 'passage'
+    for code in fd.SKELETON_CODES:
+        assert fd.code_group(code) == 'skeleton'
+    for code in fd.SCAN_CODES:
+        assert fd.code_group(code) == 'scan'
+    for code in fd.GRID_CODES:
+        assert fd.code_group(code) == 'grid'
     # semantic_doors' own codes are a DIFFERENT set; silently grouping one of
-    # them would read as a passage failure when it was nothing of the kind.
+    # them would send someone to read the wrong half of this module.
     with pytest.raises(ValueError):
         fd.code_group('end_fov')
 
@@ -442,7 +455,7 @@ def test_thinning_keeps_two_rooms_connected_through_the_doorway():
 
 def test_a_window_reaching_past_the_grid_is_filled_occupied():
     """No door at the edge of the map, where there is no map."""
-    p = fd.FreespaceParams(window_m=2.0)
+    p = fd.FreespaceParams(use_skeleton=True, window_m=2.0)
     g = Grid().free(-6.0, -6.0, 6.0, 6.0)
     window = fd.occupancy_window(g.a.ravel(), CELLS, CELLS, RES,
                                  ORIGIN[0], ORIGIN[1], (5.5, 0.0), p)
@@ -457,7 +470,7 @@ def test_the_jamb_march_lands_on_the_face_not_inside_the_wall():
     obstacle and the measured width is a whole cell too wide -- which both
     inflates it against the band and spoils the asymmetric check against 2d.
     """
-    p = fd.FreespaceParams()
+    p = fd.FreespaceParams(use_skeleton=True)
     robot = (-2.0, 0.0)
     window, _s, _c = room_door_room(0.90).detect(robot, None, p)
     up = fd.march_to_jamb(window, (0.025, 0.0), (0.0, 1.0), 2.0)
@@ -475,7 +488,7 @@ def test_one_doorway_yields_one_candidate_not_a_row_of_them():
     """
     robot = (-2.0, 0.0)
     window, skel, _c = room_door_room(0.90).detect(robot)
-    p = fd.FreespaceParams()
+    p = fd.FreespaceParams(use_skeleton=True)
     in_band = (skel & (2.0 * window.clearance >= p.width_min_m)
                & (2.0 * window.clearance <= p.width_max_m))
     assert in_band.sum() > 1, 'the scene does not even have a plateau to reduce'
@@ -492,7 +505,7 @@ def test_the_cycle_fits_the_two_hertz_budget():
     happened once already: the first draft of `thin` built an (8, rows, cols)
     stack and an np.roll per sub-iteration and cost 284 ms on its own.
     """
-    p = fd.FreespaceParams()
+    p = fd.FreespaceParams(use_skeleton=True)
     g = room_door_room(0.90)
     robot = (-2.0, 0.0)
     beams = through_the_gap(robot)
@@ -556,7 +569,7 @@ def test_the_jamb_gate_can_be_turned_off():
     g.occ(0.0, -4.0, 0.05, -0.45)
     g.occ(0.0, 0.45, 0.05, 0.55)
     robot = (-2.0, 0.0)
-    off = fd.FreespaceParams(jamb_min_cells=0)
+    off = fd.FreespaceParams(use_skeleton=True, jamb_min_cells=0)
     assert len(g.doors(robot, through_the_gap(robot), off)) == 1
 
 
@@ -569,7 +582,7 @@ def test_a_candidate_is_a_local_minimum_before_the_width_band_is_applied():
     which on a real grid meant 22 of 38 clusters were never evaluated at all
     and every one of the 16 that were came back at 2d = 0.700 exactly.
     """
-    p = fd.FreespaceParams()
+    p = fd.FreespaceParams(use_skeleton=True)
     g = walled_room()
     # A funnel: free space narrowing steadily from 1.6 m down to 0.3 m, so
     # the skeleton passes through the whole width band without ever pinching.
@@ -602,7 +615,7 @@ def test_only_curve_cells_are_offered_as_candidates():
     branch points on corridor10m_20261019T131815) from spending the whole
     max_candidates budget on cells that can never be doors.
     """
-    p = fd.FreespaceParams()
+    p = fd.FreespaceParams(use_skeleton=True)
     robot = (-2.0, 0.0)
     window, skel, _c = room_door_room(0.90).detect(robot, None, p)
     deg = fd.neighbour_count(skel)

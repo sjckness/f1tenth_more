@@ -199,6 +199,7 @@ class DoorParams:
                  'end_occlusion_margin_m', 'end_probe_beams', 'min_beams',
                  'through_frac', 'behind_margin_m', 'gap_clear_m',
                  'jamb_exclude_m', 'assoc_max_m', 'confirm_hits',
+                 'confirm_pose_spread_m', 'confirm_same_pose_hits', 'max_tracks',
                  'smooth_alpha', 'candidate_forget_s', 'forget_unseen_s',
                  'max_walls')
 
@@ -221,6 +222,26 @@ class DoorParams:
         self.jamb_exclude_m = 0.08
         self.assoc_max_m = 0.30
         self.confirm_hits = 5
+        # POSE-DIVERSITY CONFIRMATION, off unless confirm_pose_spread_m > 0.
+        # The plain hit count asks "seen this often"; a detector whose input
+        # is a single scan needs "seen from somewhere else", because a ray
+        # artefact is perfectly repeatable from one standing position and
+        # counting it five times proves nothing. With the spread set, a track
+        # confirms when two of its hits came from robot positions at least
+        # that far apart, OR after confirm_same_pose_hits hits from wherever
+        # (so a stationary car still eventually confirms a real door).
+        self.confirm_pose_spread_m = 0.0
+        self.confirm_same_pose_hits = 0
+        # A BUDGET, not a detection limit. A confirmed door is never
+        # forgotten (forget_unseen_s 0), which is what lets a mission drive
+        # back to one -- but it also means the list only grows, and every
+        # confirmed door costs a TF and five markers on every cycle. A
+        # permissive detector on a 19 m run through a cluttered room
+        # produced 98 of them (measured, output/doors/freespace.md), i.e.
+        # about a thousand transforms a second into the tree. 0 is unbounded,
+        # which is what the wall detectors keep: they are capped upstream by
+        # /perception/walls carrying at most four tracks.
+        self.max_tracks = 0
         self.smooth_alpha = 0.30
         self.candidate_forget_s = 5.0
         self.forget_unseen_s = 0.0   # 0 = a confirmed door is never forgotten
@@ -254,10 +275,11 @@ class DoorCandidate:
     """One evaluated gap: its geometry, where it came from, and its verdict."""
 
     __slots__ = ('jamb0', 'jamb1', 'centre', 'width', 'axis', 'case',
-                 'wall_id0', 'wall_id1', 'code', 'n_beams', 'through_frac')
+                 'wall_id0', 'wall_id1', 'code', 'n_beams', 'through_frac',
+                 'flags')
 
     def __init__(self, jamb0, jamb1, case, wall_id0, wall_id1, code='',
-                 n_beams=0, through_frac=0.0):
+                 n_beams=0, through_frac=0.0, flags=()):
         self.jamb0 = (float(jamb0[0]), float(jamb0[1]))
         self.jamb1 = (float(jamb1[0]), float(jamb1[1]))
         self.centre = ((self.jamb0[0] + self.jamb1[0]) / 2.0,
@@ -271,6 +293,12 @@ class DoorCandidate:
         self.code = code
         self.n_beams = int(n_beams)
         self.through_frac = float(through_frac)
+        # Accepted-but-noteworthy, as opposed to `code` which is rejected-
+        # and-why. A flagged candidate IS a door ('marginal' width, a
+        # 'one_jamb' opening whose second jamb the sensor never saw) and is
+        # tracked and published like any other; the flag rides along so the
+        # markers can say so and the debug dict can count it.
+        self.flags = tuple(flags)
 
     @property
     def ok(self):
@@ -282,7 +310,8 @@ class DoorCandidate:
 
     def __repr__(self):
         return (f'DoorCandidate(case={self.case}, w={self.width:.2f}, '
-                f'walls=({self.wall_id0}, {self.wall_id1}), code={self.code!r})')
+                f'walls=({self.wall_id0}, {self.wall_id1}), code={self.code!r}'
+                + (f', flags={self.flags}' if self.flags else '') + ')')
 
 
 # ---------------------------------------------------------------------------
@@ -618,7 +647,7 @@ class DoorTrack:
 
     __slots__ = ('id', 'centre', 'axis', 'width', 'normal', 'hits', 'state',
                  'born_sec', 'last_seen_sec', 'confirmed_sec', 'case',
-                 'wall_id0', 'wall_id1')
+                 'wall_id0', 'wall_id1', 'spread_pair', 'spread', 'flags')
 
     def __init__(self, track_id, cand, now_sec):
         self.id = int(track_id)
@@ -633,6 +662,36 @@ class DoorTrack:
         self.confirmed_sec = None
         self.case = cand.case
         self.wall_id0, self.wall_id1 = cand.wall_id0, cand.wall_id1
+        self.flags = tuple(cand.flags)
+        # The two poses furthest apart that this track has been seen from,
+        # and their distance. A RUNNING DIAMETER, not a list of poses: the
+        # first version kept the first 16 poses and the distance between
+        # them, which reported 0.00 m spread for a track with 300 hits --
+        # born while the car was standing still, the list filled with 16
+        # copies of one position, and every later pose, 19 m up the
+        # corridor, discarded by the cap. Measured on a real bag.
+        self.spread_pair = None
+        self.spread = 0.0
+
+    def remember_pose(self, robot_xy):
+        """Fold one sighting's robot position into the running diameter."""
+        if robot_xy is None:
+            return
+        xy = (float(robot_xy[0]), float(robot_xy[1]))
+        if self.spread_pair is None:
+            self.spread_pair = (xy, xy)
+            return
+        a, b = self.spread_pair
+        da = math.hypot(xy[0] - a[0], xy[1] - a[1])
+        db = math.hypot(xy[0] - b[0], xy[1] - b[1])
+        if da >= db and da > self.spread:
+            self.spread_pair, self.spread = (a, xy), da
+        elif db > self.spread:
+            self.spread_pair, self.spread = (b, xy), db
+
+    def pose_spread(self):
+        """Largest distance between any two poses this track was seen from."""
+        return self.spread
 
     @property
     def confirmed(self):
@@ -714,9 +773,10 @@ class DoorTracker:
             if ci in taken_c:
                 continue
             trk = DoorTrack(self._next_id, cand, now_sec)
+            trk.remember_pose(robot_xy)
             self._next_id += 1
             self.tracks.append(trk)
-            if trk.hits >= p.confirm_hits:
+            if self.should_confirm(trk):
                 self._confirm(trk, robot_xy, now_sec)
         self._forget(now_sec)
         return self.confirmed()
@@ -731,8 +791,28 @@ class DoorTracker:
         trk.last_seen_sec = float(now_sec)
         trk.case = cand.case
         trk.wall_id0, trk.wall_id1 = cand.wall_id0, cand.wall_id1
-        if not trk.confirmed and trk.hits >= self.p.confirm_hits:
+        trk.flags = cand.flags
+        trk.remember_pose(robot_xy)
+        if not trk.confirmed and self.should_confirm(trk):
             self._confirm(trk, robot_xy, now_sec)
+
+    def should_confirm(self, trk):
+        """Is this track ready to be published? See DoorParams' two knobs.
+
+        Plain hit counting unless confirm_pose_spread_m is set, which is what
+        the wall-based detectors use and what this tracker did before the
+        grid/scan one existed. With the spread set: two hits from robot
+        positions that far apart, OR confirm_same_pose_hits hits from
+        anywhere -- "seen from somewhere else", which a repeatable one-scan
+        artefact cannot satisfy while the car is moving, with a plain count
+        as the fallback for a car that is not.
+        """
+        p = self.p
+        if p.confirm_pose_spread_m > 0.0:
+            if p.confirm_same_pose_hits and trk.hits >= p.confirm_same_pose_hits:
+                return True
+            return trk.pose_spread() >= p.confirm_pose_spread_m
+        return trk.hits >= p.confirm_hits
 
     def _confirm(self, trk, robot_xy, now_sec):
         """Confirm a track and FIX its crossing direction, once and for all."""
@@ -759,7 +839,23 @@ class DoorTracker:
             elif unseen > self.p.candidate_forget_s:
                 continue
             keep.append(t)
-        self.tracks = keep
+        self.tracks = self._capped(keep)
+
+    def _capped(self, tracks):
+        """Enforce max_tracks, dropping the WEAKEST evidence first.
+
+        Weakest means: unconfirmed before confirmed, then fewest sightings,
+        then least pose spread, then longest unseen. So the doors that
+        survive a cap are the ones seen most often from the most places --
+        and a cap that is hit is a tuning signal, not silent corruption:
+        door_candidates on the debug topic sits pinned at the limit.
+        """
+        limit = int(self.p.max_tracks)
+        if limit <= 0 or len(tracks) <= limit:
+            return tracks
+        ranked = sorted(tracks, key=lambda t: (
+            t.confirmed, t.hits, t.pose_spread(), t.last_seen_sec), reverse=True)
+        return ranked[:limit]
 
 
 def nearest_confirmed(tracker, xy):

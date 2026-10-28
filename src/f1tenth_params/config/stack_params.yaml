@@ -3978,19 +3978,31 @@ semantic_doors_publish_tf:
   default: true
   description: "Broadcast map -> door_<id> for every CONFIRMED door. The frame's x axis is the crossing direction, fixed at first confirmation and never flipped, so a mission that drives through a door does not find its target spun round behind it. Off: the TF is not published and a mission goal of type enter_door has nothing to aim at."
 
-# --- doors from the OCCUPANCY GRID (f1tenth_costmap/freespace_doors.py) -------
+# --- doors from SCAN JUMPS (f1tenth_costmap/freespace_doors.py) ---------------
 # Hosted by freespace_door_node, behind freespace_doors_enabled AND
-# door_source == 'freespace' (the default). Input: slam_toolbox's own
-# /slam/map, the global EKF's map-frame pose, and /scan for the live
-# confirmation only. NO WALLS, no wall tracks, no stereo -- which is the point:
-# a doorway whose jambs were never fitted as two separate wall segments is
-# invisible to both other detectors and visible to this one.
-# Method: crop the grid to a window around the car, call everything that is not
-# KNOWN FREE occupied (unknown included), take the distance transform of the
-# free space, thin it to its medial axis, and look for a LOCAL MINIMUM of
-# clearance along that axis whose 2 x clearance falls in the door width band
-# with the clearance rising on both sides -- a bottleneck between two wider
-# regions. See that module's docstring for each gate and its rejection code.
+# door_source == 'freespace' (the default). NO WALLS, no wall tracks, no
+# stereo -- which is the point: a doorway whose jambs were never fitted as two
+# separate wall segments is invisible to both other detectors and visible to
+# this one.
+# Method: /scan is the PRIMARY input. A doorway is a near-far-near step in the
+# range profile -- a jamb at A, a run of beams reaching much further through
+# the opening, a second jamb at B -- which is there on the FIRST scan that sees
+# it and is as strong for a door in a side wall as for one straight ahead.
+# /slam/map is a CROSS-CHECK, and its UNKNOWN cells are read as unknown rather
+# than as obstacles: is the line A-B clear of real obstacle, is there ANY free
+# cell behind it (one ray's worth -- there is deliberately no 'wide room'
+# requirement), is there occupancy where the jambs should be. With no grid yet
+# the detector runs anyway and flags its candidates 'no_grid'.
+# Every gate is PERMISSIVE and parameterised, because a missed door is a
+# mission that cannot run and a false one is a marker in Foxglove; what stops a
+# one-scan artefact is the CONFIRMATION (freespace_doors_confirm_pose_spread_m),
+# which asks where the car was standing rather than how many times it looked.
+# A FLAG IS NOT A REJECTION: 'marginal', 'one_jamb' and 'no_grid' candidates are
+# doors, tracked and published like any other.
+# The medial-axis detector this replaced is still here behind
+# freespace_doors_use_skeleton (default false); it finds nothing on the real
+# map, and output/doors/freespace.md says why.
+# See that module's docstring for each gate and its rejection code.
 # Output: the SAME four as the semantic detector (/perception/doors_semantic,
 # /viz/doors_semantic, /costmap/semantic_doors, TF map -> door_<id>) plus
 # /viz/doors_freespace_debug and /costmap/freespace_doors/debug.
@@ -4001,14 +4013,14 @@ freespace_doors_enabled:
   default: true
   description: "Run the occupancy-grid door detector in freespace_door_node. Also needs door_source == 'freespace', which is the default, so this is the detector the stack runs out of the box. False: the node starts, subscribes to nothing, publishes nothing and computes nothing. PERCEPTION ONLY -- nothing in the control path, the costmap's obstacle list or the behaviour tree reads a door unless a mission asks for one with an enter_door goal. A cycle that raises is logged (throttled), counted (door_errors on /costmap/freespace_doors/debug) and never kills the node; after 50 consecutive failures the node turns detection off for its life."
 freespace_doors_rate_hz:
-  default: 2.0
-  description: "How often the detection cycle runs [Hz]. The grid itself only changes every map_update_interval (5.0 s in slam_toolbox_params.yaml), so the GEOMETRY is re-measured from unchanged cells most ticks; what is new on every tick is the /scan confirmation, which is what freespace_doors_confirm_hits counts. 2.0 costs about 70 ms per cycle on a laptop for the default 8 m window (measured, test_freespace_doors.py's own timing scene) and is the first thing to lower -- or lower freespace_doors_window_m, which is quadratic -- if the Orin cannot hold it. Must be > 0."
+  default: 10.0
+  description: "Most cycles per second. The cycle is DRIVEN BY /scan, not by a timer -- the scan is the evidence, so a cycle without a new one would re-measure the same beams -- and this throttles it, because the lidar runs at about 40 Hz and nothing downstream needs doors that often. Each cycle costs a few ms (no distance transform and no thinning unless freespace_doors_use_skeleton is on), so this is not the knob to reach for on a loaded Orin; it is here to stop the detector doing forty times the work it needs to. Must be > 0."
 freespace_doors_window_m:
   default: 8.0
-  description: "RADIUS [m] of the square window cropped out of the grid around the car: the window is 2 x this across, so 8.0 means a 16 m box, 321 x 321 cells at 0.05 m. Cost is QUADRATIC in this number and the medial-axis thinning dominates it, so halving the window is roughly a quarter of the cycle. Cells outside the grid's own extent are filled UNKNOWN, i.e. occupied, so a door is never invented at the edge of the map."
+  description: "RADIUS [m] of the square window cropped out of the grid around the car for the CROSS-CHECK: the window is 2 x this across, so 8.0 means a 16 m box, 321 x 321 cells at 0.05 m. Cells outside the grid's own extent are filled UNKNOWN, which the scan detector reads as 'no opinion' -- a door at the edge of the map is still a door. Cost is quadratic in this number but small, because nothing walks the whole window unless freespace_doors_use_skeleton is on."
 freespace_doors_occupied_threshold:
   default: 65
-  description: "OccupancyGrid.data value (0-100) at or above which a cell is an obstacle -- the same number costmap_boundary_node uses, not a new one. UNKNOWN (-1) is ALSO an obstacle here, which is the opposite of costmap_boundary.py's rule and deliberately so: that node asks 'is there definitely something there', which ignorance must not answer yes; this one asks 'may the car drive here', which ignorance must not answer yes either."
+  description: "OccupancyGrid.data value (0-100) at or above which a cell is a real obstacle -- the same number costmap_boundary_node uses, not a new one. UNKNOWN (-1) is NOT an obstacle here, which is the single most important thing about this detector's reading of the grid: a room behind a door that has never been driven into is almost entirely unknown, and calling that an obstacle is how the medial-axis version concluded there was no door (output/doors/freespace.md)."
 freespace_doors_cleanup_iterations:
   default: 1
   description: "Iterations of the morphological cleanup, which only ever SHRINKS the free space: a binary closing of the obstacles (fills a one- or two-cell pinhole in a wall, so a missed ray is not a 0.10 m doorway) then a binary opening of the free space (drops isolated free specks that would seed a skeleton of their own). One iteration reaches 0.10 m at 0.05 m/cell, an order below freespace_doors_width_min_m, so it can neither close nor open a real doorway. 0 disables it."
@@ -4046,8 +4058,8 @@ freespace_doors_min_beams:
   default: 4
   description: "How many /scan beams must pass through the opening and reach freespace_doors_beyond_m past the jamb line for the candidate to count as seen this cycle. Counting beams rather than testing one ray is what makes the confirmation robust to a single stray return. Same number as semantic_doors_min_beams."
 freespace_doors_beyond_m:
-  default: 0.50
-  description: "How far past the jamb line a beam must reach [m] to count. This is the gate that separates a hole THROUGH a wall from a dent IN one, and the reason a doorway-sized gap that exists only in the map -- two scans that never joined up, a hole punched by a person who has since left -- never confirms: the grid can be wrong about it, the live beams cannot. A candidate that never gets beam support never confirms and so never reaches a mission."
+  default: 0.5
+  description: "How far past the line between the two jambs a beam must reach [m] to count as having gone THROUGH the opening. This is the gate that separates a hole through a wall from a dent in one, measured as a SIGNED distance on the far side from the sensor, so a beam stopping short of the threshold and one sailing through it are told apart by a sign rather than a magnitude."
 freespace_doors_jamb_exclude_m:
   default: 0.08
   description: "How much is cut off each end of the opening before a beam's crossing point is required to fall inside it [m]. Keeps a beam that passes just beside a jamb, through some other gap, from being credited to this door. Same number as semantic_doors_jamb_exclude_m."
@@ -4056,19 +4068,94 @@ freespace_doors_assoc_max_m:
   description: "Max distance [m] between a candidate's centre and a tracked door's for the two to be the same door. Handed straight to semantic_doors.DoorTracker -- there is ONE tracker for all three door sources, so this is the same knob as semantic_doors_assoc_max_m, with the same meaning, for a different detector's candidates."
 freespace_doors_confirm_hits:
   default: 3
-  description: "Cycles a door must be seen in before it is CONFIRMED -- published, given a TF, and visible to an enter_door mission. 3 rather than the semantic detector's 5 because each hit here is an independent /scan confirmation over a geometry the 5 s grid holds still, where there a hit is one more sighting of a wall pair that moves with every scan. At the default 2 Hz that is about 1.5 s."
+  description: "Cycles a door must be seen in before it is CONFIRMED, when the pose-spread policy is off (freespace_doors_confirm_pose_spread_m 0). With the policy on -- the default -- this is not read at all: see confirm_pose_spread_m and confirm_same_pose_hits."
+freespace_doors_max_tracks:
+  default: 32
+  description: "Most doors held at once -- a TF and MARKER BUDGET, not a detection limit. A confirmed door is never forgotten (freespace_doors_forget_unseen_s 0), which is what lets a mission drive back to one, but it also means the list only grows and every confirmed door costs one TF and five markers on every cycle. The permissive defaults produced 98 of them on a 19 m run through a cluttered room (measured, output/doors/freespace.md) -- about a thousand transforms a second into the tree. When the cap is hit the WEAKEST evidence is dropped first: unconfirmed before confirmed, then fewest sightings, then least pose spread, then longest unseen. Hitting it is a tuning signal rather than silent corruption, because door_candidates on /costmap/freespace_doors/debug then sits pinned at the limit. 0 is unbounded."
 freespace_doors_smooth_alpha:
   default: 0.30
   description: "EMA weight of the newest measurement in a tracked door's centre, axis and width. Same knob and same meaning as semantic_doors_smooth_alpha."
 freespace_doors_candidate_forget_s:
   default: 12.0
-  description: "Seconds an UNCONFIRMED door candidate survives without being seen again. Longer than semantic_doors_candidate_forget_s (5.0) on purpose: the grid only refreshes every 5 s, so a candidate that misses one grid update must not be forgotten before the next one arrives."
+  description: "Seconds an UNCONFIRMED door candidate survives without being seen again. Generous, because confirmation now waits for the car to move freespace_doors_confirm_pose_spread_m, and a candidate must outlive that wait."
 freespace_doors_forget_unseen_s:
   default: 0.0
   description: "Seconds a CONFIRMED door survives after leaving view. 0 means never forgotten -- a door stays in the map once confirmed, which is what lets a mission drive back to one. Same default and same meaning as semantic_doors_forget_unseen_s."
 freespace_doors_max_candidates:
   default: 16
-  description: "Most bottlenecks evaluated per cycle, narrowest first, as a bound on the per-cycle cost in a cluttered room. The clipped ones are the WIDEST in-band pinches, i.e. the least door-like, and the ordering is deterministic so the same scene always yields the same set."
+  description: "Most ACCEPTED openings kept per cycle, best-seen (most beams through) first. A bound on what reaches the tracker in a cluttered room. Rejected openings are not capped: they cost nothing further and they are what /viz/doors_freespace_debug and the debug dict are made of."
+freespace_doors_width_min_detect_m:
+  default: 0.6
+  description: "Narrowest opening [m] the SCAN half will even consider. Wider than freespace_doors_width_min_m on purpose: an opening between the bands is published with a 'marginal' flag rather than dropped, because a missed door is a mission that cannot run and a false one is a marker in Foxglove."
+freespace_doors_width_max_detect_m:
+  default: 1.5
+  description: "Widest opening [m] the SCAN half will consider. See width_min_detect_m for why it is wider than the nominal band. Note that a door seen at a shallow angle measures WIDE -- the jamb beams graze the wall, so the last return before the opening lands short of the real jamb -- which is another reason this band has slack."
+freespace_doors_smooth_beams:
+  default: 3
+  description: "Width of the MEDIAN filter over the range profile, in beams. A median and not a mean because every gate here is about an edge: a mean of three smears a 0.5 m jamb step over three beams and moves where the jamb is, a median of three deletes a single-beam spike and leaves the step exactly where it was. 0 or 1 disables it."
+freespace_doors_jump_min_m:
+  default: 0.5
+  description: "How much further the next beam must reach [m] to count as a range discontinuity. This is the first and bluntest gate: below it nothing downstream happens at all, so if doors are missing entirely, check /viz/doors_freespace_debug for yellow points at the jambs before touching anything else. Lower it for shallow doorways seen from far away; raise it in cluttered rooms where every object edge is a jump."
+freespace_doors_max_edges:
+  default: 64
+  description: "Most rising and most falling edges kept per scan, largest jumps first. A bound on the pairing below, which is a product of the two: foliage or a crowd can otherwise produce hundreds of each."
+freespace_doors_min_interior_beams:
+  default: 1
+  description: "How many beams must fall strictly between the two jambs. 1 is the real constraint (an opening with no beams through it was never observed); it exists as a parameter so a noisy lidar can be made to demand more."
+freespace_doors_beyond_beams_min:
+  default: 2
+  description: "How many beams must reach freespace_doors_beyond_m past the line between the jambs. 2, not 3: a doorway seen almost edge-on puts very few beams through, and this is the gate most likely to lose one. The confirmation, not this count, is what rejects artefacts."
+freespace_doors_block_margin_m:
+  default: 0.05
+  description: "How far past the line between the jambs [m] a beam may stop and still count as BLOCKING the opening rather than passing through it. Small on purpose: the split test counts beams that stopped AT or BEFORE the threshold, not beams that merely did not get freespace_doors_beyond_m further. Testing the latter rejected every side door into a small room -- a beam through a 0.9 m opening into a 3 m room seen at a shallow angle clips that room's far wall only about 0.3 m past the threshold, so a run of perfectly good beams read as short and split the opening in two."
+freespace_doors_short_run_max:
+  default: 2
+  description: "How many CONSECUTIVE beams inside the opening may fall short of the far side without the opening counting as blocked. A chair leg or a person standing beside the door shadows a few beams; that must not split the doorway in two. Works with short_frac_max: an opening is only rejected ('split') when it exceeds BOTH."
+freespace_doors_short_frac_max:
+  default: 0.2
+  description: "What fraction of the beams inside the opening may fall short before it counts as blocked, alongside short_run_max. Both must be exceeded to reject, so a short wide shadow and a long narrow one are both tolerated and only something genuinely filling the doorway is not."
+freespace_doors_edge_beams:
+  default: 3
+  description: "How many beams either side of a jamb are looked at to decide whether the jamb is the END OF A SURFACE rather than an isolated return. A jamb is part of something; one dust mote, one reflection or the tip of a chair back is not, and pairing two of those invents a doorway out of nothing."
+freespace_doors_edge_tol_m:
+  default: 0.2
+  description: "How close in range [m] a neighbouring beam must be for the jamb to count as part of the same surface. Generous, because a jamb seen at an angle changes range quickly from beam to beam."
+freespace_doors_noise_max_m:
+  default: 0.1
+  description: "Occupied runs shorter than this [m] are IGNORED outright when the grid is asked whether the line between the jambs is clear. One or two cells: a chair leg, a single bad return, a map artefact. The first of three deliberate tolerances -- see occupied_frac_max and occupied_run_veto_m."
+freespace_doors_occupied_frac_max:
+  default: 0.25
+  description: "How much of the line between the jambs may be occupied, in pieces that each survived noise_max_m, before the opening is rejected ('occupied_frac'). Pieces, not a continuous run: a doorway with clutter along its threshold is still a doorway."
+freespace_doors_occupied_run_veto_m:
+  default: 0.2
+  description: "The only thing that VETOES an opening outright on the grid: one CONTINUOUS occupied run at least this long [m] across it ('blocked'). That is something standing across the doorway rather than in it -- a closed door, a shelf, a wall the scan was wrong about."
+freespace_doors_behind_min_m:
+  default: 0.3
+  description: "Where the search for free space BEHIND the opening starts [m], measured along the crossing direction. Starts off the threshold so the jambs' own cells are not what satisfies it."
+freespace_doors_behind_max_m:
+  default: 1.0
+  description: "Where the search for free space behind the opening stops [m]. Short on purpose: all this asks is that something got through, not that there is a room."
+freespace_doors_behind_free_min_cells:
+  default: 3
+  description: "How many free cells must be found behind the opening. DELIBERATELY TINY -- one ray's worth is enough. There is no 'wide room' requirement and must not be: a room behind a door that has never been driven into is a fan of thin free lines with UNKNOWN between them, and demanding an open region there is exactly the test that made the medial-axis detector report zero doors on the real map (output/doors/freespace.md)."
+freespace_doors_scan_jamb_radius_m:
+  default: 0.25
+  description: "How far from each jamb point [m] the grid is searched for occupancy. 0.25, not the medial-axis detector's 0.15: the jamb point comes from a beam that grazed the wall and can sit a cell or two off it."
+freespace_doors_scan_jamb_min_cells:
+  default: 1
+  description: "How many occupied cells must lie within scan_jamb_radius_m of a jamb. ONE END MAY MISS IT: glass returns nothing, a corner can reflect a beam away and a jamb seen edge-on leaves almost no cells, so a single missing jamb keeps the candidate with a 'one_jamb' flag. Both ends missing is still a rejection ('no_jamb') -- that is not a doorway, it is two numbers."
+freespace_doors_merge_max_m:
+  default: 0.3
+  description: "Candidates whose centres are closer than this [m] are collapsed into one. One doorway produces several jump pairs (the median filter, a two-beam-wide jamb, a far surface at two depths), and the tracker associates each candidate to AT MOST ONE track -- so handing it five copies of one door spawns four spurious tracks. The survivor is the one with the most beams through it and inherits the union of the cluster's flags."
+freespace_doors_confirm_pose_spread_m:
+  default: 0.15
+  description: "How far apart [m] two of a door's sightings must have been made from before it is CONFIRMED. This, not the hit count, is what rejects a one-scan artefact: a reflection or a beam that slipped past a corner is perfectly repeatable from one standing position, and counting it ten times proves nothing, but it does not survive being looked at from somewhere else. 0 disables the policy and falls back to freespace_doors_confirm_hits."
+freespace_doors_confirm_same_pose_hits:
+  default: 3
+  description: "How many hits confirm a door regardless of where they came from -- the fallback for a car that is not moving, which would otherwise never accumulate any pose spread at all. 0 disables it, leaving confirm_pose_spread_m as the only route to confirmation."
+freespace_doors_use_skeleton:
+  default: false
+  description: "Run the MEDIAL-AXIS detector instead of the scan-jump one. Default FALSE. It crops the grid, distance-transforms the free space, thins it to its medial axis and looks for a bottleneck whose clearance rises on both sides -- and on the real map it finds nothing, because a room behind a door is a ray fan rather than a region, so the rise test cannot hold and the few skeleton cells reaching through a doorway are short branches the spur pruning discards. Kept, and kept tested, because the geometry is sound wherever the map IS filled in. See output/doors/freespace.md."
 freespace_doors_grid_max_age_s:
   default: 30.0
   description: "How old the last /slam/map message may be [s] before a cycle is skipped. The grid is latched, so an old one keeps arriving in every new subscriber's queue forever: without this, a dead slam_toolbox would leave this node confidently re-publishing doors from a grid minutes out of date. A skipped cycle changes nothing -- the tracker keeps whatever it already confirmed. 0 disables the check."

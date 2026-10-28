@@ -230,7 +230,7 @@ enable flag:
 
 | `door_source` | node | enable flag | input |
 |---|---|---|---|
-| `freespace` (default) | `freespace_door_node` | `freespace_doors_enabled` (true) | slam_toolbox's occupancy grid |
+| `freespace` (default) | `freespace_door_node` | `freespace_doors_enabled` (true) | `/scan` (near-far-near steps), cross-checked against slam_toolbox's grid |
 | `semantic` | `semantic_layer_node` | `semantic_doors_enabled` (true) | the semantic layer's wall tracks |
 | `profile` | `lidar_front_wall_node` | `lidar_front_wall_door_detection_enabled` (false) | the per-beam depth profile |
 

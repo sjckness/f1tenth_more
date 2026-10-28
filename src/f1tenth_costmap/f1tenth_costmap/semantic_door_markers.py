@@ -76,9 +76,18 @@ def colour_of(door):
 
 
 def label_of(door):
-    """The text a door is labelled with: id, width, case, state."""
+    """The text a door is labelled with: id, width, case, state, flags.
+
+    The flags are the half of a door's story the geometry does not tell --
+    `marginal` (width outside the nominal band), `one_jamb` (only one end had
+    occupancy behind it), `no_grid` (never cross-checked against a map). All
+    three are reasons to look at a door twice before driving at it, and none
+    of them is visible from the markers alone.
+    """
+    flags = getattr(door, 'flags', ()) or ()
+    tail = (' [' + ' '.join(flags) + ']') if flags else ''
     return (f'door {door.id} {door.width:.2f}m case {door.case} '
-            f'{"confirmed" if door.confirmed else "candidate"}')
+            f'{"confirmed" if door.confirmed else "candidate"}{tail}')
 
 
 def _base(door, frame_id, stamp, slot, kind, lifetime):
@@ -248,21 +257,27 @@ def door_transform(door, TransformStamped, parent_frame, stamp_msg):
 # ---------------------------------------------------------------------------
 DEBUG_NS = 'viz_doors_freespace'
 
-DEBUG_SLOT_SKELETON = 0
-DEBUG_SLOT_OK = 1
-DEBUG_SLOT_SHAPE = 2
-DEBUG_SLOT_PASSAGE = 3
+DEBUG_SLOT_JUMPS = 0
+DEBUG_SLOT_CANDIDATES = 1
+DEBUG_SLOT_REJECTED = 2
+DEBUG_SLOT_SKELETON = 3
 DEBUG_SLOT_LABELS = 100          # + i, one per candidate
 
-#: Candidate colour by code group (freespace_doors.code_group).
-DEBUG_GROUP_COLOUR = {
-    'ok': (0.10, 1.00, 0.30),        # green: a door
-    'shape': (0.60, 0.60, 0.60),     # grey: the geometry was wrong
-    'passage': (1.00, 0.30, 0.20),   # red: the geometry was right, the scan said no
-}
+#: Yellow: every range discontinuity the scan half found, before any pairing.
+#: This is the layer to look at when a door is missing entirely -- if there
+#: is no yellow at the jambs, the opening never produced a near-far-near step
+#: and no amount of parameter tuning further down will help.
+DEBUG_JUMP_COLOUR = (1.00, 0.95, 0.20, 0.85)
+#: Orange: an opening that passed the scan half. Bright when it also passed
+#: the grid cross-check, dim when the grid rejected it.
+DEBUG_CANDIDATE_COLOUR = (1.00, 0.55, 0.10, 0.95)
+DEBUG_REJECTED_COLOUR = (0.55, 0.55, 0.55, 0.60)
+#: Blue: the medial axis, drawn only when use_skeleton is on.
 DEBUG_SKELETON_COLOUR = (0.35, 0.75, 1.00, 0.55)
+
+DEBUG_JUMP_SIZE_M = 0.07
+DEBUG_CANDIDATE_SIZE_M = 0.12
 DEBUG_SKELETON_SIZE_M = 0.03
-DEBUG_CANDIDATE_SIZE_M = 0.10
 DEBUG_LABEL_SIZE_M = 0.10
 
 
@@ -278,60 +293,72 @@ def _debug_base(frame_id, stamp, slot, kind, lifetime):
     return set_lifetime(m, lifetime)
 
 
-def freespace_debug_markers(skeleton_xy, candidates, frame_id, stamp,
-                            resolution=0.05, lifetime=2.0, max_labels=16):
-    """The skeleton as POINTS plus every candidate, grouped by why it failed.
+def _point_cloud(frame_id, stamp, slot, kind, xy, size, colour, lifetime, z=0.02):
+    m = _debug_base(frame_id, stamp, slot, kind, lifetime)
+    m.scale.x = m.scale.y = m.scale.z = float(size)
+    m.color.r, m.color.g, m.color.b, m.color.a = colour
+    # `xy if xy is not None` and NOT `xy or ()`: these arrive as numpy
+    # arrays, and the truth value of an array with more than one element is
+    # a ValueError -- which, caught by the node's own cycle guard, showed up
+    # as "debug markers silently never published" rather than as a crash.
+    rows = () if xy is None else xy
+    m.points = [Point(x=float(x), y=float(y), z=z) for x, y in rows]
+    return m
 
-    `skeleton_xy` is an (n, 2) array of map-frame cell centres
-    (freespace_doors.skeleton_points) and `candidates` the list
-    freespace_doors.candidate_doors returned -- accepted AND rejected, which
-    is the point.
 
-    Three CUBE_LIST markers rather than one marker per candidate: the count
-    varies every cycle, and per-candidate ids would need DELETEs chasing them.
-    One fixed id per group plus an ALWAYS-PUBLISHED empty list for an empty
-    group means a group that stops matching anything visibly empties instead
-    of freezing on screen. The code TEXT markers do get one id each, capped
+def freespace_debug_markers(jump_xy, candidates, frame_id, stamp,
+                            skeleton_xy=None, lifetime=2.0, max_labels=16):
+    """What the detector saw and what it threw away, in three layers.
+
+    `jump_xy` is every range discontinuity (freespace_doors.jump_points),
+    `candidates` the list freespace_doors.scan_candidates returned --
+    accepted AND rejected, which is the point -- and `skeleton_xy` the medial
+    axis, only when the optional skeleton detector is running.
+
+    FIXED MARKER IDS with always-published (possibly empty) point lists: the
+    counts change every cycle, and per-candidate ids would need DELETEs
+    chasing them. A layer that stops matching anything visibly empties
+    instead of freezing on screen. The code labels do get one id each, capped
     at `max_labels`, and the unused ones are deleted.
     """
-    from f1tenth_costmap.freespace_doors import code_group
-
     msg = MarkerArray()
-    pts = _debug_base(frame_id, stamp, DEBUG_SLOT_SKELETON, Marker.POINTS, lifetime)
-    pts.scale.x = pts.scale.y = max(float(resolution) * 0.6, DEBUG_SKELETON_SIZE_M)
-    (pts.color.r, pts.color.g, pts.color.b, pts.color.a) = DEBUG_SKELETON_COLOUR
-    pts.points = [Point(x=float(x), y=float(y), z=0.01) for x, y in skeleton_xy]
-    msg.markers.append(pts)
+    msg.markers.append(_point_cloud(
+        frame_id, stamp, DEBUG_SLOT_JUMPS, Marker.POINTS, jump_xy,
+        DEBUG_JUMP_SIZE_M, DEBUG_JUMP_COLOUR, lifetime, z=0.01))
 
-    slots = (('ok', DEBUG_SLOT_OK), ('shape', DEBUG_SLOT_SHAPE),
-             ('passage', DEBUG_SLOT_PASSAGE))
-    grouped = {name: [] for name, _ in slots}
-    for cand in candidates:
-        grouped[code_group(cand.code)].append(cand)
-    for name, slot in slots:
-        cubes = _debug_base(frame_id, stamp, slot, Marker.CUBE_LIST, lifetime)
-        cubes.scale.x = cubes.scale.y = cubes.scale.z = DEBUG_CANDIDATE_SIZE_M
-        r, g, b = DEBUG_GROUP_COLOUR[name]
-        cubes.color.r, cubes.color.g, cubes.color.b, cubes.color.a = r, g, b, 0.9
-        cubes.points = [Point(x=float(c.centre[0]), y=float(c.centre[1]), z=0.05)
-                        for c in grouped[name]]
-        msg.markers.append(cubes)
+    accepted = [c for c in candidates if c.code == '']
+    rejected = [c for c in candidates if c.code != '']
+    msg.markers.append(_point_cloud(
+        frame_id, stamp, DEBUG_SLOT_CANDIDATES, Marker.CUBE_LIST,
+        [c.centre for c in accepted], DEBUG_CANDIDATE_SIZE_M,
+        DEBUG_CANDIDATE_COLOUR, lifetime, z=0.05))
+    msg.markers.append(_point_cloud(
+        frame_id, stamp, DEBUG_SLOT_REJECTED, Marker.CUBE_LIST,
+        [c.centre for c in rejected], DEBUG_CANDIDATE_SIZE_M,
+        DEBUG_REJECTED_COLOUR, lifetime, z=0.05))
+    msg.markers.append(_point_cloud(
+        frame_id, stamp, DEBUG_SLOT_SKELETON, Marker.POINTS, skeleton_xy,
+        DEBUG_SKELETON_SIZE_M, DEBUG_SKELETON_COLOUR, lifetime, z=0.01))
 
+    ordered = accepted + rejected
     for i in range(int(max_labels)):
         text = _debug_base(frame_id, stamp, DEBUG_SLOT_LABELS + i,
                            Marker.TEXT_VIEW_FACING, lifetime)
-        if i >= len(candidates):
+        if i >= len(ordered):
             text.action = Marker.DELETE
             msg.markers.append(text)
             continue
-        cand = candidates[i]
+        cand = ordered[i]
         text.pose.position.x = float(cand.centre[0])
         text.pose.position.y = float(cand.centre[1])
         text.pose.position.z = 0.30
         text.scale.z = DEBUG_LABEL_SIZE_M
-        r, g, b = DEBUG_GROUP_COLOUR[code_group(cand.code)]
-        text.color.r, text.color.g, text.color.b, text.color.a = r, g, b, 1.0
-        text.text = f'{cand.code or "door"} {cand.width:.2f}m'
+        colour = DEBUG_CANDIDATE_COLOUR if cand.code == '' else DEBUG_REJECTED_COLOUR
+        text.color.r, text.color.g, text.color.b, text.color.a = colour
+        label = cand.code or 'door'
+        if cand.flags:
+            label += ' [' + ' '.join(cand.flags) + ']'
+        text.text = f'{label} {cand.width:.2f}m'
         msg.markers.append(text)
     return msg
 
