@@ -1,0 +1,258 @@
+<?xml version="1.0" ?>
+<!--
+  test_room_doors.sdf : a room with two DOORWAYS, one per case of the semantic
+  door detector (f1tenth_costmap/semantic_doors.py).
+
+  WHY THIS WORLD EXISTS. semantic_doors.py finds an opening in two shapes, and
+  until now neither had a sim scene. CASE A is two collinear walls with a
+  door-wide gap between them; CASE B is one wall's END measured
+  perpendicularly onto another wall's PLANE. test_semantic_doors.py encodes
+  both synthetically; this world is the same geometry in Gazebo, so a sim run
+  and the unit tests check the same thing and a disagreement localises itself.
+
+  NOTE ON XML COMMENTS: a literal double hyphen is illegal inside one, which
+  is why the rules below are drawn with equals signs (CLAUDE.md, Packaging).
+
+  GAZEBO HARMONIC PLUGIN NAMES (gz-sim-*-system, gz::sim::systems::*), NOT the
+  ignition-gazebo-* names its sibling empty_room.sdf still uses. Harmonic
+  (gz-sim8 + ros_gz_sim) is what is installed here; ros_ign_gazebo, which
+  Fortress needs and which sim_bringup.launch.py still imports, is not. Same
+  convention as worlds/test_room_6x6.sdf on the `jazzy` line, which is the
+  working Gazebo sim. See output/doors/jazzy_gap.md.
+
+  THIS PACKAGE DOES NOT BUILD ON THIS BRANCH YET. src/f1tenth_sim/COLCON_IGNORE
+  has been in place since 3d5ee896: the Gazebo Harmonic port is deferred to
+  Item 7 of output/jazzy_migration_plan.md (ros_ign_gazebo to ros_gz_sim,
+  ign_ros2_control to gz_ros2_control, bridge types @ignition.msgs.* to
+  @gz.msgs.*). So sim_bringup.launch.py, and with it `world:=test_room_doors`,
+  cannot start until that happens. This world is written for the port rather
+  than for what the launch file does today, and it already runs on its own:
+      gz sim -r worlds/test_room_doors.sdf
+  which is how its geometry was checked, with no robot and no ROS.
+
+  THE LAYOUT, in map coordinates. The car spawns at the origin facing +x.
+
+       y
+       ^                          OUT_py  (y = +6)
+     6 +=========================================+
+       |                                         |
+       |                   | A2   x = 2.5        |
+     2 |                   | y in [0.45, 2.0]    |
+       |                   |                     |
+       |     CAR           :  <  DOOR A, 0.90 m  |  OUT_px
+     0 |     (0,0) ====>   :     centre (2.5, 0) |  (x = +7)
+       |     2.5 m         |                     |
+       |                   | A1                  |
+    -3 |                   | y in [-3.0, -0.45]  |
+       |                                         |
+    -4 |  ========= B1 ====+  : <  DOOR B, 0.80 m|
+       |  x in [-2.0, 1.0]    :                  |
+       |  y = -4           B2 | x = 1.85         |
+    -6 +=========================================+
+                                OUT_ny  (y = -6)
+         -5                 2.5                7   > x
+
+  DOOR A (case A). A1 and A2 are one line (x = 2.5) with a 0.90 m gap between
+  y = -0.45 and y = +0.45. Dead ahead of the spawn at 2.50 m, so it is the
+  NEAREST confirmed door and the one missions/enter_nearest_door.json picks.
+  The room behind it runs to x = 7.
+
+  DOOR B (case B). B1 runs along x at y = -4.0 and ENDS at (1.0, -4.0); B2 is
+  perpendicular to it at x = 1.85. The perpendicular from B1's end onto B2's
+  plane is 0.80 m, and its foot sits about 1.0 m inside B2's extent, which is
+  what makes this an opening and not a corner (semantic_doors' foot_inset_m).
+  About 4.2 m from the spawn, bearing 71 deg to starboard. The room behind it
+  runs to y = -6.
+
+  THE 0.80 m IS THE GAP THE LIDAR MEASURES, which is why B2's box centre is at
+  x = 1.85 and not 1.80. Every wall here is 0.1 m thick and the LiDAR only
+  ever sees the FACE turned toward it, so a face is 0.05 m nearer than its
+  box's centre line: B1's end face is at (1.0, -3.95), B2's near face at
+  x = 1.80, and the measured gap is 0.80 m while the two centre lines are
+  0.85 m apart. The same effect puts DOOR A's line, and so the origin of its
+  door_<id> frame, at x = 2.45 rather than 2.50; its WIDTH is unaffected
+  (0.90 m exactly), because that gap is between two box EDGES along y and the
+  thickness is in x.
+
+  WHAT THE SCENE DELIBERATELY ALSO CONTAINS, as distractors every gate should
+  reject: the two wide mouths of the x = 2.5 partition (3.0 m and 4.0 m, both
+  over width_max); four outer corners (gap 0, under width_min); and two
+  genuine near misses, A1's end against B1's plane and B2's end against B1's
+  plane, both exactly 1.00 m, which is INSIDE the width band but with the foot
+  OUTSIDE B1's extent, so both are foot_outside. The detector should report
+  exactly two doors in this world and nothing else.
+
+  Walls are 1.0 m tall and 0.1 m thick, as in empty_room.sdf: the planar LiDAR
+  sits well below the top, and the jambs are the box edges, so the measured
+  widths are the nominal ones.
+-->
+<sdf version="1.6">
+  <world name="test_room_doors">
+
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-contact-system"
+            name="gz::sim::systems::Contact"/>
+    <plugin filename="gz-sim-imu-system"
+            name="gz::sim::systems::Imu"/>
+    <plugin filename="gz-sim-sensors-system"
+            name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane><normal>0 0 1</normal><size>100 100</size></plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane><normal>0 0 1</normal><size>100 100</size></plane>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>0.8 0.8 0.8 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- The outer room: x in [-5, 7], y in [-6, 6]. -->
+    <model name="room_walls">
+      <static>true</static>
+      <link name="walls">
+        <!-- OUT_nx: x = -5, along y -->
+        <collision name="c_out_nx">
+          <pose>-5 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 12 1</size></box></geometry>
+        </collision>
+        <visual name="v_out_nx">
+          <pose>-5 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 12 1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+        <!-- OUT_px: x = +7, along y -->
+        <collision name="c_out_px">
+          <pose>7 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 12 1</size></box></geometry>
+        </collision>
+        <visual name="v_out_px">
+          <pose>7 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 12 1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+        <!-- OUT_py: y = +6, along x -->
+        <collision name="c_out_py">
+          <pose>1 6 0.5 0 0 0</pose>
+          <geometry><box><size>12 0.1 1</size></box></geometry>
+        </collision>
+        <visual name="v_out_py">
+          <pose>1 6 0.5 0 0 0</pose>
+          <geometry><box><size>12 0.1 1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+        <!-- OUT_ny: y = -6, along x -->
+        <collision name="c_out_ny">
+          <pose>1 -6 0.5 0 0 0</pose>
+          <geometry><box><size>12 0.1 1</size></box></geometry>
+        </collision>
+        <visual name="v_out_ny">
+          <pose>1 -6 0.5 0 0 0</pose>
+          <geometry><box><size>12 0.1 1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!--
+      DOOR A (case A): the x = 2.5 partition, in two collinear pieces.
+      A1 spans y in [-3.00, -0.45] (2.55 m), A2 spans y in [+0.45, +2.00]
+      (1.55 m). The gap between them is 0.90 m, centred on (2.5, 0.0), dead
+      ahead of the spawn. Both pieces are well over the tracker's minimum wall
+      span, so each is confirmed as its own track rather than merged across the
+      gap (the collinear merge limit IS door_width_min_m, 0.70 m).
+    -->
+    <model name="case_a_partition">
+      <static>true</static>
+      <link name="walls">
+        <collision name="c_a1">
+          <pose>2.5 -1.725 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 2.55 1</size></box></geometry>
+        </collision>
+        <visual name="v_a1">
+          <pose>2.5 -1.725 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 2.55 1</size></box></geometry>
+          <material><ambient>0.55 0.55 0.65 1</ambient><diffuse>0.55 0.55 0.65 1</diffuse></material>
+        </visual>
+        <collision name="c_a2">
+          <pose>2.5 1.225 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 1.55 1</size></box></geometry>
+        </collision>
+        <visual name="v_a2">
+          <pose>2.5 1.225 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 1.55 1</size></box></geometry>
+          <material><ambient>0.55 0.55 0.65 1</ambient><diffuse>0.55 0.55 0.65 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!--
+      DOOR B (case B): B1 runs along x at y = -4.0 over x in [-2.0, +1.0] and
+      ENDS at (1.0, -4.0). B2 is perpendicular to it, along y at x = 1.8 over
+      y in [-6.0, -3.0]. The perpendicular from B1's end onto B2's plane is
+      0.80 m; its foot (1.8, -4.0) lies 1.0 m inside B2's extent, which is
+      what makes this an opening rather than a corner.
+    -->
+    <model name="case_b_alcove">
+      <static>true</static>
+      <link name="walls">
+        <collision name="c_b1">
+          <pose>-0.5 -4 0.5 0 0 0</pose>
+          <geometry><box><size>3.0 0.1 1</size></box></geometry>
+        </collision>
+        <visual name="v_b1">
+          <pose>-0.5 -4 0.5 0 0 0</pose>
+          <geometry><box><size>3.0 0.1 1</size></box></geometry>
+          <material><ambient>0.65 0.55 0.55 1</ambient><diffuse>0.65 0.55 0.55 1</diffuse></material>
+        </visual>
+        <collision name="c_b2">
+          <pose>1.85 -4.5 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 3.0 1</size></box></geometry>
+        </collision>
+        <visual name="v_b2">
+          <pose>1.85 -4.5 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 3.0 1</size></box></geometry>
+          <material><ambient>0.65 0.55 0.55 1</ambient><diffuse>0.65 0.55 0.55 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>

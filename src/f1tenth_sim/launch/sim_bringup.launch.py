@@ -1,7 +1,17 @@
 """F1TENTH simulation bringup (Gazebo Fortress / ignition).
 
+NOT BUILT ON THIS BRANCH: src/f1tenth_sim/COLCON_IGNORE (3d5ee896) keeps this
+package out of the build until the Gazebo Harmonic port, Item 7 of
+output/jazzy_migration_plan.md -- ros_ign_gazebo is not installed under that
+name on Jazzy. Everything below still describes the Fortress wiring, because
+the port is one change and this file should be read as the thing being
+ported, not as something half-converted. The `world` argument added below is
+part of the port's surface, and worlds/test_room_doors.sdf is already written
+in Harmonic plugin names for it.
+
 Sim-only counterpart to f1tenth_bringup. Launches, in order:
-  1. Gazebo Fortress with worlds/empty_room.sdf       (ros_ign_gazebo)
+  1. Gazebo Fortress with worlds/<world>.sdf          (ros_ign_gazebo)
+     world:=empty_room (default) | test_room_doors | <path>.sdf
   2. robot_state_publisher with the roboracer xacro    (f1tenth_description)
   3. ros_ign_bridge parameter_bridge (config/ros_gz_bridge.yaml)
   4. spawn the robot into Gazebo                        (ros_ign_gazebo create)
@@ -33,6 +43,7 @@ from launch.actions import (
     AppendEnvironmentVariable,
     DeclareLaunchArgument,
     IncludeLaunchDescription,
+    OpaqueFunction,
     TimerAction,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -48,7 +59,17 @@ def generate_launch_description():
     bringup_share = get_package_share_directory('f1tenth_bringup')
     ros_ign_gazebo_share = get_package_share_directory('ros_ign_gazebo')
 
-    world_path = os.path.join(sim_share, 'worlds', 'empty_room.sdf')
+    # The world, selectable: `world:=<name>` resolves to
+    # worlds/<name>.sdf in this package, and a value ending in .sdf is taken
+    # as a path and used as given. Resolved in plain Python inside an
+    # OpaqueFunction below, not with substitutions: an absolute path must be
+    # passed through untouched, which PathJoinSubstitution cannot express, and
+    # the alternative is a PythonExpression whose quoting nobody can read.
+    def resolve_world(name):
+        name = str(name)
+        if name.endswith('.sdf'):
+            return name
+        return os.path.join(sim_share, 'worlds', name + '.sdf')
     bridge_config = os.path.join(sim_share, 'config', 'ros_gz_bridge.yaml')
     controllers_file = os.path.join(sim_share, 'config', 'controllers.yaml')
     # Reused verbatim from the real stack (only use_sim_time is overridden).
@@ -59,6 +80,15 @@ def generate_launch_description():
     declare_use_sim_time = DeclareLaunchArgument(
         'use_sim_time', default_value='true',
         description='Use the Gazebo sim clock (should stay true for sim).')
+
+    declare_world = DeclareLaunchArgument(
+        'world', default_value='empty_room',
+        description='World to load: a bare NAME, resolved to '
+                    'f1tenth_sim/worlds/<name>.sdf, or a path ending in .sdf '
+                    'used as given. empty_room (the default) is the bare '
+                    '10x10 m room; test_room_doors has one doorway of each '
+                    'kind the semantic door detector finds, with the car '
+                    'spawning 2.5 m in front of the nearer one.')
 
     # Let Gazebo find the world + (description) meshes if referenced by URI.
     gz_resource_paths = [
@@ -73,11 +103,19 @@ def generate_launch_description():
     ]
 
     # --- 1) Gazebo Fortress -------------------------------------------------
-    gz_sim = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(ros_ign_gazebo_share, 'launch', 'ign_gazebo.launch.py')),
-        launch_arguments={'ign_args': f'-r -v 4 {world_path}'}.items(),
-    )
+    def _gz_sim(context):
+        world_path = resolve_world(LaunchConfiguration('world').perform(context))
+        if not os.path.exists(world_path):
+            raise RuntimeError(
+                f'world not found: {world_path}. Pass world:=<name> for a world '
+                f'in {os.path.join(sim_share, "worlds")}, or a full path to a .sdf.')
+        return [IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(ros_ign_gazebo_share, 'launch', 'ign_gazebo.launch.py')),
+            launch_arguments={'ign_args': f'-r -v 4 {world_path}'}.items(),
+        )]
+
+    gz_sim = OpaqueFunction(function=_gz_sim)
 
     # --- 2) robot_state_publisher (RSP-only description launch) -------------
     description = IncludeLaunchDescription(
@@ -181,6 +219,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_use_sim_time,
+        declare_world,
         *gz_env,
         gz_sim,
         description,
