@@ -525,9 +525,9 @@ class SemanticLayerNode(Node):
         stack_params.yaml entry and from nowhere else.
 
         NOTHING IS CREATED WHEN THE DETECTOR IS OFF -- no publisher, no
-        broadcaster, no tracker: `semantic_doors_enabled` false (the default)
-        or `door_source` naming the other detector leaves this node exactly
-        as it was.
+        broadcaster, no tracker: `semantic_doors_enabled` false, or
+        `door_source` naming the other detector, leaves this node exactly as
+        it was. Both default to running it (true / 'semantic').
         """
         self.door_source = str(stack('door_source'))
         if self.door_source not in ('semantic', 'profile'):
