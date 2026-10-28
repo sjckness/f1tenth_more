@@ -52,32 +52,15 @@ TOPICS = ('/slam/map', '/scan', '/tf_static',
 
 
 def freespace_params(params, **overrides):
-    """A FreespaceParams from stack_params.yaml -- the car's own values."""
-    def p(key):
-        return params['freespace_doors_' + key]
-    kw = dict(
-        window_m=float(p('window_m')),
-        occupied_threshold=int(p('occupied_threshold')),
-        cleanup_iterations=int(p('cleanup_iterations')),
-        width_min_m=float(p('width_min_m')),
-        width_max_m=float(p('width_max_m')),
-        rise_ratio=float(p('rise_ratio')),
-        rise_within_m=float(p('rise_within_m')),
-        spur_prune_m=float(p('spur_prune_m')),
-        local_min_radius_m=float(p('local_min_radius_m')),
-        tangent_span_m=float(p('tangent_span_m')),
-        symmetry_tol_m=float(p('symmetry_tol_m')),
-        jamb_radius_m=float(p('jamb_radius_m')),
-        jamb_min_cells=int(p('jamb_min_cells')),
-        min_beams=int(p('min_beams')),
-        beyond_m=float(p('beyond_m')),
-        jamb_exclude_m=float(p('jamb_exclude_m')),
-        assoc_max_m=float(p('assoc_max_m')),
-        confirm_hits=int(p('confirm_hits')),
-        smooth_alpha=float(p('smooth_alpha')),
-        candidate_forget_s=float(p('candidate_forget_s')),
-        forget_unseen_s=float(p('forget_unseen_s')),
-        max_candidates=int(p('max_candidates')))
+    """A FreespaceParams from stack_params.yaml -- the car's own values.
+
+    Every field by name, the same `freespace_doors_<slot>` mapping
+    freespace_door_node uses, so a replay cannot silently run different
+    thresholds from the node.
+    """
+    proto = fd.FreespaceParams()
+    kw = {slot: type(getattr(proto, slot))(params['freespace_doors_' + slot])
+          for slot in fd.FreespaceParams.__slots__}
     kw.update({k: v for k, v in overrides.items() if v is not None})
     return fd.FreespaceParams(**kw)
 
@@ -115,7 +98,8 @@ def beams_from_scan(scan, laser_map):
                          laser_map[1] + r * np.sin(th)]), laser_map[:2])
 
 
-def replay(bag, out_dir, params, rate_hz, window_m):
+def replay(bag, out_dir, params, rate_hz, window_m, use_skeleton=None):
+    """One cycle per scan (throttled to rate_hz), the grid as a cross-check."""
     v2.TOPICS = TOPICS
     store = v2.typestore(bag)
     data = v2.read_bag(bag, store)
@@ -126,72 +110,80 @@ def replay(bag, out_dir, params, rate_hz, window_m):
     poses = [(v2.stamp(m), v2.planar(m)) for _t, m in data[pose_topic]]
     grids = data['/slam/map']
     scans = data['/scan']
-    if not grids:
-        raise SystemExit('this bag has no /slam/map: nothing for this detector to read')
+    if not scans:
+        raise SystemExit('this bag has no /scan: the primary input is missing')
     if not poses:
         raise SystemExit(f'this bag has no {pose_topic}: no map-frame pose')
 
-    p = freespace_params(params, window_m=window_m)
+    p = freespace_params(params, window_m=window_m, use_skeleton=use_skeleton)
     tracker = sd.DoorTracker(p.door_params())
     period = 1.0 / float(rate_hz)
 
-    t0 = min(grids[0][0], scans[0][0] if scans else grids[0][0])
-    t_end = max(grids[-1][0], scans[-1][0] if scans else grids[-1][0])
-    gi, si = 0, 0
-    rows, code_totals, ms = [], {}, []
+    t0 = scans[0][0]
+    gi = 0
+    rows, code_totals, flag_totals, ms = [], {}, {}, []
     confirmed_ever = {}
-    t = t0
-    while t <= t_end:
-        while gi + 1 < len(grids) and grids[gi + 1][0] <= t:
-            gi += 1
-        while si + 1 < len(scans) and scans[si + 1][0] <= t:
-            si += 1
-        if grids[gi][0] > t:
-            t += period
+    last = None
+    for t, scan in scans:
+        if last is not None and t - last < period:
             continue
-        grid = grids[gi][1]
-        scan = scans[si][1] if scans and scans[si][0] <= t else None
         pose = find_nearest_pose_by_stamp(poses, t)
         if pose is None:
-            t += period
             continue
+        lb = laser_in_base(resolve, scan.header.frame_id)
+        if lb is None:
+            continue
+        last = t
+        while gi + 1 < len(grids) and grids[gi + 1][0] <= t:
+            gi += 1
+        grid = grids[gi][1] if grids and grids[gi][0] <= t else None
 
         c0 = time.perf_counter()
-        info = grid.info
-        window = fd.occupancy_window(
-            grid.data, info.width, info.height, info.resolution,
-            info.origin.position.x, info.origin.position.y, pose[:2], p)
-        skel = fd.skeleton(window, p)
-        beams = None
-        if scan is not None:
-            lb = laser_in_base(resolve, scan.header.frame_id)
-            if lb is not None:
-                beams = beams_from_scan(scan, compose(pose, lb))
-        cands = fd.candidate_doors(window, skel, beams, pose[:2], p)
+        n = len(scan.ranges)
+        bearings = scan.angle_min + np.arange(n, dtype=float) * scan.angle_increment
+        profile = fd.scan_profile(bearings, scan.ranges, scan.range_min,
+                                  scan.range_max, compose(pose, lb), p)
+        window = None
+        if grid is not None:
+            info = grid.info
+            window = fd.occupancy_window(
+                grid.data, info.width, info.height, info.resolution,
+                info.origin.position.x, info.origin.position.y, pose[:2], p)
+        skel = None
+        if p.use_skeleton and window is not None:
+            skel = fd.skeleton(window, p)
+            cands = fd.skeleton_candidates(
+                window, skel, fd.ScanBeams(profile.points, profile.laser),
+                pose[:2], p)
+        else:
+            cands = fd.scan_candidates(profile, window, pose[:2], p)
         tracker.update(cands, (pose[0], pose[1]), t)
         cycle_ms = (time.perf_counter() - c0) * 1e3
         ms.append(cycle_ms)
 
-        codes = {}
+        codes, flags = {}, {}
         for c in cands:
             key = c.code or 'ok'
             codes[key] = codes.get(key, 0) + 1
             code_totals[key] = code_totals.get(key, 0) + 1
+            for f in c.flags:
+                flags[f] = flags.get(f, 0) + 1
+                flag_totals[f] = flag_totals.get(f, 0) + 1
         for d in tracker.confirmed():
             confirmed_ever[d.id] = d
         rows.append({
             't': round(t - t0, 2),
-            'grid_age_s': round(t - grids[gi][0], 2),
-            'free_cells': int(window.free.sum()),
-            'skeleton_cells': int(skel.sum()),
+            'grid': 0 if grid is None else 1,
+            'jumps': int(len(fd.jump_points(profile, p))),
             'candidates': len(cands),
+            'accepted': sum(1 for c in cands if c.ok),
             'confirmed': len(tracker.confirmed()),
             'ms': round(cycle_ms, 2),
             'codes': json.dumps(codes, sort_keys=True),
+            'flags': json.dumps(flags, sort_keys=True),
             'car_x': round(pose[0], 3),
             'car_y': round(pose[1], 3),
         })
-        t += period
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -204,6 +196,7 @@ def replay(bag, out_dir, params, rate_hz, window_m):
     doors = [confirmed_ever[k] for k in sorted(confirmed_ever)]
     summary = {
         'bag': str(bag),
+        'method': 'skeleton' if p.use_skeleton else 'scan_jumps',
         'pose_topic': pose_topic,
         'grids': len(grids),
         'scans': len(scans),
@@ -214,11 +207,13 @@ def replay(bag, out_dir, params, rate_hz, window_m):
         'ms_p95': round(float(np.percentile(ms, 95)), 2) if ms else None,
         'ms_max': round(float(np.max(ms)), 2) if ms else None,
         'codes': dict(sorted(code_totals.items(), key=lambda kv: -kv[1])),
+        'flags': dict(sorted(flag_totals.items(), key=lambda kv: -kv[1])),
         'confirmed_doors': [
             {'id': d.id, 'centre': [round(d.centre[0], 3), round(d.centre[1], 3)],
              'width_m': round(d.width, 3),
              'yaw_deg': round(math.degrees(d.yaw()), 1),
-             'hits': d.hits}
+             'hits': d.hits, 'pose_spread_m': round(d.pose_spread(), 2),
+             'flags': list(d.flags)}
             for d in doors],
     }
     (out_dir / 'freespace_replay.json').write_text(json.dumps(summary, indent=2) + '\n')
@@ -231,10 +226,14 @@ def main():
     ap.add_argument('--out', default='output/doors')
     ap.add_argument('--rate-hz', type=float, default=None)
     ap.add_argument('--window-m', type=float, default=None)
+    ap.add_argument('--skeleton', action='store_true',
+                    help='run the medial-axis detector instead (finds nothing '
+                         'on a real map -- see output/doors/freespace.md)')
     args = ap.parse_args()
     params = v2.stack_params()
     rate = args.rate_hz if args.rate_hz is not None else float(params['freespace_doors_rate_hz'])
-    summary, csv_path = replay(args.bag, args.out, params, rate, args.window_m)
+    summary, csv_path = replay(args.bag, args.out, params, rate, args.window_m,
+                               use_skeleton=True if args.skeleton else None)
     print(json.dumps(summary, indent=2))
     print(f'\nper-cycle rows: {csv_path}')
 

@@ -1,65 +1,73 @@
-"""A third door source: the OCCUPANCY GRID, with no walls involved at all.
+"""Doors from what the sensor SEES THROUGH, not from a shape in the map.
 
-WHY A THIRD ONE. The other two detectors both start from a wall. The profile
-detector (f1tenth_perception/door_detection.py) walks a beam profile along a
-host wall line; the semantic one (semantic_doors.py) pairs two tracked wall
-segments. Both inherit the wall extractor's own limits: /perception/walls
-carries at most four tracks, a wall has to be long and straight enough to be
-fitted at all, and a doorway whose jambs were never fitted as two separate
-walls is invisible to both. This one asks a different question entirely --
-"where does the free space pinch?" -- and needs no wall, no fit and no track.
+WHY THIS, AFTER A SKELETON DETECTOR. The first version of this module cropped
+slam_toolbox's grid, took the distance transform of the free space, thinned it
+to its medial axis and looked for a bottleneck whose clearance rose on both
+sides. Replayed on the real map it found nothing, and the reason is structural:
+A ROOM BEHIND A DOOR IS NOT A ROOM IN THE GRID. It is a ray fan -- a handful of
+beams that went through the opening, each marking a thin line of free cells,
+with UNKNOWN between them, because nothing has ever driven in there to fill it.
+So the far side never becomes a wide region, "clearance rises on both sides"
+never holds, and the few skeleton cells that do reach through the doorway are
+short branches off the corridor's axis, which the spur pruning throws away. The
+detector was asking the map a question the map cannot answer until after you
+have already driven through the door.
 
-THE IDEA, in one paragraph. Crop slam_toolbox's own /slam/map to a window
-around the car and call everything that is not KNOWN FREE occupied (unknown
-included: an unexplored cell is not a passage). Take the Euclidean distance
-transform of the free space: every free cell now carries its clearance d, the
-distance to the nearest thing. Thin the free space to its medial axis -- a
-one-cell-wide curve running down the middle of every corridor and through
-every doorway. A doorway is then a LOCAL MINIMUM of d along that curve whose
-2d falls in the door width band, with the clearance rising on both sides: a
-bottleneck between two wider regions. That last condition is what separates a
-doorway from a corridor that merely narrows, and from the car's own
-half-explored surroundings.
+THE SCAN CAN ANSWER IT IMMEDIATELY. A doorway in a range profile is a
+near-far-near pattern: a jamb at A, a run of beams that suddenly reach much
+further (through the opening -- into the room, or to nothing at all), and a
+second jamb at B. That signature exists on the FIRST scan that sees the
+opening, needs no accumulated map, and is exactly as strong for a door in the
+side wall of a corridor as for one straight ahead, which matters because most
+of ours are to the side.
 
-WHAT IT DOES NOT DO. It never decides a door exists from the grid alone. The
-grid is a 5-second-old accumulation (see output/doors/freespace.md); a gap in
-it can be a gap in the MAP rather than a gap in the WALL -- two scans that
-never quite joined up, a doorway-sized hole punched by a moving person who has
-since left. So every candidate also has to be confirmed LIVE from /scan:
-beams must go through the opening and reach `beyond_m` past the jamb line.
-A candidate that never gets that never confirms, and so never reaches a
-mission (see `beam_hits`).
+SO THE GRID IS DEMOTED TO A CROSS-CHECK, and its UNKNOWN cells are read as
+UNKNOWN rather than as obstacles -- the opposite of what the skeleton version
+did, and for the same reason the skeleton version failed. It is asked three
+cheap questions: is the line A-B clear of real obstacle, is there ANY free
+cell behind it (one ray's worth is enough -- there is deliberately no "wide
+room" requirement), and is there occupancy at A and at B where the jambs
+should be. The medial-axis code is still here, behind `use_skeleton`, default
+off; `skeleton_candidates` is the old entry point, unchanged.
 
-WHAT IT SHARES WITH semantic_doors.py. Everything downstream: this module
-produces semantic_doors.DoorCandidate objects and hands them to
-semantic_doors.DoorTracker. Stable ids, 0.3 m association, the confirm count,
-the smoothed pose, the direction fixed once at first confirmation, "kept in
-the map after leaving view" -- all of it is that tracker's behaviour, not a
-second copy of it. Only the way a candidate is FOUND is new. `case` is 'F' so
-a reader can tell the three sources apart (markers colour it amber), and the
-parent wall ids are -1 because there are no parent walls.
+PERMISSIVE ON PURPOSE. A missed door is a mission that cannot run; a false
+door is a marker in Foxglove and, at worst, one aborted approach. So every
+gate has slack, and all of it is parameterised:
+  - a short occupied run across the opening (a chair leg, one bad return, a
+    map artefact) does not veto it -- only a CONTINUOUS occupied run of
+    `occupied_run_veto_m` does, and up to `occupied_frac_max` of the segment
+    may be occupied in pieces smaller than `noise_max_m`;
+  - a few near beams inside the opening do not split it, up to
+    `short_run_max` in a row or `short_frac_max` of them overall;
+  - a missing jamb (glass, a corner reflection, a jamb seen edge-on) keeps
+    the candidate with a `one_jamb` flag rather than rejecting it;
+  - the detection width band is wider than the nominal one, and a door
+    outside the nominal band is published with a `marginal` flag rather than
+    dropped.
+A flag is NOT a rejection: a flagged candidate is a door, tracked and
+published like any other, and the flag rides along so the markers can say so.
 
-FRAMES. The grid is in map, so this module is in MAP throughout -- the
-candidates, the jambs, the scan beams. The semantic detector works in
-base_link and transforms the walls in; this one has nothing to gain by it.
+WHAT STOPS A ONE-SCAN ARTEFACT, then, if the gates are this loose: the
+CONFIRMATION, which is about where the car was standing rather than how many
+times it looked. A track confirms on two hits from robot positions
+`confirm_pose_spread_m` apart, or `confirm_same_pose_hits` hits from anywhere.
+A reflection, a sunbeam or a beam that slipped past a corner does not survive
+being looked at from a different place; a doorway does.
 
-GEOMETRY CONVENTIONS, so the tracker reuse is exact:
-  - `axis` of a DoorCandidate is JAMB TO JAMB, and the tracker builds the door
-    frame's x from the perpendicular to it. Here the perpendicular to the jamb
-    line IS the skeleton tangent (the jambs are found by marching
-    perpendicular to that tangent), so the tracker's own "point the normal
-    away from the car" rule yields exactly "the skeleton tangent oriented from
-    the robot's side to the far side", with no extra code.
-  - cell (row, col) -> map: x = origin_x + (col + 0.5) * res, same cell-CENTRE
-    convention costmap_boundary.py's own _car_frame_cells uses.
+WHAT IT SHARES WITH THE OTHER TWO DETECTORS. Everything downstream, exactly as
+before: the candidates are semantic_doors.DoorCandidate and they go to
+semantic_doors.DoorTracker, so stable ids, association, the smoothed pose, the
+direction fixed once at first confirmation and "kept in the map after leaving
+view" are that tracker's behaviour, not a second copy. `case` is 'F' and the
+parent wall ids are -1, because there are no parent walls.
 
-NO rclpy, NO message types, NO TF: numpy and scipy.ndimage only, so every
-gate below is testable on a hand-drawn grid. scikit-image is deliberately NOT
-a dependency -- its medial_axis/skeletonize would be the obvious tool, but
-python3-skimage is not installed on this workspace's machines and adding it to
-the car's image for one function is a worse trade than the 40 lines of
-Zhang-Suen thinning in `thin` below (which is deterministic and needs nothing
-beyond numpy).
+FRAMES. Jumps are found in beam order, which only means anything in the laser
+frame; every POINT is carried in MAP, because that is the frame the grid, the
+tracker and the door TF all live in. `ScanProfile` holds both.
+
+NO rclpy, NO message types, NO TF: numpy and scipy.ndimage only, so every gate
+below is testable on a synthetic range profile and a hand-drawn grid.
+scikit-image is deliberately NOT a dependency -- see package.xml.
 """
 
 import math
@@ -82,50 +90,62 @@ NO_WALL_ID = -1
 
 
 # ---------------------------------------------------------------------------
-# Rejection codes
+# Rejection codes, and flags
 # ---------------------------------------------------------------------------
-#: Why a bottleneck was not a door. '' is a door. Deliberately the SAME WORDS
-#: as semantic_doors where the question is the same ('width', 'few_beams'), so
-#: a debug dict from either source reads the same way, and different words
-#: where the question is different -- there is no 'angle' or 'offset' here
-#: because there is no wall pair to be parallel.
+#: Why an opening was not a door, from the SCAN half. '' is a door.
 #:
-#:   width        2d outside [width_min_m, width_max_m]
-#:   junction     the skeleton cell is a tip or a branch point, not a curve
-#:   not_min      clearance is not a local minimum along the skeleton
-#:   no_rise      clearance does not rise to rise_ratio x d on BOTH sides
-#:   spur         the skeleton ran out within rise_within_m on one side: a
-#:                dead end, not a passage between two regions
-#:   asymmetric   the two jamb marches disagree with 2d: the skeleton is not
-#:                centred in this gap, so it is not a clean bottleneck
-#:   thin_jamb    a jamb has too little obstacle behind it: a doorway's jamb
-#:                is part of a wall, and a two-cell blob is a chair leg, a map
-#:                artefact or one stray return
-#:   few_beams    fewer than min_beams beams went through the opening
-#:   not_beyond   beams reached the opening but not beyond_m past it: the
-#:                opening is a dent in a wall, not a hole through it
-SHAPE_CODES = ('width', 'junction', 'not_min', 'no_rise', 'spur', 'asymmetric',
-               'thin_jamb')
-PASSAGE_CODES = ('few_beams', 'not_beyond')
+#:   width         |AB| outside [width_min_detect_m, width_max_detect_m]
+#:   no_interior   no beams at all between the two jambs
+#:   few_beams     fewer than beyond_beams_min beams reached beyond_m past AB
+#:   split         the near beams inside A..B are too many, or too many in a
+#:                 row: something is standing in the opening, not beside it
+#:   edge          A or B is an isolated return, not the end of a surface --
+#:                 a jamb is part of something, a dust mote is not
+SCAN_CODES = ('width', 'no_interior', 'few_beams', 'split', 'edge')
 
-ALL_CODES = SHAPE_CODES + PASSAGE_CODES
+#: ... and from the GRID half, the cross-check.
+#:
+#:   blocked        a CONTINUOUS occupied run of occupied_run_veto_m across AB
+#:   occupied_frac  more than occupied_frac_max of AB occupied, in pieces
+#:   no_behind      not one free cell behind AB: the beams that made this
+#:                  opening left no trace in the map at all
+#:   no_jamb        neither A nor B has any occupancy near it
+GRID_CODES = ('blocked', 'occupied_frac', 'no_behind', 'no_jamb')
+
+#: ... and from the medial-axis detector, which is still here behind
+#: `use_skeleton` and still has its own gates. See skeleton_candidates.
+SKELETON_CODES = ('junction', 'not_min', 'no_rise', 'spur', 'asymmetric',
+                  'thin_jamb', 'not_beyond')
+
+#: ACCEPTED-BUT-NOTEWORTHY. Not rejections: a flagged candidate is a door and
+#: is tracked and published like any other.
+#:
+#:   marginal   width outside [width_min_m, width_max_m] but inside the wider
+#:              detection band -- probably a door, measure it before trusting
+#:   one_jamb   only one end had occupancy near it. Glass, a corner
+#:              reflection and a jamb seen edge-on all do this, and dropping
+#:              the opening for it loses more doors than it saves
+#:   no_grid    no occupancy grid was available, so none of GRID_CODES was
+#:              checked at all. The scan alone said door
+FLAG_NAMES = ('marginal', 'one_jamb', 'no_grid')
 
 
 def code_group(code):
-    """'ok' | 'shape' | 'passage' for a candidate's code.
+    """'ok' | 'scan' | 'grid' | 'skeleton' for a candidate's code.
 
-    Mirrors semantic_doors.code_group so a consumer can ask "was the geometry
-    plausible at all" without knowing the individual codes. Unlike that one
-    this raises on a code it does not know, rather than guessing a group: the
-    two code sets are disjoint and mixing them up would read as a passage
-    failure when it was a shape failure.
+    Raises on a code it does not know rather than guessing a group: the
+    groups are what a debug dict is read by, and silently filing a scan
+    failure under grid would send someone to look at the map for an answer
+    that is in the range profile.
     """
     if not code:
         return 'ok'
-    if code in SHAPE_CODES:
-        return 'shape'
-    if code in PASSAGE_CODES:
-        return 'passage'
+    if code in SCAN_CODES:
+        return 'scan'
+    if code in GRID_CODES:
+        return 'grid'
+    if code in SKELETON_CODES:
+        return 'skeleton'
     raise ValueError(f'not a freespace_doors code: {code!r}')
 
 
@@ -135,26 +155,83 @@ def code_group(code):
 class FreespaceParams:
     """Every threshold of this module, one object, all SI.
 
-    Defaults are the shipped ones; stack_params.yaml is the single source for
-    what the car actually runs (freespace_door_node builds this from it).
+    Defaults are the shipped ones and are deliberately PERMISSIVE (see the
+    module docstring); stack_params.yaml is the single source for what the
+    car actually runs, and freespace_door_node builds this from it.
     """
 
-    __slots__ = ('window_m', 'occupied_threshold', 'cleanup_iterations',
-                 'width_min_m', 'width_max_m', 'rise_ratio', 'rise_within_m',
-                 'spur_prune_m', 'local_min_radius_m', 'tangent_span_m',
-                 'symmetry_tol_m', 'jamb_radius_m', 'jamb_min_cells',
-                 'min_beams', 'beyond_m', 'jamb_exclude_m',
-                 'assoc_max_m', 'confirm_hits', 'smooth_alpha',
-                 'candidate_forget_s', 'forget_unseen_s', 'max_candidates')
+    __slots__ = (
+        # the window
+        'window_m', 'occupied_threshold', 'cleanup_iterations',
+        # widths, shared by both detectors
+        'width_min_m', 'width_max_m', 'width_min_detect_m', 'width_max_detect_m',
+        # the scan half
+        'smooth_beams', 'jump_min_m', 'max_edges', 'min_interior_beams',
+        'beyond_m', 'beyond_beams_min', 'block_margin_m',
+        'short_run_max', 'short_frac_max',
+        'edge_beams', 'edge_tol_m',
+        # the grid half
+        'noise_max_m', 'occupied_frac_max', 'occupied_run_veto_m',
+        'behind_min_m', 'behind_max_m', 'behind_free_min_cells',
+        'scan_jamb_radius_m', 'scan_jamb_min_cells',
+        # assembly
+        'merge_max_m', 'max_candidates',
+        # tracking
+        'assoc_max_m', 'confirm_hits', 'confirm_pose_spread_m',
+        'confirm_same_pose_hits', 'max_tracks', 'smooth_alpha',
+        'candidate_forget_s', 'forget_unseen_s',
+        # the medial-axis detector, off by default
+        'use_skeleton', 'rise_ratio', 'rise_within_m', 'spur_prune_m',
+        'local_min_radius_m', 'tangent_span_m', 'symmetry_tol_m',
+        'jamb_radius_m', 'jamb_min_cells', 'min_beams', 'jamb_exclude_m')
 
     def __init__(self, **kw):
         # --- the window
         self.window_m = 8.0
         self.occupied_threshold = 65
         self.cleanup_iterations = 1
-        # --- the bottleneck
+        # --- widths. The DETECT band is what is looked for; a door outside
+        #     the nominal band but inside this one is published, flagged
+        #     'marginal', rather than dropped.
         self.width_min_m = 0.70
         self.width_max_m = 1.40
+        self.width_min_detect_m = 0.60
+        self.width_max_detect_m = 1.50
+        # --- the scan half
+        self.smooth_beams = 3
+        self.jump_min_m = 0.50
+        self.max_edges = 64
+        self.min_interior_beams = 1
+        self.beyond_m = 0.50
+        self.beyond_beams_min = 2
+        self.block_margin_m = 0.05
+        self.short_run_max = 2
+        self.short_frac_max = 0.20
+        self.edge_beams = 3
+        self.edge_tol_m = 0.20
+        # --- the grid half
+        self.noise_max_m = 0.10
+        self.occupied_frac_max = 0.25
+        self.occupied_run_veto_m = 0.20
+        self.behind_min_m = 0.30
+        self.behind_max_m = 1.00
+        self.behind_free_min_cells = 3
+        self.scan_jamb_radius_m = 0.25
+        self.scan_jamb_min_cells = 1
+        # --- assembly
+        self.merge_max_m = 0.30
+        self.max_candidates = 16
+        # --- tracking (handed to semantic_doors.DoorTracker)
+        self.assoc_max_m = 0.30
+        self.confirm_hits = 3
+        self.confirm_pose_spread_m = 0.15
+        self.confirm_same_pose_hits = 3
+        self.max_tracks = 32
+        self.smooth_alpha = 0.30
+        self.candidate_forget_s = 12.0
+        self.forget_unseen_s = 0.0   # 0 = a confirmed door is never forgotten
+        # --- the medial-axis detector (skeleton_candidates), default OFF
+        self.use_skeleton = False
         self.rise_ratio = 1.3
         self.rise_within_m = 1.0
         self.spur_prune_m = 0.30
@@ -163,17 +240,8 @@ class FreespaceParams:
         self.symmetry_tol_m = 0.20
         self.jamb_radius_m = 0.15
         self.jamb_min_cells = 4
-        # --- the live confirmation
         self.min_beams = 4
-        self.beyond_m = 0.50
         self.jamb_exclude_m = 0.08
-        # --- tracking (handed straight to semantic_doors.DoorTracker)
-        self.assoc_max_m = 0.30
-        self.confirm_hits = 3
-        self.smooth_alpha = 0.30
-        self.candidate_forget_s = 12.0
-        self.forget_unseen_s = 0.0   # 0 = a confirmed door is never forgotten
-        self.max_candidates = 16
         for k, v in kw.items():
             if k not in self.__slots__:
                 raise TypeError(f'FreespaceParams got an unknown parameter {k!r}')
@@ -182,15 +250,18 @@ class FreespaceParams:
     def door_params(self):
         """A semantic_doors.DoorParams carrying only the tracking knobs.
 
-        DoorTracker reads exactly these six off its params object and nothing
-        else; the rest of DoorParams is the semantic detector's geometry and
-        is irrelevant here. Built rather than subclassed so there is one
+        DoorTracker reads exactly these off its params object and nothing
+        else; the rest of DoorParams is the wall detector's geometry and is
+        irrelevant here. Built rather than subclassed so there is one
         tracker, with one behaviour, for all three door sources.
         """
         from f1tenth_costmap.semantic_doors import DoorParams
         return DoorParams(
             assoc_max_m=self.assoc_max_m,
             confirm_hits=self.confirm_hits,
+            confirm_pose_spread_m=self.confirm_pose_spread_m,
+            confirm_same_pose_hits=self.confirm_same_pose_hits,
+            max_tracks=self.max_tracks,
             smooth_alpha=self.smooth_alpha,
             candidate_forget_s=self.candidate_forget_s,
             forget_unseen_s=self.forget_unseen_s)
@@ -200,19 +271,34 @@ class FreespaceParams:
 # The window
 # ---------------------------------------------------------------------------
 class Window:
-    """One cropped, cleaned patch of the grid, plus its clearance field.
+    """One cropped patch of the grid, in THREE states, plus a clearance field.
 
-    `free` is True where the cell is KNOWN FREE after cleanup; `clearance` is
-    the distance [m] from each cell to the nearest non-free cell (0 on an
-    occupied cell). `origin` is the map-frame position of the (0, 0) cell's
-    own CORNER, so a cell centre is origin + (index + 0.5) * res -- the same
-    convention costmap_boundary.py uses.
+    THE THREE STATES MATTER, and getting them wrong is what sank the first
+    version of this module:
+      `occupied`  value >= occupied_threshold. A real obstacle.
+      `unknown`   value < 0. Never observed. NOT an obstacle -- a room behind
+                  a door is mostly this, and calling it obstacle is exactly
+                  how the medial-axis detector concluded there was nothing
+                  there (see the module docstring).
+      `free`      known free, i.e. neither of the above. This is also what
+                  `clearance` is the distance transform of, and what
+                  `is_free`/`march_to_jamb` test, so the medial-axis detector
+                  keeps its old "unknown is impassable" reading unchanged --
+                  which is right for the question IT asks.
+
+    `clearance` is only built when asked for (the scan detector never looks at
+    it and the distance transform is the single most expensive thing here).
+    `origin` is the map-frame position of the (0, 0) cell's CORNER, so a cell
+    centre is origin + (index + 0.5) * res -- the convention
+    costmap_boundary.py uses.
     """
 
-    __slots__ = ('free', 'clearance', 'res', 'origin')
+    __slots__ = ('free', 'occupied', 'unknown', 'clearance', 'res', 'origin')
 
-    def __init__(self, free, clearance, res, origin):
+    def __init__(self, free, occupied, unknown, clearance, res, origin):
         self.free = free
+        self.occupied = occupied
+        self.unknown = unknown
         self.clearance = clearance
         self.res = float(res)
         self.origin = (float(origin[0]), float(origin[1]))
@@ -231,12 +317,38 @@ class Window:
         return (int(math.floor((y - self.origin[1]) / self.res)),
                 int(math.floor((x - self.origin[0]) / self.res)))
 
-    def is_free(self, x, y):
-        """Is the map-frame point inside the window AND known free?"""
+    def inside(self, row, col):
+        return 0 <= row < self.free.shape[0] and 0 <= col < self.free.shape[1]
+
+    def _at(self, mask, x, y, outside=False):
         r, c = self.to_cell(x, y)
-        if not (0 <= r < self.free.shape[0] and 0 <= c < self.free.shape[1]):
-            return False
-        return bool(self.free[r, c])
+        return bool(mask[r, c]) if self.inside(r, c) else outside
+
+    def is_free(self, x, y):
+        """Known free AND inside the window. Outside reads as not free."""
+        return self._at(self.free, x, y, outside=False)
+
+    def is_occupied(self, x, y):
+        """A real obstacle. Outside the window reads as NOT occupied.
+
+        Outside-is-not-occupied on purpose: the window is cropped around the
+        car, and a door at its edge must not be vetoed by the crop.
+        """
+        return self._at(self.occupied, x, y, outside=False)
+
+    def is_unknown(self, x, y):
+        """Never observed, or outside the window -- the same thing to a caller."""
+        return self._at(self.unknown, x, y, outside=True)
+
+    def count_occupied(self, xy, radius_m):
+        """Occupied cells within `radius_m` (square) of a map point."""
+        r, c = self.to_cell(xy[0], xy[1])
+        k = max(1, int(round(float(radius_m) / self.res)))
+        r0, r1 = max(0, r - k), min(self.shape[0], r + k + 1)
+        c0, c1 = max(0, c - k), min(self.shape[1], c + k + 1)
+        if r0 >= r1 or c0 >= c1:
+            return 0
+        return int(np.count_nonzero(self.occupied[r0:r1, c0:c1]))
 
 
 def _cell_structure():
@@ -245,30 +357,27 @@ def _cell_structure():
 
 
 def occupancy_window(grid_data, width, height, resolution, origin_x, origin_y,
-                     robot_xy, p):
-    """Crop the grid around the robot, mark free space, and clean it up.
-
-    UNKNOWN IS OCCUPIED. Every cell that is not strictly below
-    `occupied_threshold` and not UNKNOWN is free; -1 and >= threshold are
-    both obstacles. This is the opposite of costmap_boundary.py's own rule
-    (where unknown is never occupied) and deliberately so: that node asks
-    "is there definitely something there", which must not be answered yes by
-    ignorance; this one asks "may the car drive here", which must not be
-    answered yes by ignorance either. Both pick the conservative answer and
-    they differ because the questions are opposite.
+                     robot_xy, p, with_clearance=None):
+    """Crop the grid around the robot into the three states Window documents.
 
     The window is always exactly the requested size: anything outside the
-    grid's own extent is filled UNKNOWN, i.e. occupied, so a door is never
-    invented at the edge of the map.
+    grid's own extent is filled UNKNOWN -- which for the scan detector means
+    "no opinion" (a door at the edge of the map is still a door) and for the
+    medial-axis one means impassable, since that one folds unknown into
+    not-free. Both readings come out of the same crop.
 
-    CLEANUP, two steps, both of which can only SHRINK the free space:
-      1. binary_closing on the occupied mask -- fills pinholes in a wall, so
-         a one- or two-cell hole from a missed ray is not a 0.10 m doorway.
-      2. binary_opening on the free mask -- drops isolated free specks that
-         would otherwise seed a skeleton of their own.
-    At 0.05 m/cell one iteration reaches 0.10 m, an order below width_min_m,
-    so neither step can close or open a real doorway.
+    CLEANUP, one closing of the OBSTACLES, which can only ever make them more
+    solid: it fills a one- or two-cell pinhole in a wall, so a missed ray is
+    not a 0.10 m doorway. It is applied to the obstacles ALONE and never
+    grows them into unknown space. `free` additionally gets the opening the
+    medial-axis detector needs (isolated free specks dropped) -- it is the
+    only consumer of `free`, and the scan detector reads `occupied` directly.
+
+    `with_clearance` defaults to p.use_skeleton: the distance transform costs
+    about 9 ms on the default window and nothing but the medial axis reads it.
     """
+    if with_clearance is None:
+        with_clearance = bool(p.use_skeleton)
     res = float(resolution)
     half = int(math.ceil(float(p.window_m) / res))
     rc, cc = (int(math.floor((robot_xy[1] - origin_y) / res)),
@@ -283,17 +392,450 @@ def occupancy_window(grid_data, width, height, resolution, origin_x, origin_y,
     if sr0 < sr1 and sc0 < sc1:
         sub[sr0 - r0:sr1 - r0, sc0 - c0:sc1 - c0] = arr[sr0:sr1, sc0:sc1]
 
-    free = (sub >= 0) & (sub < int(p.occupied_threshold))
+    unknown = sub < 0
+    occupied = sub >= int(p.occupied_threshold)
+    free = ~unknown & ~occupied
     it = int(p.cleanup_iterations)
+    st = _cell_structure()
     if it > 0:
-        st = _cell_structure()
-        occ = ndimage.binary_closing(~free, structure=st, iterations=it,
-                                     border_value=1)
-        free = ndimage.binary_opening(~occ, structure=st, iterations=it,
-                                      border_value=0)
-    clearance = ndimage.distance_transform_edt(free, sampling=res)
+        occupied = ndimage.binary_closing(occupied, structure=st, iterations=it,
+                                          border_value=0)
+        # The medial axis's own reading: unknown impassable, specks removed.
+        free = ndimage.binary_opening(
+            ndimage.binary_closing(free, structure=st, iterations=it,
+                                   border_value=0) & ~occupied,
+            structure=st, iterations=it, border_value=0)
+        unknown = unknown & ~occupied
+    clearance = (np.asarray(ndimage.distance_transform_edt(free, sampling=res),
+                            dtype=float)
+                 if with_clearance else None)
     origin = (origin_x + c0 * res, origin_y + r0 * res)
-    return Window(free, np.asarray(clearance, dtype=float), res, origin)
+    return Window(free, occupied, unknown, clearance, res, origin)
+
+
+# ---------------------------------------------------------------------------
+# The scan: where the range profile steps out and back in again
+# ---------------------------------------------------------------------------
+class ScanProfile:
+    """One scan, in beam order, with every point already in MAP.
+
+    Beam ORDER is the laser frame's business -- a jump is a thing that
+    happens between two adjacent beams and means nothing anywhere else -- but
+    every POINT here is map-frame, because the grid, the tracker and the door
+    TF all are, and carrying two copies of the geometry to transform at the
+    end is how frames get mixed up.
+
+    `ranges` is already smoothed and already has no-return beams filled in at
+    `range_max`: a beam that goes through a doorway and hits nothing is the
+    strongest evidence the doorway is open, and dropping it (which is right
+    for unknown_objects.scan_points, whose question is "does a return LIE ON
+    something") would make an open door look shut.
+    """
+
+    __slots__ = ('bearings', 'ranges', 'points', 'laser', 'range_max', 'no_return')
+
+    def __init__(self, bearings, ranges, points, laser_xy, range_max, no_return):
+        self.bearings = np.asarray(bearings, dtype=float)
+        self.ranges = np.asarray(ranges, dtype=float)
+        self.points = np.asarray(points, dtype=float).reshape(-1, 2)
+        self.laser = (float(laser_xy[0]), float(laser_xy[1]))
+        self.range_max = float(range_max)
+        self.no_return = np.asarray(no_return, dtype=bool)
+
+    def __len__(self):
+        return int(self.ranges.size)
+
+
+def smooth_ranges(ranges, window):
+    """A light median filter over the range profile. Edge-preserving.
+
+    A MEDIAN and not a mean, because every gate below is about an EDGE: a
+    mean of three smears a 0.5 m jamb step across three beams and shifts
+    where A and B are, a median of three removes a single-beam spike and
+    leaves the step exactly where it was.
+    """
+    w = int(window)
+    if w < 3 or ranges.size < w:
+        return np.asarray(ranges, dtype=float)
+    return ndimage.median_filter(np.asarray(ranges, dtype=float), size=w,
+                                 mode='nearest')
+
+
+def scan_profile(bearings, ranges, range_min, range_max, laser_map, p):
+    """Build a ScanProfile: fill no-returns, smooth, and place every beam in map.
+
+    `laser_map` is (x, y, yaw) of the LASER in the map frame.
+    """
+    r = np.asarray(ranges, dtype=float)
+    b = np.asarray(bearings, dtype=float)
+    no_return = ~np.isfinite(r) | (r >= float(range_max))
+    r = np.where(no_return, float(range_max), r)
+    too_near = (~no_return) & (r < float(range_min))
+    if np.any(too_near):
+        # Below range_min is not a measurement at all. Treated as no-return
+        # rather than dropped, so beam ORDER (which every jump test depends
+        # on) survives, and a dropped beam cannot silently become a jump.
+        r = np.where(too_near, float(range_max), r)
+        no_return = no_return | too_near
+    r = smooth_ranges(r, p.smooth_beams)
+    th = float(laser_map[2]) + b
+    pts = np.column_stack([laser_map[0] + r * np.cos(th),
+                           laser_map[1] + r * np.sin(th)])
+    return ScanProfile(b, r, pts, laser_map[:2], range_max, no_return)
+
+
+def jump_edges(scan, p):
+    """(rising, falling): beam indices where the profile steps out, and back.
+
+    `rising[i] = a` means beam a is NEAR and beam a+1 is at least
+    `jump_min_m` further: a is the last beam on the near surface, i.e. a
+    jamb point. `falling[j] = b` means beam b is NEAR and beam b-1 is at
+    least that much further: b is the FIRST beam back on a near surface, the
+    other jamb. A doorway is a rising edge followed by a falling one.
+
+    Capped at `max_edges` each, largest jumps kept, so a scan full of foliage
+    cannot turn the pairing below into a quadratic blow-up.
+    """
+    r = scan.ranges
+    if r.size < 3:
+        return np.zeros(0, dtype=int), np.zeros(0, dtype=int)
+    step = r[1:] - r[:-1]
+    rising = np.flatnonzero(step >= float(p.jump_min_m))
+    falling = np.flatnonzero(step <= -float(p.jump_min_m)) + 1
+    cap = int(p.max_edges)
+    if rising.size > cap:
+        rising = np.sort(rising[np.argsort(step[rising])[-cap:]])
+    if falling.size > cap:
+        falling = np.sort(falling[np.argsort(-step[falling - 1])[-cap:]])
+    return rising, falling
+
+
+def _beyond(points, a, b, laser, beyond_m):
+    """Signed distance of each point past line AB, positive AWAY from `laser`.
+
+    Returns (signed, mask) where mask is `signed >= beyond_m`. The sign
+    convention is the whole point: "beyond" means on the far side of the
+    threshold from the sensor, so a beam that stops short of the opening and
+    a beam that sails through it are told apart by a sign, not a magnitude.
+    """
+    ax, ay = float(a[0]), float(a[1])
+    ex, ey = float(b[0]) - ax, float(b[1]) - ay
+    length = math.hypot(ex, ey)
+    if length < 1e-9:
+        return np.zeros(len(points)), np.zeros(len(points), dtype=bool)
+    nx, ny = -ey / length, ex / length
+    s_laser = (laser[0] - ax) * nx + (laser[1] - ay) * ny
+    sign = -1.0 if s_laser > 0.0 else 1.0
+    signed = ((points[:, 0] - ax) * nx + (points[:, 1] - ay) * ny) * sign
+    return signed, signed >= float(beyond_m)
+
+
+def _is_surface_end(scan, index, direction, p):
+    """Does the near surface CONTINUE on `direction` side of beam `index`?
+
+    A jamb is the end of something: the beams just outside the opening come
+    back at about the same range. An isolated return -- one dust mote, one
+    reflection, the tip of a chair back -- has nothing beside it at its own
+    range, and pairing two of those makes a doorway out of thin air.
+    """
+    n = len(scan)
+    r0 = scan.ranges[index]
+    for k in range(1, int(p.edge_beams) + 1):
+        i = index + direction * k
+        if not (0 <= i < n):
+            break
+        if scan.no_return[i]:
+            continue
+        if abs(scan.ranges[i] - r0) <= float(p.edge_tol_m):
+            return True
+    return False
+
+
+def _run_lengths(mask):
+    """The lengths of the True runs in a boolean array, longest first."""
+    if mask.size == 0:
+        return []
+    idx = np.flatnonzero(np.diff(np.concatenate(([0], mask.view(np.int8), [0]))))
+    return sorted(((idx[1::2] - idx[0::2]).tolist()), reverse=True)
+
+
+def opening_from_scan(scan, a, b, p):
+    """Evaluate the beams between jamb beams `a` and `b`; return (code, info).
+
+    code '' means the SCAN half accepts this opening. `info` carries what the
+    grid half and the candidate need: the two jamb points, the width, how
+    many beams went beyond, and any flags earned here.
+    """
+    pa, pb = scan.points[a], scan.points[b]
+    width = float(math.hypot(pb[0] - pa[0], pb[1] - pa[1]))
+    info = {'a': (float(pa[0]), float(pa[1])), 'b': (float(pb[0]), float(pb[1])),
+            'width': width, 'n_beyond': 0, 'flags': [], 'beyond_pts': None}
+    if not (float(p.width_min_detect_m) <= width <= float(p.width_max_detect_m)):
+        return 'width', info
+    if not (float(p.width_min_m) <= width <= float(p.width_max_m)):
+        info['flags'].append('marginal')
+
+    interior = scan.points[a + 1:b]
+    if interior.shape[0] < max(1, int(p.min_interior_beams)):
+        return 'no_interior', info
+    signed, beyond = _beyond(interior, pa, pb, scan.laser, p.beyond_m)
+    info['n_beyond'] = int(np.count_nonzero(beyond))
+    info['beyond_pts'] = interior[beyond]
+    if info['n_beyond'] < int(p.beyond_beams_min):
+        return 'few_beams', info
+
+    # BLOCKING beams: ones that stopped AT or BEFORE the threshold. A few
+    # are a chair leg standing in the doorway, or noise; many, or many in a
+    # row, are something filling it.
+    #
+    # Not "beams that failed to reach beyond_m", which is what this tested
+    # first and which rejected every side door into a small room: a beam
+    # through a 0.9 m opening into a 3 m room seen at a shallow angle clips
+    # the room's far wall only 0.3 m past the threshold, so a whole run of
+    # perfectly good beams read as "short" and split the opening. A beam
+    # that is PAST the threshold went through, however little further it
+    # got; only one that stopped at or before it is in the way.
+    blocking = signed <= float(p.block_margin_m)
+    runs = _run_lengths(blocking)
+    longest = runs[0] if runs else 0
+    frac = float(np.count_nonzero(blocking)) / float(blocking.size)
+    if longest > int(p.short_run_max) and frac > float(p.short_frac_max):
+        return 'split', info
+
+    # BOTH ends, not either: a doorway has a jamb on each side. The first
+    # version accepted an opening when EITHER end looked like a surface,
+    # which on a real bag rejected exactly ONE opening out of ten thousand
+    # -- a gate that never fires is not a gate.
+    if not (_is_surface_end(scan, a, -1, p) and _is_surface_end(scan, b, +1, p)):
+        return 'edge', info
+    return '', info
+
+
+def scan_openings(scan, p):
+    """Every near-far-near opening in one scan, evaluated. Rejections included.
+
+    Returns [(code, info), ...]. The rejected ones are kept because they are
+    what the debug markers draw and the debug dict counts -- "there is a jump
+    pair there and here is why it is not a door" is the question this
+    detector gets asked.
+    """
+    rising, falling = jump_edges(scan, p)
+    if rising.size == 0 or falling.size == 0:
+        return []
+    out = []
+    for a in rising:
+        for b in falling:
+            if b <= a + 1:
+                continue
+            code, info = opening_from_scan(scan, int(a), int(b), p)
+            if code == 'width':
+                # Too wide here means every further falling edge is wider
+                # still only if the profile were monotonic, which it is not;
+                # but a too-wide pair is the common case and cheap to skip.
+                if info['width'] > float(p.width_max_detect_m):
+                    continue
+            out.append((code, info))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# The grid: a cross-check, never the primary evidence
+# ---------------------------------------------------------------------------
+def _samples_along(a, b, step):
+    """Points sampled along the segment a -> b at `step`, both ends included."""
+    length = math.hypot(b[0] - a[0], b[1] - a[1])
+    n = max(1, int(math.ceil(length / step)))
+    ts = np.linspace(0.0, 1.0, n + 1)
+    return (np.column_stack([a[0] + (b[0] - a[0]) * ts,
+                             a[1] + (b[1] - a[1]) * ts]), length / n)
+
+
+def check_segment(window, a, b, p):
+    """Is the line A-B clear enough of real obstacle to be an opening?
+
+    TOLERANT BY DESIGN, three numbers deep:
+      - an occupied run shorter than `noise_max_m` is ignored outright (one
+        or two cells: a chair leg, one bad return, a map artefact);
+      - what survives may still cover up to `occupied_frac_max` of the
+        segment, as long as it is in pieces;
+      - only a CONTINUOUS surviving run of `occupied_run_veto_m` vetoes the
+        opening, because that is a thing standing across the doorway rather
+        than in it.
+    """
+    pts, step = _samples_along(a, b, window.res / 2.0)
+    occ = np.array([window.is_occupied(x, y) for x, y in pts], dtype=bool)
+    runs = _run_lengths(occ)
+    noise_cells = max(1, int(round(float(p.noise_max_m) / step)))
+    real = [n for n in runs if n > noise_cells]
+    if real and real[0] * step >= float(p.occupied_run_veto_m):
+        return 'blocked'
+    if real and (sum(real) / float(occ.size)) > float(p.occupied_frac_max):
+        return 'occupied_frac'
+    return ''
+
+
+def check_behind(window, info, laser, p):
+    """Did the beams that went through this opening leave a trace in the map?
+
+    ALONG THE RAYS, not along the door's own perpendicular -- which is the
+    whole correction, and it only shows up on a SIDE door. A beam does not
+    turn to face the doorway after passing it: seen at a shallow angle, the
+    beams through a 0.9 m opening 3 m away have fanned more than a metre
+    sideways by the time they are 1 m past the threshold, so a box sampled
+    perpendicular to the opening lands where no beam ever went and reports
+    'no_behind' for a perfectly good door. (First version did exactly that
+    and failed every side-door test.)
+
+    NO "WIDE ROOM" REQUIREMENT, deliberately: a room behind a door that has
+    never been driven into is a fan of thin free lines with unknown between
+    them, and asking for an open region there is precisely the test that made
+    the medial-axis detector report nothing. All this asks is that SOMETHING
+    got through -- which the scan already said, so this is really a check
+    that the map agrees with the scan rather than an independent gate.
+    """
+    pts = info.get('beyond_pts')
+    if pts is None or len(pts) == 0:
+        return 'no_behind'
+    a, b = info['a'], info['b']
+    ex, ey = b[0] - a[0], b[1] - a[1]
+    length = math.hypot(ex, ey)
+    if length < 1e-9:
+        return 'no_behind'
+    nx, ny = -ey / length, ex / length
+    s_laser = (laser[0] - a[0]) * nx + (laser[1] - a[1]) * ny
+    if abs(s_laser) < 1e-9:
+        return 'no_behind'
+    step = max(window.res, 0.05)
+    depths = np.arange(float(p.behind_min_m), float(p.behind_max_m) + 1e-9, step)
+    found = 0
+    for px, py in pts:
+        dx, dy = px - laser[0], py - laser[1]
+        ray_len = math.hypot(dx, dy)
+        if ray_len < 1e-9:
+            continue
+        s_p = ((px - a[0]) * nx + (py - a[1]) * ny)
+        if (s_p - s_laser) == 0.0:
+            continue
+        # Where this ray crosses the threshold, as a distance from the laser.
+        cross = ray_len * (-s_laser) / (s_p - s_laser)
+        if not (0.0 < cross < ray_len):
+            continue
+        ux, uy = dx / ray_len, dy / ray_len
+        for d in depths:
+            reach = cross + d
+            if reach >= ray_len:
+                break
+            if window.is_free(laser[0] + ux * reach, laser[1] + uy * reach):
+                found += 1
+                if found >= int(p.behind_free_min_cells):
+                    return ''
+    return 'no_behind'
+
+
+def check_jambs(window, a, b, p):
+    """(code, flags): is there occupancy where each jamb should be?
+
+    A MISSING JAMB IS A FLAG, NOT A REJECTION. Glass returns nothing, a
+    corner can reflect a beam away, and a jamb seen edge-on puts almost no
+    cells in the grid; dropping the opening for any of those loses more real
+    doors than it saves false ones, and the confirmation is what filters
+    artefacts here. Both ends missing is still a rejection: that is not a
+    doorway, it is two numbers.
+    """
+    need = int(p.scan_jamb_min_cells)
+    na = window.count_occupied(a, p.scan_jamb_radius_m)
+    nb = window.count_occupied(b, p.scan_jamb_radius_m)
+    if na < need and nb < need:
+        return 'no_jamb', []
+    if na < need or nb < need:
+        return '', ['one_jamb']
+    return '', []
+
+
+def check_grid(window, info, laser, p):
+    """The whole grid cross-check for one opening: (code, flags).
+
+    With no window at all -- the first scans of a run, before slam_toolbox
+    has published anything -- NOTHING here is checked and the candidate is
+    flagged `no_grid`. The scan is the primary evidence and it has already
+    spoken; refusing to see doors until a map exists would make the detector
+    useless exactly when a mission is most likely to be starting.
+    """
+    if window is None:
+        return '', ['no_grid']
+    a, b = info['a'], info['b']
+    code = check_segment(window, a, b, p)
+    if code:
+        return code, []
+    code = check_behind(window, info, laser, p)
+    if code:
+        return code, []
+    return check_jambs(window, a, b, p)
+
+
+# ---------------------------------------------------------------------------
+# Assembly
+# ---------------------------------------------------------------------------
+def _candidate(info, code, flags):
+    return DoorCandidate(info['a'], info['b'], CASE_FREESPACE,
+                         NO_WALL_ID, NO_WALL_ID, code=code,
+                         n_beams=info['n_beyond'],
+                         flags=tuple(dict.fromkeys(list(info['flags']) + list(flags))))
+
+
+def merge_candidates(cands, max_m):
+    """Collapse candidates whose centres are within `max_m` into one.
+
+    One doorway produces several jump pairs: the median filter, a jamb two
+    beams wide, a far surface at two different depths all give neighbouring
+    rising and falling edges that pair up into nearly the same opening. The
+    tracker associates each candidate to AT MOST ONE track, so handing it
+    five copies of one door spawns four spurious tracks. The survivor of a
+    cluster is the one with the most beams through it -- the best-seen
+    version of that door -- and it inherits the union of the cluster's flags,
+    so a merge never quietly drops a `marginal` or `one_jamb` warning.
+    """
+    out = []
+    for cand in sorted(cands, key=lambda c: (-c.n_beams, c.centre)):
+        for kept in out:
+            if math.hypot(cand.centre[0] - kept.centre[0],
+                          cand.centre[1] - kept.centre[1]) < float(max_m):
+                kept.flags = tuple(dict.fromkeys(kept.flags + cand.flags))
+                break
+        else:
+            out.append(cand)
+    return out
+
+
+def scan_candidates(scan, window, robot_xy, p):
+    """THE ENTRY POINT: one scan (and optionally the grid) in, candidates out.
+
+    Returns semantic_doors.DoorCandidate, accepted ones with code '' and
+    rejected ones carrying why, ready for a semantic_doors.DoorTracker.
+    Accepted candidates are merged and capped; rejected ones are returned
+    whole, because they are what the debug view is made of.
+    """
+    accepted, rejected = [], []
+    for code, info in scan_openings(scan, p):
+        if code:
+            rejected.append(_candidate(info, code, ()))
+            continue
+        grid_code, flags = check_grid(window, info, scan.laser, p)
+        cand = _candidate(info, grid_code, flags)
+        (rejected if grid_code else accepted).append(cand)
+    accepted = merge_candidates(accepted, p.merge_max_m)
+    accepted.sort(key=lambda c: -c.n_beams)
+    return accepted[:int(p.max_candidates)] + rejected
+
+
+def jump_points(scan, p):
+    """(n, 2) map-frame points of every jump edge -- for the debug markers."""
+    rising, falling = jump_edges(scan, p)
+    idx = np.concatenate([rising, falling]) if (rising.size or falling.size) \
+        else np.zeros(0, dtype=int)
+    if idx.size == 0:
+        return np.zeros((0, 2), dtype=float)
+    return scan.points[idx]
 
 
 # ---------------------------------------------------------------------------
@@ -809,8 +1351,13 @@ def evaluate(window, skel, cell, beams, robot_xy, p):
     return coded('', j0, j1, n_beams)
 
 
-def candidate_doors(window, skel, beams, robot_xy, p):
-    """Every bottleneck of `window`, evaluated. The module's one entry point.
+def skeleton_candidates(window, skel, beams, robot_xy, p):
+    """Every bottleneck of `window`, evaluated. The MEDIAL-AXIS entry point.
+
+    Kept, and kept tested, but off by default (`use_skeleton`): on the real
+    map it finds nothing, because a room behind a door is a ray fan rather
+    than a region and the rise test it is built around cannot hold there.
+    See the module docstring. `scan_candidates` is what runs.
 
     Returns a list of semantic_doors.DoorCandidate -- the accepted ones with
     code '' and the rejected ones carrying why, because the rejections are

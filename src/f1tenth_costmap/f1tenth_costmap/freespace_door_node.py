@@ -2,21 +2,26 @@
 
 A THIN NODE. Every decision lives in freespace_doors.py (pure numpy/scipy,
 no rclpy) and every output in semantic_door_markers.py; this file only
-subscribes, builds the parameter object, drives one cycle on a timer and
+subscribes, builds the parameter object, drives one cycle per scan and
 publishes. That split is the same one semantic_doors.py/semantic_layer_node
 already uses, and it is why the detector is testable on a hand-drawn grid.
 
-INPUTS
+INPUTS -- /scan IS THE PRIMARY ONE
+  /scan                            sensor_msgs/LaserScan. THE evidence: a
+                                   doorway is a near-far-near step in the
+                                   range profile and that signature is there
+                                   on the first scan that sees the opening.
+                                   The cycle is driven by this topic.
   /slam/map                        nav_msgs/OccupancyGrid, MAP frame,
-                                   0.05 m/cell, RELIABLE + TRANSIENT_LOCAL
-                                   (latched), republished every 5 s --
-                                   slam_toolbox's own grid, the stack's only
-                                   live one. See output/doors/freespace.md.
+                                   0.05 m/cell, latched, republished every
+                                   5 s. A CROSS-CHECK only, and an optional
+                                   one: before the first grid arrives the
+                                   detector runs anyway and flags its
+                                   candidates `no_grid`.
   /ekf_global/odometry/filtered    the GLOBAL EKF's map-frame pose, the same
                                    input costmap_boundary_node pairs the grid
                                    with (NOT /slam/pose). BEST_EFFORT.
-  /scan                            sensor_msgs/LaserScan, for the live
-                                   confirmation only -- never for geometry.
+                                   REQUIRED: everything is published in map.
   /tf_static                       base_link -> the scan frame, once.
 
 OUTPUTS -- THE SAME FOUR THE SEMANTIC DETECTOR PUBLISHES, deliberately:
@@ -46,10 +51,18 @@ needs an occupancy grid, which that node does not subscribe to at all, and
 none of the rest. Hosting it there would mean a /slam/map subscription and a
 0.2 Hz grid inside a node that ticks at 10 Hz on scans.
 
-THE RATE. 2 Hz by default, against a grid that only changes every 5 s. The
-geometry is therefore re-measured from unchanged cells most ticks; what is
-genuinely new each tick is the /scan confirmation, and that is what the
-confirm count counts. See output/doors/freespace.md.
+THE RATE. Scan-driven, throttled to `freespace_doors_rate_hz` (10 Hz), not
+on a timer: the scan is the evidence, so a cycle without a new one would
+re-measure the same beams. The throttle exists because the lidar runs at
+~40 Hz and nothing downstream needs doors that often.
+
+CONFIRMATION IS ABOUT WHERE THE CAR WAS STANDING, not how many times it
+looked -- two hits from poses `confirm_pose_spread_m` apart, or
+`confirm_same_pose_hits` hits from anywhere. A reflection or a beam that
+slipped past a corner is perfectly repeatable from one standing position;
+counting it ten times would prove nothing. That policy lives in
+semantic_doors.DoorTracker behind two parameters that the wall detectors
+leave at zero, so there is still one tracker for all three door sources.
 
 FAILURE. A cycle that raises is logged (throttled), counted (door_errors in
 the debug JSON) and never allowed to kill the node; after
@@ -125,7 +138,7 @@ def beams_from_scan(scan, laser_map):
 
 
 class FreespaceDoorNode(Node):
-    """The grid in, the four door outputs out, once per timer tick."""
+    """A scan in, the four door outputs out, once per scan (throttled)."""
 
     #: Consecutive failing cycles after which this node stops detecting for
     #: good. Same number and same reasoning as the other two detectors'
@@ -173,29 +186,16 @@ class FreespaceDoorNode(Node):
         rate_hz = float(stack('freespace_doors_rate_hz'))
         if not rate_hz > 0.0:
             raise ValueError(f'freespace_doors_rate_hz must be > 0, got {rate_hz}')
-        self.params = fd.FreespaceParams(
-            window_m=float(stack('freespace_doors_window_m')),
-            occupied_threshold=int(stack('freespace_doors_occupied_threshold')),
-            cleanup_iterations=int(stack('freespace_doors_cleanup_iterations')),
-            width_min_m=float(stack('freespace_doors_width_min_m')),
-            width_max_m=float(stack('freespace_doors_width_max_m')),
-            rise_ratio=float(stack('freespace_doors_rise_ratio')),
-            rise_within_m=float(stack('freespace_doors_rise_within_m')),
-            spur_prune_m=float(stack('freespace_doors_spur_prune_m')),
-            local_min_radius_m=float(stack('freespace_doors_local_min_radius_m')),
-            tangent_span_m=float(stack('freespace_doors_tangent_span_m')),
-            symmetry_tol_m=float(stack('freespace_doors_symmetry_tol_m')),
-            jamb_radius_m=float(stack('freespace_doors_jamb_radius_m')),
-            jamb_min_cells=int(stack('freespace_doors_jamb_min_cells')),
-            min_beams=int(stack('freespace_doors_min_beams')),
-            beyond_m=float(stack('freespace_doors_beyond_m')),
-            jamb_exclude_m=float(stack('freespace_doors_jamb_exclude_m')),
-            assoc_max_m=float(stack('freespace_doors_assoc_max_m')),
-            confirm_hits=int(stack('freespace_doors_confirm_hits')),
-            smooth_alpha=float(stack('freespace_doors_smooth_alpha')),
-            candidate_forget_s=float(stack('freespace_doors_candidate_forget_s')),
-            forget_unseen_s=float(stack('freespace_doors_forget_unseen_s')),
-            max_candidates=int(stack('freespace_doors_max_candidates')))
+        self.min_period_s = 1.0 / rate_hz
+        # EVERY FreespaceParams field comes from stack_params.yaml under its
+        # own name with a `freespace_doors_` prefix -- no hand-written list
+        # that can drift out of step with the dataclass, and the type of the
+        # shipped default is what the YAML value is cast to.
+        # test_every_freespace_param_is_in_stack_params guards the mapping.
+        proto = fd.FreespaceParams()
+        self.params = fd.FreespaceParams(**{
+            slot: type(getattr(proto, slot))(stack('freespace_doors_' + slot))
+            for slot in fd.FreespaceParams.__slots__})
         self.grid_max_age_s = float(stack('freespace_doors_grid_max_age_s'))
         self.jamb_diameter_m = float(stack('semantic_doors_jamb_viz_diameter_m'))
         self.viz_height_m = float(stack('semantic_doors_viz_height_m'))
@@ -211,6 +211,10 @@ class FreespaceDoorNode(Node):
         self._errors = 0
         self._ms = math.nan
         self._codes: dict = {}
+        self._flags: dict = {}
+        self._jumps = 0
+        self._grid_age_s = math.nan
+        self._last_cycle_sec = None
         self._skeleton_cells = 0
         self._window_cells = 0
         self._viz_ids: set = set()
@@ -246,12 +250,15 @@ class FreespaceDoorNode(Node):
             if self.debug_markers_enabled else None
         self._tf = TransformBroadcaster(self) if self.publish_tf else None
 
-        self.timer = self.create_timer(1.0 / rate_hz, self._cycle)
+        how = 'medial axis' if self.params.use_skeleton else 'scan jumps'
         self.get_logger().info(
-            f'freespace doors on: {self.params.window_m:.1f} m window on '
-            f'{self.map_topic} at {rate_hz:.1f} Hz, '
-            f'{self.params.width_min_m:.2f}-{self.params.width_max_m:.2f} m openings, '
-            f'confirmed after {self.params.confirm_hits} scan confirmations')
+            f'freespace doors on ({how}): driven by {self.scan_topic} at up to '
+            f'{rate_hz:.1f} Hz, openings '
+            f'{self.params.width_min_detect_m:.2f}-'
+            f'{self.params.width_max_detect_m:.2f} m, confirmed on two hits '
+            f'{self.params.confirm_pose_spread_m:.2f} m apart or '
+            f'{self.params.confirm_same_pose_hits} from one pose, cross-checked '
+            f'against {self.map_topic} when one is available')
 
     # ------------------------------------------------------------------
     def _now_sec(self):
@@ -262,11 +269,17 @@ class FreespaceDoorNode(Node):
         self._grid_stamp = self._now_sec()
 
     def _pose_cb(self, msg):
-        p = msg.pose.pose
-        self._pose = (p.position.x, p.position.y, yaw_from_quaternion(p.orientation))
+        pos = msg.pose.pose.position
+        self._pose = (pos.x, pos.y, yaw_from_quaternion(msg.pose.pose.orientation))
 
     def _scan_cb(self, msg):
+        """THE cycle trigger. Throttled, because the lidar outruns the need."""
         self._scan = msg
+        now = self._now_sec()
+        if self._last_cycle_sec is not None and now - self._last_cycle_sec < self.min_period_s:
+            return
+        self._last_cycle_sec = now
+        self._cycle()
 
     def _laser_in_base(self, frame_id):
         """(x, y, yaw) of the scan frame in base_frame, from /tf_static, or None."""
@@ -281,32 +294,48 @@ class FreespaceDoorNode(Node):
                                      yaw_from_quaternion(t.rotation)))
         return self._laser_bl[1]
 
-    # ------------------------------------------------------------------
+    def _usable_grid(self, now):
+        """The latest grid, or None when there is not a usable one.
+
+        None is a normal state, not a failure: the scan is the primary
+        evidence and candidates built without a grid are flagged `no_grid`
+        rather than withheld. The age check matters because the grid is
+        LATCHED -- an old one keeps arriving in every new subscriber's queue
+        forever, so without it a dead slam_toolbox would go on silently
+        cross-checking doors against a map minutes out of date.
+        """
+        if self._grid is None:
+            return None
+        age = now - self._grid_stamp
+        self._grid_age_s = age
+        if self.grid_max_age_s > 0.0 and age > self.grid_max_age_s:
+            self.get_logger().warn(
+                f'freespace doors: {self.map_topic} is {age:.1f} s old '
+                f'(> {self.grid_max_age_s:.1f}) -- cross-check skipped',
+                throttle_duration_sec=10.0)
+            return None
+        return self._grid
+
     def _cycle(self):
         """One detection cycle. Never raises; see the module docstring."""
         if self._tracker is None:
             return
-        if self._grid is None or self._pose is None:
+        if self._scan is None or self._pose is None:
             self.get_logger().info(
-                f'freespace doors: waiting for {self.map_topic} and {self.pose_topic}',
+                f'freespace doors: waiting for {self.scan_topic} and {self.pose_topic}',
                 throttle_duration_sec=10.0)
+            return
+        laser_bl = self._laser_in_base(self._scan.header.frame_id)
+        if laser_bl is None:
+            self.get_logger().warn(
+                'freespace doors: no base_link -> '
+                f'{self._scan.header.frame_id} transform yet -- the scan cannot '
+                'be placed in the map', throttle_duration_sec=10.0)
             return
         now = self._now_sec()
-        age = now - self._grid_stamp
-        if self.grid_max_age_s > 0.0 and age > self.grid_max_age_s:
-            # The grid is latched, so an old one keeps arriving in every new
-            # subscriber's queue forever. Publishing doors off a grid whose
-            # publisher died minutes ago would be inventing geometry; the
-            # tracker keeps whatever it already confirmed and this cycle
-            # simply does not happen.
-            self.get_logger().warn(
-                f'freespace doors: {self.map_topic} is {age:.1f} s old '
-                f'(> {self.grid_max_age_s:.1f}) -- cycle skipped',
-                throttle_duration_sec=10.0)
-            return
         t0 = time.perf_counter()
         try:
-            self._detect(now)
+            self._detect(now, laser_bl)
             self._errors = 0
         except Exception as exc:                        # noqa: BLE001
             self._errors += 1
@@ -315,46 +344,60 @@ class FreespaceDoorNode(Node):
                 throttle_duration_sec=5.0)
             if self._errors >= self.FREESPACE_MAX_ERRORS:
                 self._tracker = None
-                self.timer.cancel()
                 self.get_logger().error(
                     f'freespace doors: {self._errors} consecutive failures -- '
                     'door detection is off for the life of this node')
         finally:
             self._ms = (time.perf_counter() - t0) * 1e3
-            self._publish_debug(age)
+            self._publish_debug()
 
-    def _detect(self, now):
-        grid, pose = self._grid, self._pose
-        info = grid.info
-        window = fd.occupancy_window(
-            grid.data, info.width, info.height, info.resolution,
-            info.origin.position.x, info.origin.position.y, pose[:2], self.params)
-        skel = fd.skeleton(window, self.params)
-        self._window_cells = int(window.free.sum())
-        self._skeleton_cells = int(skel.sum())
+    def _detect(self, now, laser_bl):
+        scan, pose = self._scan, self._pose
+        laser_map = compose(pose, laser_bl)
+        profile = fd.scan_profile(
+            scan.angle_min + np.arange(len(scan.ranges), dtype=float)
+            * scan.angle_increment,
+            scan.ranges, scan.range_min, scan.range_max, laser_map, self.params)
 
-        beams = None
-        if self._scan is not None:
-            laser_bl = self._laser_in_base(self._scan.header.frame_id)
-            if laser_bl is None:
+        grid = self._usable_grid(now)
+        window = None
+        if grid is not None:
+            info = grid.info
+            window = fd.occupancy_window(
+                grid.data, info.width, info.height, info.resolution,
+                info.origin.position.x, info.origin.position.y, pose[:2],
+                self.params)
+
+        skel = None
+        if self.params.use_skeleton:
+            if window is None:
                 self.get_logger().warn(
-                    'freespace doors: no base_link -> '
-                    f'{self._scan.header.frame_id} transform yet -- no door can '
-                    'be confirmed without one', throttle_duration_sec=10.0)
+                    'freespace doors: use_skeleton is on but there is no grid '
+                    '-- the medial-axis detector has nothing to read',
+                    throttle_duration_sec=10.0)
+                cands = []
             else:
-                beams = beams_from_scan(self._scan, compose(pose, laser_bl))
+                skel = fd.skeleton(window, self.params)
+                beams = fd.ScanBeams(profile.points, profile.laser)
+                cands = fd.skeleton_candidates(
+                    window, skel, beams, pose[:2], self.params)
+        else:
+            cands = fd.scan_candidates(profile, window, pose[:2], self.params)
 
-        cands = fd.candidate_doors(window, skel, beams, pose[:2], self.params)
         self._tracker.update(cands, (pose[0], pose[1]), now)
-        self._codes = {}
+        self._codes, self._flags = {}, {}
         for c in cands:
             key = c.code or 'ok'
             self._codes[key] = self._codes.get(key, 0) + 1
-        self._publish(now, window, skel, cands)
+            for flag in c.flags:
+                self._flags[flag] = self._flags.get(flag, 0) + 1
+        self._jumps = len(fd.jump_points(profile, self.params))
+        self._window_cells = 0 if window is None else int(window.free.sum())
+        self._skeleton_cells = 0 if skel is None else int(skel.sum())
+        self._publish(now, profile, window, skel, cands)
 
-    # ------------------------------------------------------------------
-    def _publish(self, now, window, skel, cands):
-        """The four shared outputs, then the debug markers."""
+    def _publish(self, now, profile, window, skel, cands):
+        """The four shared outputs, then this detector's own debug view."""
         stamp = self.get_clock().now().to_msg()
         confirmed = self._tracker.confirmed()
 
@@ -370,6 +413,9 @@ class FreespaceDoorNode(Node):
         objects.objects = [sdm.door_object(d, SemanticObject) for d in confirmed]
         self.objects_pub.publish(objects)
 
+        # EVERY live track, candidates included -- sdm.marker_array draws an
+        # unconfirmed one faded, which is exactly what "unconfirmed
+        # candidates stay visible in Foxglove" asks for.
         markers, self._viz_ids = sdm.marker_array(
             self._tracker.tracks, self._viz_ids, self.map_frame, stamp,
             self.jamb_diameter_m, self.viz_height_m)
@@ -382,10 +428,12 @@ class FreespaceDoorNode(Node):
 
         if self.debug_viz_pub is not None:
             self.debug_viz_pub.publish(sdm.freespace_debug_markers(
-                fd.skeleton_points(window, skel), cands, self.map_frame, stamp,
-                window.res))
+                fd.jump_points(profile, self.params), cands, self.map_frame,
+                stamp,
+                skeleton_xy=(fd.skeleton_points(window, skel)
+                             if skel is not None else None)))
 
-    def _publish_debug(self, grid_age_s):
+    def _publish_debug(self):
         """One JSON object per cycle, SAME KEY NAMES as the semantic detector's.
 
         door_ms / door_errors / door_codes / doors_confirmed are the four keys
@@ -396,16 +444,20 @@ class FreespaceDoorNode(Node):
         """
         self.debug_pub.publish(String(data=json.dumps({
             'source': 'freespace',
+            'method': 'skeleton' if self.params.use_skeleton else 'scan_jumps',
             'door_ms': None if not math.isfinite(self._ms) else round(self._ms, 2),
             'door_errors': self._errors,
             'door_codes': self._codes,
+            'door_flags': self._flags,
             'doors_confirmed': (0 if self._tracker is None
                                 else len(self._tracker.confirmed())),
             'door_candidates': (0 if self._tracker is None
                                 else len(self._tracker.tracks)),
+            'scan_jumps': self._jumps,
             'free_cells': self._window_cells,
             'skeleton_cells': self._skeleton_cells,
-            'grid_age_s': round(float(grid_age_s), 2),
+            'grid_age_s': (None if not math.isfinite(self._grid_age_s)
+                           else round(float(self._grid_age_s), 2)),
         })))
 
 
