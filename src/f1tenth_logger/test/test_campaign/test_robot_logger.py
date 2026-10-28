@@ -507,6 +507,51 @@ def test_a_changed_prompt_warns_and_is_recorded(root, campaign):
     assert "WARNING" in out.stderr and "changed" in out.stderr
 
 
+def test_save_plan_matches_a_reference_file_that_exists(root, tmp_path):
+    plan = {"moves": []}
+    ref = tmp_path / "ref.json"
+    ref.write_text(json.dumps(plan))
+    log = logger_for(root, prompt=1)
+    record = log.save_plan(plan, reference_path=str(ref), plan_id="p1")
+    assert record["match"] is True
+    assert record["reference"] == str(ref)
+    log.finish("completed")
+
+
+def test_save_plan_falls_back_to_the_container_bind_mount_source(root, tmp_path, monkeypatch):
+    # The planner's own path (mission_path, via /test/plan_result) when it
+    # ran inside the Jazzy container: this process (always native) cannot
+    # open it directly, but docker/orin/compose.yaml bind-mounts that exact
+    # directory from $F1T_STATE/missions/llm_generated on the host.
+    state = tmp_path / "state"
+    (state / "missions" / "llm_generated").mkdir(parents=True)
+    plan = {"moves": []}
+    (state / "missions" / "llm_generated" / "llm_abc123.json").write_text(json.dumps(plan))
+    monkeypatch.setenv("F1T_STATE", str(state))
+
+    log = logger_for(root, prompt=1)
+    record = log.save_plan(
+        plan, plan_id="llm_abc123",
+        reference_path="/opt/f1tenth_ws/install/share/f1tenth_behavior/"
+                        "missions/llm_generated/llm_abc123.json")
+
+    assert record["match"] is True
+    assert record["reference"] == str(state / "missions" / "llm_generated" / "llm_abc123.json")
+    log.finish("completed")
+
+
+def test_save_plan_reports_not_found_when_neither_path_exists(root, tmp_path, monkeypatch):
+    monkeypatch.setenv("F1T_STATE", str(tmp_path / "no_such_state"))
+    log = logger_for(root, prompt=1)
+    record = log.save_plan(
+        {"moves": []}, plan_id="missing",
+        reference_path="/opt/f1tenth_ws/install/share/f1tenth_behavior/"
+                        "missions/llm_generated/missing.json")
+    assert record["match"] is False
+    assert record["reference_hash"] is None
+    log.finish("completed")
+
+
 # --------------------------------------------------------------------------
 # the analysis reads what the logger wrote
 # --------------------------------------------------------------------------

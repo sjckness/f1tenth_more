@@ -259,6 +259,30 @@ def plan_hash(plan):
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _plan_reference_candidates(reference_path):
+    """``reference_path``, then its container bind-mount's host-side copy.
+
+    llm_planner_node reports its OWN filesystem's absolute path
+    (``mission_path``, via ``/test/plan_result``). This module is always
+    native (module docstring: "no ROS", and ``find_root`` never resolves
+    inside a container -- it is launched by hand, by ``test_campaign_logger.
+    launch.py``, same as this process). When the planner ran inside the
+    Jazzy container that path is
+    ``/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/
+    <id>.json``, unreachable from here. ``docker/orin/compose.yaml`` bind-
+    mounts exactly that directory from ``$F1T_STATE/missions/llm_generated``
+    on the host, so the basename there is tried too -- never INSTEAD of the
+    given path, which is already right whenever the planner itself ran
+    natively -- recovering the file without this process ever having to
+    know whether the planner was containerized.
+    """
+    yield reference_path
+    name = Path(reference_path).name
+    if name:
+        state = os.environ.get("F1T_STATE", "/scratch/fabiocar/f1tenth_container")
+        yield str(Path(state) / "missions" / "llm_generated" / name)
+
+
 def _check_index(value, name):
     try:
         value = int(value)
@@ -1224,18 +1248,23 @@ class TestLogger:
             _write_json_atomic(self.dir / name, plan)
             digest = plan_hash(plan)
 
-            reference_hash, problem = None, None
+            reference_hash, problem, opened_path = None, None, reference_path
             if reference_path:
-                try:
-                    with open(reference_path, encoding="utf-8") as fh:
-                        reference_hash = plan_hash(json.load(fh))
-                except FileNotFoundError:
-                    problem = "reference file not found"
-                except (OSError, json.JSONDecodeError) as exc:
-                    problem = f"reference file unreadable: {type(exc).__name__}: {exc}"
+                for candidate in _plan_reference_candidates(reference_path):
+                    try:
+                        with open(candidate, encoding="utf-8") as fh:
+                            reference_hash = plan_hash(json.load(fh))
+                    except FileNotFoundError:
+                        continue
+                    except (OSError, json.JSONDecodeError) as exc:
+                        problem = f"reference file unreadable: {type(exc).__name__}: {exc}"
+                        break
+                    opened_path = candidate
+                    break
                 else:
-                    if reference_hash != digest:
-                        problem = "content differs"
+                    problem = "reference file not found"
+                if problem is None and reference_hash != digest:
+                    problem = "content differs"
             else:
                 problem = "no reference file to compare with"
 
@@ -1244,7 +1273,7 @@ class TestLogger:
                 "file": name,
                 "plan_id": plan_id,
                 "plan_hash": digest,
-                "reference": None if reference_path is None else str(reference_path),
+                "reference": None if reference_path is None else str(opened_path),
                 "reference_hash": reference_hash,
                 "match": problem is None,
             }
