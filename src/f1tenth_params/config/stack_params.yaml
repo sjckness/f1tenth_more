@@ -3868,6 +3868,112 @@ lidar_front_wall_door_jamb_viz_diameter_m:
   default: 0.10
   description: "Diameter [m] of each jamb's vertical cylinder on /viz/doors. The cylinders are lidar_front_wall_wall_viz_height_m tall and stand on the floor. Visualisation only."
 
+# --- WHICH door detector runs (door_source) ----------------------------------
+# Read by f1tenth_perception/lidar_front_wall_node.py (the PROFILE detector)
+# and f1tenth_costmap/semantic_layer_node.py (the SEMANTIC one). The two are
+# exclusive: each node runs its own detector only when door_source names it
+# AND that detector's own enable flag is set, so turning one on never starts
+# the other and the two never publish doors at the same time.
+door_source:
+  default: "semantic"
+  description: "Which door detector the stack runs: 'semantic' (f1tenth_costmap/semantic_doors.py -- the SEMANTIC LAYER'S WALLS and nothing else geometric, two cases, map frame, a TF per door) or 'profile' (f1tenth_perception/door_detection.py -- the per-beam depth profile along a host wall line, the stereo veto, the odom frame; unchanged and still the one the addendum describes). Any other value is rejected at startup by both nodes. BOTH detectors also need their own enable flag: semantic_doors_enabled here, lidar_front_wall_door_detection_enabled for the profile one -- both default false, so this setting alone starts nothing."
+
+# --- doors from the semantic layer (f1tenth_costmap/semantic_doors.py) --------
+# Hosted by semantic_layer_node, on its LiDAR cycle (unknown_rate_hz), behind
+# semantic_doors_enabled AND door_source == 'semantic'. Input: the CONFIRMED
+# /perception/walls tracks the semantic layer already holds in the map frame,
+# plus /scan for two liveness questions only (do the beams cross the opening,
+# is a wall end a real end) and this node's own object tracks for the
+# in-the-gap veto. No stereo.
+# Output: /perception/doors_semantic (f1tenth_messages/DoorArray, MAP frame),
+# /viz/doors_semantic (MarkerArray), one TF map -> door_<id> per confirmed
+# door, and /costmap/semantic_doors (SemanticObjectArray, class_id "door").
+# PERCEPTION ONLY, and THE OVERLAY RULE holds: a door never modifies a wall or
+# any LiDAR data, and nothing may treat a doorway as free space because a door
+# is published there. The doors are deliberately NOT on
+# /costmap/semantic_objects: mpc_corr reads that topic into its obstacle list
+# and its reverse pre-check (semantic_objects_enabled), and a door there would
+# be a phantom obstacle standing in the one place the car is asked to drive
+# through.
+semantic_doors_enabled:
+  default: false
+  description: "Run the semantic-layer door detector on every LiDAR cycle of semantic_layer_node. OFF by default: nothing in the control path reads a door, the mission goal enter_door is the only consumer, and a feature nothing needs must not spend the cycle. Off: none of the four outputs exists and nothing is computed. Also needs door_source == 'semantic'. A door cycle that raises is logged (throttled), counted (door_errors on /costmap/unknown_objects/debug) and never stops the semantic layer; after 50 consecutive failures the node turns door detection off for its life."
+semantic_doors_min_wall_level:
+  default: "lidar_confirmed"
+  description: "The weakest wall that may be a door's jamb. 'tentative' (any live track), 'confirmed' (confirmed or coasting on ANY evidence, a stereo-only wall included), 'lidar_confirmed' (confirmed AND the LiDAR has seen it) or 'stereo_checked' (confirmed AND both sensors have). The default excludes TENTATIVE tracks -- a track the tracker has not yet confirmed moves and re-spawns, and a doorway built from two of them is a different doorway every scan -- and does NOT require the stereo, which sees walls the LiDAR plane misses and misses walls it sees. Words, not numbers, because a number in a config file says nothing; semantic_doors.wall_level maps MultiWallTrack.state + .source onto them."
+semantic_doors_width_min_m:
+  default: 0.70
+  description: "Narrowest opening [m], jamb to jamb. Deliberately the same number as lidar_front_wall_door_width_min_m, which is ALSO the tracker's collinear merge limit: two collinear wall pieces are one track across a gap shorter than it, so a doorway narrower than this is inside a single track and this detector -- which only ever pairs two tracks -- could not see it at all. Changing one without the other makes a band of widths that no detector reports."
+semantic_doors_width_max_m:
+  default: 1.40
+  description: "Widest opening [m]. Double doors and corridor mouths are wider and out of scope, exactly as for the profile detector (lidar_front_wall_door_width_max_m)."
+semantic_doors_parallel_angle_deg:
+  default: 10.0
+  description: "CASE A: the two walls either side of the gap must be the same line within this angle [deg]. Wider than this is a corner, and a corner is not a doorway. Matches lidar_front_wall_door_collinear_angle_deg so the two detectors agree on what collinear means."
+semantic_doors_parallel_offset_m:
+  default: 0.15
+  description: "CASE A: the lateral (across-line) offset [m] between the two FACING wall ends. Measured at the gap, not between the two infinite lines: two long walls a degree apart are collinear where they meet and metres apart at their far ends, and it is where they meet that decides whether a doorway sits between them."
+semantic_doors_perp_tol_deg:
+  default: 15.0
+  description: "CASE B: how far [deg] from square the two walls may be. The gap is measured from one wall's END perpendicularly to the other wall's PLANE, so the answer is only a width while the two are roughly perpendicular."
+semantic_doors_foot_inset_m:
+  default: 0.10
+  description: "CASE B: how far [m] inside the perpendicular wall's extent the foot of that perpendicular must lie. The far jamb of a case-B opening is a point on a wall SURFACE, not a wall end, and a foot at that wall's own end is two unknown ends facing each other across a diagonal -- a corner. This is what tells the two apart."
+semantic_doors_end_fov_margin_deg:
+  default: 2.0
+  description: "A jamb whose bearing is within this [deg] of the scan's own first or last beam is not a jamb: the wall may simply carry on outside what the scan saw. 'end_fov'."
+semantic_doors_end_range_margin_m:
+  default: 0.50
+  description: "A jamb within this [m] of the scan's range_max is not a jamb either, for the same reason: the wall's continuation is out of range, not absent. 'end_fov'."
+semantic_doors_end_occlusion_margin_m:
+  default: 0.30
+  description: "'end_occluded': a beam just past a jamb, on the GAP side, returning this much [m] nearer than the jamb itself means the end is the silhouette of something closer -- a shadow boundary, not a wall end. This is the one test that separates a real doorway from the hole a person or a box punches in a wall the tracker then holds as two tracks."
+semantic_doors_end_probe_beams:
+  default: 6
+  description: "How many beams past a jamb the occlusion probe reads. Enough to survive one dropout, few enough to stay beside the jamb rather than scan the room."
+semantic_doors_min_beams:
+  default: 4
+  description: "Fewest beams aimed into the gap for this cycle to decide anything. Fewer is 'few_beams': an opening seen from far away or very obliquely is undecidable now and will be decided from closer."
+semantic_doors_through_frac:
+  default: 0.60
+  description: "'not_through': of the beams aimed into the gap, at least this share must return more than semantic_doors_behind_margin_m PERPENDICULARLY BEYOND the opening line, or not return at all. A share rather than all of them, so one chair leg in the room beyond does not reject a real doorway, while a surface across the gap still fails it by far."
+semantic_doors_behind_margin_m:
+  default: 0.30
+  description: "How far [m] behind the opening line a return must lie to count as THROUGH. Shallower than this and what is behind the gap is a recess, a cabinet or a closed leaf set back in a deep frame, not a room."
+semantic_doors_gap_clear_m:
+  default: 0.12
+  description: "'on_segment': a valid return within this PERPENDICULAR distance [m] of the opening segment blocks the door. Perpendicular and along-track are separated deliberately -- the jambs' own returns sit at the segment's ends, and a plain point-to-segment distance cannot tell 'past the jamb, along the wall' (expected) from 'off the line, in the opening' (something standing in it)."
+semantic_doors_jamb_exclude_m:
+  default: 0.08
+  description: "How much [m] is taken off EACH END of the opening segment before the on_segment and object tests: the jambs are wall, their returns are wall returns, and they are at the ends by construction."
+semantic_doors_assoc_max_m:
+  default: 0.30
+  description: "Two sightings whose CENTRES are within this [m] are the same door. Association is by centre only -- not by the parent wall ids, which re-spawn far too often to be an identity (the profile detector's Door.msg says the same)."
+semantic_doors_confirm_hits:
+  default: 5
+  description: "Positive sightings before a door is CONFIRMED. Until then it is a candidate: it is tracked and drawn faded, it has no TF and it is on none of the output topics, and the mission's enter_door goal cannot select it."
+semantic_doors_smooth_alpha:
+  default: 0.30
+  description: "EMA weight of each new sighting on a door's centre, width and axis. Low enough that a door does not jitter with the wall fit, high enough that it follows a wall whose extent is still growing."
+semantic_doors_candidate_forget_s:
+  default: 5.0
+  description: "An UNCONFIRMED door with no sighting for this long [s] is dropped, so a one-off geometric coincidence does not sit in the list forever."
+semantic_doors_forget_unseen_s:
+  default: 0.0
+  description: "0 = a CONFIRMED door is kept in the map forever once seen, which is the point of putting it in the map frame: the car drives through it and can still be sent back to it. Above 0, a confirmed door with no sighting for that long [s] is dropped as well."
+semantic_doors_max_walls:
+  default: 12
+  description: "Most walls considered per cycle, longest first. The pair loop is quadratic and the semantic layer can hold more segments than any room has walls; the longest are the ones a doorway sits in."
+semantic_doors_jamb_viz_diameter_m:
+  default: 0.10
+  description: "Diameter [m] of each jamb's vertical cylinder on /viz/doors_semantic (radius 0.05 m). The cylinders are semantic_doors_viz_height_m tall and stand on the floor. Visualisation only."
+semantic_doors_viz_height_m:
+  default: 1.0
+  description: "Height [m] the jamb cylinders are drawn at on /viz/doors_semantic. Visualisation only: nothing measures a door's height here."
+semantic_doors_publish_tf:
+  default: true
+  description: "Broadcast map -> door_<id> for every CONFIRMED door. The frame's x axis is the crossing direction, fixed at first confirmation and never flipped, so a mission that drives through a door does not find its target spun round behind it. Off: the TF is not published and a mission goal of type enter_door has nothing to aim at."
+
 # --- minimum width for a LiDAR wall (multi_wall_tracker's span gate) ----------
 # A wall is long; an object face, a chair leg, the end of a counter and a
 # person's two legs are short, and the extraction reports geometry, not

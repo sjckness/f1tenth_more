@@ -904,7 +904,21 @@ class LidarFrontWallNode(Node):
         # stack_params.yaml's lidar_front_wall_door_* must agree
         # (test_lidar_front_wall_node.py, TestDoorParamsCoupling).
         door_requested = bool(param('door_detection_enabled', False))
-        self.door_enabled = door_requested and self.wall_tracker is not None
+        # WHICH DETECTOR RUNS (door_source, stack_params.yaml). 'profile' is
+        # this one -- the per-beam depth profile along a host wall line, the
+        # whole of door_detection.py, unchanged. 'semantic' is the other one,
+        # f1tenth_costmap/semantic_doors.py, hosted by semantic_layer_node and
+        # fed by the semantic layer's walls. EXACTLY ONE OF THE TWO EVER RUNS,
+        # so the stack never carries two sets of doors saying different things
+        # about the same room. This gate is the only change door_source makes
+        # here; everything below it is as it was.
+        self.door_source = str(param('door_source', get_value('door_source')))
+        self.door_enabled = (door_requested and self.wall_tracker is not None
+                             and self.door_source == 'profile')
+        if door_requested and self.door_source != 'profile':
+            self.get_logger().info(
+                f'door detection requested but door_source is {self.door_source!r}: '
+                'the profile detector stays off (semantic_layer_node owns the doors)')
         self.door_params = door_detection.DoorParams(
             # The gap's geometry and its beams.
             collinear_angle_rad=math.radians(float(param('door_collinear_angle_deg', 5.0))),

@@ -176,10 +176,26 @@ def generate_launch_description():
         'semantic_layer_cpu_threads', default_value=str(semantic_cpu_threads_default),
         description=semantic_cpu_threads_desc)
 
+    # The two door switches, by launch argument. Every OTHER semantic_doors_*
+    # value reaches the node straight from stack_params.yaml through its own
+    # declare_parameter default, and is tuned by editing that file (or with
+    # `ros2 param set`); these two are here because they are what a run turns
+    # on and off, and because door_source must reach lidar_front_wall_node and
+    # this node with the SAME value -- one argument, both nodes.
+    doors_enabled_default, doors_enabled_desc = get_default('semantic_doors_enabled')
+    door_source_default, door_source_desc = get_default('door_source')
+    doors_enabled_la = DeclareLaunchArgument(
+        'semantic_doors_enabled', default_value=str(doors_enabled_default),
+        description=doors_enabled_desc)
+    door_source_la = DeclareLaunchArgument(
+        'door_source', default_value=str(door_source_default),
+        description=door_source_desc)
+
     def _semantic_layer_node(context):
         # An OpaqueFunction only for the thread env: semantic_layer_cpu_threads
         # 0 (the default) must leave OMP/MKL/OPENBLAS/OPENCV unset, exactly the
-        # env the node had, which a substitution cannot express.
+        # env the node had, which a substitution cannot express. The door
+        # parameters ride along as ordinary parameters -- they need no context.
         return [Node(
             package='f1tenth_costmap',
             executable='semantic_layer_node',
@@ -195,6 +211,10 @@ def generate_launch_description():
                 'merge_distance_m': LaunchConfiguration('semantic_merge_distance_m'),
                 'confirm_hit_count': LaunchConfiguration('semantic_confirm_hit_count'),
                 'lost_miss_count': LaunchConfiguration('semantic_lost_miss_count'),
+                'semantic_doors_enabled': ParameterValue(
+                    LaunchConfiguration('semantic_doors_enabled'), value_type=bool),
+                'door_source': ParameterValue(
+                    LaunchConfiguration('door_source'), value_type=str),
             }],
         )]
 
@@ -337,5 +357,6 @@ def generate_launch_description():
         boundary_component_filter_la, boundary_min_component_length_la,
         boundary_min_component_scans_la, boundary_exclude_object_cells_la,
         boundary_object_margin_la, semantic_cpu_threads_la,
+        doors_enabled_la, door_source_la,
         semantic_layer_node, costmap_renderer_node, costmap_boundary_node,
     ])
