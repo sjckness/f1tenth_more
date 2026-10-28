@@ -4027,12 +4027,21 @@ freespace_doors_rise_within_m:
 freespace_doors_spur_prune_m:
   default: 0.30
   description: "Length [m] of skeleton hair eroded off every tip before anything is measured. Thinning leaves a short spur wherever the free-space boundary had a bump (a corner, one noisy cell) and each spur ends in a tip that would read as a dead end. Erodes real branches by the same amount, which costs nothing: a bottleneck this close to a genuine tip is a dead end and is meant to be rejected anyway."
+freespace_doors_local_min_radius_m:
+  default: 0.30
+  description: "Radius [m] within which a bottleneck must be the NARROWEST point of the medial axis. A square minimum filter over the clearance with non-skeleton cells set to infinity, so a candidate survives only if no skeleton cell this close to it is tighter. THIS IS WHAT MAKES A CANDIDATE A LOCAL MINIMUM, and it has to be applied BEFORE the width band: filtering by the band first and taking each cluster's narrowest cell finds cells sitting on the band's own lower EDGE wherever the skeleton descends through width_min_m into a tight corner, not pinches. Measured on corridor10m_20261019T131815, every one of 38 such candidates came back at exactly 2d = 0.700, all rejected downstream, and 22 of them were never even evaluated because freespace_doors_max_candidates is 16 -- a real 0.90 m doorway would have been cut from the list before anything looked at it. Raise it to suppress a pinch that has a tighter one nearby; lower it if two genuine doorways less than this apart are being collapsed into one."
 freespace_doors_tangent_span_m:
   default: 0.25
   description: "Half-length [m] of the skeleton chord the door's crossing direction is measured over. The direction to an ADJACENT skeleton cell can only be one of eight, i.e. quantised to 45 degrees, which is far too coarse for a door frame's yaw; a chord over 2 x this is not. Raise it on a smooth corridor for a steadier yaw, lower it where the axis genuinely curves through the opening."
 freespace_doors_symmetry_tol_m:
   default: 0.20
   description: "How far the width measured by marching to the two jambs may differ from 2 x the distance transform's clearance [m] before the candidate is rejected with code 'asymmetric'. The two only agree when the skeleton cell really sits mid-gap AND its nearest obstacle is one of the two jambs, i.e. when this is a clean bottleneck rather than a cell whose clearance is set by a wall it happens to be running alongside."
+freespace_doors_jamb_radius_m:
+  default: 0.15
+  description: "Radius [m] around each jamb point the obstacle cells behind it are counted in, for freespace_doors_jamb_min_cells. 0.15 m is three cells at 0.05 m, so a 0.05 m thick wall passing through the jamb contributes about seven cells and a two-cell blob contributes two -- the two cases this gate has to separate."
+freespace_doors_jamb_min_cells:
+  default: 4
+  description: "How many non-free cells must lie within freespace_doors_jamb_radius_m of EACH jamb. The jamb march stops at the first non-free cell and one cell is enough to stop it, so without this gate a chair leg, a single stray return or a two-cell map artefact standing the right distance from a wall is a jamb and the pair is a doorway. Found on a real grid, not reasoned: corridor10m_20261019T131815 confirmed one 1.11 m door whose far jamb was a 2-cell blob (the near one was solid wall) after the bottleneck, rise, symmetry AND 12-beam scan gates had all passed -- nothing earlier in the chain asks how much obstacle is behind a jamb. Raise it to demand more wall; 0 disables the gate."
 freespace_doors_min_beams:
   default: 4
   description: "How many /scan beams must pass through the opening and reach freespace_doors_beyond_m past the jamb line for the candidate to count as seen this cycle. Counting beams rather than testing one ray is what makes the confirmation robust to a single stray return. Same number as semantic_doors_min_beams."
