@@ -1,0 +1,34 @@
+campaign: /home/fabiocar/dev_ws/f1tenth_more/first_test_campaign
+runs: 5   missions: 1   evaluated by hand: 0   not yet evaluated: 5
+
+success is the MANUAL verdict; k/N counts evaluated tests only
+scope                             k/N   succ          95% CI  n/e   mean    med    p95  calls
+---------------------------------------------------------------------------------------------
+M02_approach_wall              0/0       -                 -    5 26142 26652 27016      5
+  P002                         0/0       -                 -    5 26142 26652 27016      5
+---------------------------------------------------------------------------------------------
+OVERALL                        0/0       -                 -    5 26142 26652 27016      5
+
+n/e = not yet evaluated. LLM latency in ms, over every recorded call.
+
+per-mission metrics from campaign_results.csv: median (min .. max)
+  M02_approach_wall
+    viol_rate_pct           0.000   (0.000 .. 0.000)
+    min_clear_m             0.109   (-0.119 .. 1.112)
+    feas_pct               72.778   (0.000 .. 78.947)
+    max_infeas_streak_s     0.458   (0.294 .. 80.130)
+    jerk_rms                0.736   (0.018 .. 0.859)
+    steer_rev_per_m         0.000   (0.000 .. 0.000)
+
+failed by hand: 0
+
+aborted by the logger (automatic hint only): 2
+  M02_approach_wall P002-R001-20261008T132715  [unevaluated]  timeout: no end message
+  M02_approach_wall P002-R002-20261008T133423  [unevaluated]  mission aborted
+
+not yet evaluated: 5
+  M02_approach_wall P002-R001-20261008T132715  auto=aborted
+  M02_approach_wall P002-R002-20261008T133423  auto=aborted
+  M02_approach_wall P002-R003-20261008T133931  auto=completed
+  M02_approach_wall P002-R004-20261008T135427  auto=completed
+  M02_approach_wall P002-R005-20261008T135646  auto=completed

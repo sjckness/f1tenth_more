@@ -1,0 +1,36 @@
+campaign: /home/fabiocar/dev_ws/f1tenth_more/first_test_campaign
+runs: 7   missions: 1   evaluated by hand: 0   not yet evaluated: 7
+
+success is the MANUAL verdict; k/N counts evaluated tests only
+scope                             k/N   succ          95% CI  n/e   mean    med    p95  calls
+---------------------------------------------------------------------------------------------
+M03_bottle                     0/0       -                 -    7 25037 23773 28726      7
+  P003                         0/0       -                 -    7 25037 23773 28726      7
+---------------------------------------------------------------------------------------------
+OVERALL                        0/0       -                 -    7 25037 23773 28726      7
+
+n/e = not yet evaluated. LLM latency in ms, over every recorded call.
+
+per-mission metrics from campaign_results.csv: median (min .. max)
+  M03_bottle
+    viol_rate_pct          15.533   (0.000 .. 77.853)
+    min_clear_m             0.292   (0.094 .. 0.321)
+    feas_pct               95.652   (23.077 .. 96.774)
+    max_infeas_streak_s     0.187   (0.087 .. 1.953)
+    jerk_rms                0.698   (0.022 .. 0.781)
+    steer_rev_per_m         1.198   (0.437 .. 2.428)
+
+failed by hand: 0
+
+aborted by the logger (automatic hint only): 2
+  M03_bottle        P003-R007-20260928T165947  [unevaluated]  mission aborted
+  M03_bottle        P003-R008-20260928T170036  [unevaluated]  mission aborted
+
+not yet evaluated: 7
+  M03_bottle        P003-R004-20260928T165409  auto=completed
+  M03_bottle        P003-R005-20260928T165545  auto=completed
+  M03_bottle        P003-R006-20260928T165817  auto=completed
+  M03_bottle        P003-R007-20260928T165947  auto=aborted
+  M03_bottle        P003-R008-20260928T170036  auto=aborted
+  M03_bottle        P003-R009-20260928T170138  auto=completed
+  M03_bottle        P003-R010-20260928T170337  auto=completed

@@ -1,0 +1,32 @@
+campaign: /home/fabiocar/dev_ws/f1tenth_more/first_test_campaign
+runs: 4   missions: 1   evaluated by hand: 0   not yet evaluated: 4
+
+success is the MANUAL verdict; k/N counts evaluated tests only
+scope                             k/N   succ          95% CI  n/e   mean    med    p95  calls
+---------------------------------------------------------------------------------------------
+M08_turn_right_wall_then_person   0/0       -                 -    4 15430 15427 15557      4
+  P008                         0/0       -                 -    4 15430 15427 15557      4
+---------------------------------------------------------------------------------------------
+OVERALL                        0/0       -                 -    4 15430 15427 15557      4
+
+n/e = not yet evaluated. LLM latency in ms, over every recorded call.
+
+per-mission metrics from campaign_results.csv: median (min .. max)
+  M08_turn_right_wall_then_person
+    viol_rate_pct           0.000   (0.000 .. 0.000)
+    min_clear_m             0.117   (0.000 .. 0.148)
+    feas_pct               45.239   (41.304 .. 50.638)
+    max_infeas_streak_s     2.865   (2.102 .. 8.597)
+    jerk_rms                0.818   (0.734 .. 0.911)
+    steer_rev_per_m         0.576   (0.393 .. 1.281)
+
+failed by hand: 0
+
+aborted by the logger (automatic hint only): 1
+  M08_turn_right_wall_then_personP008-R004-20261027T134727  [unevaluated]  mission aborted
+
+not yet evaluated: 4
+  M08_turn_right_wall_then_personP008-R001-20261027T133550  auto=completed
+  M08_turn_right_wall_then_personP008-R002-20261027T133837  auto=completed
+  M08_turn_right_wall_then_personP008-R003-20261027T134421  auto=completed
+  M08_turn_right_wall_then_personP008-R004-20261027T134727  auto=aborted

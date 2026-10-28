@@ -1,0 +1,34 @@
+# Selezione run per missione, usata da AGGREGATE.
+# Numeri = repetition (non prompt_num). Nessun numero di run deve essere
+# scritto in altri script: tutti leggono questo file.
+
+M01_forward_3m:
+  runs: [1, 2, 3, 4, 5, 7, 8, 9, 10, 11]
+
+M02_approach_wall:
+  # repetition 1-5 esistono DUE VOLTE sul disco: 2026-09-22 e 2026-10-08
+  # (campaign.main-20261008.json, modello qwen2.5-3b-instruct). Usare la
+  # sessione 2026-10-08 per 1-5 (decisione utente, 2026-10-28).
+  disambiguate:
+    - repetition: [1, 2, 3, 4, 5]
+      date_prefix: "20261008"
+  runs: [1, 2, 3, 4, 5, 23, 24, 25, 26, 27]
+
+M03_bottle:
+  runs: [4, 5, 6, 7, 8, 9, 10]
+
+M04_person:
+  runs: [7, 8, 9, 10, 11, 14, 15, 16, 17, 18]
+
+M05_turn_left_wall:
+  runs: [3, 5, 6, 7, 8]
+
+M06_turn_left_wall_then_person:
+  runs: [1, 2, 3, 4]
+
+M07_chair_then_straight_4m:
+  # già fatto, incluso per uniformità
+  runs: [1, 2, 3, 4]
+
+M08_turn_right_wall_then_person:
+  runs: [1, 2, 3, 4]

@@ -1,0 +1,38 @@
+campaign: /home/fabiocar/dev_ws/f1tenth_more/first_test_campaign
+runs: 10   missions: 1   evaluated by hand: 0   not yet evaluated: 10
+
+success is the MANUAL verdict; k/N counts evaluated tests only
+scope                             k/N   succ          95% CI  n/e   mean    med    p95  calls
+---------------------------------------------------------------------------------------------
+M01_forward_3m                 0/0       -                 -   10 26490 28172 29642     10
+  P001                         0/0       -                 -   10 26490 28172 29642     10
+---------------------------------------------------------------------------------------------
+OVERALL                        0/0       -                 -   10 26490 28172 29642     10
+
+n/e = not yet evaluated. LLM latency in ms, over every recorded call.
+
+per-mission metrics from campaign_results.csv: median (min .. max)
+  M01_forward_3m
+    viol_rate_pct           0.000   (0.000 .. 0.000)
+    min_clear_m             1.436   (0.359 .. 2.439)
+    feas_pct               91.285   (82.759 .. 97.714)
+    max_infeas_streak_s     0.468   (0.180 .. 0.761)
+    jerk_rms                0.702   (0.315 .. 0.747)
+    steer_rev_per_m         0.000   (0.000 .. 0.908)
+
+failed by hand: 0
+
+aborted by the logger (automatic hint only): 1
+  M01_forward_3m    P001-R008-20260930T173125  [unevaluated]  mission aborted
+
+not yet evaluated: 10
+  M01_forward_3m    P001-R001-20260921T145508  auto=completed
+  M01_forward_3m    P001-R002-20260921T145711  auto=completed
+  M01_forward_3m    P001-R003-20260921T145854  auto=completed
+  M01_forward_3m    P001-R004-20260921T150023  auto=completed
+  M01_forward_3m    P001-R005-20260921T150157  auto=completed
+  M01_forward_3m    P001-R007-20260930T173000  auto=completed
+  M01_forward_3m    P001-R008-20260930T173125  auto=aborted
+  M01_forward_3m    P001-R009-20260930T173424  auto=completed
+  M01_forward_3m    P001-R010-20260930T173632  auto=completed
+  M01_forward_3m    P001-R011-20260930T173814  auto=completed

@@ -79,3 +79,9 @@ src/f1tenth_behavior/mission_reports/
 # the node's working directory, often the repo root. Covers any other CSV output
 # too. See docs/DIAGNOSTICS.md.
 *.csv
+# ...except the campaign analysis tables (summary_table.csv, run_table.csv,
+# per-mission mission_table.csv/summary.csv): these are tracked source output,
+# not mpc_corr runtime logs, and the campaign keeps producing new ones.
+!first_test_campaign/analysis/**/*.csv
+
+.sjck/

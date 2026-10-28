@@ -1,0 +1,37 @@
+campaign: /home/fabiocar/dev_ws/f1tenth_more/first_test_campaign
+runs: 10   missions: 1   evaluated by hand: 0   not yet evaluated: 10
+
+success is the MANUAL verdict; k/N counts evaluated tests only
+scope                             k/N   succ          95% CI  n/e   mean    med    p95  calls
+---------------------------------------------------------------------------------------------
+M04_person                     0/0       -                 -   10 24385 26432 28687     10
+  P004                         0/0       -                 -   10 24385 26432 28687     10
+---------------------------------------------------------------------------------------------
+OVERALL                        0/0       -                 -   10 24385 26432 28687     10
+
+n/e = not yet evaluated. LLM latency in ms, over every recorded call.
+
+per-mission metrics from campaign_results.csv: median (min .. max)
+  M04_person
+    viol_rate_pct           1.641   (0.000 .. 26.170)
+    min_clear_m             0.994   (0.129 .. 1.251)
+    feas_pct               92.222   (45.205 .. 96.748)
+    max_infeas_streak_s     0.461   (0.181 .. 2.001)
+    jerk_rms                0.619   (0.602 .. 0.714)
+    steer_rev_per_m         1.217   (0.624 .. 1.420)
+
+failed by hand: 0
+
+aborted by the logger (automatic hint only): 0
+
+not yet evaluated: 10
+  M04_person        P004-R007-20260924T134658  auto=completed
+  M04_person        P004-R008-20260924T134911  auto=completed
+  M04_person        P004-R009-20260924T135136  auto=completed
+  M04_person        P004-R010-20260924T135341  auto=completed
+  M04_person        P004-R011-20260924T135544  auto=completed
+  M04_person        P004-R014-20261001T112202  auto=completed
+  M04_person        P004-R015-20261001T112447  auto=completed
+  M04_person        P004-R016-20261001T112933  auto=completed
+  M04_person        P004-R017-20261001T113120  auto=completed
+  M04_person        P004-R018-20261001T113259  auto=completed

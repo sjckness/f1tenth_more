@@ -1,0 +1,55 @@
+mission	short_id	repetition	status	reason	test_id	auto_outcome	manual_success
+M01_forward_3m	M01	1	valid		P001-R001-20260921T145508	completed	
+M01_forward_3m	M01	2	valid		P001-R002-20260921T145711	completed	
+M01_forward_3m	M01	3	valid		P001-R003-20260921T145854	completed	
+M01_forward_3m	M01	4	valid		P001-R004-20260921T150023	completed	
+M01_forward_3m	M01	5	valid		P001-R005-20260921T150157	completed	
+M01_forward_3m	M01	7	valid		P001-R007-20260930T173000	completed	
+M01_forward_3m	M01	8	valid		P001-R008-20260930T173125	aborted	
+M01_forward_3m	M01	9	valid		P001-R009-20260930T173424	completed	
+M01_forward_3m	M01	10	valid		P001-R010-20260930T173632	completed	
+M01_forward_3m	M01	11	valid		P001-R011-20260930T173814	completed	
+M02_approach_wall	M02	1	valid		P002-R001-20261008T132715	aborted	
+M02_approach_wall	M02	2	valid		P002-R002-20261008T133423	aborted	
+M02_approach_wall	M02	3	valid		P002-R003-20261008T133931	completed	
+M02_approach_wall	M02	4	valid		P002-R004-20261008T135427	completed	
+M02_approach_wall	M02	5	valid		P002-R005-20261008T135646	completed	
+M02_approach_wall	M02	23	incomplete	no meta.json	P002-R023-20261020T185108	aborted	
+M02_approach_wall	M02	24	incomplete	no meta.json	P002-R024-20261020T185329	aborted	
+M02_approach_wall	M02	25	incomplete	no meta.json	P002-R025-20261020T185553	aborted	
+M02_approach_wall	M02	26	incomplete	no meta.json	P002-R026-20261020T185812	aborted	
+M02_approach_wall	M02	27	incomplete	no meta.json	P002-R027-20261020T190051	aborted	
+M03_bottle	M03	4	valid		P003-R004-20260928T165409	completed	
+M03_bottle	M03	5	valid		P003-R005-20260928T165545	completed	
+M03_bottle	M03	6	valid		P003-R006-20260928T165817	completed	
+M03_bottle	M03	7	valid		P003-R007-20260928T165947	aborted	
+M03_bottle	M03	8	valid		P003-R008-20260928T170036	aborted	
+M03_bottle	M03	9	valid		P003-R009-20260928T170138	completed	
+M03_bottle	M03	10	valid		P003-R010-20260928T170337	completed	
+M04_person	M04	7	valid		P004-R007-20260924T134658	completed	
+M04_person	M04	8	valid		P004-R008-20260924T134911	completed	
+M04_person	M04	9	valid		P004-R009-20260924T135136	completed	
+M04_person	M04	10	valid		P004-R010-20260924T135341	completed	
+M04_person	M04	11	valid		P004-R011-20260924T135544	completed	
+M04_person	M04	14	valid		P004-R014-20261001T112202	completed	
+M04_person	M04	15	valid		P004-R015-20261001T112447	completed	
+M04_person	M04	16	valid		P004-R016-20261001T112933	completed	
+M04_person	M04	17	valid		P004-R017-20261001T113120	completed	
+M04_person	M04	18	valid		P004-R018-20261001T113259	completed	
+M05_turn_left_wall	M05	3	valid		P005-R003-20260924T140430	aborted	
+M05_turn_left_wall	M05	5	valid		P005-R005-20260924T141303	aborted	
+M05_turn_left_wall	M05	6	valid		P005-R006-20260924T141529	aborted	
+M05_turn_left_wall	M05	7	valid		P005-R007-20260924T141924	aborted	
+M05_turn_left_wall	M05	8	valid		P005-R008-20260924T142157	aborted	
+M06_turn_left_wall_then_person	M06	1	valid		P006-R001-20261027T140608	completed	
+M06_turn_left_wall_then_person	M06	2	valid		P006-R002-20261027T141233	completed	
+M06_turn_left_wall_then_person	M06	3	valid		P006-R003-20261027T141517	aborted	
+M06_turn_left_wall_then_person	M06	4	valid		P006-R004-20261027T141736	completed	
+M08_turn_right_wall_then_person	M08	1	valid		P008-R001-20261027T133550	completed	
+M08_turn_right_wall_then_person	M08	2	valid		P008-R002-20261027T133837	completed	
+M08_turn_right_wall_then_person	M08	3	valid		P008-R003-20261027T134421	completed	
+M08_turn_right_wall_then_person	M08	4	valid		P008-R004-20261027T134727	aborted	
+M07_chair_then_straight_4m	M07	1	valid		P007-R001-20261027T165917	completed	
+M07_chair_then_straight_4m	M07	2	valid		P007-R002-20261027T170135	completed	
+M07_chair_then_straight_4m	M07	3	valid		P007-R003-20261027T170317	completed	
+M07_chair_then_straight_4m	M07	4	valid		P007-R004-20261027T171737	completed	
