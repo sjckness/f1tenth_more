@@ -516,3 +516,95 @@ def test_door_params_carries_only_the_tracking_knobs():
     assert dp.assoc_max_m == pytest.approx(0.42)
     assert dp.smooth_alpha == pytest.approx(p.smooth_alpha)
     assert dp.forget_unseen_s == pytest.approx(p.forget_unseen_s)
+
+
+# ---------------------------------------------------------------------------
+# the two gates the real-grid replay added (output/doors/freespace.md)
+# ---------------------------------------------------------------------------
+def test_a_jamb_must_be_part_of_something_not_a_two_cell_blob():
+    """A chair leg the right distance from a wall is not a doorway.
+
+    The jamb march stops at the FIRST non-free cell and one cell is enough to
+    stop it, so every gate before this one passes happily on a pair made of a
+    wall and a speck. Found on a real grid, not reasoned: the replay of
+    corridor10m_20261019T131815 confirmed a 1.11 m "door" whose far jamb was
+    a 2-cell blob -- after the bottleneck, rise, symmetry AND a 12-beam scan
+    confirmation had all passed.
+    """
+    g = walled_room()
+    g.occ(0.0, -4.0, 0.05, -0.45)        # a real wall, ending at y = -0.45
+    g.occ(0.0, 0.45, 0.05, 0.55)         # and a two-cell blob 0.90 m away
+    robot = (-2.0, 0.0)
+    beams = through_the_gap(robot)
+    assert g.doors(robot, beams) == []
+    assert 'thin_jamb' in g.codes(robot, beams)
+
+    # The SAME geometry with a real wall in place of the blob is a door,
+    # which is what makes this a test of the gate and not of the scene.
+    solid = room_door_room(0.90)
+    assert len(solid.doors(robot, beams)) == 1
+
+
+def test_the_jamb_gate_can_be_turned_off():
+    """jamb_min_cells 0 is the pre-gate behaviour, kept reachable on purpose.
+
+    If a real doorway on the car ever comes back as 'thin_jamb' -- a jamb seen
+    nearly edge-on, a wall the grid holds as two cells -- this is the knob,
+    and it has to be provably the only thing standing in the way.
+    """
+    g = walled_room()
+    g.occ(0.0, -4.0, 0.05, -0.45)
+    g.occ(0.0, 0.45, 0.05, 0.55)
+    robot = (-2.0, 0.0)
+    off = fd.FreespaceParams(jamb_min_cells=0)
+    assert len(g.doors(robot, through_the_gap(robot), off)) == 1
+
+
+def test_a_candidate_is_a_local_minimum_before_the_width_band_is_applied():
+    """The band must not be what defines the pinch. See _bottleneck_cells.
+
+    A skeleton that descends through width_min_m into a tight pocket has an
+    in-band cluster cut off at exactly width_min_m, and that cut is not a
+    local minimum of anything. Selecting it wastes a max_candidates slot --
+    which on a real grid meant 22 of 38 clusters were never evaluated at all
+    and every one of the 16 that were came back at 2d = 0.700 exactly.
+    """
+    p = fd.FreespaceParams()
+    g = walled_room()
+    # A funnel: free space narrowing steadily from 1.6 m down to 0.3 m, so
+    # the skeleton passes through the whole width band without ever pinching.
+    g.rect(-4.0, -4.0, 4.0, 4.0, 100)
+    for i in range(40):
+        x0 = 0.0 + i * 0.05
+        half = (1.60 - i * 0.0325) / 2.0
+        g.free(x0, -half, x0 + 0.05, half)
+    g.free(-2.0, -0.80, 0.0, 0.80)
+    robot = (-1.0, 0.0)
+    window, skel, _c = g.detect(robot, None, p)
+    in_band = (skel & (2.0 * window.clearance >= p.width_min_m)
+               & (2.0 * window.clearance <= p.width_max_m))
+    assert in_band.sum() > 5, 'the funnel does not cross the width band'
+    # Nothing in a monotonically narrowing funnel is a local minimum, so
+    # nothing is a candidate -- the old band-first selection returned the
+    # band's own edge cell here.
+    cells = fd._bottleneck_cells(window, skel, p)
+    for cell in cells:
+        assert window.clearance[cell] == pytest.approx(
+            float(window.clearance[skel].min()), abs=1e-6), (
+            'a band-edge cell was selected as a pinch')
+
+
+def test_only_curve_cells_are_offered_as_candidates():
+    """A tip has no two sides and a branch point has three.
+
+    Both are rejected as 'junction' by _sides anyway; filtering them out
+    first is what stops a bushy real-grid skeleton (814 of 2303 cells were
+    branch points on corridor10m_20261019T131815) from spending the whole
+    max_candidates budget on cells that can never be doors.
+    """
+    p = fd.FreespaceParams()
+    robot = (-2.0, 0.0)
+    window, skel, _c = room_door_room(0.90).detect(robot, None, p)
+    deg = fd.neighbour_count(skel)
+    for cell in fd._bottleneck_cells(window, skel, p):
+        assert deg[cell] == 2, cell

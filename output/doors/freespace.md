@@ -52,3 +52,60 @@ The thinning was 284 ms at 8 m in its first form (an `(8, rows, cols)` stack
 and an `np.roll` per sub-iteration). The 256-entry Zhang-Suen lookup table in
 `_neighbour_code` / `_zhang_suen_tables` is what brought it to 55 ms;
 `test_the_cycle_fits_the_two_hertz_budget` guards against losing that again.
+
+## Replayed on real grids -- and what that changed
+
+`tools/freespace_door_replay.py` runs the whole cycle offline from a bag
+(`/slam/map` + `/ekf_global/odometry/filtered` + `/scan` + `/tf_static`), no
+ROS, no car, no simulator. Two of the bags in `~/bags` carry all four:
+
+| bag | grids | scans | cycles | ms med / p95 / max | doors |
+|---|---|---|---|---|---|
+| `corridor10m_20261019T131815` | 16 | 3223 | 180 | 59 / 74 / 78 | 0 |
+| `corridor_obstacles_20261019T135307` | 9 | 1549 | 79 | 43 / 46 / 47 | 0 |
+
+(`corridor10m_20261016T144537` has `/scan` but no `/slam/map` and no global
+EKF pose, so this detector cannot be replayed on it at all.)
+
+Zero doors is the right answer for both -- neither run has a doorway in it.
+The cost matches the synthetic benchmark on the same machine, which is the
+first thing the replay confirmed. **The other two things it found were bugs**,
+and neither would have shown up on a hand-drawn grid:
+
+**1. The candidate selection was not finding local minima.** The band was
+applied first and each in-band cluster's narrowest cell taken. Wherever the
+medial axis descends through 0.70 m on its way into a tight corner, that
+cluster is cut off at exactly 0.70 and its argmin is the CUT, not a pinch. On
+the last grid of `corridor10m_20261019T131815` all 38 candidates came back at
+`2d = 0.700` exactly, every one rejected downstream -- and 22 of the 38 were
+never evaluated at all, because `max_candidates` is 16 and the ordering is
+narrowest-first, so a genuine 0.90 m doorway would have sorted *after* every
+0.70 m artefact and been cut from the list before anything looked at it. The
+accepted set was right; the recall under the cap was not. Fixed by filtering
+to curve cells (degree 2) and to true local minima
+(`freespace_doors_local_min_radius_m`) BEFORE the band: 38 candidates became
+21, spread across the band (0.70, 0.73, 0.80, 0.85, 0.90, 1.00) instead of all
+pinned at its lower edge. That real grid's skeleton is why the degree filter
+earns its place too: 814 of its 2303 skeleton cells are branch points and only
+1476 are curve cells, because the free-space boundary is ragged where it meets
+unexplored space.
+
+**2. A jamb could be a two-cell blob.** With the selection fixed, the replay
+confirmed one 1.11 m "door" at (4.76, -5.38) -- and its far jamb was 2 cells
+of occupancy (the near one was solid wall). It had passed the bottleneck test,
+the rise test, the symmetry check against `2d` *and* a 12-beam scan
+confirmation: nothing in the chain asked how much obstacle was behind a jamb,
+because the march stops at the first non-free cell and one cell is enough to
+stop it. A chair leg standing the right distance from a wall is a doorway
+under those rules. Fixed with `freespace_doors_jamb_min_cells` (4 non-free
+cells within `freespace_doors_jamb_radius_m`, 0.15 m), which rejected all 19
+of that bag's shape-passing candidates, the three that were confirming the
+false door among them, and left both bags at zero.
+
+**What this does NOT establish.** Neither bag contains a real doorway, so the
+replay has shown that the detector does not hallucinate one and costs what it
+should -- it has NOT shown that it finds a real door on a real grid. The gate
+to watch first on the car is `thin_jamb`: if real doorways come back with that
+code, `freespace_doors_jamb_min_cells` is the knob, and
+`test_the_jamb_gate_can_be_turned_off` exists so that it is provably the only
+thing in the way.

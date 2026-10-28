@@ -98,10 +98,14 @@ NO_WALL_ID = -1
 #:                dead end, not a passage between two regions
 #:   asymmetric   the two jamb marches disagree with 2d: the skeleton is not
 #:                centred in this gap, so it is not a clean bottleneck
+#:   thin_jamb    a jamb has too little obstacle behind it: a doorway's jamb
+#:                is part of a wall, and a two-cell blob is a chair leg, a map
+#:                artefact or one stray return
 #:   few_beams    fewer than min_beams beams went through the opening
 #:   not_beyond   beams reached the opening but not beyond_m past it: the
 #:                opening is a dent in a wall, not a hole through it
-SHAPE_CODES = ('width', 'junction', 'not_min', 'no_rise', 'spur', 'asymmetric')
+SHAPE_CODES = ('width', 'junction', 'not_min', 'no_rise', 'spur', 'asymmetric',
+               'thin_jamb')
 PASSAGE_CODES = ('few_beams', 'not_beyond')
 
 ALL_CODES = SHAPE_CODES + PASSAGE_CODES
@@ -137,7 +141,8 @@ class FreespaceParams:
 
     __slots__ = ('window_m', 'occupied_threshold', 'cleanup_iterations',
                  'width_min_m', 'width_max_m', 'rise_ratio', 'rise_within_m',
-                 'spur_prune_m', 'tangent_span_m', 'symmetry_tol_m',
+                 'spur_prune_m', 'local_min_radius_m', 'tangent_span_m',
+                 'symmetry_tol_m', 'jamb_radius_m', 'jamb_min_cells',
                  'min_beams', 'beyond_m', 'jamb_exclude_m',
                  'assoc_max_m', 'confirm_hits', 'smooth_alpha',
                  'candidate_forget_s', 'forget_unseen_s', 'max_candidates')
@@ -153,8 +158,11 @@ class FreespaceParams:
         self.rise_ratio = 1.3
         self.rise_within_m = 1.0
         self.spur_prune_m = 0.30
+        self.local_min_radius_m = 0.30
         self.tangent_span_m = 0.25
         self.symmetry_tol_m = 0.20
+        self.jamb_radius_m = 0.15
+        self.jamb_min_cells = 4
         # --- the live confirmation
         self.min_beams = 4
         self.beyond_m = 0.50
@@ -555,6 +563,21 @@ def march_to_jamb(window, start_xy, direction, max_m, bisections=4):
     return None
 
 
+def jamb_cells(window, jamb_xy, radius_m):
+    """How many non-free cells lie within `radius_m` of a jamb point.
+
+    "Nearest occupied cell" is all the jamb march can tell you, and one cell
+    is enough to stop it. This counts how much obstacle is actually there.
+    """
+    r, c = window.to_cell(jamb_xy[0], jamb_xy[1])
+    k = max(1, int(round(float(radius_m) / window.res)))
+    r0, r1 = max(0, r - k), min(window.shape[0], r + k + 1)
+    c0, c1 = max(0, c - k), min(window.shape[1], c + k + 1)
+    if r0 >= r1 or c0 >= c1:
+        return 0
+    return int(np.count_nonzero(~window.free[r0:r1, c0:c1]))
+
+
 # ---------------------------------------------------------------------------
 # The live scan confirmation
 # ---------------------------------------------------------------------------
@@ -629,26 +652,70 @@ def beam_hits(jamb0, jamb1, beams, p):
 # The detector
 # ---------------------------------------------------------------------------
 def _bottleneck_cells(window, skel, p):
-    """Skeleton cells whose 2 x clearance falls in the door width band.
+    """The skeleton cells worth evaluating as doorways, narrowest first.
 
-    Clustered 8-connected and reduced to one cell per cluster -- the cell of
-    least clearance, the actual pinch -- so a plateau of equally narrow cells
-    along the skeleton produces ONE candidate, not twenty. Without this the
-    tracker would spawn a track per cell (it associates each candidate to at
-    most one track) and a single doorway would come out as a row of doors.
+    THREE FILTERS, and the order is the point. All three only ever remove
+    cells that `evaluate` would have rejected anyway, so the set of ACCEPTED
+    doors is unchanged by them -- what changes is which candidates get to
+    spend the `max_candidates` budget, and that turned out to matter a great
+    deal on a real grid (see below).
+
+      1. A CURVE CELL, degree exactly 2. A tip has no two sides and a branch
+         point has three, so neither can be a doorway pinch; `_sides` already
+         refuses both with code 'junction'. On a real slam_toolbox grid this
+         is most of the skeleton: the free-space boundary is ragged where it
+         meets unexplored space, and the medial axis of that is bushy --
+         measured on corridor10m_20261019T131815's last grid, 814 of 2303
+         skeleton cells were branch points and only 1476 were curve cells.
+
+      2. A LOCAL MINIMUM of clearance along the skeleton, within
+         `local_min_radius_m`. A square minimum filter over the clearance
+         with non-skeleton cells set to +inf, so a cell survives only if no
+         skeleton cell near it is narrower.
+
+      3. IN THE WIDTH BAND, on 2 x clearance.
+
+    THE BAND MUST COME LAST. Filtering by the band first and then taking
+    each cluster's narrowest cell -- which is what this function did at
+    first -- does not find local minima at all: it finds cells sitting on
+    the band's own lower EDGE. Wherever the skeleton descends through
+    0.70 m on its way into a tight corner, the in-band cluster is cut off
+    at exactly 0.70 and the cluster's argmin is that cut, not a pinch.
+    Measured on the same real grid: all 38 candidates came back at
+    2d = 0.700 exactly, every one of them rejected ('junction', 'not_min',
+    'asymmetric'), 22 of the 38 clusters never looked at because
+    max_candidates is 16 -- and a genuine 0.90 m doorway, whose pinch sorts
+    AFTER every 0.70 m band-edge artefact in a narrowest-first ordering,
+    would have been cut from the list before it was ever evaluated. The
+    accepted set was right; the recall under the cap was not.
+
+    Clusters are then reduced to one cell each -- the least clearance -- so
+    a plateau of equally narrow cells produces ONE candidate rather than
+    twenty. Without that the tracker, which associates each candidate to at
+    most one track, would spawn a track per cell and a single doorway would
+    come out as a row of doors.
     """
     d = window.clearance
-    band = skel & (2.0 * d >= float(p.width_min_m)) & (2.0 * d <= float(p.width_max_m))
-    if not band.any():
+    curve = np.asarray(skel, dtype=bool) & (neighbour_count(skel) == 2)
+    if not curve.any():
         return []
-    labels, n = ndimage.label(band, structure=_cell_structure())
+    radius = max(1, int(round(float(p.local_min_radius_m) / window.res)))
+    on_skel = np.where(skel, d, np.inf)
+    floor = ndimage.minimum_filter(on_skel, size=2 * radius + 1, mode='constant',
+                                   cval=np.inf)
+    keep = (curve & (d <= floor + 1e-9)
+            & (2.0 * d >= float(p.width_min_m))
+            & (2.0 * d <= float(p.width_max_m)))
+    if not keep.any():
+        return []
+    labels, n = ndimage.label(keep, structure=_cell_structure())
     out = []
     for lab in range(1, n + 1):
         rows, cols = np.nonzero(labels == lab)
         k = int(np.argmin(d[rows, cols]))
         out.append((int(rows[k]), int(cols[k])))
-    # Deterministic order, and the narrowest pinches first so max_candidates
-    # keeps the most door-like ones rather than the top-left ones.
+    # Deterministic order, narrowest first, so max_candidates keeps the
+    # tightest real pinches rather than the top-left ones.
     out.sort(key=lambda rc: (round(float(d[rc]), 6), rc[0], rc[1]))
     return out
 
@@ -719,6 +786,20 @@ def evaluate(window, skel, cell, beams, robot_xy, p):
     # whose clearance is set by a wall it is running alongside.
     if abs(width - width_d) > float(p.symmetry_tol_m):
         return coded('asymmetric', j0, j1)
+    # BOTH JAMBS MUST BE PART OF SOMETHING. The march stops at the first
+    # non-free cell, and one cell is enough to stop it -- so without this a
+    # chair leg, a single stray return or a two-cell map artefact standing
+    # the right distance from a wall is a jamb, and the pair is a doorway.
+    # Found on a real grid: corridor10m_20261019T131815 confirmed one
+    # 1.11 m "door" whose far jamb was a 2-cell blob (the near one was a
+    # solid wall), after the bottleneck, rise, symmetry AND 12-beam scan
+    # gates had all passed. Nothing earlier in the chain asks how much
+    # obstacle is behind a jamb.
+    min_cells = int(p.jamb_min_cells)
+    if min_cells > 0:
+        for jamb in (j0, j1):
+            if jamb_cells(window, jamb, p.jamb_radius_m) < min_cells:
+                return coded('thin_jamb', j0, j1)
 
     n_beams = beam_hits(j0, j1, beams, p) if beams is not None else 0
     if n_beams == 0:
