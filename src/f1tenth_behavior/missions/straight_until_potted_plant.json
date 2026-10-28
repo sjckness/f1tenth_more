@@ -1,0 +1,22 @@
+{
+  "mission_id": "straight_until_potted_plant",
+  "schema_version": "5.0",
+  "description": "Drive straight on the start heading and stop as soon as the camera detector reports a potted plant (object_seen on /camera/detections, score >= 0.5, sighting fresher than 1 s). object_seen has no distance or bearing: a plant anywhere in the camera's field of view ends the move, including one already in view at the start.",
+  "moves": [
+    {
+      "id": "move_0_straight_until_potted_plant",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.4
+      },
+      "stop_condition": {
+        "type": " ",
+        "class": "chair<",
+        "min_confidence": 0.5
+      },
+      "timeout_sec": 30,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ] 
+}

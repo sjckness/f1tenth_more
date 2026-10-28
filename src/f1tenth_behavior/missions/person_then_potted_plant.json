@@ -1,0 +1,36 @@
+{
+  "mission_id": "person_then_potted_plant",
+  "schema_version": "5.0",
+  "description": "Drive straight until the camera detector reports a person, then approach the nearest confirmed person and stop at the default gap, then approach the nearest confirmed potted plant and stop at its default gap. The search move exists because go_to_object aborts with target_not_found when no person track is confirmed within acquire_timeout_sec of the move starting. Gaps are resolved at load from gap_min(class) (car front to the object's near edge). Needs semantic_layer_node (/costmap/semantic_tracks) and the global EKF.",
+  "moves": [
+    {
+      "id": "move_0_straight_until_person",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.4
+      },
+      "stop_condition": {
+        "type": "object_seen",
+        "class": "person",
+        "min_confidence": 0.5
+      },
+      "timeout_sec": 30,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "move_1_go_to_person",
+      "go_to_object": {
+        "target_class": "person",
+        "speed": 0.4,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+      },
+      "stop_condition": {
+        "type": "object_reached"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}

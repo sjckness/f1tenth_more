@@ -1,0 +1,36 @@
+{
+  "mission_id": "approach_wall_then_chair",
+  "schema_version": "5.0",
+  "description": "Drive straight until the wall is 2.0 m ahead (front_clearance, the same stop the M02 approach-the-wall plans use), then approach the nearest confirmed chair and stop at the default gap (gap_min(chair) rounded up to 0.1 m). acquire_timeout_sec 5 starts counting when the second move starts, so the chair must be in view from the wall stop. Needs semantic_layer_node (/costmap/semantic_tracks) and the global EKF.",
+  "moves": [
+    {
+      "id": "move_0_straight_to_wall",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.5
+      },
+      "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+      },
+      "timeout_sec": 65,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "move_1_go_to_chair",
+      "go_to_object": {
+        "target_class": "person",
+        "speed": 0.4,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+      },
+      "stop_condition": {
+        "type": "object_reached"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
