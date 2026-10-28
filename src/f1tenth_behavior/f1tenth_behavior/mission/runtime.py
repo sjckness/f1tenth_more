@@ -182,7 +182,8 @@ class DoorApproachRecord:
     xy_error_m: Optional[float] = None
     yaw_error_deg: Optional[float] = None
     entered: bool = False
-    outcome: Optional[str] = None              # door_not_found | door_lost
+    outcome: Optional[str] = None              # door_not_found |
+    #                                          no_strong_door | door_lost
 
 
 @dataclass

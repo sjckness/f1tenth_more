@@ -178,7 +178,8 @@ class FreespaceParams:
         'merge_max_m', 'max_candidates',
         # tracking
         'assoc_max_m', 'confirm_hits', 'confirm_pose_spread_m',
-        'confirm_same_pose_hits', 'max_tracks', 'smooth_alpha',
+        'confirm_same_pose_hits', 'max_tracks',
+        'strong_min_hits', 'strong_min_spread_m', 'smooth_alpha',
         'candidate_forget_s', 'forget_unseen_s',
         # the medial-axis detector, off by default
         'use_skeleton', 'rise_ratio', 'rise_within_m', 'spur_prune_m',
@@ -224,9 +225,17 @@ class FreespaceParams:
         # --- tracking (handed to semantic_doors.DoorTracker)
         self.assoc_max_m = 0.30
         self.confirm_hits = 3
-        self.confirm_pose_spread_m = 0.15
-        self.confirm_same_pose_hits = 3
+        # 1.0 m of travel between two sightings, and no same-pose fallback:
+        # the measured sweep (output/doors/freespace.md) put this at 57
+        # confirmed doors against 98 for the permissive first defaults,
+        # without losing a single STRONG one. A STATIONARY CAR NOW NEVER
+        # CONFIRMS A DOOR, which is the deliberate consequence of
+        # confirm_same_pose_hits 0.
+        self.confirm_pose_spread_m = 1.0
+        self.confirm_same_pose_hits = 0
         self.max_tracks = 32
+        self.strong_min_hits = 5
+        self.strong_min_spread_m = 1.0
         self.smooth_alpha = 0.30
         self.candidate_forget_s = 12.0
         self.forget_unseen_s = 0.0   # 0 = a confirmed door is never forgotten
@@ -262,6 +271,8 @@ class FreespaceParams:
             confirm_pose_spread_m=self.confirm_pose_spread_m,
             confirm_same_pose_hits=self.confirm_same_pose_hits,
             max_tracks=self.max_tracks,
+            strong_min_hits=self.strong_min_hits,
+            strong_min_spread_m=self.strong_min_spread_m,
             smooth_alpha=self.smooth_alpha,
             candidate_forget_s=self.candidate_forget_s,
             forget_unseen_s=self.forget_unseen_s)

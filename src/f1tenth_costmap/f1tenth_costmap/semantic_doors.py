@@ -200,6 +200,7 @@ class DoorParams:
                  'through_frac', 'behind_margin_m', 'gap_clear_m',
                  'jamb_exclude_m', 'assoc_max_m', 'confirm_hits',
                  'confirm_pose_spread_m', 'confirm_same_pose_hits', 'max_tracks',
+                 'strong_min_hits', 'strong_min_spread_m',
                  'smooth_alpha', 'candidate_forget_s', 'forget_unseen_s',
                  'max_walls')
 
@@ -242,6 +243,16 @@ class DoorParams:
         # which is what the wall detectors keep: they are capped upstream by
         # /perception/walls carrying at most four tracks.
         self.max_tracks = 0
+        # WHAT MAKES A CONFIRMED DOOR WORTH DRIVING AT. Confirmed means
+        # publishable; STRONG means a mission may select it (enter_door
+        # resolves over strong doors only). Both zero -- the wall detectors'
+        # setting -- makes every confirmed door strong, which is exactly the
+        # behaviour they had before the field existed. A detector whose
+        # evidence is one scan sets them, because there a doorway and a gap
+        # between two pieces of furniture look nearly identical and only
+        # being seen from somewhere else tells them apart.
+        self.strong_min_hits = 0
+        self.strong_min_spread_m = 0.0
         self.smooth_alpha = 0.30
         self.candidate_forget_s = 5.0
         self.forget_unseen_s = 0.0   # 0 = a confirmed door is never forgotten
@@ -647,7 +658,8 @@ class DoorTrack:
 
     __slots__ = ('id', 'centre', 'axis', 'width', 'normal', 'hits', 'state',
                  'born_sec', 'last_seen_sec', 'confirmed_sec', 'case',
-                 'wall_id0', 'wall_id1', 'spread_pair', 'spread', 'flags')
+                 'wall_id0', 'wall_id1', 'spread_pair', 'spread', 'flags',
+                 'strong')
 
     def __init__(self, track_id, cand, now_sec):
         self.id = int(track_id)
@@ -672,6 +684,7 @@ class DoorTrack:
         # corridor, discarded by the cap. Measured on a real bag.
         self.spread_pair = None
         self.spread = 0.0
+        self.strong = False      # recomputed by the tracker on every sighting
 
     def remember_pose(self, robot_xy):
         """Fold one sighting's robot position into the running diameter."""
@@ -774,6 +787,7 @@ class DoorTracker:
                 continue
             trk = DoorTrack(self._next_id, cand, now_sec)
             trk.remember_pose(robot_xy)
+            trk.strong = self.is_strong(trk)
             self._next_id += 1
             self.tracks.append(trk)
             if self.should_confirm(trk):
@@ -793,8 +807,24 @@ class DoorTracker:
         trk.wall_id0, trk.wall_id1 = cand.wall_id0, cand.wall_id1
         trk.flags = cand.flags
         trk.remember_pose(robot_xy)
+        trk.strong = self.is_strong(trk)
         if not trk.confirmed and self.should_confirm(trk):
             self._confirm(trk, robot_xy, now_sec)
+
+    def is_strong(self, trk):
+        """Has this track earned being driven at? See DoorParams.
+
+        No flags, enough sightings, and enough distance between the two robot
+        positions furthest apart that saw it. With both thresholds at zero
+        (the wall detectors) this is just "confirmed and unflagged", and the
+        wall detectors never set a flag.
+        """
+        p = self.p
+        if trk.flags:
+            return False
+        if p.strong_min_hits and trk.hits < p.strong_min_hits:
+            return False
+        return trk.pose_spread() >= p.strong_min_spread_m
 
     def should_confirm(self, trk):
         """Is this track ready to be published? See DoorParams' two knobs.
@@ -842,19 +872,32 @@ class DoorTracker:
         self.tracks = self._capped(keep)
 
     def _capped(self, tracks):
-        """Enforce max_tracks, dropping the WEAKEST evidence first.
+        """Enforce max_tracks, dropping the LONGEST UNSEEN first.
 
-        Weakest means: unconfirmed before confirmed, then fewest sightings,
-        then least pose spread, then longest unseen. So the doors that
-        survive a cap are the ones seen most often from the most places --
-        and a cap that is hit is a tuning signal, not silent corruption:
+        RECENCY FIRST, not evidence first. The obvious ranking -- confirmed
+        before unconfirmed, then most sightings -- was measured to be the
+        wrong one: a long-lived door with 300 hits always outranked a young
+        but genuine candidate, so the budget evicted candidates BEFORE they
+        could earn strength, and on corridor10m_20261019T131815 a cap of 32
+        cost 10 of the 29 strong doors the uncapped run found. The budget was
+        fighting the detector.
+
+        Keeping what the car can currently see fixes that: a door being
+        driven past has a fresh last_seen_sec and survives long enough to
+        earn its strength, while the eviction falls on doors long out of
+        view -- which is what a budget should sacrifice, and makes "kept in
+        the map after leaving view" a convenience rather than a guarantee.
+        Evidence still breaks ties, so of two equally stale doors the
+        better-seen one stays.
+
+        A cap that is hit is a tuning signal, not silent corruption:
         door_candidates on the debug topic sits pinned at the limit.
         """
         limit = int(self.p.max_tracks)
         if limit <= 0 or len(tracks) <= limit:
             return tracks
         ranked = sorted(tracks, key=lambda t: (
-            t.confirmed, t.hits, t.pose_spread(), t.last_seen_sec), reverse=True)
+            t.last_seen_sec, t.confirmed, t.hits, t.pose_spread()), reverse=True)
         return ranked[:limit]
 
 

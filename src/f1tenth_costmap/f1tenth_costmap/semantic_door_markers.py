@@ -19,10 +19,14 @@ collide with another's and each can be deleted by id:
     5 * id + 4   TEXT         "door <id> <width>m <case> <state>"
 
 Colour is the CASE: case A (two collinear walls) green, case B (a wall end
-against a perpendicular wall) blue, case F (a free-space bottleneck, from
+against a perpendicular wall) blue, case F (a scan-jump opening, from
 freespace_doors.py -- no walls at all) amber, so a glance says which rule
 found it.
-Alpha is the STATE: CONFIRMED solid, candidate faded.
+Alpha is HOW MUCH IT HAS EARNED: STRONG solid, merely CONFIRMED half-lit,
+candidate faint. Only a strong door can be selected by an enter_door mission
+(semantic_doors.DoorTracker.is_strong), so the difference between solid and
+half-lit is the difference between a door the car will drive at and one it
+will refuse -- which is worth seeing without reading a topic.
 
 A door that dies gets a DELETE on each of its five slots, and every marker
 carries a lifetime, so a stalled node fades out instead of leaving ghosts --
@@ -45,8 +49,13 @@ CASE_A_COLOUR = (0.10, 0.90, 0.40)   # green: two collinear walls
 CASE_B_COLOUR = (0.20, 0.55, 1.00)   # blue: a wall end against a perpendicular
 CASE_F_COLOUR = (1.00, 0.65, 0.10)   # amber: a free-space bottleneck, no walls
 CASE_COLOURS = {'A': CASE_A_COLOUR, 'B': CASE_B_COLOUR, 'F': CASE_F_COLOUR}
-CANDIDATE_ALPHA = 0.35
-CONFIRMED_ALPHA = 1.0
+#: Three tiers, because a door has three states worth telling apart at a
+#: glance: STRONG (a mission may drive at it) solid, merely CONFIRMED
+#: (published, but enter_door will not select it) half-lit, and a CANDIDATE
+#: faint. See semantic_doors.DoorTracker.is_strong.
+CANDIDATE_ALPHA = 0.30
+CONFIRMED_ALPHA = 0.60
+STRONG_ALPHA = 1.0
 
 LINE_WIDTH_M = 0.03
 ARROW_LEN_M = 0.6
@@ -72,11 +81,14 @@ def colour_of(door):
     markers from going out.
     """
     r, g, b = CASE_COLOURS.get(door.case, CASE_B_COLOUR)
-    return r, g, b, (CONFIRMED_ALPHA if door.confirmed else CANDIDATE_ALPHA)
+    if not door.confirmed:
+        return r, g, b, CANDIDATE_ALPHA
+    return r, g, b, (STRONG_ALPHA if getattr(door, 'strong', True)
+                     else CONFIRMED_ALPHA)
 
 
 def label_of(door):
-    """The text a door is labelled with: id, width, case, state, flags.
+    """The text a door is labelled with: id, width, case, strength, flags.
 
     The flags are the half of a door's story the geometry does not tell --
     `marginal` (width outside the nominal band), `one_jamb` (only one end had
@@ -86,8 +98,11 @@ def label_of(door):
     """
     flags = getattr(door, 'flags', ()) or ()
     tail = (' [' + ' '.join(flags) + ']') if flags else ''
-    return (f'door {door.id} {door.width:.2f}m case {door.case} '
-            f'{"confirmed" if door.confirmed else "candidate"}{tail}')
+    if not door.confirmed:
+        state = 'candidate'
+    else:
+        state = 'STRONG' if getattr(door, 'strong', True) else 'confirmed'
+    return (f'door {door.id} {door.width:.2f}m case {door.case} {state}{tail}')
 
 
 def _base(door, frame_id, stamp, slot, kind, lifetime):
@@ -203,6 +218,12 @@ def door_message(door, Door, stamp_msg):
     m.hits = int(door.hits)
     m.confidence = 0.8 if door.confirmed else 0.5
     m.jamb_height_unknown = True
+    # What a mission is allowed to drive at -- see Door.msg's own comment and
+    # semantic_doors.DoorTracker.is_strong. getattr, not attribute access,
+    # because the profile detector builds its own Door messages from its own
+    # track type, which has no such attribute and wants the old behaviour
+    # (every confirmed door selectable).
+    m.strong = bool(getattr(door, 'strong', True))
     stamp_sec = stamp_msg.sec + stamp_msg.nanosec * 1e-9
     m.age = float(max(0.0, stamp_sec - door.born_sec))
     m.since_seen = float(max(0.0, stamp_sec - door.last_seen_sec))

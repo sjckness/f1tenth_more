@@ -300,7 +300,8 @@ class DoorSpec:
     targets halfway across a room the instant another door came closer.
 
     NO CONFIRMED DOOR -> the move fails cleanly with a reason
-    (door_not_found), the mission aborts and the car holds -- the same shape
+    (door_not_found, or no_strong_door when one is there but has not
+    earned being driven at), the mission aborts and the car holds -- the same shape
     go_to_object's target_not_found already has. It does not wait and it does
     not fall back to another door.
     """
@@ -308,7 +309,8 @@ class DoorSpec:
     door: str              # DOOR_NEAREST, or a 'door_<id>' frame name
     xy_tol: float          # [m] from the door frame's origin
     yaw_tol_deg: float     # [deg] from the door frame's x axis
-    acquire_timeout_sec: float = 5.0   # no confirmed door within this -> door_not_found
+    acquire_timeout_sec: float = 5.0   # no STRONG door within this ->
+    #                                  door_not_found / no_strong_door
     #: [m] How far back along the door's own x axis the APPROACH pre-point
     #: sits. The move drives there first, carrying the door's yaw, so the car
     #: is square to a 0.90 m opening before it reaches the jambs; then it

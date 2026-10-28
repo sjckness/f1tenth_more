@@ -581,6 +581,14 @@ def door_message(door, to_bl, scan_stamp):
     m.id = _uint(door.id, 32)
     m.state = (Door.STATE_CONFIRMED if door.state == door_detection.STATE_CONFIRMED
                else Door.STATE_CANDIDATE)
+    # STRONG for every confirmed door, because THIS detector's own
+    # confirmation already is the viewpoint test Door.strong asks for: a
+    # candidate only becomes confirmed after door_min_viewpoints car
+    # positions door_viewpoint_sep_m apart have seen it positive with a
+    # steady width (see door_detection.py's LIFECYCLE). Leaving it false
+    # would make every enter_door mission fail with no_strong_door under
+    # door_source 'profile'.
+    m.strong = bool(m.state == Door.STATE_CONFIRMED)
     m.center = Point(x=float(centre[0]), y=float(centre[1]), z=0.0)
     m.normal = Vector3(x=float(door.normal[0]), y=float(door.normal[1]), z=0.0)
     m.width = float(door.width)
