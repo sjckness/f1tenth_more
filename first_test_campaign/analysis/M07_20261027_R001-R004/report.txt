@@ -1,0 +1,31 @@
+campaign: /tmp/claude-1004/-home-fabiocar-dev-ws-f1tenth-more/9da81cec-4b5e-4e65-a5fc-c6b35292e437/scratchpad/campaign_m07
+runs: 4   missions: 1   evaluated by hand: 0   not yet evaluated: 4
+
+success is the MANUAL verdict; k/N counts evaluated tests only
+scope                             k/N   succ          95% CI  n/e   mean    med    p95  calls
+---------------------------------------------------------------------------------------------
+M07_chair_then_straight_4m     0/0       -                 -    4 15471 15474 15820      4
+  P007                         0/0       -                 -    4 15471 15474 15820      4
+---------------------------------------------------------------------------------------------
+OVERALL                        0/0       -                 -    4 15471 15474 15820      4
+
+n/e = not yet evaluated. LLM latency in ms, over every recorded call.
+
+per-mission metrics from campaign_results.csv: median (min .. max)
+  M07_chair_then_straight_4m
+    viol_rate_pct           0.000   (0.000 .. 0.000)
+    min_clear_m             0.361   (0.320 .. 0.393)
+    feas_pct               88.564   (72.917 .. 97.087)
+    max_infeas_streak_s     0.635   (0.340 .. 1.489)
+    jerk_rms                0.748   (0.727 .. 0.765)
+    steer_rev_per_m         1.097   (0.865 .. 1.357)
+
+failed by hand: 0
+
+aborted by the logger (automatic hint only): 0
+
+not yet evaluated: 4
+  M07_chair_then_straight_4mP007-R001-20261027T165917  auto=completed
+  M07_chair_then_straight_4mP007-R002-20261027T170135  auto=completed
+  M07_chair_then_straight_4mP007-R003-20261027T170317  auto=completed
+  M07_chair_then_straight_4mP007-R004-20261027T171737  auto=completed
