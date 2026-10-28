@@ -37,6 +37,7 @@ setup(
             'semantic_layer_node = f1tenth_costmap.semantic_layer_node:main',
             'costmap_renderer_node = f1tenth_costmap.costmap_renderer_node:main',
             'costmap_boundary_node = f1tenth_costmap.costmap_boundary_node:main',
+            'freespace_door_node = f1tenth_costmap.freespace_door_node:main',
         ],
     },
 )

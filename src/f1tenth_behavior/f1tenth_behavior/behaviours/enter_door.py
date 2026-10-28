@@ -354,8 +354,9 @@ class EnterDoor(py_trees.behaviour.Behaviour):
                    f'no confirmed door matching {record.door!r} within '
                    f'{move.enter_door.acquire_timeout_sec:.1f} s on '
                    f'{self._doors_topic} '
-                   + ('(no message has arrived at all -- is semantic_doors_enabled '
-                      'on, and door_source "semantic"?)' if self.doors_received_sec is None
+                   + ('(no message has arrived at all -- is a door detector '
+                      'running? door_source picks which one, and each has its '
+                      'own enable flag)' if self.doors_received_sec is None
                       else f'({len(self.doors)} confirmed door(s) seen, none matched)')),
                'door_lost': (
                    f'{record.frame_id} disappeared from {self._doors_topic} for more '

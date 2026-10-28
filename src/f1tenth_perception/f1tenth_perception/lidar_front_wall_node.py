@@ -906,9 +906,11 @@ class LidarFrontWallNode(Node):
         door_requested = bool(param('door_detection_enabled', False))
         # WHICH DETECTOR RUNS (door_source, stack_params.yaml). 'profile' is
         # this one -- the per-beam depth profile along a host wall line, the
-        # whole of door_detection.py, unchanged. 'semantic' is the other one,
+        # whole of door_detection.py, unchanged. 'semantic' is
         # f1tenth_costmap/semantic_doors.py, hosted by semantic_layer_node and
-        # fed by the semantic layer's walls. EXACTLY ONE OF THE TWO EVER RUNS,
+        # fed by the semantic layer's walls; 'freespace' is
+        # f1tenth_costmap/freespace_doors.py, hosted by freespace_door_node and
+        # fed by slam_toolbox's occupancy grid. EXACTLY ONE OF THE THREE RUNS,
         # so the stack never carries two sets of doors saying different things
         # about the same room. This gate is the only change door_source makes
         # here; everything below it is as it was.

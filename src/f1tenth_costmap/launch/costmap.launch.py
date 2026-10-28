@@ -10,7 +10,10 @@ node.py -- see that node's own module docstring for the full design,
 including the periodic-publish pass: publishes real boundaries/clearance
 on every timer tick from whatever's currently cached, regardless of
 upstream recency -- empty/withheld only if a message of that kind has
-never arrived at all).
+never arrived at all) + freespace_door_node.py (the THIRD door detector:
+bottlenecks in the free space of that same /slam/map, no walls involved --
+see freespace_doors.py's own module docstring, and stack_params.yaml's
+door_source for how the three detectors exclude each other).
 
 costmap_boundary_node's own launch args (front_facing_max_deg/side_window_
 min_deg/side_window_max_deg/occupied_threshold/max_range_m/extraction_
@@ -176,20 +179,34 @@ def generate_launch_description():
         'semantic_layer_cpu_threads', default_value=str(semantic_cpu_threads_default),
         description=semantic_cpu_threads_desc)
 
-    # The two door switches, by launch argument. Every OTHER semantic_doors_*
-    # value reaches the node straight from stack_params.yaml through its own
-    # declare_parameter default, and is tuned by editing that file (or with
-    # `ros2 param set`); these two are here because they are what a run turns
-    # on and off, and because door_source must reach lidar_front_wall_node and
-    # this node with the SAME value -- one argument, both nodes.
+    # The door switches, by launch argument. Every OTHER semantic_doors_* /
+    # freespace_doors_* value reaches its node straight from stack_params.yaml
+    # through that node's own declare_parameter default, and is tuned by
+    # editing that file (or with `ros2 param set`); these three are here
+    # because they are what a run turns on and off, and because door_source
+    # must reach lidar_front_wall_node, semantic_layer_node and
+    # freespace_door_node with the SAME value -- one argument, three nodes.
     doors_enabled_default, doors_enabled_desc = get_default('semantic_doors_enabled')
     door_source_default, door_source_desc = get_default('door_source')
+    freespace_enabled_default, freespace_enabled_desc = get_default(
+        'freespace_doors_enabled')
     doors_enabled_la = DeclareLaunchArgument(
         'semantic_doors_enabled', default_value=str(doors_enabled_default),
         description=doors_enabled_desc)
     door_source_la = DeclareLaunchArgument(
         'door_source', default_value=str(door_source_default),
         description=door_source_desc)
+    freespace_enabled_la = DeclareLaunchArgument(
+        'freespace_doors_enabled', default_value=str(freespace_enabled_default),
+        description=freespace_enabled_desc)
+    freespace_rate_default, freespace_rate_desc = get_default('freespace_doors_rate_hz')
+    freespace_window_default, freespace_window_desc = get_default('freespace_doors_window_m')
+    freespace_rate_la = DeclareLaunchArgument(
+        'freespace_doors_rate_hz', default_value=str(freespace_rate_default),
+        description=freespace_rate_desc)
+    freespace_window_la = DeclareLaunchArgument(
+        'freespace_doors_window_m', default_value=str(freespace_window_default),
+        description=freespace_window_desc)
 
     def _semantic_layer_node(context):
         # An OpaqueFunction only for the thread env: semantic_layer_cpu_threads
@@ -219,6 +236,35 @@ def generate_launch_description():
         )]
 
     semantic_layer_node = OpaqueFunction(function=_semantic_layer_node)
+
+    # The grid door detector. Gated on enable_slam like everything else in
+    # this file and for the identical reason -- it reads /slam/map, so with
+    # SLAM off it would be a permanently idle subscriber, not a meaningful
+    # independent on/off state. It self-gates on door_source as well
+    # (freespace_doors_enabled AND door_source == 'freespace'), so a bare
+    # `ros2 run f1tenth_costmap freespace_door_node` with another source
+    # selected is a no-op too, exactly the two-sided discipline the polytope
+    # and component-filter flags below already follow. Rate and window are
+    # launch arguments because they are the two knobs a run that cannot hold
+    # 2 Hz on the Orin reaches for first; everything else comes from
+    # stack_params.yaml.
+    freespace_door_node = Node(
+        package='f1tenth_costmap',
+        executable='freespace_door_node',
+        name='freespace_door_node',
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('enable_slam')),
+        parameters=[{
+            'freespace_doors_enabled': ParameterValue(
+                LaunchConfiguration('freespace_doors_enabled'), value_type=bool),
+            'door_source': ParameterValue(
+                LaunchConfiguration('door_source'), value_type=str),
+            'freespace_doors_rate_hz': ParameterValue(
+                LaunchConfiguration('freespace_doors_rate_hz'), value_type=float),
+            'freespace_doors_window_m': ParameterValue(
+                LaunchConfiguration('freespace_doors_window_m'), value_type=float),
+        }],
+    )
 
     costmap_renderer_node = Node(
         package='f1tenth_costmap',
@@ -357,6 +403,8 @@ def generate_launch_description():
         boundary_component_filter_la, boundary_min_component_length_la,
         boundary_min_component_scans_la, boundary_exclude_object_cells_la,
         boundary_object_margin_la, semantic_cpu_threads_la,
-        doors_enabled_la, door_source_la,
+        doors_enabled_la, door_source_la, freespace_enabled_la,
+        freespace_rate_la, freespace_window_la,
         semantic_layer_node, costmap_renderer_node, costmap_boundary_node,
+        freespace_door_node,
     ])

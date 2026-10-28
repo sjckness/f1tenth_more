@@ -42,7 +42,14 @@
   <!-- semantic_layer.py's update_tracks_batch() - scipy.optimize.linear_sum_assignment
        (Hungarian solve) for whole-frame detection<->track association (real per-frame
        tracking pass). Already a real dependency elsewhere in this workspace (e.g.
-       mpc_controller's mpc_solver.py), not a new one to the project as a whole. -->
+       mpc_controller's mpc_solver.py), not a new one to the project as a whole.
+       Also freespace_doors.py - scipy.ndimage for the distance transform of the
+       free space, the morphological cleanup and the candidate labelling. That
+       module deliberately does NOT use scikit-image: medial_axis/skeletonize
+       would be the obvious tool for its thinning step, but python3-skimage is
+       not installed on this workspace's machines and adding it to the car's
+       image for one function is a worse trade than the Zhang-Suen thinning it
+       carries, which needs nothing beyond numpy. -->
   <exec_depend>python3-scipy</exec_depend>
 
   <test_depend>ament_copyright</test_depend>

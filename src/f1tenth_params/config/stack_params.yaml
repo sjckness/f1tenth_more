@@ -3869,14 +3869,18 @@ lidar_front_wall_door_jamb_viz_diameter_m:
   description: "Diameter [m] of each jamb's vertical cylinder on /viz/doors. The cylinders are lidar_front_wall_wall_viz_height_m tall and stand on the floor. Visualisation only."
 
 # --- WHICH door detector runs (door_source) ----------------------------------
-# Read by f1tenth_perception/lidar_front_wall_node.py (the PROFILE detector)
-# and f1tenth_costmap/semantic_layer_node.py (the SEMANTIC one). The two are
+# Read by f1tenth_perception/lidar_front_wall_node.py (the PROFILE detector),
+# f1tenth_costmap/semantic_layer_node.py (the SEMANTIC one) and
+# f1tenth_costmap/freespace_door_node.py (the FREESPACE one). The three are
 # exclusive: each node runs its own detector only when door_source names it
 # AND that detector's own enable flag is set, so turning one on never starts
-# the other and the two never publish doors at the same time.
+# another and no two ever publish doors at the same time. All three publish
+# the SAME four outputs (/perception/doors_semantic, /viz/doors_semantic,
+# /costmap/semantic_doors, TF map -> door_<id>), which is what lets
+# f1tenth_behavior's enter_door goal work whichever one is selected.
 door_source:
-  default: "semantic"
-  description: "Which door detector the stack runs: 'semantic' (f1tenth_costmap/semantic_doors.py -- the SEMANTIC LAYER'S WALLS and nothing else geometric, two cases, map frame, a TF per door) or 'profile' (f1tenth_perception/door_detection.py -- the per-beam depth profile along a host wall line, the stereo veto, the odom frame; unchanged and still the one the addendum describes). Any other value is rejected at startup by both nodes. BOTH detectors also need their own enable flag: semantic_doors_enabled (default TRUE since 2026-10-28, so the semantic detector runs out of the box) and lidar_front_wall_door_detection_enabled (default false). Setting this to 'profile' therefore turns the semantic detector OFF but does not by itself turn the profile one on."
+  default: "freespace"
+  description: "Which door detector the stack runs: 'freespace' (f1tenth_costmap/freespace_doors.py -- slam_toolbox's OCCUPANCY GRID and nothing else, a bottleneck in the free space between two wider regions, no walls involved; the default), 'semantic' (f1tenth_costmap/semantic_doors.py -- the SEMANTIC LAYER'S WALLS and nothing else geometric, two cases, map frame) or 'profile' (f1tenth_perception/door_detection.py -- the per-beam depth profile along a host wall line, the stereo veto, the odom frame; unchanged and still the one the addendum describes). Any other value is rejected at startup by freespace_door_node and semantic_layer_node. EACH detector also needs its own enable flag: freespace_doors_enabled (default TRUE), semantic_doors_enabled (default true) and lidar_front_wall_door_detection_enabled (default false). Setting this to one value therefore turns the other two detectors OFF but does not by itself turn the named one on."
 
 # --- doors from the semantic layer (f1tenth_costmap/semantic_doors.py) --------
 # Hosted by semantic_layer_node, on its LiDAR cycle (unknown_rate_hz), behind
@@ -3897,7 +3901,7 @@ door_source:
 # through.
 semantic_doors_enabled:
   default: true
-  description: "Run the semantic-layer door detector on every LiDAR cycle of semantic_layer_node. ON by default since 2026-10-28 (it shipped false on 2026-10-28 morning): the doors are wanted on every run, the cost is 0.08 ms per cycle of the 100 ms the 10 Hz tick allows (measured, tools/semantic_door_replay.py on corridor10m_20261016T144537, on a laptop -- expect more on the Orin, not a different order), and PERCEPTION ONLY still holds -- nothing in the control path, the costmap's obstacle list, the BT or a mission reads a door unless that mission asks for one with an enter_door goal. False: none of the four outputs exists and nothing is computed. Also needs door_source == 'semantic'. A door cycle that raises is logged (throttled), counted (door_errors on /costmap/unknown_objects/debug) and never stops the semantic layer; after 50 consecutive failures the node turns door detection off for its life."
+  description: "Run the semantic-layer door detector on every LiDAR cycle of semantic_layer_node. ON by default since 2026-10-28 (it shipped false on 2026-10-28 morning), but NOT the detector the stack runs out of the box any more: door_source defaults to 'freespace' since 2026-10-28, so this flag only takes effect once door_source is set back to 'semantic'. the doors are wanted on every run, the cost is 0.08 ms per cycle of the 100 ms the 10 Hz tick allows (measured, tools/semantic_door_replay.py on corridor10m_20261016T144537, on a laptop -- expect more on the Orin, not a different order), and PERCEPTION ONLY still holds -- nothing in the control path, the costmap's obstacle list, the BT or a mission reads a door unless that mission asks for one with an enter_door goal. False: none of the four outputs exists and nothing is computed. Also needs door_source == 'semantic'. A door cycle that raises is logged (throttled), counted (door_errors on /costmap/unknown_objects/debug) and never stops the semantic layer; after 50 consecutive failures the node turns door detection off for its life."
 semantic_doors_min_wall_level:
   default: "lidar_confirmed"
   description: "The weakest wall that may be a door's jamb. 'tentative' (any live track), 'confirmed' (confirmed or coasting on ANY evidence, a stereo-only wall included), 'lidar_confirmed' (confirmed AND the LiDAR has seen it) or 'stereo_checked' (confirmed AND both sensors have). The default excludes TENTATIVE tracks -- a track the tracker has not yet confirmed moves and re-spawns, and a doorway built from two of them is a different doorway every scan -- and does NOT require the stereo, which sees walls the LiDAR plane misses and misses walls it sees. Words, not numbers, because a number in a config file says nothing; semantic_doors.wall_level maps MultiWallTrack.state + .source onto them."
@@ -3973,6 +3977,95 @@ semantic_doors_viz_height_m:
 semantic_doors_publish_tf:
   default: true
   description: "Broadcast map -> door_<id> for every CONFIRMED door. The frame's x axis is the crossing direction, fixed at first confirmation and never flipped, so a mission that drives through a door does not find its target spun round behind it. Off: the TF is not published and a mission goal of type enter_door has nothing to aim at."
+
+# --- doors from the OCCUPANCY GRID (f1tenth_costmap/freespace_doors.py) -------
+# Hosted by freespace_door_node, behind freespace_doors_enabled AND
+# door_source == 'freespace' (the default). Input: slam_toolbox's own
+# /slam/map, the global EKF's map-frame pose, and /scan for the live
+# confirmation only. NO WALLS, no wall tracks, no stereo -- which is the point:
+# a doorway whose jambs were never fitted as two separate wall segments is
+# invisible to both other detectors and visible to this one.
+# Method: crop the grid to a window around the car, call everything that is not
+# KNOWN FREE occupied (unknown included), take the distance transform of the
+# free space, thin it to its medial axis, and look for a LOCAL MINIMUM of
+# clearance along that axis whose 2 x clearance falls in the door width band
+# with the clearance rising on both sides -- a bottleneck between two wider
+# regions. See that module's docstring for each gate and its rejection code.
+# Output: the SAME four as the semantic detector (/perception/doors_semantic,
+# /viz/doors_semantic, /costmap/semantic_doors, TF map -> door_<id>) plus
+# /viz/doors_freespace_debug and /costmap/freespace_doors/debug.
+# PERCEPTION ONLY, and THE OVERLAY RULE holds exactly as it does there: a door
+# never modifies the grid, a wall or any LiDAR data, and nothing may treat a
+# doorway as free space because a door is published there.
+freespace_doors_enabled:
+  default: true
+  description: "Run the occupancy-grid door detector in freespace_door_node. Also needs door_source == 'freespace', which is the default, so this is the detector the stack runs out of the box. False: the node starts, subscribes to nothing, publishes nothing and computes nothing. PERCEPTION ONLY -- nothing in the control path, the costmap's obstacle list or the behaviour tree reads a door unless a mission asks for one with an enter_door goal. A cycle that raises is logged (throttled), counted (door_errors on /costmap/freespace_doors/debug) and never kills the node; after 50 consecutive failures the node turns detection off for its life."
+freespace_doors_rate_hz:
+  default: 2.0
+  description: "How often the detection cycle runs [Hz]. The grid itself only changes every map_update_interval (5.0 s in slam_toolbox_params.yaml), so the GEOMETRY is re-measured from unchanged cells most ticks; what is new on every tick is the /scan confirmation, which is what freespace_doors_confirm_hits counts. 2.0 costs about 70 ms per cycle on a laptop for the default 8 m window (measured, test_freespace_doors.py's own timing scene) and is the first thing to lower -- or lower freespace_doors_window_m, which is quadratic -- if the Orin cannot hold it. Must be > 0."
+freespace_doors_window_m:
+  default: 8.0
+  description: "RADIUS [m] of the square window cropped out of the grid around the car: the window is 2 x this across, so 8.0 means a 16 m box, 321 x 321 cells at 0.05 m. Cost is QUADRATIC in this number and the medial-axis thinning dominates it, so halving the window is roughly a quarter of the cycle. Cells outside the grid's own extent are filled UNKNOWN, i.e. occupied, so a door is never invented at the edge of the map."
+freespace_doors_occupied_threshold:
+  default: 65
+  description: "OccupancyGrid.data value (0-100) at or above which a cell is an obstacle -- the same number costmap_boundary_node uses, not a new one. UNKNOWN (-1) is ALSO an obstacle here, which is the opposite of costmap_boundary.py's rule and deliberately so: that node asks 'is there definitely something there', which ignorance must not answer yes; this one asks 'may the car drive here', which ignorance must not answer yes either."
+freespace_doors_cleanup_iterations:
+  default: 1
+  description: "Iterations of the morphological cleanup, which only ever SHRINKS the free space: a binary closing of the obstacles (fills a one- or two-cell pinhole in a wall, so a missed ray is not a 0.10 m doorway) then a binary opening of the free space (drops isolated free specks that would seed a skeleton of their own). One iteration reaches 0.10 m at 0.05 m/cell, an order below freespace_doors_width_min_m, so it can neither close nor open a real doorway. 0 disables it."
+freespace_doors_width_min_m:
+  default: 0.70
+  description: "Narrowest opening [m], jamb to jamb. The same number as semantic_doors_width_min_m and lidar_front_wall_door_width_min_m -- all three detectors agree on what a door is narrow enough to stop being, so a width band that no detector reports cannot open up between them."
+freespace_doors_width_max_m:
+  default: 1.40
+  description: "Widest opening [m]. Same as semantic_doors_width_max_m: double doors and corridor mouths are wider and out of scope. Also the distance the jamb march is allowed to run before giving up."
+freespace_doors_rise_ratio:
+  default: 1.3
+  description: "How much wider the free space must get on BOTH sides of a bottleneck, as a multiple of the clearance AT the bottleneck, for it to be a doorway rather than a corridor that merely narrows. This is the one test that distinguishes the two, and it is what makes a plain 1.0 m corridor report nothing at all. Raise it to reject door-width necks in cluttered rooms; lower it if a real door between two tight corridors is being missed."
+freespace_doors_rise_within_m:
+  default: 1.0
+  description: "How far along the medial axis, from the bottleneck, the rise above may be found [m]. Also the walk length: if the skeleton runs out before this on either side the candidate is a dead end and is rejected with code 'spur', not 'no_rise' -- the difference between nowhere to go and it got no wider."
+freespace_doors_spur_prune_m:
+  default: 0.30
+  description: "Length [m] of skeleton hair eroded off every tip before anything is measured. Thinning leaves a short spur wherever the free-space boundary had a bump (a corner, one noisy cell) and each spur ends in a tip that would read as a dead end. Erodes real branches by the same amount, which costs nothing: a bottleneck this close to a genuine tip is a dead end and is meant to be rejected anyway."
+freespace_doors_tangent_span_m:
+  default: 0.25
+  description: "Half-length [m] of the skeleton chord the door's crossing direction is measured over. The direction to an ADJACENT skeleton cell can only be one of eight, i.e. quantised to 45 degrees, which is far too coarse for a door frame's yaw; a chord over 2 x this is not. Raise it on a smooth corridor for a steadier yaw, lower it where the axis genuinely curves through the opening."
+freespace_doors_symmetry_tol_m:
+  default: 0.20
+  description: "How far the width measured by marching to the two jambs may differ from 2 x the distance transform's clearance [m] before the candidate is rejected with code 'asymmetric'. The two only agree when the skeleton cell really sits mid-gap AND its nearest obstacle is one of the two jambs, i.e. when this is a clean bottleneck rather than a cell whose clearance is set by a wall it happens to be running alongside."
+freespace_doors_min_beams:
+  default: 4
+  description: "How many /scan beams must pass through the opening and reach freespace_doors_beyond_m past the jamb line for the candidate to count as seen this cycle. Counting beams rather than testing one ray is what makes the confirmation robust to a single stray return. Same number as semantic_doors_min_beams."
+freespace_doors_beyond_m:
+  default: 0.50
+  description: "How far past the jamb line a beam must reach [m] to count. This is the gate that separates a hole THROUGH a wall from a dent IN one, and the reason a doorway-sized gap that exists only in the map -- two scans that never joined up, a hole punched by a person who has since left -- never confirms: the grid can be wrong about it, the live beams cannot. A candidate that never gets beam support never confirms and so never reaches a mission."
+freespace_doors_jamb_exclude_m:
+  default: 0.08
+  description: "How much is cut off each end of the opening before a beam's crossing point is required to fall inside it [m]. Keeps a beam that passes just beside a jamb, through some other gap, from being credited to this door. Same number as semantic_doors_jamb_exclude_m."
+freespace_doors_assoc_max_m:
+  default: 0.30
+  description: "Max distance [m] between a candidate's centre and a tracked door's for the two to be the same door. Handed straight to semantic_doors.DoorTracker -- there is ONE tracker for all three door sources, so this is the same knob as semantic_doors_assoc_max_m, with the same meaning, for a different detector's candidates."
+freespace_doors_confirm_hits:
+  default: 3
+  description: "Cycles a door must be seen in before it is CONFIRMED -- published, given a TF, and visible to an enter_door mission. 3 rather than the semantic detector's 5 because each hit here is an independent /scan confirmation over a geometry the 5 s grid holds still, where there a hit is one more sighting of a wall pair that moves with every scan. At the default 2 Hz that is about 1.5 s."
+freespace_doors_smooth_alpha:
+  default: 0.30
+  description: "EMA weight of the newest measurement in a tracked door's centre, axis and width. Same knob and same meaning as semantic_doors_smooth_alpha."
+freespace_doors_candidate_forget_s:
+  default: 12.0
+  description: "Seconds an UNCONFIRMED door candidate survives without being seen again. Longer than semantic_doors_candidate_forget_s (5.0) on purpose: the grid only refreshes every 5 s, so a candidate that misses one grid update must not be forgotten before the next one arrives."
+freespace_doors_forget_unseen_s:
+  default: 0.0
+  description: "Seconds a CONFIRMED door survives after leaving view. 0 means never forgotten -- a door stays in the map once confirmed, which is what lets a mission drive back to one. Same default and same meaning as semantic_doors_forget_unseen_s."
+freespace_doors_max_candidates:
+  default: 16
+  description: "Most bottlenecks evaluated per cycle, narrowest first, as a bound on the per-cycle cost in a cluttered room. The clipped ones are the WIDEST in-band pinches, i.e. the least door-like, and the ordering is deterministic so the same scene always yields the same set."
+freespace_doors_grid_max_age_s:
+  default: 30.0
+  description: "How old the last /slam/map message may be [s] before a cycle is skipped. The grid is latched, so an old one keeps arriving in every new subscriber's queue forever: without this, a dead slam_toolbox would leave this node confidently re-publishing doors from a grid minutes out of date. A skipped cycle changes nothing -- the tracker keeps whatever it already confirmed. 0 disables the check."
+freespace_doors_debug_markers:
+  default: true
+  description: "Publish /viz/doors_freespace_debug: the medial axis as points, every candidate as a cube coloured by WHY it was rejected (green a door, grey the geometry was wrong, red the geometry was right and the scan said no), and the code as text. Nothing consumes it; it exists so that 'why is there no door there' is one Foxglove panel rather than a replay. False to save the MarkerArray on a logging-heavy run."
 
 # --- minimum width for a LiDAR wall (multi_wall_tracker's span gate) ----------
 # A wall is long; an object face, a chair leg, the end of a counter and a

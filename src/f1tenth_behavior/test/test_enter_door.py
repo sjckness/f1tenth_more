@@ -288,3 +288,41 @@ def test_a_car_that_starts_in_the_doorway_never_leaves_to_line_up():
     # It never aimed at the pre-point, which is 0.75 m BEHIND where it stands.
     assert record.target_xy == pytest.approx(centre, abs=1e-9)
     assert record.entered is True
+
+
+# -------------------------------------------------------------------- preflight
+def test_the_preflight_requires_the_node_door_source_names():
+    """Three detectors publish /perception/doors_semantic; one of them runs.
+
+    The topic and the message are identical whichever one it is -- which is
+    why EnterDoor itself has no door_source branch at all -- but the node that
+    has to be ALIVE for that topic to exist is different for each, so the
+    preflight's node_name has to follow door_source rather than naming
+    semantic_layer_node unconditionally (which it did until the grid detector
+    landed, and which would have let an enter_door mission start with
+    door_source 'freespace' and freespace_door_node absent).
+    """
+    from unittest.mock import patch
+
+    from f1tenth_behavior.mission.preflight import (
+        DOOR_SOURCE_NODES, required_dependencies)
+    from f1tenth_params.param_defaults import get_value as real_get_value
+
+    plain = {'id': 'd', 'goal_distance': 1.0,
+             'stop_condition': {'type': 'distance_reached'}, 'terminal': True}
+    for source, node_name in DOOR_SOURCE_NODES.items():
+        with patch('f1tenth_behavior.mission.preflight.get_value',
+                   side_effect=lambda key, s=source: (
+                       s if key == 'door_source' else real_get_value(key))):
+            reqs = required_dependencies(parse_mission(door_mission()))
+            assert any(r.node_name == node_name for r in reqs), source
+            assert any(source in r.reason for r in reqs), source
+            # And a mission with no enter_door step asks for no detector.
+            other = required_dependencies(parse_mission(_mission_of(plain)))
+            assert not any(r.node_name == node_name for r in other), source
+
+
+def _mission_of(move):
+    raw = door_mission()
+    raw['moves'] = [move]
+    return raw

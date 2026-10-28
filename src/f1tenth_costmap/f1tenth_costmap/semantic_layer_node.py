@@ -526,13 +526,15 @@ class SemanticLayerNode(Node):
 
         NOTHING IS CREATED WHEN THE DETECTOR IS OFF -- no publisher, no
         broadcaster, no tracker: `semantic_doors_enabled` false, or
-        `door_source` naming the other detector, leaves this node exactly as
+        `door_source` naming one of the other two detectors (freespace_door_
+        node's grid one, or lidar_front_wall_node's profile one), leaves this
+        node exactly as
         it was. Both default to running it (true / 'semantic').
         """
         self.door_source = str(stack('door_source'))
-        if self.door_source not in ('semantic', 'profile'):
-            raise ValueError("door_source must be 'semantic' or 'profile', "
-                             f'got {self.door_source!r}')
+        if self.door_source not in sd.DOOR_SOURCES:
+            raise ValueError('door_source must be one of '
+                             f'{sd.DOOR_SOURCES}, got {self.door_source!r}')
         self.doors_enabled = (bool(stack('semantic_doors_enabled'))
                               and self.door_source == 'semantic')
         self._door_tracker = None

@@ -224,13 +224,22 @@ up would make it reverse out of a door it had arrived at. The same test ends
 first. The phase is decided from the current pose on every tick, not latched:
 a car pushed back out goes back to lining up.
 
-**What it needs running**: `semantic_doors_enabled` and
-`door_source:=semantic` (so `semantic_layer_node` publishes
-`/perception/doors_semantic`) -- both are the defaults, so a normal stack has
-them; they in turn need the wall tracker and the semantic layer. And global
-localization, because the door poses and the arrival test are both in the map
-frame. `mission/preflight.py` checks both and
-names them. Example: `missions/enter_nearest_door.json`.
+**What it needs running**: a door detector publishing
+`/perception/doors_semantic`. Which one is `door_source`, and each has its own
+enable flag:
+
+| `door_source` | node | enable flag | input |
+|---|---|---|---|
+| `freespace` (default) | `freespace_door_node` | `freespace_doors_enabled` (true) | slam_toolbox's occupancy grid |
+| `semantic` | `semantic_layer_node` | `semantic_doors_enabled` (true) | the semantic layer's wall tracks |
+| `profile` | `lidar_front_wall_node` | `lidar_front_wall_door_detection_enabled` (false) | the per-beam depth profile |
+
+All three publish the same topic with the same message, so this behaviour and
+the `enter_door` goal are identical whichever one is selected. The defaults
+give a normal stack the `freespace` one. And global localization either way,
+because the door poses and the arrival test are both in the map frame.
+`mission/preflight.py` checks the node `door_source` names, plus localization,
+and names them. Example: `missions/enter_nearest_door.json`.
 
 ## `drive` fields (schema_version 3.0)
 

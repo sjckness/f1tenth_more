@@ -19,7 +19,9 @@ collide with another's and each can be deleted by id:
     5 * id + 4   TEXT         "door <id> <width>m <case> <state>"
 
 Colour is the CASE: case A (two collinear walls) green, case B (a wall end
-against a perpendicular wall) blue, so a glance says which rule found it.
+against a perpendicular wall) blue, case F (a free-space bottleneck, from
+freespace_doors.py -- no walls at all) amber, so a glance says which rule
+found it.
 Alpha is the STATE: CONFIRMED solid, candidate faded.
 
 A door that dies gets a DELETE on each of its five slots, and every marker
@@ -41,6 +43,8 @@ SLOT_JAMB0, SLOT_JAMB1, SLOT_LINE, SLOT_ARROW, SLOT_TEXT = range(SLOTS)
 
 CASE_A_COLOUR = (0.10, 0.90, 0.40)   # green: two collinear walls
 CASE_B_COLOUR = (0.20, 0.55, 1.00)   # blue: a wall end against a perpendicular
+CASE_F_COLOUR = (1.00, 0.65, 0.10)   # amber: a free-space bottleneck, no walls
+CASE_COLOURS = {'A': CASE_A_COLOUR, 'B': CASE_B_COLOUR, 'F': CASE_F_COLOUR}
 CANDIDATE_ALPHA = 0.35
 CONFIRMED_ALPHA = 1.0
 
@@ -61,8 +65,13 @@ def set_lifetime(marker, seconds):
 
 
 def colour_of(door):
-    """(r, g, b, a): the case picks the hue, the state the alpha."""
-    r, g, b = CASE_A_COLOUR if door.case == 'A' else CASE_B_COLOUR
+    """(r, g, b, a): the case picks the hue, the state the alpha.
+
+    An unknown case falls back to case B's blue rather than raising -- this is
+    a drawing function and a new door rule must never be able to stop the
+    markers from going out.
+    """
+    r, g, b = CASE_COLOURS.get(door.case, CASE_B_COLOUR)
     return r, g, b, (CONFIRMED_ALPHA if door.confirmed else CANDIDATE_ALPHA)
 
 
@@ -229,6 +238,110 @@ def door_transform(door, TransformStamped, parent_frame, stamp_msg):
     return t
 
 
-#: What semantic_doors publishes, for the whitelists and the docs.
+# ---------------------------------------------------------------------------
+# /viz/doors_freespace_debug: what freespace_doors.py saw, and what it threw
+# away. A SEPARATE namespace and a separate topic from the doors above,
+# because this is the detector's own working-out, not a door: the medial axis
+# of the free space and every bottleneck on it, the rejected ones included.
+# Nothing consumes it; it exists so that "why is there no door there" is one
+# Foxglove panel rather than a replay.
+# ---------------------------------------------------------------------------
+DEBUG_NS = 'viz_doors_freespace'
+
+DEBUG_SLOT_SKELETON = 0
+DEBUG_SLOT_OK = 1
+DEBUG_SLOT_SHAPE = 2
+DEBUG_SLOT_PASSAGE = 3
+DEBUG_SLOT_LABELS = 100          # + i, one per candidate
+
+#: Candidate colour by code group (freespace_doors.code_group).
+DEBUG_GROUP_COLOUR = {
+    'ok': (0.10, 1.00, 0.30),        # green: a door
+    'shape': (0.60, 0.60, 0.60),     # grey: the geometry was wrong
+    'passage': (1.00, 0.30, 0.20),   # red: the geometry was right, the scan said no
+}
+DEBUG_SKELETON_COLOUR = (0.35, 0.75, 1.00, 0.55)
+DEBUG_SKELETON_SIZE_M = 0.03
+DEBUG_CANDIDATE_SIZE_M = 0.10
+DEBUG_LABEL_SIZE_M = 0.10
+
+
+def _debug_base(frame_id, stamp, slot, kind, lifetime):
+    m = Marker()
+    m.header.frame_id = frame_id
+    m.header.stamp = stamp
+    m.ns = DEBUG_NS
+    m.id = int(slot)
+    m.type = kind
+    m.action = Marker.ADD
+    m.pose.orientation.w = 1.0
+    return set_lifetime(m, lifetime)
+
+
+def freespace_debug_markers(skeleton_xy, candidates, frame_id, stamp,
+                            resolution=0.05, lifetime=2.0, max_labels=16):
+    """The skeleton as POINTS plus every candidate, grouped by why it failed.
+
+    `skeleton_xy` is an (n, 2) array of map-frame cell centres
+    (freespace_doors.skeleton_points) and `candidates` the list
+    freespace_doors.candidate_doors returned -- accepted AND rejected, which
+    is the point.
+
+    Three CUBE_LIST markers rather than one marker per candidate: the count
+    varies every cycle, and per-candidate ids would need DELETEs chasing them.
+    One fixed id per group plus an ALWAYS-PUBLISHED empty list for an empty
+    group means a group that stops matching anything visibly empties instead
+    of freezing on screen. The code TEXT markers do get one id each, capped
+    at `max_labels`, and the unused ones are deleted.
+    """
+    from f1tenth_costmap.freespace_doors import code_group
+
+    msg = MarkerArray()
+    pts = _debug_base(frame_id, stamp, DEBUG_SLOT_SKELETON, Marker.POINTS, lifetime)
+    pts.scale.x = pts.scale.y = max(float(resolution) * 0.6, DEBUG_SKELETON_SIZE_M)
+    (pts.color.r, pts.color.g, pts.color.b, pts.color.a) = DEBUG_SKELETON_COLOUR
+    pts.points = [Point(x=float(x), y=float(y), z=0.01) for x, y in skeleton_xy]
+    msg.markers.append(pts)
+
+    slots = (('ok', DEBUG_SLOT_OK), ('shape', DEBUG_SLOT_SHAPE),
+             ('passage', DEBUG_SLOT_PASSAGE))
+    grouped = {name: [] for name, _ in slots}
+    for cand in candidates:
+        grouped[code_group(cand.code)].append(cand)
+    for name, slot in slots:
+        cubes = _debug_base(frame_id, stamp, slot, Marker.CUBE_LIST, lifetime)
+        cubes.scale.x = cubes.scale.y = cubes.scale.z = DEBUG_CANDIDATE_SIZE_M
+        r, g, b = DEBUG_GROUP_COLOUR[name]
+        cubes.color.r, cubes.color.g, cubes.color.b, cubes.color.a = r, g, b, 0.9
+        cubes.points = [Point(x=float(c.centre[0]), y=float(c.centre[1]), z=0.05)
+                        for c in grouped[name]]
+        msg.markers.append(cubes)
+
+    for i in range(int(max_labels)):
+        text = _debug_base(frame_id, stamp, DEBUG_SLOT_LABELS + i,
+                           Marker.TEXT_VIEW_FACING, lifetime)
+        if i >= len(candidates):
+            text.action = Marker.DELETE
+            msg.markers.append(text)
+            continue
+        cand = candidates[i]
+        text.pose.position.x = float(cand.centre[0])
+        text.pose.position.y = float(cand.centre[1])
+        text.pose.position.z = 0.30
+        text.scale.z = DEBUG_LABEL_SIZE_M
+        r, g, b = DEBUG_GROUP_COLOUR[code_group(cand.code)]
+        text.color.r, text.color.g, text.color.b, text.color.a = r, g, b, 1.0
+        text.text = f'{cand.code or "door"} {cand.width:.2f}m'
+        msg.markers.append(text)
+    return msg
+
+
+#: What a door detector publishes, for the whitelists and the docs. Shared by
+#: all three sources (see semantic_doors.DOOR_SOURCES): at most one of them
+#: runs, so these names say "the stack's doors", not "the semantic ones".
 TOPICS = ('/perception/doors_semantic', '/viz/doors_semantic',
           '/costmap/semantic_doors')
+
+#: freespace_door_node's own two extras, which no mission or controller reads.
+FREESPACE_DEBUG_TOPICS = ('/viz/doors_freespace_debug',
+                          '/costmap/freespace_doors/debug')

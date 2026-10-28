@@ -87,6 +87,21 @@ class Requirement:
     blackboard_key: Optional[str] = None
 
 
+#: Which NODE publishes /perception/doors_semantic, by door_source
+#: (stack_params.yaml). All three detectors publish the same topic -- which is
+#: why EnterDoor needs no branch at all -- but they live in three different
+#: nodes, so the preflight's "is the thing that feeds this mission actually
+#: up" question has three different answers. Duplicated here rather than
+#: imported because f1tenth_behavior does not depend on f1tenth_costmap and
+#: should not start to for one dict; stack_params' own door_source
+#: description carries the same list.
+DOOR_SOURCE_NODES = {
+    'freespace': 'freespace_door_node',      # f1tenth_costmap/freespace_doors.py
+    'semantic': 'semantic_layer_node',       # f1tenth_costmap/semantic_doors.py
+    'profile': 'lidar_front_wall_node',      # f1tenth_perception/door_detection.py
+}
+
+
 # Every move type (goal_distance/goal_pose/turn/drive) is driven through
 # mpc_corr (see PublishMoveGoal's own docstring) -- always required,
 # unconditionally.
@@ -248,11 +263,12 @@ def required_dependencies(config: MissionConfig,
         ))
 
     if any(getattr(m, 'enter_door', None) is not None for m in config.moves):
+        source = str(get_value('door_source'))
         reqs.append(Requirement(
-            name='semantic_layer_node',
+            name=DOOR_SOURCE_NODES.get(source, 'the door detector'),
             reason=('an enter_door step drives at its /perception/doors_semantic '
-                    '(semantic_doors_enabled, door_source "semantic")'),
-            node_name='semantic_layer_node',
+                    f'(door_source "{source}")'),
+            node_name=DOOR_SOURCE_NODES.get(source),
         ))
         reqs.append(Requirement(
             name='global localization (/ekf_global/odometry/filtered)',
