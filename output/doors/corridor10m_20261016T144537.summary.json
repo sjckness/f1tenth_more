@@ -1,0 +1,32 @@
+{
+  "bag": "corridor10m_20261016T144537",
+  "frame": "odom",
+  "pose_topic": "/odometry/filtered",
+  "object_veto": "not exercised: no semantic-layer objects in this replay",
+  "scans": 6523,
+  "wall_messages": 704,
+  "cycles_run": 6523,
+  "candidates": 57935,
+  "cycle_ms": {
+    "median": 0.078,
+    "p95": 0.125,
+    "max": 34.69
+  },
+  "codes": {
+    "foot_outside": 26012,
+    "angle": 23017,
+    "width": 5096,
+    "offset": 3810
+  },
+  "doors_confirmed": 0,
+  "doors": [],
+  "tracks_total": 0,
+  "params": {
+    "min_wall_level": "lidar_confirmed",
+    "width_m": [
+      0.7,
+      1.4
+    ],
+    "confirm_hits": 5
+  }
+}

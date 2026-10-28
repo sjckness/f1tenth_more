@@ -162,12 +162,14 @@ from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 
 import numpy as np
+from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import OccupancyGrid, Odometry
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import ColorRGBA, Float32, Int32MultiArray, String
 from tf2_ros import ConnectivityException, ExtrapolationException, LookupException
 from tf2_ros.buffer import Buffer
 from tf2_msgs.msg import TFMessage
+from tf2_ros.transform_broadcaster import TransformBroadcaster
 from tf2_ros.transform_listener import TransformListener
 from vision_msgs.msg import (
     Detection3D,
@@ -177,8 +179,8 @@ from vision_msgs.msg import (
 from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_messages.msg import (
-    MultiWallTrack, MultiWallTrackArray, Obstacle2D, Obstacle2DArray, SemanticObject,
-    SemanticObjectArray, StereoColumns, WallObservationArray)
+    Door, DoorArray, MultiWallTrack, MultiWallTrackArray, Obstacle2D, Obstacle2DArray,
+    SemanticObject, SemanticObjectArray, StereoColumns, WallObservationArray)
 from f1tenth_params.object_geometry import footprint_radius
 from f1tenth_params.param_defaults import get_value
 from f1tenth_costmap import unknown_objects as uo
@@ -187,6 +189,8 @@ from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_params.object_geometry import ObstacleFilter
 
 from f1tenth_costmap import object_memory as om
+from f1tenth_costmap import semantic_door_markers as sdm
+from f1tenth_costmap import semantic_doors as sd
 from f1tenth_costmap.semantic_layer import (
     compose_base_link_to_map, dedupe_tracks, find_nearest_pose_by_stamp, hand_over_to_lidar,
     live_tracks, pose_to_xytheta, update_tracks_batch, update_unknown_batch)
@@ -500,8 +504,201 @@ class SemanticLayerNode(Node):
         self._last_published_marker_keys: set = set()
 
         self._init_object_memory()
+        self._init_semantic_doors(stack)
 
         self.get_logger().info('semantic_layer_node started')
+
+    # ------------------------------------------------------------------
+    # Doors from the semantic layer (f1tenth_costmap/semantic_doors.py)
+    # ------------------------------------------------------------------
+    #: Consecutive failing door cycles after which door detection is turned
+    #: off for this node's life. The semantic layer must never be stopped by
+    #: an overlay; the same number and the same reasoning as
+    #: lidar_front_wall_node's own door guard.
+    DOOR_MAX_ERRORS = 50
+
+    def _init_semantic_doors(self, stack):
+        """Declare the door parameters and wire the four outputs.
+
+        `stack` is __init__'s own declare-from-stack_params helper, passed in
+        rather than rebuilt, so every door default comes from the one
+        stack_params.yaml entry and from nowhere else.
+
+        NOTHING IS CREATED WHEN THE DETECTOR IS OFF -- no publisher, no
+        broadcaster, no tracker: `semantic_doors_enabled` false (the default)
+        or `door_source` naming the other detector leaves this node exactly
+        as it was.
+        """
+        self.door_source = str(stack('door_source'))
+        if self.door_source not in ('semantic', 'profile'):
+            raise ValueError("door_source must be 'semantic' or 'profile', "
+                             f'got {self.door_source!r}')
+        self.doors_enabled = (bool(stack('semantic_doors_enabled'))
+                              and self.door_source == 'semantic')
+        self._door_tracker = None
+        self._door_errors = 0
+        self._door_ms = math.nan
+        self._door_codes: dict = {}
+        self._door_viz_ids: set = set()
+        if not self.doors_enabled:
+            return
+
+        level_name = str(stack('semantic_doors_min_wall_level'))
+        if level_name not in sd.LEVEL_BY_NAME:
+            raise ValueError('semantic_doors_min_wall_level must be one of '
+                             f'{sorted(sd.LEVEL_BY_NAME)}, got {level_name!r}')
+        self.door_params = sd.DoorParams(
+            min_wall_level=sd.LEVEL_BY_NAME[level_name],
+            width_min_m=float(stack('semantic_doors_width_min_m')),
+            width_max_m=float(stack('semantic_doors_width_max_m')),
+            parallel_angle_deg=float(stack('semantic_doors_parallel_angle_deg')),
+            parallel_offset_m=float(stack('semantic_doors_parallel_offset_m')),
+            perp_tol_deg=float(stack('semantic_doors_perp_tol_deg')),
+            foot_inset_m=float(stack('semantic_doors_foot_inset_m')),
+            end_fov_margin_rad=math.radians(
+                float(stack('semantic_doors_end_fov_margin_deg'))),
+            end_range_margin_m=float(stack('semantic_doors_end_range_margin_m')),
+            end_occlusion_margin_m=float(stack('semantic_doors_end_occlusion_margin_m')),
+            end_probe_beams=int(stack('semantic_doors_end_probe_beams')),
+            min_beams=int(stack('semantic_doors_min_beams')),
+            through_frac=float(stack('semantic_doors_through_frac')),
+            behind_margin_m=float(stack('semantic_doors_behind_margin_m')),
+            gap_clear_m=float(stack('semantic_doors_gap_clear_m')),
+            jamb_exclude_m=float(stack('semantic_doors_jamb_exclude_m')),
+            assoc_max_m=float(stack('semantic_doors_assoc_max_m')),
+            confirm_hits=int(stack('semantic_doors_confirm_hits')),
+            smooth_alpha=float(stack('semantic_doors_smooth_alpha')),
+            candidate_forget_s=float(stack('semantic_doors_candidate_forget_s')),
+            forget_unseen_s=float(stack('semantic_doors_forget_unseen_s')),
+            max_walls=int(stack('semantic_doors_max_walls')))
+        self.door_jamb_diameter_m = float(stack('semantic_doors_jamb_viz_diameter_m'))
+        self.door_viz_height_m = float(stack('semantic_doors_viz_height_m'))
+        self.door_publish_tf = bool(stack('semantic_doors_publish_tf'))
+        self._door_tracker = sd.DoorTracker(self.door_params)
+        self.doors_pub = self.create_publisher(
+            DoorArray,
+            self.declare_parameter('doors_topic', '/perception/doors_semantic').value, 10)
+        self.viz_doors_pub = self.create_publisher(
+            MarkerArray,
+            self.declare_parameter('viz_doors_topic', '/viz/doors_semantic').value, 10)
+        self.door_objects_pub = self.create_publisher(
+            SemanticObjectArray,
+            self.declare_parameter('door_objects_topic', '/costmap/semantic_doors').value,
+            10)
+        self._door_tf = TransformBroadcaster(self) if self.door_publish_tf else None
+        self.get_logger().info(
+            f'semantic doors on: walls at or above {level_name!r}, '
+            f'{self.door_params.width_min_m:.2f}-{self.door_params.width_max_m:.2f} m, '
+            f'confirmed after {self.door_params.confirm_hits} sightings')
+
+    def _door_walls_map(self, pose):
+        """The semantic layer's wall TRACKS as map-frame sd.Wall records.
+
+        The tracks only -- not `_observed_walls_map`'s raw observations. A
+        doorway's jamb has to be a wall with an identity and a confirmation
+        level behind it, and a raw observation has neither: it is this scan's
+        run of returns, with no id to track a door against and nothing to
+        compare door_min_wall_level to.
+        """
+        msg = self._latest_walls
+        if msg is None:
+            return []
+        out = []
+        for t in msg.tracks:
+            p0, p1 = transform_segment((t.p0_bl.x, t.p0_bl.y),
+                                       (t.p1_bl.x, t.p1_bl.y), pose)
+            out.append(sd.Wall(t.id, p0, p1,
+                               level=sd.wall_level(t.state, t.source),
+                               role=t.role or t.label))
+        return out
+
+    def _door_step(self, scan):
+        """Prepare one scan for the door cycle and run it.
+
+        Cheap enough to stand on its own (one uo.scan_points over the scan,
+        then the pair loop): the replay measures the whole cycle at 0.08 ms
+        median on a laptop, against the 100 ms the 10 Hz tick allows.
+        """
+        if not self.doors_enabled or self._door_tracker is None:
+            return
+        stamp = scan.header.stamp.sec + scan.header.stamp.nanosec * 1e-9
+        pose = find_nearest_pose_by_stamp(self._pose_history, stamp)
+        laser = self._laser_pose_for(scan.header.frame_id)
+        if pose is None or laser is None:
+            self.get_logger().warn(
+                'semantic doors: no pose or no laser transform yet -- scan skipped',
+                throttle_duration_sec=5.0)
+            return
+        _pts, bearings, ranges = uo.scan_points(
+            scan.ranges, scan.angle_min, scan.angle_increment, scan.range_min,
+            scan.range_max, laser)
+        self._door_cycle(scan, pose, laser, bearings, ranges, stamp)
+
+    def _door_cycle(self, scan, pose, laser, bearings, ranges, stamp_sec):
+        """One door cycle: candidates, the tracker, and the four outputs.
+
+        Never raises into the LiDAR cycle. A door is an OVERLAY: whatever
+        goes wrong here, the walls, the obstacle list and the speed cap of
+        this same cycle are exactly what they would have been without it.
+        """
+        if not self.doors_enabled or self._door_tracker is None:
+            return
+        t0 = time.perf_counter()
+        try:
+            walls = self._door_walls_map(pose)
+            view = sd.ScanView(bearings, ranges, laser[:2], scan.range_max)
+            objects = [(float(xy[0]), float(xy[1]), float(t.radius()))
+                       for t, xy in ((t, uo.to_base_link([(t.x_map, t.y_map)], pose)[0])
+                                     for t in self._tracks if t.confirmed)]
+            cands = sd.candidate_doors(
+                walls, view, objects, self.door_params,
+                to_base_link=lambda xy: uo.to_base_link([xy], pose)[0])
+            self._door_tracker.update(cands, (pose[0], pose[1]), stamp_sec)
+            self._door_codes = {}
+            for c in cands:
+                key = c.code or 'ok'
+                self._door_codes[key] = self._door_codes.get(key, 0) + 1
+            self._publish_doors(scan.header.stamp, stamp_sec)
+            self._door_errors = 0
+        except Exception as exc:                        # noqa: BLE001
+            self._door_errors += 1
+            self.get_logger().warn(
+                f'semantic doors: cycle failed ({exc!r}); the semantic layer is '
+                'unaffected', throttle_duration_sec=5.0)
+            if self._door_errors >= self.DOOR_MAX_ERRORS:
+                self.doors_enabled = False
+                self.get_logger().error(
+                    f'semantic doors: {self._door_errors} consecutive failures -- '
+                    'door detection is off for the life of this node')
+        finally:
+            self._door_ms = (time.perf_counter() - t0) * 1e3
+
+    def _publish_doors(self, stamp_msg, stamp_sec):
+        """The DoorArray, the markers, the TFs and the semantic-layer objects."""
+        tracker = self._door_tracker
+        confirmed = tracker.confirmed()
+
+        msg = DoorArray()
+        msg.header.stamp = stamp_msg
+        msg.header.frame_id = self.map_frame
+        msg.doors = [sdm.door_message(d, Door, stamp_msg) for d in confirmed]
+        self.doors_pub.publish(msg)
+
+        objects = SemanticObjectArray()
+        objects.header.stamp = stamp_msg
+        objects.header.frame_id = self.map_frame
+        objects.objects = [sdm.door_object(d, SemanticObject) for d in confirmed]
+        self.door_objects_pub.publish(objects)
+
+        markers, self._door_viz_ids = sdm.marker_array(
+            tracker.tracks, self._door_viz_ids, self.map_frame, stamp_msg,
+            self.door_jamb_diameter_m, self.door_viz_height_m)
+        self.viz_doors_pub.publish(markers)
+
+        if self._door_tf is not None and confirmed:
+            self._door_tf.sendTransform([
+                sdm.door_transform(d, TransformStamped, self.map_frame, stamp_msg)
+                for d in confirmed])
 
     # ------------------------------------------------------------------
     def _init_object_memory(self):
@@ -700,8 +897,17 @@ class SemanticLayerNode(Node):
         """
         if not self._pose_history:
             return
-        if self._scan_unprocessed and self._scan is not None and self.unknown_mode != 'off':
-            self._lidar_step(self._scan[1])
+        if self._scan_unprocessed and self._scan is not None:
+            if self.unknown_mode != 'off':
+                self._lidar_step(self._scan[1])
+            # DOORS DO NOT RIDE ON THE UNKNOWN-OBJECT CYCLE. They used to be
+            # called from _lidar_step, which runs only while
+            # unknown_objects_mode is 'shadow' or 'active' -- and that
+            # parameter ships 'off', so the door detector would have been
+            # dead on the car with no way to tell from its own flags. The two
+            # read the same scan and the same walls but answer different
+            # questions, and neither should be able to switch the other off.
+            self._door_step(self._scan[1])
         self._scan_unprocessed = False
         pose_now = self._pose_history[-1][1]
         out = Obstacle2DArray()
@@ -724,6 +930,11 @@ class SemanticLayerNode(Node):
             'cells': dict(zip(('free', 'wall', 'object', 'island'),
                               (int(c) for c in self._owner_counts))),
             'candidates': self._n_candidates,
+            'door_ms': round(self._door_ms, 2) if self._door_ms == self._door_ms else None,
+            'door_errors': self._door_errors,
+            'door_codes': self._door_codes,
+            'doors_confirmed': (0 if self._door_tracker is None
+                                else len(self._door_tracker.confirmed())),
             'unknown_tentative': sum(1 for t in unknown if not t.confirmed),
             'unknown_confirmed': sum(1 for t in unknown if t.confirmed),
             'recognised_confirmed': sum(
