@@ -10,6 +10,7 @@ ROS-facing wrapper (parameter + topic) that calls load_mission_file() below.
 
 import json
 import math
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -19,14 +20,23 @@ from f1tenth_behavior.mission.object_classes import OBJECT_CLASSES
 STOP_CONDITION_TYPES = {
     'distance_reached', 'goal_reached', 'time_elapsed', 'object_seen',
     'object_cleared', 'obstacle_distance_below', 'front_clearance',
-    'orientation_delta', 'manual', 'object_reached',
+    'orientation_delta', 'manual', 'object_reached', 'door_entered',
 }
 
 # schema_version "4.0" adds the go_to_object step (ObjectSpec) and its
 # object_reached stop_condition; "5.0" replaces its standoff_m (a centre
 # distance) with gap_m (car front to object edge, validated against gap_min).
+# "6.0" adds the enter_door step (DoorSpec) and its door_entered
+# stop_condition.
 # The terminal-last-move rule that "3.0" introduced applies from "3.0" on.
-TERMINAL_REQUIRED_VERSIONS = {'3.0', '4.0', '5.0'}
+TERMINAL_REQUIRED_VERSIONS = {'3.0', '4.0', '5.0', '6.0'}
+
+#: enter_door's `door` selector: the nearest CONFIRMED door, or one by name.
+#: The name is the TF frame semantic_layer_node broadcasts for that door
+#: (semantic_doors.DoorTrack.frame_id), so what a mission names and what
+#: Foxglove shows are the same string.
+DOOR_NEAREST = 'nearest'
+DOOR_NAME_RE = re.compile(r'^door_\d+$')
 ON_OBJECT_ACTIONS = {
     'stop_and_hold', 'reduce_speed', 'reduce_speed_for', 'abort_mission',
     'skip_to_move', 'log_only',
@@ -259,6 +269,45 @@ class ObjectSpec:
 
 
 @dataclass(frozen=True)
+class DoorSpec:
+    """An "enter_door" step's own fields -- see Move.enter_door, schema 6.0.
+
+    Drive to a door the semantic-layer door detector has CONFIRMED and stop
+    on it, facing the way through.
+
+    WHAT "ENTERED" MEANS, and it is deliberately narrow: the car's map pose
+    is within xy_tol of the door frame's ORIGIN (the midpoint between the two
+    jambs) and its heading is within yaw_tol_deg of that frame's X AXIS --
+    the crossing direction, which semantic_doors fixes at the door's first
+    confirmation and never flips. So "entered" is "standing in the doorway,
+    pointing through it", not "on the far side": a mission that wants the
+    room beyond adds a move after this one.
+
+    WHY THE YAW IS CHECKED HERE AND NOT BY mpc_corr. /mpc/goal_pose is
+    position-only on arrival -- mpc_corr stores the yaw and does not consume
+    it (publish_move_goal.py says so, and MPC_corr's goal_pose_callback is
+    where it stops). A doorway is the one goal where the heading is the
+    point, so EnterDoor measures both itself, off the same global EKF pose
+    CheckStopCondition already reads, and reports arrival on the blackboard.
+
+    THE DOOR IS RESOLVED ONCE, at the start of the move: 'nearest' picks the
+    confirmed door nearest the car AT THAT MOMENT and then holds that door's
+    id for the whole move. Re-picking every tick would let the car swap
+    targets halfway across a room the instant another door came closer.
+
+    NO CONFIRMED DOOR -> the move fails cleanly with a reason
+    (door_not_found), the mission aborts and the car holds -- the same shape
+    go_to_object's target_not_found already has. It does not wait and it does
+    not fall back to another door.
+    """
+
+    door: str              # DOOR_NEAREST, or a 'door_<id>' frame name
+    xy_tol: float          # [m] from the door frame's origin
+    yaw_tol_deg: float     # [deg] from the door frame's x axis
+    acquire_timeout_sec: float = 5.0   # no confirmed door within this -> door_not_found
+
+
+@dataclass(frozen=True)
 class Move:
     id: str
     stop_condition: StopCondition
@@ -273,6 +322,12 @@ class Move:
     # The fifth goal shape (schema_version 4.0) -- see ObjectSpec. Exactly one
     # of the five per move.
     go_to_object: Optional[ObjectSpec] = None
+    # The sixth goal shape (schema_version 6.0) -- see DoorSpec. Exactly one
+    # of the six per move. Like go_to_object and unlike goal_pose, the target
+    # is resolved from live perception rather than written into the mission,
+    # so the behaviour owns the move and publishes its goal; unlike
+    # go_to_object the target does not move, so it is resolved once.
+    enter_door: Optional[DoorSpec] = None
     vdes: Optional[float] = None
     on_object: List[OnObjectAction] = field(default_factory=list)
     # Optional as of schema_version 2.0 (previously always required) --
@@ -703,6 +758,33 @@ def _parse_on_object(raw: object, where: str) -> OnObjectAction:
     return OnObjectAction(cls=cls, action=action, params=params)
 
 
+def _parse_door_spec(raw: object, where: str) -> DoorSpec:
+    """Parse an "enter_door" step -- see DoorSpec.
+
+    The JSON carries an optional "type": "enter_door" alongside the fields,
+    because that is the shape the goal was specified in and a mission written
+    that way must load. It is checked, not ignored: a move keyed enter_door
+    whose body claims to be something else is a mistake, not a convention.
+    """
+    _require(isinstance(raw, dict), f'{where}: enter_door must be an object')
+    kind = raw.get('type')
+    _require(kind is None or kind == 'enter_door',
+             f'{where}: enter_door carries type {kind!r}; expected "enter_door"')
+    door = raw.get('door', DOOR_NEAREST)
+    _require(isinstance(door, str), f'{where}: enter_door.door must be a string')
+    _require(door == DOOR_NEAREST or bool(DOOR_NAME_RE.match(door)),
+             f'{where}: enter_door.door must be "{DOOR_NEAREST}" or "door_<id>" '
+             f'(got {door!r})')
+    xy_tol = _require_positive_number(raw, 'xy_tol', where, default=0.15)
+    yaw_tol_deg = _require_positive_number(raw, 'yaw_tol_deg', where, default=10.0)
+    _require(yaw_tol_deg <= 180.0,
+             f'{where}: enter_door.yaw_tol_deg must be at most 180 (got {yaw_tol_deg})')
+    acquire = _require_positive_number(raw, 'acquire_timeout_sec', where, default=5.0)
+    return DoorSpec(door=door, xy_tol=float(xy_tol),
+                    yaw_tol_deg=float(yaw_tol_deg),
+                    acquire_timeout_sec=float(acquire))
+
+
 def _parse_move(raw: object, where: str, gap_limits_for=None) -> Move:
     _require(isinstance(raw, dict), f'{where}: move must be an object')
     move_id = raw.get('id')
@@ -714,9 +796,11 @@ def _parse_move(raw: object, where: str, gap_limits_for=None) -> Move:
     has_turn = raw.get('turn') is not None
     has_drive = raw.get('drive') is not None
     has_object = raw.get('go_to_object') is not None
+    has_door = raw.get('enter_door') is not None
     _require(
-        sum((has_distance, has_pose, has_turn, has_drive, has_object)) == 1,
-        f'{where}: exactly one of goal_distance/goal_pose/turn/drive/go_to_object is required',
+        sum((has_distance, has_pose, has_turn, has_drive, has_object, has_door)) == 1,
+        f'{where}: exactly one of goal_distance/goal_pose/turn/drive/go_to_object/'
+        'enter_door is required',
     )
 
     goal_distance = None
@@ -739,6 +823,7 @@ def _parse_move(raw: object, where: str, gap_limits_for=None) -> Move:
     drive = _parse_drive_spec(raw['drive'], where) if has_drive else None
     go_to_object = (_parse_object_spec(raw['go_to_object'], where, gap_limits_for)
                     if has_object else None)
+    enter_door = _parse_door_spec(raw['enter_door'], where) if has_door else None
 
     _require('stop_condition' in raw, f'{where}: stop_condition is required')
     stop_condition = _parse_stop_condition(raw['stop_condition'], where)
@@ -754,6 +839,24 @@ def _parse_move(raw: object, where: str, gap_limits_for=None) -> Move:
         )
     elif stop_condition.type == 'object_reached':
         _require(False, f'{where}: object_reached is only valid on a go_to_object step')
+
+    # door_entered and enter_door are each other's only partner, for the same
+    # reason object_reached and go_to_object are: the condition reads the
+    # arrival EnterDoor measures, and an enter_door step ending on anything
+    # else would leave the car parked in a doorway with the move counted as a
+    # success for some other reason entirely.
+    if has_door:
+        _require(
+            stop_condition.type == 'door_entered',
+            f'{where}: an enter_door step requires stop_condition.type '
+            f'"door_entered" (got {stop_condition.type!r})',
+        )
+        _require('timeout_sec' in raw,
+                 f'{where}: an enter_door step requires timeout_sec')
+        _require(not raw.get('on_object'),
+                 f'{where}: on_object is not allowed on an enter_door step')
+    elif stop_condition.type == 'door_entered':
+        _require(False, f'{where}: door_entered is only valid on an enter_door step')
 
     if stop_condition.type == 'distance_reached' and 'distance' not in stop_condition.params:
         _require(
@@ -888,6 +991,7 @@ def _parse_move(raw: object, where: str, gap_limits_for=None) -> Move:
 
     return Move(
         id=move_id, goal_distance=goal_distance, goal_pose=goal_pose, turn=turn,
+        enter_door=enter_door,
         drive=drive, go_to_object=go_to_object, vdes=vdes,
         stop_condition=stop_condition, on_object=on_object,
         timeout_sec=timeout_sec, on_timeout=on_timeout, terminal=terminal,

@@ -173,6 +173,13 @@ class EvalContext:
     speed: Optional[float] = None
     stop_ramp_arrive_tol_m: float = 0.15
     stop_ramp_rest_speed_mps: float = 0.05
+    # door_entered (schema_version 6.0). EnterDoor measures the arrival
+    # itself -- the car's map pose against the door frame's origin and x axis
+    # -- and writes the answer here through CheckStopCondition. None means
+    # the caller does not track door moves (HandleObjectAction's
+    # resume_condition does not), which never satisfies the condition, same
+    # as object_status's own None.
+    door_entered: Optional[bool] = None
 
 
 def debounce_ticks_for(condition: StopCondition) -> int:
@@ -455,6 +462,18 @@ def evaluate(condition: StopCondition, ctx: EvalContext) -> Optional[bool]:
         # makes the status the mission records the resting one, not a braking
         # one.
         return s.stop_latched and abs(s.speed) <= ctx.object_rest_speed_mps
+
+    if t == 'door_entered':
+        # WHY THIS BRANCH IS ONE LINE, when object_reached above is thirty.
+        # An object moves and its estimate ages, so "reached" has to be
+        # judged against a live status with its own freshness, watchdog and
+        # target-age gates. A door does not move: it is a fixed pose in the
+        # map, confirmed once and then kept. The whole of "are we there" is
+        # two distances against two tolerances, EnterDoor has the pose to
+        # measure them with on every tick (it needs it anyway, to steer), and
+        # measuring them again here from a second copy of the pose would be
+        # two answers to one question. None -> not tracked, never satisfies.
+        return bool(ctx.door_entered) if ctx.door_entered is not None else False
 
     if t == 'orientation_delta':
         # No-odometry-yet case mirrors front_clearance's own None handling:

@@ -139,6 +139,7 @@ so it is not. Nothing else below consults the version.
 | `goal_pose` | `{x, y, yaw}` (floats) | one of this/`goal_distance`/`turn`/`drive` | Published by `PublishMoveGoal` straight to mpc_corr's own `/mpc/goal_pose` input -- drives the robot directly through mpc_corr (not Nav2/`NavigateThroughPoses`; see "Safety interactions" below for why). Position-only, same scope limit as mpc_corr.py's own pose-goal handling: `yaw` is sent and stored but not consumed for arrival. |
 | `turn` | object (schema_version 2.0) | one of this/`goal_distance`/`goal_pose`/`drive` | `{heading_delta_deg, speed, steering, reference}` -- see its own section below. Published as `f1tenth_messages/TurnGoal` to mpc_corr's `/mpc/goal_turn`. |
 | `drive` | object (schema_version 3.0) | one of this/`goal_distance`/`goal_pose`/`turn` | `{mode, turn_sign, turn_mag_deg, speed, approach_d_safe}` -- see its own section below. Published as `f1tenth_messages/DriveCommand` to mpc_corr's `/mpc/goal_drive`. **The only OPEN-ENDED goal shape**: it carries a driving mode, not a target, so mpc_corr never reports it reached and never self-terminates -- this move's `stop_condition` is the sole authority on when it ends. |
+| `enter_door` | object (schema_version 6.0) | one of this/`goal_distance`/`goal_pose`/`turn`/`drive`/`go_to_object` | `{door, xy_tol, yaw_tol_deg, acquire_timeout_sec}` -- see its own section below. No goal is published from `PublishMoveGoal`: `behaviours/enter_door.py` resolves the door from `/perception/doors_semantic` and publishes the `PoseStamped` itself. |
 | `vdes` | float | no | Overrides mpc_corr's `vdes` for this move. **No such override mechanism exists yet for non-`turn` moves** -- logged once per move as a TODO stub, otherwise ignored. (A `turn` step's own `speed` field is a separate, real, already-working override -- see below.) |
 | `stop_condition` | object | yes | One of the types below |
 | `on_object` | array of objects | no | Each entry: `{class, action, ...action-specific fields}` -- see below |
@@ -146,8 +147,11 @@ so it is not. Nothing else below consults the version.
 | `on_timeout` | `"abort"` \| `"skip"` \| `"stop"` (schema_version 2.0 added `"stop"`) | no, default `"abort"` | What happens if `timeout_sec` elapses before `stop_condition` fires -- see below. **Rejected at load time if present without `timeout_sec`** (nothing for it to apply to). |
 | `terminal` | bool (schema_version 3.0) | no, default `false`; **required on the last move of a `"3.0"` mission** | When this move's `stop_condition` fires, the mission COMPLETES rather than advancing, and the car latches at `vdes = 0`. **Declares behaviour, does not implement it**: `AdvanceMove`'s last-move branch has done exactly this since schema 1.0 (`complete()` + `/mpc/hold(True)`), so this is a load-time assertion that the author knew the run ends here -- deliberately *not* a second latch, because two authorities on "stop" is the failure this schema version exists to remove. Rejected at load time on any move that is not the last, in **every** schema version. |
 
-Exactly one of `goal_distance`/`goal_pose`/`turn`/`drive` is required -- providing
-more than one, or none, is rejected at load time.
+Exactly one of `goal_distance`/`goal_pose`/`turn`/`drive`/`go_to_object`/`enter_door`
+is required -- providing more than one, or none, is rejected at load time.
+(This line said "`goal_distance`/`goal_pose`/`turn`/`drive`" until schema 6.0;
+`go_to_object` has been one of the alternatives since 4.0 and was simply
+missing from it.)
 
 `on_timeout` behaviors: `"abort"` aborts the whole mission
 (`mission.state -> ABORTED`); `"skip"` advances to the next move as if
@@ -179,6 +183,34 @@ mechanism. mpc_corr's own arrival at that synthetic target is **not** the
 authoritative "is the turn done" signal for the mission, though -- that's
 this move's own `orientation_delta` stop_condition, tracked independently
 against live `/odom` yaw by `CheckStopCondition`.
+
+## `enter_door` fields (schema_version 6.0)
+
+Drive to a door the **semantic-layer door detector** has confirmed and stop in
+it, facing the way through.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `type` | `"enter_door"` | no | Accepted (and checked) so a mission written in the `{"type": "enter_door", ...}` form loads; the move key is what selects the step. |
+| `door` | `"nearest"` \| `"door_<id>"` | no, default `"nearest"` | `"nearest"` picks the confirmed door nearest the car **at the moment the move starts** and then holds it for the whole move. `"door_<id>"` names one outright -- the same string as the TF frame the detector broadcasts and Foxglove shows. A named door that is not confirmed is `door_not_found`; it never falls back to another door. |
+| `xy_tol` | float > 0 | no, default `0.15` | [m] from the door frame's origin, i.e. the midpoint between the two jambs. |
+| `yaw_tol_deg` | float > 0, <= 180 | no, default `10.0` | [deg] from the door frame's x axis. |
+| `acquire_timeout_sec` | float > 0 | no, default `5.0` | No confirmed door matching `door` within this -> the move fails `door_not_found` and the mission aborts. |
+
+An `enter_door` step **requires** `stop_condition.type == "door_entered"` and
+`timeout_sec`, and does not allow `on_object` -- the same three constraints a
+`go_to_object` step has, for the same reasons.
+
+**"Entered" is standing in the doorway, not through it.** The stop fires on the
+door frame's origin, so a mission that wants the room beyond adds a move after
+this one.
+
+**What it needs running**: `semantic_doors_enabled:=true` with
+`door_source:=semantic` (so `semantic_layer_node` publishes
+`/perception/doors_semantic`), which in turn needs the wall tracker and the
+semantic layer; and global localization, because the door poses and the
+arrival test are both in the map frame. `mission/preflight.py` checks both and
+names them. Example: `missions/enter_nearest_door.json`.
 
 ## `drive` fields (schema_version 3.0)
 
@@ -216,6 +248,7 @@ those moves. See `f1tenth_intelligence/llm/llm/plan_translate.py`.
 | `obstacle_distance_below` | `distance` (float, required); `forward_only` (bool, optional, default `false`) | `True` when the selected obstacle distance < threshold. `forward_only: false` (the default, and what every pre-3.0 mission gets) reads `/mpc/min_obstacle_distance`, which is **omnidirectional** -- it has no heading term at all, so an obstacle level with the rear axle counts exactly as much as one dead ahead. `forward_only: true` reads `/mpc/min_obstacle_distance_forward` instead: the nearest obstacle in the **forward half-plane** (`MPC_corr.compute_forward_obstacle_distance`'s `dot > 0` test). The two topics are published from the same mpc_corr tick and the same obstacle list. Use `forward_only` for anything that means "something is in the way"; the default exists only so missions written before the distinction keep their exact behaviour. |
 | `front_clearance` | `distance` (float, required); `debounce_ticks` (int >= 1, optional, default `1`) | **Since 2026-10-14 the topic is `get_wall_distance_topic()`: `/perception/virtual_wall` (LiDAR + multi-wall tracker + stereo, from the front bumper) with `enable_scene_labels` (the default), else `/perception/front_distance` as described below. A value that is missing, older than `wall_distance_max_age_s` (0.5 s) or not positive (`-1.0`, no wall) holds the car (`/mpc/hold`) instead of being evaluated, and the first fresh value releases it (`check_stop_condition.py`, WALL DISTANCE FRESHNESS).** **Since 2026-10-21 the stop fires only on the wall the move locked onto (`wall_lock_enabled`, `mission/wall_lock.py`): the first LiDAR-backed FRONT track of the move by the wall tracker's id, or a FRONT track that re-acquires it within `wall_follow_gate_m` / `wall_follow_gate_deg`. While another wall is FRONT (an avoidance swerve put a side wall in the strip) or none is, the stop reads "not yet" and the move is bounded by its `timeout_sec`.** **Since 2026-10-22 mpc_corr's deceleration ramp aims at the same wall: the BT publishes the locked track id on `/mpc/stop_wall_id` (-1 = unlocked or lost) and the ramp reads that wall's distance while it is FRONT, does not ramp while another wall is, and reads the raw topic while unlocked or lost (`mpc_controller/ramp_wall_source.py`).** `True` when **`/perception/front_distance`** < threshold for `debounce_ticks` **consecutive** ticks. **The type name is a misnomer** (kept for schema compatibility): it reads `front_distance`, *not* the identically-named `/perception/front_clearance`. Published by `f1tenth_perception`'s `front_clearance_node` as the EMA-smoothed **background/wall** distance from the ZED depth ROI, with **detected objects removed by construction** -- a person 40 cm ahead does not lower it, it reports the wall behind them. That is what a mission means by "stop N metres from the wall". The sibling `/perception/front_clearance` is `min(background, nearest in-corridor obstacle)` and is the **wrong** signal here: any object in the corridor would hijack the wall guard and stop the car short; it belongs to the safety path. **This topic changed twice**: `/costmap/front_clearance` (map-derived, `costmap_boundary_node`, blind to walls SLAM has not mapped) -> briefly `/perception/front_clearance` -> `/perception/front_distance`. `/costmap/front_clearance` is now the diagnostic/logging signal only. Being camera-derived, it is blind outside the ZED's field of view and inherits stereo-depth failure modes (glass, textureless surfaces, direct sun), and `front_clearance_node`'s tuning defaults are **unfitted**. `None` (not yet satisfiable) until the first message arrives; the node publishes once per depth frame unconditionally and holds its EMA rather than withholding, so continued silence means the node or the camera is down rather than "clear ahead". `debounce_ticks` defaults to 1 (fire on the first satisfied tick, i.e. exactly the pre-3.0 behaviour); a single unsatisfied tick restarts the streak, and a move change resets it. |
 | `orientation_delta` (schema_version 2.0) | `value` (float, required, degrees) | `True` when the **unwrapped accumulated** rotation since move start ≥ `value` (see "Turn accumulation" below -- a wrapped current-minus-start delta is bounded to (-180, 180] and could never satisfy a 180° or 270° target). Valid on a `turn` step **or** (schema_version 3.0) a `drive` step whose `mode` is `wall_turn` -- rejected at load time on any other step type. On a `turn` step `value` must equal `abs(turn.heading_delta_deg)`; on a `drive` step it must equal `abs(drive.turn_mag_deg)`, which must itself be non-zero (0 means "use the controller default", which the equality check cannot compare against). `turn_start_yaw` is this move's own `/odom` yaw at the moment it was first observed (lazily captured the same way `distance_reached`'s `move_start_xy` already is), not the mission's or the car's all-time starting heading. |
+| `door_entered` (schema_version 6.0) | -- | `True` while the car is within the move's `xy_tol` of the door frame's origin **and** within its `yaw_tol_deg` of that frame's x axis (the crossing direction). Measured by `EnterDoor` off the global EKF pose, not by mpc_corr -- `/mpc/goal_pose` arrival is position-only, and a doorway is the one goal whose heading is the point. Valid **only** on an `enter_door` step, and required on one; rejected at load time anywhere else. Not a latch: it goes false again if the car drifts out, so any debounce is the mission's own. |
 | `manual` | -- | Never auto-completes. **Out of scope for this pass** -- always behaves as still-waiting; only an external trigger (not yet implemented) could advance it. |
 
 `distance_reached` requires either its own `distance` field or the move's

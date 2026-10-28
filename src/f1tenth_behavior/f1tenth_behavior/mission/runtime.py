@@ -154,6 +154,32 @@ class ObjectApproachRecord:
 
 
 @dataclass
+class DoorApproachRecord:
+    """What the current enter_door move has done so far.
+
+    Written by EnterDoor (the resolved door, the live errors and the arrival
+    flag), read by CheckStopCondition for the door_entered condition and by
+    move_scoring when the move ends. One per move.
+
+    `entered` is the ONE thing door_entered tests. It is a measurement, not a
+    latch: EnterDoor sets it true on every tick the car is inside both
+    tolerances and false again if it drifts out. Any debounce the mission
+    wants is the stop_condition's own (ConditionDebouncer), the same as every
+    other condition here.
+    """
+
+    door: str                                  # what the mission asked for
+    door_id: Optional[int] = None              # the door it resolved to
+    frame_id: Optional[str] = None             # 'door_<id>', the TF it aims at
+    target_xy: Optional[Tuple[float, float]] = None
+    target_yaw: Optional[float] = None         # [rad] map, the crossing direction
+    xy_error_m: Optional[float] = None
+    yaw_error_deg: Optional[float] = None
+    entered: bool = False
+    outcome: Optional[str] = None              # door_not_found | door_lost
+
+
+@dataclass
 class MissionRuntimeState:
     config: Optional[MissionConfig] = None
     current_index: int = 0
@@ -222,6 +248,9 @@ class MissionRuntimeState:
     # The current go_to_object move's record (see ObjectApproachRecord); None
     # for every other move type and between moves.
     object_record: Optional[ObjectApproachRecord] = None
+    #: The current enter_door move's record, or None. Same per-move lifetime
+    #: as object_record, and cleared in the same three places.
+    door_record: Optional[DoorApproachRecord] = None
 
     # Per-current-move dedup for "stub feature used" warnings (goal_pose,
     # vdes-override, manual stop_condition, reduce_speed/_for) so they log once
@@ -284,6 +313,7 @@ class MissionRuntimeState:
         self.goal_dirty = False
         self.hold_context = None
         self.object_record = None
+        self.door_record = None
         self._stub_logged_tags = set()
         self._stub_logged_move_id = None
         # New run: see run_generation's own field comment. Bumped here AND in
@@ -306,6 +336,7 @@ class MissionRuntimeState:
         self.state = MissionState.RUNNING
         self.goal_dirty = True
         self.object_record = None
+        self.door_record = None
         # LOADED -> RUNNING is the other half of "a new run started" -- see
         # run_generation's own field comment and load()'s bump.
         self.run_generation += 1
@@ -328,6 +359,7 @@ class MissionRuntimeState:
         self.move_start_global_yaw = None
         self.goal_dirty = True
         self.object_record = None
+        self.door_record = None
 
     def complete(self) -> None:
         self.state = MissionState.COMPLETE
