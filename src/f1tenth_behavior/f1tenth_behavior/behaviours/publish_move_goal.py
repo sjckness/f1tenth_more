@@ -41,6 +41,12 @@ callback docstring) -- this behaviour's only job is forwarding the already-
 validated turn spec across the ROS boundary, exactly like it does for the
 other two goal types.
 
+Door moves (move.enter_door set, schema_version 6.0) publish nothing here,
+for the same reason go_to_object does not: the target is a door the semantic
+layer found, not a pose written into the mission, so behaviours/enter_door.py
+resolves it and sends the PoseStamped itself. The branch below exists purely
+so such a move is not mistaken for a turn.
+
 Drive-mode moves (move.drive set, schema_version 3.0) publish
 f1tenth_messages/DriveCommand to /mpc/goal_drive -- the fourth shape, and the
 only OPEN-ENDED one. The other three all name a target mpc_corr can decide it
@@ -215,6 +221,17 @@ class PublishMoveGoal(py_trees.behaviour.Behaviour):
             self.node.get_logger().info(
                 f"[mission] Move '{move.id}': go_to_object "
                 f'{move.go_to_object.target_class!r} -- GoToObject publishes the goal.'
+            )
+        elif getattr(move, 'enter_door', None) is not None:
+            # The sixth shape (schema_version 6.0). Nothing to publish ONCE
+            # from here: the target is a door only perception knows, so
+            # EnterDoor resolves it and publishes /mpc/goal_pose itself (once
+            # per resolved door -- see its module docstring). This branch
+            # exists so an enter_door move does not fall through to the turn
+            # branch below, which assumes move.turn is set.
+            self.node.get_logger().info(
+                f"[mission] Move '{move.id}': enter_door "
+                f'{move.enter_door.door!r} -- EnterDoor publishes the goal.'
             )
         elif move.drive is not None:
             # The fourth, open-ended shape (schema_version 3.0) -- see module

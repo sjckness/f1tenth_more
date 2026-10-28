@@ -247,6 +247,20 @@ def required_dependencies(config: MissionConfig,
             blackboard_key=GLOBAL_XY_KEY,
         ))
 
+    if any(getattr(m, 'enter_door', None) is not None for m in config.moves):
+        reqs.append(Requirement(
+            name='semantic_layer_node',
+            reason=('an enter_door step drives at its /perception/doors_semantic '
+                    '(semantic_doors_enabled, door_source "semantic")'),
+            node_name='semantic_layer_node',
+        ))
+        reqs.append(Requirement(
+            name='global localization (/ekf_global/odometry/filtered)',
+            reason=('an enter_door step measures its arrival against the door frame '
+                    'in the map frame'),
+            blackboard_key=GLOBAL_XY_KEY,
+        ))
+
     uses_perception = bool(stop_condition_types & {'object_seen', 'object_cleared'}) or any(
         m.on_object for m in config.moves
     )

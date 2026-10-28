@@ -756,6 +756,10 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             if (record is not None and object_status is not None
                     and object_status.move_id == object_move_id):
                 record.last_status = object_status
+        # The enter_door move's record, if this move is one. EnterDoor runs
+        # before this behaviour in the same tick (behavior_executor_node's
+        # own progress Sequence), so the record it wrote is this tick's.
+        door_record = getattr(state, 'door_record', None)
         ctx = EvalContext(
             now=now,
             move_start_time=state.move_start_time,
@@ -781,6 +785,11 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             speed=self.speed,
             stop_ramp_arrive_tol_m=self.stop_ramp_arrive_tol_m,
             stop_ramp_rest_speed_mps=self.stop_ramp_rest_speed_mps,
+            # door_entered: EnterDoor's own measurement for THIS move, or
+            # None while no enter_door move is running. Taken from the record
+            # rather than recomputed, for the reason condition_eval's
+            # door_entered branch gives.
+            door_entered=(None if door_record is None else bool(door_record.entered)),
         )
         # Raw single-tick answer, then the debounce fold. For every condition
         # except a front_clearance that explicitly asks for debounce_ticks > 1
