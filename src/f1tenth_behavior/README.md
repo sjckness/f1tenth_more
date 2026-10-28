@@ -205,11 +205,12 @@ An `enter_door` step **requires** `stop_condition.type == "door_entered"` and
 door frame's origin, so a mission that wants the room beyond adds a move after
 this one.
 
-**What it needs running**: `semantic_doors_enabled:=true` with
+**What it needs running**: `semantic_doors_enabled` and
 `door_source:=semantic` (so `semantic_layer_node` publishes
-`/perception/doors_semantic`), which in turn needs the wall tracker and the
-semantic layer; and global localization, because the door poses and the
-arrival test are both in the map frame. `mission/preflight.py` checks both and
+`/perception/doors_semantic`) -- both are the defaults, so a normal stack has
+them; they in turn need the wall tracker and the semantic layer. And global
+localization, because the door poses and the arrival test are both in the map
+frame. `mission/preflight.py` checks both and
 names them. Example: `missions/enter_nearest_door.json`.
 
 ## `drive` fields (schema_version 3.0)
