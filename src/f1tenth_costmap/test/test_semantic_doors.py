@@ -321,6 +321,27 @@ def test_the_direction_points_away_from_the_car_that_confirmed_it():
     assert door.normal == pytest.approx((0.0, -1.0), abs=1e-6)
 
 
+def test_the_direction_uses_the_first_sighting_not_the_confirming_one():
+    """A car driving straight at the door must not get the side backwards.
+
+    Pose-spread confirmation (confirm_pose_spread_m) can wait for enough
+    travel that, by the confirming cycle, the car is no longer on the side
+    it first saw the door from -- here it ends up 0.5 m PAST the door (y=3.0)
+    by the time 1.0 m of spread accrues from a y=2.5 start. Using that live
+    position to pick the side used to flip the normal to point back at the
+    car (-y); it must use the first sighting (y=2.5, still short of the
+    door) instead, which puts the far side at +y.
+    """
+    p = params(confirm_pose_spread_m=1.0, confirm_same_pose_hits=0)
+    tracker = sd.DoorTracker(p)
+    cands = sd.candidate_doors(room_walls(), room_scan(), [], p)
+    doors = []
+    for i, y in enumerate((2.5, 2.7, 2.9, 3.1, 3.3, 3.5)):
+        doors = tracker.update(cands, (0.0, y), float(i))
+    assert len(doors) == 1
+    assert doors[0].normal == pytest.approx((0.0, 1.0), abs=1e-6)
+
+
 def test_the_pose_is_smoothed_and_the_axis_does_not_collapse():
     """A jittering fit, with p0/p1 swapped on alternate cycles."""
     p = params(smooth_alpha=0.3)

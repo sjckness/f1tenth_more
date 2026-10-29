@@ -87,13 +87,20 @@ candidate starts a new track. A track is CONFIRMED on its confirm_hits'th
 hit and stays confirmed. Centre, width and axis are smoothed (EMA,
 smooth_alpha) so a door does not jitter with the wall fit.
 
-THE CROSSING DIRECTION IS FIXED AT FIRST CONFIRMATION. `normal` is the unit
-vector perpendicular to the jamb line, oriented at that one moment so it
-points from the car's side of the opening to the far side, and it is NEVER
-recomputed -- that is what keeps the door frame's x axis from flipping when
-the car drives through and ends up on the other side. Before confirmation
-the normal follows the car, because there is not yet a door to have a
-direction.
+THE CROSSING DIRECTION IS FIXED AT FIRST CONFIRMATION, FROM THE TRACK'S
+FIRST SIGHTING, NOT ITS CONFIRMING ONE. `normal` is the unit vector
+perpendicular to the jamb line, oriented so it points from the car's side of
+the opening to the far side -- and it is NEVER recomputed, which is what
+keeps the door frame's x axis from flipping when the car drives through and
+ends up on the other side. The car's position used to pick that side is
+DoorTrack.birth_xy, the robot pose at the track's first cycle, not the
+confirming cycle's: confirmation can wait for a robot_xy pose spread
+(confirm_pose_spread_m) of travel, by which point a car driving straight at
+the door may already be level with or past it, where the car-side/far-side
+test has little or no margin left to get right. The first sighting is the
+earliest evidence there is, before any of that approach happened. Before
+confirmation the normal follows the car, because there is not yet a door to
+have a direction.
 
 A CONFIRMED DOOR IS KEPT IN THE MAP after it leaves view: nothing times out
 unless forget_unseen_s is set above 0. An UNCONFIRMED track is dropped after
@@ -693,9 +700,9 @@ class DoorTrack:
     __slots__ = ('id', 'centre', 'axis', 'width', 'normal', 'hits', 'state',
                  'born_sec', 'last_seen_sec', 'confirmed_sec', 'case',
                  'wall_id0', 'wall_id1', 'spread_pair', 'spread', 'flags',
-                 'strong')
+                 'strong', 'birth_xy')
 
-    def __init__(self, track_id, cand, now_sec):
+    def __init__(self, track_id, cand, now_sec, robot_xy=None):
         self.id = int(track_id)
         self.centre = cand.centre
         self.axis = cand.axis
@@ -709,6 +716,14 @@ class DoorTrack:
         self.case = cand.case
         self.wall_id0, self.wall_id1 = cand.wall_id0, cand.wall_id1
         self.flags = tuple(cand.flags)
+        # The robot's position at this track's FIRST sighting, kept forever
+        # (unlike spread_pair below, which drifts to whichever two poses end
+        # up furthest apart). _confirm uses this, not the confirming cycle's
+        # live position, to decide which side is "the car's side" -- see
+        # _confirm's own comment for why the live position is the wrong one
+        # to ask.
+        self.birth_xy = (None if robot_xy is None
+                         else (float(robot_xy[0]), float(robot_xy[1])))
         # The two poses furthest apart that this track has been seen from,
         # and their distance. A RUNNING DIAMETER, not a list of poses: the
         # first version kept the first 16 poses and the distance between
@@ -833,7 +848,7 @@ class DoorTracker:
         for ci, cand in enumerate(doors):
             if ci in taken_c:
                 continue
-            trk = DoorTrack(self._next_id, cand, now_sec)
+            trk = DoorTrack(self._next_id, cand, now_sec, robot_xy)
             trk.remember_pose(robot_xy)
             trk.strong = self.is_strong(trk)
             self._next_id += 1
@@ -898,11 +913,23 @@ class DoorTracker:
         trk.state = STATE_DOOR_CONFIRMED
         trk.confirmed_sec = float(now_sec)
         nx, ny = -trk.axis[1], trk.axis[0]
-        if robot_xy is not None:
-            # From the car's side of the opening to the far side, at this one
-            # moment. Never recomputed: see the module docstring.
-            away = ((trk.centre[0] - robot_xy[0]) * nx
-                    + (trk.centre[1] - robot_xy[1]) * ny)
+        # birth_xy, not the confirming cycle's robot_xy: confirmation (see
+        # should_confirm) can wait for confirm_pose_spread_m of travel, by
+        # which time the car may already be close to, level with, or past
+        # the opening -- the dot product below then has little or no margin
+        # to get the sign right, and the one case it is most likely to get
+        # wrong, a car that drives straight at the door, is also the most
+        # common one. The FIRST sighting is the earliest possible evidence,
+        # before any of that approach happened, so it is the one position
+        # most reliably still on the car's own side. Falls back to the live
+        # robot_xy when birth_xy is unset (DoorTrack built directly, as the
+        # merge tests do).
+        anchor = trk.birth_xy if trk.birth_xy is not None else robot_xy
+        if anchor is not None:
+            # From the car's side of the opening to the far side, at that
+            # first moment. Never recomputed: see the module docstring.
+            away = ((trk.centre[0] - anchor[0]) * nx
+                    + (trk.centre[1] - anchor[1]) * ny)
             if away < 0.0:
                 nx, ny = -nx, -ny
         trk.normal = (nx, ny)
