@@ -188,7 +188,87 @@ each now has a test.
    showed up as "the debug markers are silently never published" rather than as
    a crash.
 
-## 6. Params to tune first
+## 6. One doorway, one track
+
+The detector's first real outing published the same doorway several times.
+On `corridor10m_20261019T131815`, 23 of its 30 strong doors were overlapping
+pairs: ids 5 and 15 sitting 0.30 m apart with the same axis and 307 against 48
+hits, and a cluster of four inside 0.6 m at four different angles, up to 97
+deg between them.
+
+The cause is that **nothing ever merged two tracks**. `assoc_max_m` only ever
+folds a candidate into an existing track, so once both tracks existed they
+never met again -- and one candidate landing a hair over 0.30 m from the
+track that already had it was enough to create the second one.
+
+Two tests now decide that two tracks are one opening, both in
+`DoorTracker`, both 0 for the wall detectors:
+
+- **`merge_tracks_overlap`** (1.0) -- centres closer than the mean of the two
+  widths. *Two doorways cannot overlap in space*, so if two 1.1 m openings
+  sit 0.8 m apart one of them is false whatever the axes say. Scale-free
+  where a fixed radius is not: 1.2 m between two 1.2 m doorways, 0.7 m
+  between two narrow ones. This is what the angle-spread clusters needed.
+- **`merge_tracks_parallel_m`** (1.0) with **`merge_tracks_yaw_deg`** (25) --
+  a duplicate of a *side* door drifts ALONG the wall, latching onto one real
+  jamb and something else, so its copy sits further away than its own width
+  (measured pairs at 0.89, 0.90, 0.91 m with 2-4 deg between their axes).
+  The axis gate is what stops this from fusing two real openings a metre
+  apart.
+
+The survivor is the better-evidence track (confirmed, then strong, then hits,
+then pose spread, then the older id) and keeps its own geometry, flags and
+fixed direction. It absorbs only evidence: the loser's pose-diameter
+endpoints, `max` of the hit counts (not the sum -- in a cycle where both
+tracks took a hit from one scan, summing counts that scan twice), the earlier
+`born_sec` and the later `last_seen_sec`. Clusters collapse closest-pair
+first, repeatedly.
+
+The same test also runs at **association** time, which is what keeps ids
+stable: a candidate outside `assoc_max_m` but inside the same-door test
+counts as a sighting of the existing track instead of becoming a new one, and
+does *not* drag the track's geometry a third of the way towards itself the
+way the EMA would. Letting those tracks be born and then merged away churned
+1024 ids over 506 cycles for a final 19 doors.
+
+Measured on `corridor10m_20261019T131815`, 506 cycles over 3223 scans:
+
+| | before | after |
+|---|---|---|
+| tracks held | 98 | 25 |
+| confirmed | 56 | 14 |
+| strong | 30 | 11 |
+| strong pairs under 1 m | 23 | **0** |
+| ms/cycle median | 11.7 | 11.7 |
+| ms/cycle p95 | 14.2 | 14.4 |
+| ids burned | 386 | 647 |
+
+`output/doors/corridor10m_doors.html` is that run on the map, before and
+after, with the duplicate links drawn.
+
+**What this does not fix.** 11 strong doors along one corridor is still more
+than that corridor has, and the remaining ones are single hypotheses rather
+than copies -- `door_7` and `door_580` face back along the corridor instead
+of into a wall, which no amount of merging addresses. There is also no ground
+truth in this bag: it measures duplication, not accuracy.
+
+## 7. When there are no doors in Foxglove at all
+
+`tools/doors_doctor.sh` answers this in ten checks, ordered so the first
+failure is the cause: the executable in the install space, `Door.msg`'s
+`strong` field, whether the installed `stack_params.yaml` is this branch, the
+node in the node list, both gates (`door_source`, `freespace_doors_enabled`),
+`/scan`, `base_link` -> the scan frame, the debug line, the markers, and
+finally whether anything is confirmed.
+
+The last one is the trap, and it is by design: with
+`freespace_doors_confirm_same_pose_hits` 0 **a standing car never confirms a
+door**, so a bench test looks exactly like a dead detector. The node now says
+so itself after ten consecutive cycles with candidates and nothing confirmed,
+naming how far apart its best two sightings have been. Unconfirmed candidates
+are on `/viz/doors_semantic` the whole time, drawn faded.
+
+## 8. Params to tune first
 
 1. **`freespace_doors_confirm_pose_spread_m`** (1.0) with
    **`freespace_doors_confirm_same_pose_hits`** (0). The only knobs with real

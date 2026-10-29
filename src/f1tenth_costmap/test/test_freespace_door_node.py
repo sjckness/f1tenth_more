@@ -420,3 +420,39 @@ def test_yaw_from_quaternion_round_trips():
         q = type('Q', (), {'x': 0.0, 'y': 0.0,
                            'z': math.sin(yaw / 2.0), 'w': math.cos(yaw / 2.0)})
         assert yaw_from_quaternion(q) == pytest.approx(yaw)
+
+
+# ---------------------------------------------------------------------------
+# "no doors in Foxglove" when the only thing missing is that the car has
+# not moved -- the one failure that looks exactly like a broken detector
+# ---------------------------------------------------------------------------
+def _warnings(node):
+    return [str(c[0][0]) for c in node.get_logger().warn.call_args_list]
+
+
+def test_a_standing_car_is_told_that_it_is_standing():
+    node = _node()
+    node.get_logger = MagicMock(return_value=MagicMock())
+    _drive(node, [0.0] * (FreespaceDoorNode.FREESPACE_STILL_CYCLES + 2))
+    said = [w for w in _warnings(node) if 'DRIVE A COUPLE OF METRES' in w]
+    assert said, 'candidates but no doors and no explanation'
+    assert _debug(node)['doors_confirmed'] == 0
+    assert _debug(node)['door_candidates'] > 0
+
+
+def test_a_car_that_has_moved_far_enough_is_not_nagged():
+    """Enough cycles to trip the counter, but the car crosses the spread
+    first, which resets it."""
+    node = _node()
+    node.get_logger = MagicMock(return_value=MagicMock())
+    _drive(node, [i * 0.15 for i in range(14)])
+    assert not [w for w in _warnings(node) if 'DRIVE A COUPLE OF METRES' in w]
+
+
+def test_the_warning_is_off_when_a_same_pose_fallback_is_configured():
+    """With freespace_doors_confirm_same_pose_hits set, standing still does
+    eventually confirm, so there is nothing to warn about."""
+    node = _node(freespace_doors_confirm_same_pose_hits=3)
+    node.get_logger = MagicMock(return_value=MagicMock())
+    _drive(node, [0.0] * (FreespaceDoorNode.FREESPACE_STILL_CYCLES + 2))
+    assert not [w for w in _warnings(node) if 'DRIVE A COUPLE OF METRES' in w]

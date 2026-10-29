@@ -145,6 +145,8 @@ class FreespaceDoorNode(Node):
     #: guards: a detector that has started raising every cycle is broken, and
     #: a broken one filling the log at 2 Hz is worse than a silent one.
     FREESPACE_MAX_ERRORS = 50
+    #: Consecutive candidates-but-nothing-confirmed cycles before saying so.
+    FREESPACE_STILL_CYCLES = 10
 
     def __init__(self, **kwargs):
         # **kwargs forwarded to rclpy.node.Node -- lets the tests pass
@@ -209,6 +211,7 @@ class FreespaceDoorNode(Node):
         self._scan = None
         self._laser_bl = None          # (frame_id, (x, y, yaw)) in base_link
         self._errors = 0
+        self._still = 0
         self._ms = math.nan
         self._codes: dict = {}
         self._flags: dict = {}
@@ -395,6 +398,7 @@ class FreespaceDoorNode(Node):
         self._window_cells = 0 if window is None else int(window.free.sum())
         self._skeleton_cells = 0 if skel is None else int(skel.sum())
         self._publish(now, profile, window, skel, cands)
+        self._warn_if_standing_still()
 
     def _publish(self, now, profile, window, skel, cands):
         """The four shared outputs, then this detector's own debug view."""
@@ -432,6 +436,43 @@ class FreespaceDoorNode(Node):
                 stamp,
                 skeleton_xy=(fd.skeleton_points(window, skel)
                              if skel is not None else None)))
+
+    def _warn_if_standing_still(self):
+        """Say so when the only thing missing is that the car has not moved.
+
+        The shipped confirmation policy is two sightings from robot positions
+        confirm_pose_spread_m apart with NO standing-still fallback
+        (confirm_same_pose_hits 0), which is deliberate: a one-scan artefact
+        is perfectly repeatable from a parked car, so counting it five times
+        proves nothing. The cost is that a bench test looks exactly like a
+        broken detector -- openings found on every cycle, nothing confirmed,
+        an empty door list -- and that cost was paid once already. So this
+        says which of the two it is, at most once a minute.
+
+        After FREESPACE_STILL_CYCLES consecutive such cycles, not the first
+        one: every run starts parked, so a warning on the first scan would be
+        noise rather than a finding.
+        """
+        p = self.params
+        if p.confirm_pose_spread_m <= 0.0 or p.confirm_same_pose_hits:
+            return
+        tracks = self._tracker.tracks
+        spread = max((t.pose_spread() for t in tracks), default=0.0)
+        if (not tracks or self._tracker.confirmed()
+                or spread >= p.confirm_pose_spread_m):
+            self._still = 0
+            return
+        self._still += 1
+        if self._still < self.FREESPACE_STILL_CYCLES:
+            return
+        self.get_logger().warn(
+            f'{len(tracks)} door candidate(s), none confirmed: the furthest '
+            f'apart two sightings of one have been is {spread:.2f} m and a '
+            f'door needs {p.confirm_pose_spread_m:.2f} m. DRIVE A COUPLE OF '
+            'METRES -- freespace_doors_confirm_same_pose_hits is 0, so a '
+            'standing car never confirms a door. They are on '
+            f'{self.viz_pub.topic_name} already, drawn faded.',
+            throttle_duration_sec=60.0)
 
     def _publish_debug(self):
         """One JSON object per cycle, SAME KEY NAMES as the semantic detector's.
