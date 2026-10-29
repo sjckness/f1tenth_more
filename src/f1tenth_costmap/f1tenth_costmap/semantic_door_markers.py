@@ -16,7 +16,11 @@ collide with another's and each can be deleted by id:
                               enter_door mission -- it is fixed at first
                               confirmation and must not flip after the car
                               drives through.
-    5 * id + 4   TEXT         "door <id> <width>m <case> <state>"
+    5 * id + 4   TEXT         "door <id> <width>m <case> <state> [L|R]" -- the
+                              L/R suffix only when the caller passes car_pose,
+                              and it is the car's CURRENT side, recomputed
+                              every call: the two live call sites both do,
+                              so it is on in practice. See label_of/side_of.
 
 Colour is the CASE: case A (two collinear walls) green, case B (a wall end
 against a perpendicular wall) blue, case F (a scan-jump opening, from
@@ -87,7 +91,26 @@ def colour_of(door):
                      else CONFIRMED_ALPHA)
 
 
-def label_of(door):
+def side_of(centre_xy, car_xy, car_yaw):
+    """'L' or 'R': which side of the car's CURRENT heading this door is on.
+
+    Bearing from the car to the door, minus the car's own yaw, wrapped to
+    (-pi, pi]: positive is left (REP-103's yaw is counter-clockwise-positive,
+    so a positive relative bearing is a left turn away from straight ahead),
+    zero or negative is right. Purely a live display computed fresh from
+    `car_xy`/`car_yaw` every publish -- unlike `normal`, a door's side is NOT
+    a fixed property of the door, it depends on where the car is standing
+    right now, so nothing here is stored on the DoorTrack. Same convention
+    as f1tenth_behavior.behaviours.enter_door.side_of (duplicated, not
+    imported: f1tenth_costmap has no reason to depend on f1tenth_behavior
+    for four lines of trigonometry).
+    """
+    bearing = math.atan2(centre_xy[1] - car_xy[1], centre_xy[0] - car_xy[0]) - car_yaw
+    bearing = math.atan2(math.sin(bearing), math.cos(bearing))
+    return 'L' if bearing > 0.0 else 'R'
+
+
+def label_of(door, car_pose=None):
     """The text a door is labelled with: id, width, case, strength, flags.
 
     The flags are the half of a door's story the geometry does not tell --
@@ -95,6 +118,11 @@ def label_of(door):
     occupancy behind it), `no_grid` (never cross-checked against a map). All
     three are reasons to look at a door twice before driving at it, and none
     of them is visible from the markers alone.
+
+    `car_pose` (x, y, yaw), optional: when given, the label also carries L/R
+    for the car's CURRENT position -- the same side an enter_door move's
+    "left"/"right" selector would resolve to if asked right now. None omits
+    it (the two node call sites that still pass no pose keep the old label).
     """
     flags = getattr(door, 'flags', ()) or ()
     tail = (' [' + ' '.join(flags) + ']') if flags else ''
@@ -102,7 +130,8 @@ def label_of(door):
         state = 'candidate'
     else:
         state = 'STRONG' if getattr(door, 'strong', True) else 'confirmed'
-    return (f'door {door.id} {door.width:.2f}m case {door.case} {state}{tail}')
+    side = f' {side_of(door.centre, car_pose[:2], car_pose[2])}' if car_pose is not None else ''
+    return (f'door {door.id} {door.width:.2f}m case {door.case} {state}{side}{tail}')
 
 
 def _base(door, frame_id, stamp, slot, kind, lifetime):
@@ -119,7 +148,7 @@ def _base(door, frame_id, stamp, slot, kind, lifetime):
 
 
 def door_markers(door, frame_id, stamp, jamb_diameter_m=0.10, height_m=1.0,
-                 lifetime=1.0):
+                 lifetime=1.0, car_pose=None):
     """The five markers of one door."""
     j0, j1 = door.jambs()
     out = []
@@ -152,7 +181,7 @@ def door_markers(door, frame_id, stamp, jamb_diameter_m=0.10, height_m=1.0,
                                                   float(door.centre[1]))
     text.pose.position.z = height_m + TEXT_CLEARANCE_M
     text.scale.z = TEXT_SIZE_M
-    text.text = label_of(door)
+    text.text = label_of(door, car_pose)
     out.append(text)
     return out
 
@@ -172,18 +201,20 @@ def delete_markers(door_id, frame_id, stamp):
 
 
 def marker_array(doors, previous_ids, frame_id, stamp, jamb_diameter_m=0.10,
-                 height_m=1.0, lifetime=1.0):
+                 height_m=1.0, lifetime=1.0, car_pose=None):
     """(MarkerArray, ids drawn): every live door, plus DELETEs for the gone ones.
 
     `doors` is every live track, candidates included -- /viz always draws both,
-    whatever /perception/doors_semantic carries.
+    whatever /perception/doors_semantic carries. `car_pose` (x, y, yaw),
+    optional: see label_of -- drawn fresh every call from wherever the car is
+    NOW, not stored on any door.
     """
     msg = MarkerArray()
     live = set()
     for door in doors:
         live.add(int(door.id))
         msg.markers.extend(door_markers(
-            door, frame_id, stamp, jamb_diameter_m, height_m, lifetime))
+            door, frame_id, stamp, jamb_diameter_m, height_m, lifetime, car_pose))
     for gone in sorted(set(previous_ids) - live):
         msg.markers.extend(delete_markers(gone, frame_id, stamp))
     return msg, live

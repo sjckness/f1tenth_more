@@ -44,7 +44,11 @@ them none of this changes anything.
 
 THE DOOR IS RESOLVED ONCE. "nearest" picks the confirmed door nearest the car
 at the moment the move starts and then holds that door's id for the rest of
-the move; "door_<id>" names one outright. Re-picking every tick would let the
+the move; "door_<id>" names one outright; "left"/"right" (select_door's
+side_of()) pick the nearest STRONG door on that side of the car's heading AT
+THAT SAME MOMENT -- for the case nearest alone cannot resolve, two doors
+facing each other across a corridor at roughly the same distance, where
+"nearest" would be deciding on noise. Re-picking every tick would let the
 car swap targets halfway across a room the instant another door came closer,
 and a target that changes under a running approach is the failure
 go_to_object's own follow gate exists to prevent.
@@ -88,7 +92,7 @@ from std_msgs.msg import Bool
 
 from f1tenth_messages.msg import Door, DoorArray
 
-from f1tenth_behavior.mission.mission_config import DOOR_NEAREST
+from f1tenth_behavior.mission.mission_config import DOOR_LEFT, DOOR_NEAREST, DOOR_RIGHT
 from f1tenth_behavior.mission.move_scoring import record_move_outcome, write_mission_summary
 from f1tenth_behavior.mission.runtime import (
     DoorApproachRecord,
@@ -180,10 +184,33 @@ def wrap_deg(radians_delta: float) -> float:
     return math.degrees(math.atan2(math.sin(radians_delta), math.cos(radians_delta)))
 
 
-def select_door(doors: dict, want: str, car_xy):
+def side_of(point_xy, car_xy, car_yaw):
+    """DOOR_LEFT or DOOR_RIGHT: which side of the car's heading `point_xy` is on.
+
+    The bearing from the car to the point, minus the car's own yaw, wrapped
+    to (-pi, pi]: positive is LEFT (ROS/REP-103's yaw is counter-clockwise-
+    positive, so turning toward a point with positive relative bearing is a
+    left turn), zero or negative is RIGHT. Dead ahead ties to RIGHT -- an
+    arbitrary but fixed call, since a door exactly on the heading line is not
+    what this selector exists for anyway.
+    """
+    bearing = math.atan2(point_xy[1] - car_xy[1], point_xy[0] - car_xy[0]) - car_yaw
+    bearing = math.atan2(math.sin(bearing), math.cos(bearing))
+    return DOOR_LEFT if bearing > 0.0 else DOOR_RIGHT
+
+
+def select_door(doors: dict, want: str, car_xy, car_yaw=None):
     """The door `want` asks for, or None. See the module docstring."""
     if not doors:
         return None
+    if want in (DOOR_LEFT, DOOR_RIGHT):
+        if car_xy is None or car_yaw is None:
+            return None
+        side = [i for i in doors if side_of(doors[i][0], car_xy, car_yaw) == want]
+        if not side:
+            return None
+        return min(side, key=lambda i: math.hypot(doors[i][0][0] - car_xy[0],
+                                                   doors[i][0][1] - car_xy[1]))
     if want != DOOR_NEAREST:
         try:
             door_id = int(want.split('_', 1)[1])
@@ -309,14 +336,14 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         car_yaw = self._bb(GLOBAL_YAW_KEY)
 
         if record.door_id is None:
-            door_id = select_door(self.strong, spec.door, car_xy)
+            door_id = select_door(self.strong, spec.door, car_xy, car_yaw)
             if door_id is None:
                 if now - self._move_start_sec >= spec.acquire_timeout_sec:
                     # Which failure is the useful one: is there a door there
                     # at all, or is there one that has simply not earned
                     # being driven at yet? The answer changes what to do
                     # about it -- drive past it again, or look elsewhere.
-                    matched = select_door(self.doors, spec.door, car_xy)
+                    matched = select_door(self.doors, spec.door, car_xy, car_yaw)
                     outcome = 'no_strong_door' if matched is not None else 'door_not_found'
                     return self._fail(state, move, record, outcome, now)
                 return py_trees.common.Status.SUCCESS

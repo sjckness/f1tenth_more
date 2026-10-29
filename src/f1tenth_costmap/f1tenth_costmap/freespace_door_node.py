@@ -421,7 +421,7 @@ class FreespaceDoorNode(Node):
         self._jumps = len(fd.jump_points(profile, self.params))
         self._window_cells = 0 if window is None else int(window.free.sum())
         self._skeleton_cells = 0 if skel is None else int(skel.sum())
-        self._publish(now, profile, window, skel, cands)
+        self._publish(now, profile, window, skel, cands, pose)
         self._warn_if_standing_still()
         self._log_grid_check()
 
@@ -480,7 +480,7 @@ class FreespaceDoorNode(Node):
                 f"flags {d.get('flags')}" for d in rows),
             throttle_duration_sec=5.0)
 
-    def _publish(self, now, profile, window, skel, cands):
+    def _publish(self, now, profile, window, skel, cands, pose):
         """The four shared outputs, then this detector's own debug view."""
         stamp = self.get_clock().now().to_msg()
         confirmed = self._tracker.confirmed()
@@ -502,7 +502,7 @@ class FreespaceDoorNode(Node):
         # candidates stay visible in Foxglove" asks for.
         markers, self._viz_ids = sdm.marker_array(
             self._tracker.tracks, self._viz_ids, self.map_frame, stamp,
-            self.jamb_diameter_m, self.viz_height_m)
+            self.jamb_diameter_m, self.viz_height_m, car_pose=pose)
         self.viz_pub.publish(markers)
 
         if self._tf is not None and confirmed:

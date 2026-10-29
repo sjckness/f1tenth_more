@@ -60,6 +60,11 @@ def test_a_named_door_parses_and_a_malformed_name_does_not():
             parse_mission(door_mission(door=bad))
 
 
+def test_left_and_right_parse_as_door_selectors():
+    assert parse_mission(door_mission(door='left')).moves[0].enter_door.door == 'left'
+    assert parse_mission(door_mission(door='right')).moves[0].enter_door.door == 'right'
+
+
 def test_the_tolerances_are_validated():
     for bad in (0.0, -0.1):
         with pytest.raises(MissionConfigError):
@@ -133,6 +138,33 @@ def test_select_door_and_wrap_deg():
     assert select_door({}, 'nearest', (0.0, 0.0)) is None
     assert select_door(doors, 'nearest', None) is None
     assert wrap_deg(math.radians(-170.0) - math.radians(170.0)) == pytest.approx(20.0)
+
+
+def test_left_and_right_resolve_two_symmetric_doors_nearest_cannot_tell_apart():
+    """Two doors facing each other across a corridor, equally near the car.
+
+    The real case this selector exists for: 'nearest' alone is a coin flip
+    between them (same distance, to within float noise), but left/right is
+    not -- the car's own heading splits them cleanly.
+    """
+    pytest.importorskip('f1tenth_messages.msg', reason='needs the built workspace')
+    from f1tenth_behavior.behaviours.enter_door import select_door, side_of
+    left_door, right_door = 1, 2
+    doors = {left_door: ((5.0, 2.0), 0.0), right_door: ((5.0, -2.0), math.pi)}
+    car_xy, car_yaw = (0.0, 0.0), 0.0
+    assert side_of(doors[left_door][0], car_xy, car_yaw) == 'left'
+    assert side_of(doors[right_door][0], car_xy, car_yaw) == 'right'
+    assert select_door(doors, 'left', car_xy, car_yaw) == left_door
+    assert select_door(doors, 'right', car_xy, car_yaw) == right_door
+    # Turned all the way around: what was ahead-left is now behind-right,
+    # and vice versa -- unlike a partial turn, 180 deg swaps both cleanly
+    # because the two doors sit symmetric about the car's original heading.
+    assert select_door(doors, 'right', car_xy, math.pi) == left_door
+    assert select_door(doors, 'left', car_xy, math.pi) == right_door
+    # No car pose, or nothing on that side at all: None, not a wrong guess.
+    assert select_door(doors, 'left', None, car_yaw) is None
+    assert select_door(doors, 'left', car_xy, None) is None
+    assert select_door({left_door: doors[left_door]}, 'right', car_xy, car_yaw) is None
 
 
 def test_confirmed_doors_skips_candidates():

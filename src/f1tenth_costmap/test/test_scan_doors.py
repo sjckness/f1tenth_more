@@ -828,6 +828,28 @@ def test_the_marker_alpha_separates_strong_from_merely_confirmed():
     assert 'STRONG' not in sdm.label_of(Fake(True, False))
 
 
+def test_the_label_carries_which_side_of_the_car_the_door_is_on():
+    """The L/R the label adds is the car's CURRENT side, not a stored one.
+
+    Two doors at the same (centre, case, width) -- the point is that the
+    label changes with car_pose alone, nothing about the door itself.
+    """
+    from f1tenth_costmap import semantic_door_markers as sdm
+
+    class Fake:
+        case, width, id, flags = 'F', 0.9, 1, ()
+        confirmed, strong = True, True
+        centre = (5.0, 2.0)
+
+    door = Fake()
+    assert sdm.label_of(door) == sdm.label_of(door, car_pose=None)
+    assert ' L' not in sdm.label_of(door) and ' R' not in sdm.label_of(door)
+    assert sdm.side_of(door.centre, (0.0, 0.0), 0.0) == 'L'
+    assert ' L' in sdm.label_of(door, car_pose=(0.0, 0.0, 0.0))
+    assert sdm.side_of(door.centre, (0.0, 0.0), math.pi) == 'R'
+    assert ' R' in sdm.label_of(door, car_pose=(0.0, 0.0, math.pi))
+
+
 def test_the_door_message_carries_strong():
     from f1tenth_messages.msg import Door
     from f1tenth_costmap import semantic_door_markers as sdm

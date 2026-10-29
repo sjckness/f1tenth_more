@@ -660,7 +660,7 @@ class SemanticLayerNode(Node):
             for c in cands:
                 key = c.code or 'ok'
                 self._door_codes[key] = self._door_codes.get(key, 0) + 1
-            self._publish_doors(scan.header.stamp, stamp_sec)
+            self._publish_doors(scan.header.stamp, stamp_sec, pose)
             self._door_errors = 0
         except Exception as exc:                        # noqa: BLE001
             self._door_errors += 1
@@ -675,7 +675,7 @@ class SemanticLayerNode(Node):
         finally:
             self._door_ms = (time.perf_counter() - t0) * 1e3
 
-    def _publish_doors(self, stamp_msg, stamp_sec):
+    def _publish_doors(self, stamp_msg, stamp_sec, pose):
         """The DoorArray, the markers, the TFs and the semantic-layer objects."""
         tracker = self._door_tracker
         confirmed = tracker.confirmed()
@@ -694,7 +694,7 @@ class SemanticLayerNode(Node):
 
         markers, self._door_viz_ids = sdm.marker_array(
             tracker.tracks, self._door_viz_ids, self.map_frame, stamp_msg,
-            self.door_jamb_diameter_m, self.door_viz_height_m)
+            self.door_jamb_diameter_m, self.door_viz_height_m, car_pose=pose)
         self.viz_doors_pub.publish(markers)
 
         if self._door_tf is not None and confirmed:

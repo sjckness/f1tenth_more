@@ -31,11 +31,17 @@ STOP_CONDITION_TYPES = {
 # The terminal-last-move rule that "3.0" introduced applies from "3.0" on.
 TERMINAL_REQUIRED_VERSIONS = {'3.0', '4.0', '5.0', '6.0'}
 
-#: enter_door's `door` selector: the nearest CONFIRMED door, or one by name.
-#: The name is the TF frame semantic_layer_node broadcasts for that door
-#: (semantic_doors.DoorTrack.frame_id), so what a mission names and what
-#: Foxglove shows are the same string.
+#: enter_door's `door` selector: the nearest CONFIRMED door, the nearest one
+#: on a given side of the car's CURRENT heading at the moment the move
+#: starts, or one by name. The name is the TF frame semantic_layer_node
+#: broadcasts for that door (semantic_doors.DoorTrack.frame_id), so what a
+#: mission names and what Foxglove shows are the same string. left/right
+#: exist for the case "nearest" cannot resolve on its own: two doors facing
+#: each other across a corridor, equally near, where nearest alone cannot
+#: say which one was meant -- see behaviours/enter_door.py's side_of().
 DOOR_NEAREST = 'nearest'
+DOOR_LEFT = 'left'
+DOOR_RIGHT = 'right'
 DOOR_NAME_RE = re.compile(r'^door_\d+$')
 ON_OBJECT_ACTIONS = {
     'stop_and_hold', 'reduce_speed', 'reduce_speed_for', 'abort_mission',
@@ -306,7 +312,7 @@ class DoorSpec:
     not fall back to another door.
     """
 
-    door: str              # DOOR_NEAREST, or a 'door_<id>' frame name
+    door: str              # DOOR_NEAREST, DOOR_LEFT/DOOR_RIGHT, or a 'door_<id>' frame name
     xy_tol: float          # [m] from the door frame's origin
     yaw_tol_deg: float     # [deg] from the door frame's x axis
     acquire_timeout_sec: float = 5.0   # no STRONG door within this ->
@@ -785,9 +791,9 @@ def _parse_door_spec(raw: object, where: str) -> DoorSpec:
              f'{where}: enter_door carries type {kind!r}; expected "enter_door"')
     door = raw.get('door', DOOR_NEAREST)
     _require(isinstance(door, str), f'{where}: enter_door.door must be a string')
-    _require(door == DOOR_NEAREST or bool(DOOR_NAME_RE.match(door)),
-             f'{where}: enter_door.door must be "{DOOR_NEAREST}" or "door_<id>" '
-             f'(got {door!r})')
+    _require(door in (DOOR_NEAREST, DOOR_LEFT, DOOR_RIGHT) or bool(DOOR_NAME_RE.match(door)),
+             f'{where}: enter_door.door must be "{DOOR_NEAREST}", "{DOOR_LEFT}", '
+             f'"{DOOR_RIGHT}" or "door_<id>" (got {door!r})')
     xy_tol = _require_positive_number(raw, 'xy_tol', where, default=0.15)
     yaw_tol_deg = _require_positive_number(raw, 'yaw_tol_deg', where, default=10.0)
     _require(yaw_tol_deg <= 180.0,
