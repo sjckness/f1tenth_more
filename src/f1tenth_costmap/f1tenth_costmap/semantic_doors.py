@@ -200,6 +200,8 @@ class DoorParams:
                  'through_frac', 'behind_margin_m', 'gap_clear_m',
                  'jamb_exclude_m', 'assoc_max_m', 'confirm_hits',
                  'confirm_pose_spread_m', 'confirm_same_pose_hits', 'max_tracks',
+                 'merge_tracks_overlap', 'merge_tracks_parallel_m',
+                 'merge_tracks_yaw_deg',
                  'strong_min_hits', 'strong_min_spread_m',
                  'smooth_alpha', 'candidate_forget_s', 'forget_unseen_s',
                  'max_walls')
@@ -243,6 +245,38 @@ class DoorParams:
         # which is what the wall detectors keep: they are capped upstream by
         # /perception/walls carrying at most four tracks.
         self.max_tracks = 0
+        # MERGING TWO TRACKS THAT ARE THE SAME DOOR. Association
+        # (assoc_max_m) only ever folds a candidate into a track; two tracks,
+        # once both exist, never meet again. On corridor10m_20261019T131815
+        # that left 23 overlapping pairs among 30 strong doors -- ids 5 and 15
+        # sitting 0.30 m apart with the same axis and 307 against 48 hits,
+        # i.e. one doorway published twice, because one candidate once landed
+        # a hair over assoc_max_m from the track that already had it.
+        #
+        # Two tests, because the two failure shapes differ:
+        #
+        # merge_tracks_overlap -- TWO DOORWAYS CANNOT OVERLAP IN SPACE. Two
+        # openings this wide whose centres are closer than the mean of their
+        # widths would have to share a hole in the wall, so one of them is
+        # false whatever the axes say, and dropping the weaker hypothesis is
+        # strictly better than publishing both. Scale-free, which a fixed
+        # radius is not: it allows 1.2 m between two 1.2 m doorways and only
+        # 0.7 m between two narrow ones. The measured clusters were exactly
+        # this shape -- four tracks inside 0.6 m at four different angles, up
+        # to 97 deg apart.
+        #
+        # merge_tracks_parallel_m -- a duplicate of a SIDE door drifts ALONG
+        # the wall rather than across it, latching onto one real jamb and
+        # something else, so its copy can sit further away than the width
+        # (measured pairs at 0.89, 0.90 and 0.91 m) and is only recognisable
+        # together with its axis. Requiring the axes to agree is what keeps
+        # this from fusing two genuinely different openings a metre apart.
+        #
+        # Both at 0 is the wall detectors' setting, where /perception/walls
+        # carries at most four walls and cannot produce either shape.
+        self.merge_tracks_overlap = 0.0
+        self.merge_tracks_parallel_m = 0.0
+        self.merge_tracks_yaw_deg = 25.0
         # WHAT MAKES A CONFIRMED DOOR WORTH DRIVING AT. Confirmed means
         # publishable; STRONG means a mission may select it (enter_door
         # resolves over strong doors only). Both zero -- the wall detectors'
@@ -772,16 +806,30 @@ class DoorTracker:
             for ti, trk in enumerate(self.tracks):
                 d = math.hypot(cand.centre[0] - trk.centre[0],
                                cand.centre[1] - trk.centre[1])
-                if d <= p.assoc_max_m:
+                if d <= p.assoc_max_m or self._same_door(cand, trk, d):
                     pairs.append((d, ci, ti))
         pairs.sort()
         taken_c, taken_t = set(), set()
-        for _d, ci, ti in pairs:
+        for d, ci, ti in pairs:
             if ci in taken_c or ti in taken_t:
                 continue
             taken_c.add(ci)
             taken_t.add(ti)
-            self._hit(self.tracks[ti], doors[ci], robot_xy, now_sec)
+            # Inside assoc_max_m the candidate is this door seen again and is
+            # blended in. Outside it, it only passed the SAME-DOOR test
+            # (DoorParams' two merge thresholds), so it is one opening seen
+            # badly: it counts as a sighting but must not drag the track's
+            # geometry a third of the way towards itself, which is what the
+            # EMA would do with a candidate a metre off.
+            #
+            # Associating over the wider test at all is what keeps ids
+            # stable. Letting the track be born and then merged away instead
+            # churned 1024 ids over 506 cycles of
+            # corridor10m_20261019T131815 for a final 19 doors -- a thousand
+            # door_<id> frames in the TF tree, and nothing a mission could
+            # name twice.
+            self._hit(self.tracks[ti], doors[ci], robot_xy, now_sec,
+                      blend=d <= p.assoc_max_m)
         for ci, cand in enumerate(doors):
             if ci in taken_c:
                 continue
@@ -795,17 +843,18 @@ class DoorTracker:
         self._forget(now_sec)
         return self.confirmed()
 
-    def _hit(self, trk, cand, robot_xy, now_sec):
+    def _hit(self, trk, cand, robot_xy, now_sec, blend=True):
         a = self.p.smooth_alpha
-        trk.centre = ((1.0 - a) * trk.centre[0] + a * cand.centre[0],
-                      (1.0 - a) * trk.centre[1] + a * cand.centre[1])
-        trk.axis = _blend_axis(trk.axis, cand.axis, a)
-        trk.width = (1.0 - a) * trk.width + a * cand.width
+        if blend:
+            trk.centre = ((1.0 - a) * trk.centre[0] + a * cand.centre[0],
+                          (1.0 - a) * trk.centre[1] + a * cand.centre[1])
+            trk.axis = _blend_axis(trk.axis, cand.axis, a)
+            trk.width = (1.0 - a) * trk.width + a * cand.width
+            trk.case = cand.case
+            trk.wall_id0, trk.wall_id1 = cand.wall_id0, cand.wall_id1
+            trk.flags = cand.flags
         trk.hits += 1
         trk.last_seen_sec = float(now_sec)
-        trk.case = cand.case
-        trk.wall_id0, trk.wall_id1 = cand.wall_id0, cand.wall_id1
-        trk.flags = cand.flags
         trk.remember_pose(robot_xy)
         trk.strong = self.is_strong(trk)
         if not trk.confirmed and self.should_confirm(trk):
@@ -869,7 +918,77 @@ class DoorTracker:
             elif unseen > self.p.candidate_forget_s:
                 continue
             keep.append(t)
-        self.tracks = self._capped(keep)
+        self.tracks = self._capped(self._merged(keep))
+
+    def _merged(self, tracks):
+        """Collapse tracks that are the same door. See DoorParams' two tests.
+
+        The survivor is the better-evidence one (confirmed, then strong, then
+        sightings, then pose spread, then the older id) and it keeps its own
+        geometry, flags and fixed direction: the loser is a worse view of the
+        same opening, not half of a better one. It absorbs only what is
+        strictly evidence -- the loser's pose-diameter endpoints, its hit
+        count if that is higher (MAX, not sum: in a cycle where both tracks
+        took a hit from the same scan, summing would count that scan twice),
+        the earlier born_sec and the later last_seen_sec.
+
+        Closest pair first, repeatedly, because a cluster of four collapses
+        pairwise and merging the wrong two first would average across the
+        cluster.
+        """
+        p = self.p
+        if p.merge_tracks_overlap <= 0.0 and p.merge_tracks_parallel_m <= 0.0:
+            return tracks
+        tracks = list(tracks)
+        while True:
+            best = None
+            for i in range(len(tracks)):
+                for j in range(i + 1, len(tracks)):
+                    a, b = tracks[i], tracks[j]
+                    d = math.hypot(a.centre[0] - b.centre[0],
+                                   a.centre[1] - b.centre[1])
+                    if best is not None and d >= best[0]:
+                        continue
+                    if not self._same_door(a, b, d):
+                        continue
+                    best = (d, i, j)
+            if best is None:
+                return tracks
+            keep, drop = sorted((tracks[best[1]], tracks[best[2]]),
+                                key=self._evidence, reverse=True)
+            self._absorb(keep, drop)
+            tracks = [t for t in tracks if t is not drop]
+
+    def _same_door(self, a, b, d):
+        """Are these two tracks one opening? Either test may say so."""
+        p = self.p
+        if (p.merge_tracks_overlap > 0.0
+                and d <= p.merge_tracks_overlap * (a.width + b.width) / 2.0):
+            return True
+        return (p.merge_tracks_parallel_m > 0.0
+                and d <= p.merge_tracks_parallel_m
+                and _angle_between_lines(a.axis, b.axis) <= p.merge_tracks_yaw_deg)
+
+    @staticmethod
+    def _evidence(trk):
+        """Merge ranking: who survives. Older id last, so ids stay stable."""
+        return (trk.confirmed, trk.strong, trk.hits, trk.pose_spread(), -trk.id)
+
+    def _absorb(self, keep, drop):
+        """Fold the losing track's evidence into the surviving one.
+
+        Not its geometry: `keep` already has the better view of it. Strength
+        is recomputed because the pose diameter can only grow here; the
+        confirm decision is left to the next sighting, which brings a robot
+        position with it and so can orient the crossing direction.
+        """
+        if drop.spread_pair is not None:
+            for xy in drop.spread_pair:
+                keep.remember_pose(xy)
+        keep.hits = max(keep.hits, drop.hits)
+        keep.born_sec = min(keep.born_sec, drop.born_sec)
+        keep.last_seen_sec = max(keep.last_seen_sec, drop.last_seen_sec)
+        keep.strong = self.is_strong(keep)
 
     def _capped(self, tracks):
         """Enforce max_tracks, dropping the LONGEST UNSEEN first.

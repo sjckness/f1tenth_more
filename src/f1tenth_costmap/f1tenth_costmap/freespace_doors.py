@@ -179,6 +179,8 @@ class FreespaceParams:
         # tracking
         'assoc_max_m', 'confirm_hits', 'confirm_pose_spread_m',
         'confirm_same_pose_hits', 'max_tracks',
+        'merge_tracks_overlap', 'merge_tracks_parallel_m',
+        'merge_tracks_yaw_deg',
         'strong_min_hits', 'strong_min_spread_m', 'smooth_alpha',
         'candidate_forget_s', 'forget_unseen_s',
         # the medial-axis detector, off by default
@@ -234,6 +236,12 @@ class FreespaceParams:
         self.confirm_pose_spread_m = 1.0
         self.confirm_same_pose_hits = 0
         self.max_tracks = 32
+        # One doorway, one track. merge_max_m above only merges CANDIDATES
+        # inside one cycle; these merge TRACKS, which is what the 23
+        # overlapping pairs on corridor10m needed (see DoorParams).
+        self.merge_tracks_overlap = 1.00
+        self.merge_tracks_parallel_m = 1.00
+        self.merge_tracks_yaw_deg = 25.0
         self.strong_min_hits = 5
         self.strong_min_spread_m = 1.0
         self.smooth_alpha = 0.30
@@ -271,6 +279,9 @@ class FreespaceParams:
             confirm_pose_spread_m=self.confirm_pose_spread_m,
             confirm_same_pose_hits=self.confirm_same_pose_hits,
             max_tracks=self.max_tracks,
+            merge_tracks_overlap=self.merge_tracks_overlap,
+            merge_tracks_parallel_m=self.merge_tracks_parallel_m,
+            merge_tracks_yaw_deg=self.merge_tracks_yaw_deg,
             strong_min_hits=self.strong_min_hits,
             strong_min_spread_m=self.strong_min_spread_m,
             smooth_alpha=self.smooth_alpha,

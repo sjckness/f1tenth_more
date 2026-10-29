@@ -562,11 +562,13 @@ def test_max_tracks_drops_the_longest_unseen_not_the_youngest():
     old = tracker.confirmed()[0]
     assert old.hits == 20
 
-    # Two fresh candidates, one hit each, long after.
-    tracker.update([cand(5.0), cand(6.0)], (5.5, 0.0), 100.0)
+    # Two fresh candidates, one hit each, long after. Two metres apart, not
+    # one: at 1.0 m with the same axis the track merge below would fold them
+    # into a single door and this would be testing that instead.
+    tracker.update([cand(5.0), cand(7.0)], (6.0, 0.0), 100.0)
     kept = sorted(round(t.centre[0], 1) for t in tracker.tracks)
     assert len(tracker.tracks) == 2
-    assert kept == [5.0, 6.0], 'the budget evicted what the car is looking at'
+    assert kept == [5.0, 7.0], 'the budget evicted what the car is looking at'
     assert tracker.by_id(old.id) is None
 
 
@@ -589,6 +591,146 @@ def test_the_wall_detectors_are_not_capped():
     """max_tracks 0 is unbounded, which is what semantic_doors keeps: it is
     capped upstream by /perception/walls carrying at most four tracks."""
     assert sd.DoorParams().max_tracks == 0
+
+
+# ---------------------------------------------------------------------------
+# one doorway, one track
+# ---------------------------------------------------------------------------
+def _side_track(tracker, x, y, axis, hits, now=0.0, width=0.90):
+    """A track planted directly, with a chosen axis, width and hit count.
+
+    Built rather than driven through update(): the point of these tests is
+    what _merged does with two tracks that ALREADY exist, and a second track
+    0.3 m from the first cannot be grown through update() without the merge
+    under test eating it on the cycle that created it.
+    """
+    hx, hy = axis[0] * width / 2.0, axis[1] * width / 2.0
+    cand = sd.DoorCandidate((x - hx, y - hy), (x + hx, y + hy),
+                            fd.CASE_FREESPACE, fd.NO_WALL_ID, fd.NO_WALL_ID)
+    trk = sd.DoorTrack(tracker._next_id, cand, now)
+    tracker._next_id += 1
+    trk.hits = hits
+    tracker.tracks.append(trk)
+    return trk
+
+
+def test_two_tracks_on_one_opening_merge_into_the_better_one():
+    """Ids 5 and 15 on corridor10m: 0.30 m apart, same axis, 307 vs 48 hits."""
+    p = fd.FreespaceParams(assoc_max_m=0.05)
+    tracker = sd.DoorTracker(p.door_params())
+
+    def cand(x):
+        return sd.DoorCandidate((x, -0.45), (x, 0.45), fd.CASE_FREESPACE,
+                                fd.NO_WALL_ID, fd.NO_WALL_ID)
+    for i in range(10):
+        tracker.update([cand(0.0)], (float(i) * 0.3, -2.0), float(i))
+    heavy = tracker.tracks[0]
+    assert heavy.hits == 10
+
+    # A second candidate 0.30 m away -- too far to associate, close enough to
+    # be the same doorway. It becomes a track and is merged away at once.
+    tracker.update([cand(0.0), cand(0.30)], (3.0, -2.0), 10.0)
+    assert len(tracker.tracks) == 1
+    assert tracker.tracks[0].id == heavy.id
+
+
+def test_the_wider_radius_needs_the_axes_to_agree():
+    """A duplicate of a side door drifts ALONG the wall, up to ~1 m away.
+
+    0.70 m openings 0.90 m apart: further apart than their own width, so the
+    overlap test says nothing and only the axis-gated radius can speak.
+    """
+    p = fd.FreespaceParams()
+    along = sd.DoorTracker(p.door_params())
+    a = _side_track(along, 0.0, 0.0, (1.0, 0.0), 20, width=0.70)
+    _side_track(along, 0.90, 0.0, (1.0, 0.0), 4, width=0.70)
+    along.tracks = along._merged(along.tracks)
+    assert [t.id for t in along.tracks] == [a.id]
+
+    crossing = sd.DoorTracker(p.door_params())
+    ids = [_side_track(crossing, 0.0, 0.0, (1.0, 0.0), 20, width=0.70).id,
+           _side_track(crossing, 0.90, 0.0, (0.0, 1.0), 4, width=0.70).id]
+    crossing.tracks = crossing._merged(crossing.tracks)
+    assert sorted(t.id for t in crossing.tracks) == sorted(ids), \
+        'two openings a metre apart at 90 deg are not one door'
+
+
+def test_overlapping_openings_merge_whatever_their_axes_say():
+    """The cluster at (13.2, -2.5) held four tracks inside 0.6 m, up to 97
+    deg apart. Two doorways cannot overlap in space, so one of them is false
+    and the axes do not get a say."""
+    p = fd.FreespaceParams()
+    tracker = sd.DoorTracker(p.door_params())
+    keep = _side_track(tracker, 0.0, 0.0, (1.0, 0.0), 20)
+    _side_track(tracker, 0.30, 0.0, (0.0, 1.0), 4)
+    tracker.tracks = tracker._merged(tracker.tracks)
+    assert [t.id for t in tracker.tracks] == [keep.id]
+
+
+def test_merging_keeps_the_survivors_geometry_and_takes_only_evidence():
+    p = fd.FreespaceParams()
+    tracker = sd.DoorTracker(p.door_params())
+    keep = _side_track(tracker, 0.0, 0.0, (1.0, 0.0), 20, now=5.0)
+    drop = _side_track(tracker, 0.20, 0.0, (1.0, 0.0), 8, now=9.0)
+    keep.remember_pose((0.0, -2.0))
+    drop.remember_pose((0.0, -2.0))
+    drop.remember_pose((4.0, -2.0))
+    centre, axis, width = keep.centre, keep.axis, keep.width
+
+    tracker.tracks = tracker._merged(tracker.tracks)
+    assert len(tracker.tracks) == 1
+    survivor = tracker.tracks[0]
+    assert survivor.centre == centre and survivor.axis == axis
+    assert survivor.width == width
+    assert survivor.hits == 20, 'MAX, not sum: one scan must not count twice'
+    assert survivor.pose_spread() == pytest.approx(4.0), \
+        "the loser's pose diameter is evidence and is kept"
+    assert survivor.born_sec == 5.0 and survivor.last_seen_sec == 9.0
+
+
+def test_a_cluster_of_four_collapses_to_one():
+    p = fd.FreespaceParams()
+    tracker = sd.DoorTracker(p.door_params())
+    best = _side_track(tracker, 0.0, 0.0, (1.0, 0.0), 30)
+    for i, (x, y) in enumerate(((0.20, 0.05), (0.40, -0.10), (0.55, 0.15))):
+        _side_track(tracker, x, y, (1.0, 0.0), 3 + i)
+    tracker.tracks = tracker._merged(tracker.tracks)
+    assert [t.id for t in tracker.tracks] == [best.id]
+
+
+def test_the_wall_detectors_do_not_merge_tracks():
+    """Both radii at 0 leaves semantic_doors exactly as it was: it is fed at
+    most four walls and cannot produce a duplicate of one opening."""
+    dp = sd.DoorParams()
+    assert dp.merge_tracks_overlap == 0.0
+    assert dp.merge_tracks_parallel_m == 0.0
+    tracker = sd.DoorTracker(dp)
+    _side_track(tracker, 0.0, 0.0, (1.0, 0.0), 20)
+    _side_track(tracker, 0.10, 0.0, (1.0, 0.0), 4)
+    assert len(tracker._merged(tracker.tracks)) == 2
+
+
+def test_the_shipped_merge_thresholds_are_the_measured_ones():
+    p = fd.FreespaceParams()
+    assert p.merge_tracks_overlap == 1.00
+    assert p.merge_tracks_parallel_m == 1.00
+    assert p.merge_tracks_yaw_deg == 25.0
+    dp = p.door_params()
+    assert dp.merge_tracks_overlap == 1.00
+    assert dp.merge_tracks_parallel_m == 1.00
+    assert dp.merge_tracks_yaw_deg == 25.0
+
+
+def test_two_doorways_further_apart_than_their_width_both_survive():
+    """The overlap test must not fuse two real adjacent doors. Two 0.90 m
+    openings 1.20 m apart share no hole in the wall, and the axis-gated
+    radius does not reach that far either."""
+    p = fd.FreespaceParams()
+    tracker = sd.DoorTracker(p.door_params())
+    ids = [_side_track(tracker, 0.0, 0.0, (1.0, 0.0), 20).id,
+           _side_track(tracker, 1.20, 0.0, (1.0, 0.0), 20).id]
+    tracker.tracks = tracker._merged(tracker.tracks)
+    assert sorted(t.id for t in tracker.tracks) == sorted(ids)
 
 
 # ---------------------------------------------------------------------------
