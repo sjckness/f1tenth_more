@@ -137,6 +137,7 @@ def replay(bag, out_dir, params, rate_hz, window_m, use_skeleton=None):
         while gi + 1 < len(grids) and grids[gi + 1][0] <= t:
             gi += 1
         grid = grids[gi][1] if grids and grids[gi][0] <= t else None
+        grid_age = None if grid is None else t - grids[gi][0]
 
         c0 = time.perf_counter()
         n = len(scan.ranges)
@@ -157,7 +158,13 @@ def replay(bag, out_dir, params, rate_hz, window_m, use_skeleton=None):
                 pose[:2], p)
         else:
             cands = fd.scan_candidates(profile, window, pose[:2], p)
+            fd.mark_stale(cands, grid_age, p)
         tracker.update(cands, (pose[0], pose[1]), t)
+        # Same order the node uses: the grid under a door already confirmed
+        # is re-read every cycle, because the map keeps filling in behind it.
+        fd.recheck_tracks(tracker.tracks, window, p)
+        for trk in tracker.tracks:
+            trk.strong = tracker.is_strong(trk)
         cycle_ms = (time.perf_counter() - c0) * 1e3
         ms.append(cycle_ms)
 

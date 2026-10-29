@@ -27,6 +27,7 @@ from rclpy.parameter import Parameter
 from sensor_msgs.msg import LaserScan
 
 from f1tenth_costmap import freespace_doors as fd
+from f1tenth_costmap import semantic_doors as sd
 from f1tenth_costmap.freespace_door_node import (
     FreespaceDoorNode, compose, yaw_from_quaternion,
 )
@@ -456,3 +457,90 @@ def test_the_warning_is_off_when_a_same_pose_fallback_is_configured():
     node.get_logger = MagicMock(return_value=MagicMock())
     _drive(node, [0.0] * (FreespaceDoorNode.FREESPACE_STILL_CYCLES + 2))
     assert not [w for w in _warnings(node) if 'DRIVE A COUPLE OF METRES' in w]
+
+
+# ---------------------------------------------------------------------------
+# the grid cross-check: it has to read the right cells, from a live grid,
+# and it has to be re-read when the map fills in behind a confirmed door
+# ---------------------------------------------------------------------------
+def test_a_rotated_map_origin_is_refused_rather_than_mis_indexed():
+    """occupancy_window indexes the grid as axis-aligned. A rotated origin
+    would make every read come from somewhere else, silently, and score a
+    wall as free -- so the grid is dropped instead, which flags every
+    candidate no_grid and bars all of them from strong."""
+    node = _node()
+    node.get_logger = MagicMock(return_value=MagicMock())
+    grid = _grid_msg()
+    grid.info.origin.orientation.w = math.cos(0.3)
+    grid.info.origin.orientation.z = math.sin(0.3)
+    node._map_cb(grid)
+    node._pose_cb(_odom(0.0, 0.0))
+    node._last_cycle_sec = None
+    node._scan_cb(_scan_msg(0.0))
+    assert node._usable_grid(node._now_sec()) is None
+    assert 'no_grid' in _debug(node)['door_flags']
+    assert node.get_logger().error.called
+
+
+def test_a_stale_grid_bars_strong_without_hiding_the_door():
+    node = _node()
+    _drive(node, [i * 0.3 for i in range(8)])
+    # The same run, with the grid aged past the strength limit.
+    stale = _node()
+    stale._map_cb(_grid_msg())
+    stale._grid_stamp = stale._now_sec() - 60.0
+    for x in [i * 0.3 for i in range(8)]:
+        stale._pose_cb(_odom(x, 0.0))
+        stale._last_cycle_sec = None
+        stale._scan_cb(_scan_msg(x))
+    fresh_debug, stale_debug = _debug(node), _debug(stale)
+    assert stale_debug['doors_confirmed'] == fresh_debug['doors_confirmed']
+    assert stale_debug['grid_age_s'] > node.params.strong_grid_max_age_s
+    assert not any(t.strong for t in stale._tracker.tracks), \
+        'a door checked against a minute-old map must not be drivable'
+
+
+def test_the_grid_under_a_confirmed_door_is_read_again():
+    """A door is checked when it is SEEN and kept after it leaves view, so a
+    door confirmed while the space was unknown stayed strong after the map
+    filled a wall in under it -- corridor10m door 350, 12 consecutive
+    occupied samples across its opening, published strong."""
+    node = _node()
+    _drive(node, [i * 0.3 for i in range(8)])
+    strong = [t for t in node._tracker.tracks if t.strong]
+    assert strong, 'nothing to demote'
+    trk = strong[0]
+
+    from test_scan_doors import Grid, paint
+    g = Grid()
+    for x in (0.0, 0.5, 1.0):
+        g.ray_cast(_segments(), (x, 0.0, 0.0))
+    j0, j1 = trk.jambs()
+    paint(g, j0, j1, on_cells=12, off_cells=0, t0=0.1, t1=0.9)
+    walled = _grid_msg()
+    walled.data = [int(v) for v in g.a.ravel()]
+    node._map_cb(walled)
+    node._last_cycle_sec = None
+    node._scan_cb(_scan_msg(2.1))
+
+    again = node._tracker.by_id(trk.id)
+    assert again is not None, 'the door must stay published, only not strong'
+    assert 'grid_blocked' in again.flags
+    assert not again.strong
+
+
+def test_a_door_outside_the_window_is_not_re_cleared():
+    """Outside the crop every cell reads "not occupied", so re-checking a
+    door out there would clear its flag on no evidence."""
+    node = _node(freespace_doors_window_m=1.0)
+    _drive(node, [i * 0.3 for i in range(8)])
+    for trk in node._tracker.tracks:
+        trk.flags = ('grid_blocked',)
+        trk.state = sd.STATE_DOOR_CONFIRMED
+    grid = node._usable_grid(node._now_sec())
+    window = fd.occupancy_window(
+        grid.data, grid.info.width, grid.info.height, grid.info.resolution,
+        grid.info.origin.position.x, grid.info.origin.position.y,
+        (20.0, 20.0), node.params)
+    node._recheck_confirmed(window)
+    assert all('grid_blocked' in t.flags for t in node._tracker.tracks)

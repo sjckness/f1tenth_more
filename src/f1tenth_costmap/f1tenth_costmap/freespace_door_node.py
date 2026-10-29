@@ -147,6 +147,8 @@ class FreespaceDoorNode(Node):
     FREESPACE_MAX_ERRORS = 50
     #: Consecutive candidates-but-nothing-confirmed cycles before saying so.
     FREESPACE_STILL_CYCLES = 10
+    #: Largest map-origin yaw still treated as axis-aligned (~0.6 deg).
+    GRID_YAW_TOL_RAD = 0.01
 
     def __init__(self, **kwargs):
         # **kwargs forwarded to rclpy.node.Node -- lets the tests pass
@@ -212,6 +214,7 @@ class FreespaceDoorNode(Node):
         self._laser_bl = None          # (frame_id, (x, y, yaw)) in base_link
         self._errors = 0
         self._still = 0
+        self._grid_debug = []
         self._ms = math.nan
         self._codes: dict = {}
         self._flags: dict = {}
@@ -317,6 +320,23 @@ class FreespaceDoorNode(Node):
                 f'(> {self.grid_max_age_s:.1f}) -- cross-check skipped',
                 throttle_duration_sec=10.0)
             return None
+        yaw = abs(yaw_from_quaternion(self._grid.info.origin.orientation))
+        if yaw > self.GRID_YAW_TOL_RAD:
+            # occupancy_window indexes the grid as axis-aligned: row from y,
+            # column from x, origin at the (0, 0) corner. A map origin with a
+            # yaw would make every cell read come from somewhere else, and
+            # the failure mode is silent -- a wall scored as free space. ROS
+            # map servers and slam_toolbox both publish an identity
+            # orientation; anything else is refused rather than mis-indexed,
+            # which flags every candidate `no_grid` and so bars all of them
+            # from strong.
+            self.get_logger().error(
+                f'freespace doors: {self.map_topic} origin is rotated by '
+                f'{math.degrees(yaw):.1f} deg -- this detector indexes the '
+                'grid as axis-aligned, so the cross-check is refused rather '
+                'than read from the wrong cells',
+                throttle_duration_sec=30.0)
+            return None
         return self._grid
 
     def _cycle(self):
@@ -385,9 +405,13 @@ class FreespaceDoorNode(Node):
                 cands = fd.skeleton_candidates(
                     window, skel, beams, pose[:2], self.params)
         else:
-            cands = fd.scan_candidates(profile, window, pose[:2], self.params)
+            self._grid_debug = []
+            cands = fd.scan_candidates(profile, window, pose[:2], self.params,
+                                       debug=self._grid_debug)
+            self._mark_stale(cands, window)
 
         self._tracker.update(cands, (pose[0], pose[1]), now)
+        self._recheck_confirmed(window)
         self._codes, self._flags = {}, {}
         for c in cands:
             key = c.code or 'ok'
@@ -399,6 +423,62 @@ class FreespaceDoorNode(Node):
         self._skeleton_cells = 0 if skel is None else int(skel.sum())
         self._publish(now, profile, window, skel, cands)
         self._warn_if_standing_still()
+        self._log_grid_check()
+
+    def _mark_stale(self, cands, window):
+        """Flag every candidate when the grid it was checked against is old.
+
+        `grid_stale` bars a door from strong without hiding it: the scan said
+        there is an opening and that evidence stands, but nothing current
+        agrees with it, and strong is the claim that a mission may drive at
+        it. A window that does not exist at all already flags `no_grid`.
+        """
+        if window is None:
+            return
+        fd.mark_stale(cands, self._grid_age_s, self.params)
+
+    def _recheck_confirmed(self, window):
+        """Re-read the grid under every confirmed door still in the window.
+
+        A door is checked when it is SEEN, and a confirmed one is kept after
+        it leaves view -- so a door confirmed while the space behind it was
+        unknown kept its strength after the map filled a solid wall in under
+        it. Measured on corridor10m_20261019T131815: door 350 at
+        (1.04, 2.11) scores `blocked` on the final map, 12 consecutive
+        occupied samples across its opening, and was published strong.
+
+        Only a door whose BOTH jambs are inside the crop is re-read: outside
+        it every cell answers "not occupied", which would score a perfect
+        clear and quietly clear the flag again.
+        """
+        changed = fd.recheck_tracks(self._tracker.tracks, window, self.params)
+        for trk in self._tracker.tracks:
+            trk.strong = self._tracker.is_strong(trk)
+        if changed:
+            self.get_logger().info(
+                'freespace doors: the grid under door(s) '
+                + ', '.join(str(i) for i in changed)
+                + ' changed -- strength re-evaluated')
+
+    def _log_grid_check(self):
+        """One line per accepted candidate, throttled: what the grid said.
+
+        The numbers the bug report asked for, in the node's own log rather
+        than only on the debug topic, because this is what you read when a
+        door is on screen that should not be.
+        """
+        rows = [d for d in self._grid_debug if not d.get('code')]
+        if not rows:
+            return
+        frame = 'none' if self._grid is None else self._grid.header.frame_id
+        age = ('n/a' if not math.isfinite(self._grid_age_s)
+               else f'{self._grid_age_s:.1f} s')
+        self.get_logger().debug(
+            f'freespace doors: grid {frame} age {age} -- ' + '; '.join(
+                f"AB {d['a']}->{d['b']} frac {d.get('occupied_frac')} "
+                f"of {d.get('n_samples')} run {d.get('longest_run_m')} m "
+                f"flags {d.get('flags')}" for d in rows),
+            throttle_duration_sec=5.0)
 
     def _publish(self, now, profile, window, skel, cands):
         """The four shared outputs, then this detector's own debug view."""
@@ -435,7 +515,8 @@ class FreespaceDoorNode(Node):
                 fd.jump_points(profile, self.params), cands, self.map_frame,
                 stamp,
                 skeleton_xy=(fd.skeleton_points(window, skel)
-                             if skel is not None else None)))
+                             if skel is not None else None),
+                grid_samples=[d.get('samples') for d in self._grid_debug]))
 
     def _warn_if_standing_still(self):
         """Say so when the only thing missing is that the car has not moved.
@@ -499,6 +580,14 @@ class FreespaceDoorNode(Node):
             'skeleton_cells': self._skeleton_cells,
             'grid_age_s': (None if not math.isfinite(self._grid_age_s)
                            else round(float(self._grid_age_s), 2)),
+            'grid_frame': (None if self._grid is None
+                           else self._grid.header.frame_id),
+            # One entry per ACCEPTED candidate: the numbers check_segment
+            # measured under its AB, which is what you compare against the
+            # map when a door is on screen that should not be. `samples` is
+            # left out -- it is in the markers, and it is long.
+            'door_grid': [{k: v for k, v in d.items() if k != 'samples'}
+                          for d in self._grid_debug if not d.get('code')],
         })))
 
 

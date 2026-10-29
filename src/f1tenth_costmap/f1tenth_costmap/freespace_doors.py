@@ -127,7 +127,8 @@ SKELETON_CODES = ('junction', 'not_min', 'no_rise', 'spur', 'asymmetric',
 #:              the opening for it loses more doors than it saves
 #:   no_grid    no occupancy grid was available, so none of GRID_CODES was
 #:              checked at all. The scan alone said door
-FLAG_NAMES = ('marginal', 'one_jamb', 'no_grid')
+FLAG_NAMES = ('marginal', 'one_jamb', 'no_grid', 'grid_stale',
+              'grid_blocked')
 
 
 def code_group(code):
@@ -181,7 +182,8 @@ class FreespaceParams:
         'confirm_same_pose_hits', 'max_tracks',
         'merge_tracks_overlap', 'merge_tracks_parallel_m',
         'merge_tracks_yaw_deg',
-        'strong_min_hits', 'strong_min_spread_m', 'smooth_alpha',
+        'strong_min_hits', 'strong_min_spread_m',
+        'strong_grid_max_age_s', 'smooth_alpha',
         'candidate_forget_s', 'forget_unseen_s',
         # the medial-axis detector, off by default
         'use_skeleton', 'rise_ratio', 'rise_within_m', 'spur_prune_m',
@@ -243,6 +245,25 @@ class FreespaceParams:
         self.merge_tracks_parallel_m = 1.00
         self.merge_tracks_yaw_deg = 25.0
         self.strong_min_hits = 5
+        # A STRONG DOOR MUST HAVE BEEN CHECKED AGAINST A GRID THAT EXISTS AND
+        # IS RECENT. Older than this and the candidate carries `grid_stale`,
+        # which bars it from strong while leaving it publishable -- the scan
+        # said there is an opening, but nothing current agrees.
+        #
+        # 12.0 s, TWO slam_toolbox update intervals, and the number is
+        # measured rather than chosen. map_update_interval is 5.0 s and
+        # /slam/map is latched, so grid age on corridor10m_20261019T131815
+        # runs 0-6 s with the receipt jitter. Swept over that bag, strong
+        # doors against the limit:
+        #     1.0 s -> 1   (8429 grid_stale flags: the gate IS the result)
+        #     6.0 s -> 5   (1134 flags: three doors demoted on timing alone)
+        #    12.0 s -> 8   (0 flags)
+        #    20.0 s -> 8   and unlimited -> 8
+        # Below two intervals this stops measuring the map and starts
+        # measuring the publish clock. A dead slam_toolbox is already caught
+        # by freespace_doors_grid_max_age_s (30 s), which drops the grid
+        # outright.
+        self.strong_grid_max_age_s = 12.0
         self.strong_min_spread_m = 1.0
         self.smooth_alpha = 0.30
         self.candidate_forget_s = 12.0
@@ -341,6 +362,16 @@ class Window:
 
     def inside(self, row, col):
         return 0 <= row < self.free.shape[0] and 0 <= col < self.free.shape[1]
+
+    def contains(self, x, y):
+        """Is this map point inside the crop at all?
+
+        Every read outside the crop answers "not occupied, not free", which
+        is right for a door at the window's edge and WRONG for anyone asking
+        "was this checked": a segment outside the crop scores a perfect
+        clear. A caller that re-checks an old door has to ask this first.
+        """
+        return self.inside(*self.to_cell(x, y))
 
     def _at(self, mask, x, y, outside=False):
         r, c = self.to_cell(x, y)
@@ -672,26 +703,50 @@ def _samples_along(a, b, step):
                              a[1] + (b[1] - a[1]) * ts]), length / n)
 
 
-def check_segment(window, a, b, p):
+def check_segment(window, a, b, p, stats=None):
     """Is the line A-B clear enough of real obstacle to be an opening?
 
-    TOLERANT BY DESIGN, three numbers deep:
-      - an occupied run shorter than `noise_max_m` is ignored outright (one
-        or two cells: a chair leg, one bad return, a map artefact);
-      - what survives may still cover up to `occupied_frac_max` of the
-        segment, as long as it is in pieces;
-      - only a CONTINUOUS surviving run of `occupied_run_veto_m` vetoes the
-        opening, because that is a thing standing across the doorway rather
-        than in it.
+    TOLERANT BY DESIGN, but in two independent ways, not three stacked ones:
+      - `occupied_frac_max` is measured over EVERY occupied sample on the
+        segment. It is the honest "how much of this line is wall" number.
+      - `noise_max_m` applies ONLY to the continuous-run veto, so that one
+        bad cell or a chair leg is not read as a thing standing across the
+        doorway; a run longer than that and at least `occupied_run_veto_m`
+        vetoes outright.
+
+    THE FRACTION USED TO BE MEASURED OVER THE SURVIVING RUNS ONLY, and the
+    two tolerances multiplied: a wall seen edge-on enters the map as
+    one-and-two-cell specks, every speck was dropped as noise, and a segment
+    whose cells were 45 % occupied scored 0.00 and passed. Measured on
+    corridor10m_20261019T131815, door 371 at (4.71, -1.47): 15 of 33 samples
+    occupied, runs of 7/4/4, score 0.21, verdict ok. It is strong in that
+    run's output. The noise allowance is for the veto, which is about shape;
+    the fraction is about quantity and must see all of it.
+
+    `stats`, when a dict is passed in, comes back with what was measured:
+    n_samples, occupied, occupied_frac, longest_run_m, step_m, and `samples`
+    as (x, y, state) with state 0 free, 1 occupied, 2 unknown -- which is
+    what the debug markers draw on top of the map.
     """
     pts, step = _samples_along(a, b, window.res / 2.0)
     occ = np.array([window.is_occupied(x, y) for x, y in pts], dtype=bool)
     runs = _run_lengths(occ)
     noise_cells = max(1, int(round(float(p.noise_max_m) / step)))
     real = [n for n in runs if n > noise_cells]
+    frac = float(occ.mean()) if occ.size else 0.0
+    longest = (max(real) if real else 0) * step
+    if stats is not None:
+        unk = np.array([window.is_unknown(x, y) for x, y in pts], dtype=bool)
+        state = np.where(occ, 1, np.where(unk, 2, 0))
+        stats.update(n_samples=int(occ.size), occupied=int(occ.sum()),
+                     occupied_frac=round(frac, 3),
+                     longest_run_m=round(float(longest), 3),
+                     step_m=round(float(step), 4),
+                     samples=[(round(float(x), 3), round(float(y), 3), int(v))
+                              for (x, y), v in zip(pts, state)])
     if real and real[0] * step >= float(p.occupied_run_veto_m):
         return 'blocked'
-    if real and (sum(real) / float(occ.size)) > float(p.occupied_frac_max):
+    if frac > float(p.occupied_frac_max):
         return 'occupied_frac'
     return ''
 
@@ -774,7 +829,7 @@ def check_jambs(window, a, b, p):
     return '', []
 
 
-def check_grid(window, info, laser, p):
+def check_grid(window, info, laser, p, stats=None):
     """The whole grid cross-check for one opening: (code, flags).
 
     With no window at all -- the first scans of a run, before slam_toolbox
@@ -786,7 +841,7 @@ def check_grid(window, info, laser, p):
     if window is None:
         return '', ['no_grid']
     a, b = info['a'], info['b']
-    code = check_segment(window, a, b, p)
+    code = check_segment(window, a, b, p, stats=stats)
     if code:
         return code, []
     code = check_behind(window, info, laser, p)
@@ -829,7 +884,7 @@ def merge_candidates(cands, max_m):
     return out
 
 
-def scan_candidates(scan, window, robot_xy, p):
+def scan_candidates(scan, window, robot_xy, p, debug=None):
     """THE ENTRY POINT: one scan (and optionally the grid) in, candidates out.
 
     Returns semantic_doors.DoorCandidate, accepted ones with code '' and
@@ -842,12 +897,71 @@ def scan_candidates(scan, window, robot_xy, p):
         if code:
             rejected.append(_candidate(info, code, ()))
             continue
-        grid_code, flags = check_grid(window, info, scan.laser, p)
+        stats = {} if debug is not None else None
+        grid_code, flags = check_grid(window, info, scan.laser, p, stats=stats)
         cand = _candidate(info, grid_code, flags)
+        if debug is not None:
+            stats.update(a=tuple(round(float(v), 3) for v in info['a']),
+                         b=tuple(round(float(v), 3) for v in info['b']),
+                         code=grid_code, flags=tuple(cand.flags))
+            debug.append(stats)
         (rejected if grid_code else accepted).append(cand)
     accepted = merge_candidates(accepted, p.merge_max_m)
     accepted.sort(key=lambda c: -c.n_beams)
     return accepted[:int(p.max_candidates)] + rejected
+
+
+def mark_stale(cands, grid_age_s, p):
+    """Add `grid_stale` to every candidate when the grid is old. In place.
+
+    The flag bars a door from strong without hiding it: the scan said there
+    is an opening and that evidence stands, but nothing current agrees, and
+    strong is the claim that a mission may drive at it. A missing grid
+    already flags `no_grid`, which has the same effect.
+    """
+    limit = float(p.strong_grid_max_age_s)
+    if limit <= 0.0 or grid_age_s is None or not math.isfinite(grid_age_s):
+        return cands
+    if grid_age_s <= limit:
+        return cands
+    for c in cands:
+        if 'grid_stale' not in c.flags:
+            c.flags = tuple(c.flags) + ('grid_stale',)
+    return cands
+
+
+def recheck_tracks(tracks, window, p):
+    """Re-read the grid under every confirmed door still inside the window.
+
+    A door is checked when it is SEEN, and a confirmed one is kept after it
+    leaves view -- so a door confirmed while the space behind it was unknown
+    kept its strength after the map filled a solid wall in under it.
+    Measured on corridor10m_20261019T131815: door 350 at (1.04, 2.11) scores
+    `blocked` on the final map, 12 consecutive occupied samples across its
+    opening, and was published strong for the rest of the run.
+
+    Only a door whose BOTH jambs are inside the crop is re-read: outside it
+    every cell answers "not occupied", which would score a perfect clear and
+    quietly take the flag off again. Returns the ids whose flag changed.
+    """
+    if window is None:
+        return []
+    changed = []
+    for trk in tracks:
+        if not trk.confirmed:
+            continue
+        j0, j1 = trk.jambs()
+        if not (window.contains(j0[0], j0[1]) and window.contains(j1[0], j1[1])):
+            continue
+        code = check_segment(window, j0, j1, p)
+        was = 'grid_blocked' in trk.flags
+        flags = [f for f in trk.flags if f != 'grid_blocked']
+        if code:
+            flags.append('grid_blocked')
+        trk.flags = tuple(flags)
+        if was != bool(code):
+            changed.append(trk.id)
+    return changed
 
 
 def jump_points(scan, p):
