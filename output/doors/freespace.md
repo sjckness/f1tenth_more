@@ -252,7 +252,71 @@ than copies -- `door_7` and `door_580` face back along the corridor instead
 of into a wall, which no amount of merging addresses. There is also no ground
 truth in this bag: it measures duplication, not accuracy.
 
-## 7. When there are no doors in Foxglove at all
+## 7. The grid check was not scoring the cells under AB
+
+A confirmed strong door sat on a line whose cells were mostly occupied,
+which `occupied_frac_max` 0.25 should have made impossible. Probing the
+final `/slam/map` of `corridor10m_20261019T131815` under every strong door's
+AB found **two separate causes**, both reproduced:
+
+**1. The fraction was measured over the surviving runs, not over the
+segment.** `check_segment` dropped every occupied run shorter than
+`noise_max_m` and then computed the fraction from what was left -- so the two
+tolerances multiplied instead of composing. A wall seen edge-on enters the
+map as one- and two-cell specks, every speck is noise, `real` comes back
+empty and the score is 0.00. Door 371 at (4.71, -1.47): **15 of 33 samples
+occupied, runs of 7/4/4, score 0.21, verdict ok** -- and strong. The
+fraction now counts every occupied sample; the noise allowance is kept for
+the continuous-run veto, which is about shape, not quantity.
+
+**2. A door was never re-checked after it left view.** The grid check runs
+when a candidate is *seen*, and a confirmed door is deliberately kept after
+it leaves view -- so a door confirmed while the space behind it was still
+unknown held its strength after the map filled a solid wall in under it.
+Door 350 at (1.04, 2.11) scores `blocked` on the final map, 12 consecutive
+occupied samples across its opening. `recheck_tracks` now re-reads the grid
+under every confirmed door whose **both jambs are inside the crop** -- the
+caveat matters, because outside the crop every cell answers "not occupied"
+and a segment out there scores a perfect clear. A door that fails carries
+`grid_blocked`: still published, no longer drivable.
+
+Neither was a transform or indexing error. The grid was read at the right
+cells, in the right frame, with the right origin and no y flip; the sampled
+cells are now drawn on the map (`/viz/doors_freespace_debug`, green free /
+red occupied / grey unknown) so that can be seen rather than argued.
+
+Two things were tightened while in there:
+
+- **a rotated map origin is refused, not mis-indexed.** `occupancy_window`
+  indexes the grid as axis-aligned, and `origin.orientation` was ignored
+  outright, so a rotated map would have scored walls as free space
+  silently. slam_toolbox and the ROS map servers publish identity; anything
+  else now logs an error and drops the grid, which flags `no_grid`.
+- **a stale grid bars strength** (`freespace_doors_strong_grid_max_age_s`).
+  The threshold is 12.0 s and the number is measured, not chosen: the brief
+  asked for 1 s, and with `map_update_interval: 5.0` on a latched topic that
+  leaves **1 strong door of 25** and 8429 `grid_stale` flags -- the gate
+  becomes the result. 6 s still demotes three doors on publish jitter alone.
+  Two update intervals is the first value at which nothing is demoted by
+  timing.
+
+Measured on `corridor10m_20261019T131815`, defaults, 506 cycles:
+
+| | before | after |
+|---|---|---|
+| tracks held | 98 | 25 |
+| strong | 30 | **8** |
+| strong pairs under 1 m | 23 | 0 |
+| tracks carrying `grid_blocked` | n/a | 5 |
+| `occupied_frac` rejections | 18 | 59 |
+| ms/cycle median | 11.7 | 11.8 |
+
+`recheck_tracks` and `mark_stale` live in `freespace_doors.py`, not in the
+node, so `tools/freespace_door_replay.py` exercises the same code -- the
+first version had them in the node and the replay measured 11 strong doors
+where the stack would have published 8.
+
+## 8. When there are no doors in Foxglove at all
 
 `tools/doors_doctor.sh` answers this in ten checks, ordered so the first
 failure is the cause: the executable in the install space, `Door.msg`'s
@@ -268,7 +332,7 @@ so itself after ten consecutive cycles with candidates and nothing confirmed,
 naming how far apart its best two sightings have been. Unconfirmed candidates
 are on `/viz/doors_semantic` the whole time, drawn faded.
 
-## 8. Params to tune first
+## 9. Params to tune first
 
 1. **`freespace_doors_confirm_pose_spread_m`** (1.0) with
    **`freespace_doors_confirm_same_pose_hits`** (0). The only knobs with real

@@ -842,3 +842,138 @@ def test_the_door_message_carries_strong():
     msg = sdm.door_message(door, Door, Time())
     assert msg.strong is door.strong
     assert msg.strong is True
+
+
+# ---------------------------------------------------------------------------
+# the grid check must score the cells that are actually under AB
+# ---------------------------------------------------------------------------
+def paint(grid, a, b, value=100, on_cells=2, off_cells=3, t0=0.2, t1=0.8):
+    """Lay a dashed line of `value` along the t0..t1 part of a -> b.
+
+    The INTERIOR only by default: A and B are jamb points, i.e. cells that
+    are occupied already, and a dash touching one of them joins it into a
+    run long enough to trip `blocked` -- which is a different gate from the
+    one these tests are about.
+    """
+    length = math.hypot(b[0] - a[0], b[1] - a[1])
+    n = int(math.ceil(length / RES))
+    period = on_cells + off_cells
+    for i in range(n + 1):
+        t = i / float(n)
+        if not (t0 <= t <= t1):
+            continue
+        if i % period < on_cells:
+            grid.set(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, value)
+    return grid
+
+
+def test_a_speckled_wall_under_ab_is_rejected_on_its_true_fraction():
+    """THE BUG. The fraction used to be measured over the SURVIVING runs.
+
+    A wall seen edge-on enters the map as one- and two-cell specks. Every
+    speck was dropped by the noise allowance, `real` came back empty, and a
+    segment two thirds occupied scored 0.00 and passed. Measured on
+    corridor10m_20261019T131815, door 371 at (4.71, -1.47): 15 of 33 samples
+    occupied, runs of 7/4/4, score 0.21, verdict ok -- and strong.
+
+    Two cells on, three off: no run reaches occupied_run_veto_m, so `blocked`
+    cannot fire and only the fraction can reject this. The gap has to be
+    three cells and not one, because occupancy_window closes the obstacles
+    once and a one-cell pinhole in a wall is exactly what that is for -- so
+    a 2-on-1-off pattern comes out of the crop as a solid run, which is
+    `blocked` and proves nothing about the fraction.
+    """
+    segs = corridor(doors=(3.0,))
+    j0, j1 = jamb_points(segs)
+    grid = Grid().ray_cast(segs)
+    paint(grid, j0, j1, on_cells=2, off_cells=3)
+    cands, doors = detect(segs, grid=grid)
+    assert doors == []
+    assert codes(cands).get('occupied_frac') == 1, codes(cands)
+
+
+def test_a_solid_wall_under_ab_is_blocked_with_the_car_rotated_and_offset():
+    """Same scene, car turned 40 deg and standing off the corridor axis, map
+    origin at (-8, -8). If AB -> grid were wrong in the transform, the cell
+    indexing or the y flip, this is the test that reads free space."""
+    segs = corridor(doors=(3.0,))
+    laser = (0.4, -0.3, 0.70)
+    j0, j1 = jamb_points(segs, laser=laser)
+    grid = Grid().ray_cast(segs, laser=laser)
+    paint(grid, j0, j1, on_cells=12, off_cells=0, t0=0.1, t1=0.9)
+    cands, doors = detect(segs, laser=laser, grid=grid)
+    assert doors == []
+    assert codes(cands).get('blocked') == 1, codes(cands)
+
+
+def test_check_segment_reports_what_it_measured():
+    """The numbers the debug topic and the markers are made of, and the
+    sample points have to lie ON the segment."""
+    segs = corridor(doors=(3.0,))
+    j0, j1 = jamb_points(segs)
+    grid = Grid().ray_cast(segs)
+    paint(grid, j0, j1, on_cells=2, off_cells=3)
+    p = fd.FreespaceParams()
+    window = grid.window((0.0, 0.0), p)
+    stats = {}
+    code = fd.check_segment(window, j0, j1, p, stats=stats)
+    assert code == 'occupied_frac'
+    assert stats['n_samples'] > 10
+    assert stats['occupied_frac'] > 0.25
+    assert stats['occupied'] == sum(1 for s in stats['samples'] if s[2] == 1)
+    assert len(stats['samples']) == stats['n_samples']
+    for x, y, _state in stats['samples']:
+        # distance from the point to the segment, in cells
+        ex, ey = j1[0] - j0[0], j1[1] - j0[1]
+        n = math.hypot(ex, ey)
+        off = abs((x - j0[0]) * -ey / n + (y - j0[1]) * ex / n)
+        assert off < RES, 'a sample is not on AB'
+
+
+def test_one_isolated_occupied_cell_still_passes():
+    """The tolerance the brief asked for survives the fraction fix: one cell
+    is a few per cent of the segment, nowhere near occupied_frac_max."""
+    segs = corridor(doors=(3.0,))
+    j0, j1 = jamb_points(segs)
+    grid = Grid().ray_cast(segs)
+    mid = ((j0[0] + j1[0]) / 2.0, (j0[1] + j1[1]) / 2.0)
+    grid.set(mid[0], mid[1], 100)
+    _cands, doors = detect(segs, grid=grid)
+    assert len(doors) == 1
+
+
+def test_outside_the_window_is_not_a_clear_segment():
+    """Every read outside the crop answers "not occupied", so a segment out
+    there scores a perfect 0.00. Window.contains is what a caller asks
+    first, and the node's re-check of old doors depends on it."""
+    segs = corridor(doors=(3.0,))
+    grid = Grid().ray_cast(segs)
+    p = fd.FreespaceParams(window_m=2.0)
+    window = grid.window((0.0, 0.0), p)
+    assert window.contains(0.0, 0.0)
+    assert not window.contains(50.0, 50.0)
+    far_a, far_b = (50.0, 50.0), (50.0, 51.0)
+    assert fd.check_segment(window, far_a, far_b, p) == ''
+    assert not window.contains(*far_a)
+
+
+def test_the_strong_grid_age_default_allows_two_slam_updates():
+    """Measured on corridor10m: a 1 s limit leaves 1 strong door of 25 and
+    8429 grid_stale flags -- the gate becomes the result. slam_toolbox's
+    map_update_interval is 5.0 s and /slam/map is latched."""
+    assert fd.FreespaceParams().strong_grid_max_age_s == 12.0
+    assert 'grid_stale' in fd.FLAG_NAMES
+    assert 'grid_blocked' in fd.FLAG_NAMES
+
+
+def test_a_grid_stale_or_blocked_flag_bars_strong():
+    p = fd.FreespaceParams()
+    tracker = sd.DoorTracker(p.door_params())
+    for flag in ('grid_stale', 'grid_blocked', 'no_grid'):
+        trk = _side_track(tracker, 0.0, 0.0, (1.0, 0.0), 50)
+        trk.remember_pose((0.0, -3.0))
+        trk.remember_pose((5.0, -3.0))
+        assert tracker.is_strong(trk), flag
+        trk.flags = (flag,)
+        assert not tracker.is_strong(trk), flag
+        tracker.tracks.remove(trk)

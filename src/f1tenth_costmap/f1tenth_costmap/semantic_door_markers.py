@@ -282,6 +282,12 @@ DEBUG_SLOT_JUMPS = 0
 DEBUG_SLOT_CANDIDATES = 1
 DEBUG_SLOT_REJECTED = 2
 DEBUG_SLOT_SKELETON = 3
+#: The grid cells check_segment actually read under every candidate's AB,
+#: one layer per state. Drawn ON the map, which is the only way to see
+#: that the line being scored is the line you think it is.
+DEBUG_SLOT_CELLS_FREE = 4
+DEBUG_SLOT_CELLS_OCC = 5
+DEBUG_SLOT_CELLS_UNKNOWN = 6
 DEBUG_SLOT_LABELS = 100          # + i, one per candidate
 
 #: Yellow: every range discontinuity the scan half found, before any pairing.
@@ -295,10 +301,14 @@ DEBUG_CANDIDATE_COLOUR = (1.00, 0.55, 0.10, 0.95)
 DEBUG_REJECTED_COLOUR = (0.55, 0.55, 0.55, 0.60)
 #: Blue: the medial axis, drawn only when use_skeleton is on.
 DEBUG_SKELETON_COLOUR = (0.35, 0.75, 1.00, 0.55)
+DEBUG_CELL_FREE_COLOUR = (0.20, 0.85, 0.35, 0.90)
+DEBUG_CELL_OCC_COLOUR = (1.00, 0.15, 0.15, 1.00)
+DEBUG_CELL_UNKNOWN_COLOUR = (0.60, 0.60, 0.60, 0.70)
 
 DEBUG_JUMP_SIZE_M = 0.07
 DEBUG_CANDIDATE_SIZE_M = 0.12
 DEBUG_SKELETON_SIZE_M = 0.03
+DEBUG_CELL_SIZE_M = 0.04
 DEBUG_LABEL_SIZE_M = 0.10
 
 
@@ -328,13 +338,21 @@ def _point_cloud(frame_id, stamp, slot, kind, xy, size, colour, lifetime, z=0.02
 
 
 def freespace_debug_markers(jump_xy, candidates, frame_id, stamp,
-                            skeleton_xy=None, lifetime=2.0, max_labels=16):
+                            skeleton_xy=None, grid_samples=None,
+                            lifetime=2.0, max_labels=16):
     """What the detector saw and what it threw away, in three layers.
 
     `jump_xy` is every range discontinuity (freespace_doors.jump_points),
     `candidates` the list freespace_doors.scan_candidates returned --
     accepted AND rejected, which is the point -- and `skeleton_xy` the medial
     axis, only when the optional skeleton detector is running.
+
+    `grid_samples` is what check_segment read: a list (one per candidate) of
+    (x, y, state) triples with state 0 free, 1 occupied, 2 unknown, drawn as
+    three coloured point layers over the map. This is the layer that answers
+    "is it scoring the cells under AB at all": if the green and red dots do
+    not lie on the opening in Foxglove, the geometry is wrong, and if they
+    do, the thresholds are.
 
     FIXED MARKER IDS with always-published (possibly empty) point lists: the
     counts change every cycle, and per-candidate ids would need DELETEs
@@ -360,6 +378,20 @@ def freespace_debug_markers(jump_xy, candidates, frame_id, stamp,
     msg.markers.append(_point_cloud(
         frame_id, stamp, DEBUG_SLOT_SKELETON, Marker.POINTS, skeleton_xy,
         DEBUG_SKELETON_SIZE_M, DEBUG_SKELETON_COLOUR, lifetime, z=0.01))
+
+    by_state = ([], [], [])
+    for one in (grid_samples or ()):
+        for row in (one or ()):
+            x, y, state = row[0], row[1], int(row[2])
+            if 0 <= state < 3:
+                by_state[state].append((x, y))
+    for slot, state, colour in ((DEBUG_SLOT_CELLS_FREE, 0, DEBUG_CELL_FREE_COLOUR),
+                                (DEBUG_SLOT_CELLS_OCC, 1, DEBUG_CELL_OCC_COLOUR),
+                                (DEBUG_SLOT_CELLS_UNKNOWN, 2,
+                                 DEBUG_CELL_UNKNOWN_COLOUR)):
+        msg.markers.append(_point_cloud(
+            frame_id, stamp, slot, Marker.POINTS, by_state[state],
+            DEBUG_CELL_SIZE_M, colour, lifetime, z=0.03))
 
     ordered = accepted + rejected
     for i in range(int(max_labels)):
