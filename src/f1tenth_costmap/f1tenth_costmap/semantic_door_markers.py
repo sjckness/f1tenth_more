@@ -213,8 +213,17 @@ def door_message(door, Door, stamp_msg):
     n = door.normal or (-door.axis[1], door.axis[0])
     m.normal.x, m.normal.y = float(n[0]), float(n[1])
     m.width = float(door.width)
-    m.parent_wall_id0 = int(door.wall_id0)
-    m.parent_wall_id1 = int(door.wall_id1)
+    # door.wall_id0/1 is freespace_doors.NO_WALL_ID (-1) for a scan-jump door,
+    # which has no host wall at all -- but parent_wall_id0/1 is uint32, and
+    # assigning a negative int to it does not raise cleanly in every Python
+    # build: on the Orin it surfaces as an opaque SystemError from the
+    # generated setter, every publish cycle, which hit freespace_door_node's
+    # 50-consecutive-failures breaker and turned door detection off for the
+    # rest of the process's life (live, 2026-10-29). Wall ids start at 1
+    # (MultiWallTrack._next_id), so 0 is never a real one and is unambiguous
+    # here as "no host wall".
+    m.parent_wall_id0 = max(0, int(door.wall_id0))
+    m.parent_wall_id1 = max(0, int(door.wall_id1))
     m.hits = int(door.hits)
     m.confidence = 0.8 if door.confirmed else 0.5
     m.jamb_height_unknown = True
