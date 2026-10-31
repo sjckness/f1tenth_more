@@ -13,6 +13,10 @@
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
   <depend>f1tenth_messages</depend>
+  <!-- /mpc/steering_model_diag (_publish_steering_model_diag, behind
+       steering_model_diag_enabled, default off): a DiagnosticArray needs no
+       new message definition, so this diagnostic cost nothing to add. -->
+  <depend>diagnostic_msgs</depend>
   <!-- /scan (MPC_corr.py's scan_callback) for the wall_turn wall tracker
        (wall_tracker.py), plus the JointState/Imu imports that predate this
        entry and were never declared. Best-effort subscriber: it cannot

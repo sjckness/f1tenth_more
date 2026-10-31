@@ -14,6 +14,7 @@ from rclpy.parameter import Parameter
 from rclpy.qos import (
     QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data)
 
+from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from nav_msgs.msg import OccupancyGrid, Odometry
 from std_msgs.msg import Bool, Float32, Int32, String
 from ackermann_msgs.msg import AckermannDriveStamped
@@ -308,6 +309,30 @@ def _project_onto_line(
     return dx * math.cos(line_yaw) + dy * math.sin(line_yaw)
 
 
+def _along_lateral_error(
+        point: Tuple[float, float], origin: Tuple[float, float],
+        yaw: float) -> Tuple[float, float]:
+    """(along, lateral) of `point` relative to `origin`, in the frame whose
+    x axis is `yaw`. along is _project_onto_line's own quantity; lateral is
+    the signed perpendicular distance, positive to the left of the axis --
+    the same convention f1tenth_behavior's enter_door.py uses in its own
+    door-frame decomposition (door_frame_xy). Written here as well, rather
+    than imported, only because this package does not depend on that one;
+    keep the two in agreement if either changes.
+
+    Used ONLY by _publish_steering_model_diag, to show how a pose-mode goal
+    (a door's own axis, once set) is being approached: lateral should stay
+    small and quiet throughout a healthy approach, while along shrinks
+    monotonically. A lateral that jumps between ticks is the signature the
+    map -> odom drift bug (see goal_pose_anchor_map's own comment) left
+    behind; a correct reprojection keeps it from happening.
+    """
+    dx = float(point[0]) - float(origin[0])
+    dy = float(point[1]) - float(origin[1])
+    c, s = math.cos(yaw), math.sin(yaw)
+    return dx * c + dy * s, -dx * s + dy * c
+
+
 def _select_live_boundaries(
         values: List[Tuple[float, float, float]], last_time: Optional[float],
         now_sec: float, timeout_sec: float) -> List[Tuple[float, float, float]]:
@@ -352,15 +377,22 @@ class MPCController(Node):
         self.hw_y: Optional[float] = None
         self.hw_yaw: Optional[float] = None
         self.hw_v: Optional[float] = None
+        # The odom message's own angular.z -- gyro-informed on the real EKF,
+        # commanded-yaw-integrated on raw /odom -- read only by
+        # _publish_steering_model_diag (steering_model_diag_enabled); nothing
+        # in the drive/solve path uses it.
+        self.hw_yaw_rate: Optional[float] = None
         self.hw_odom_last_time: Optional[float] = None
 
         self.sim_x: Optional[float] = None
         self.sim_y: Optional[float] = None
         self.sim_yaw: Optional[float] = None
         self.sim_v: Optional[float] = None
+        self.sim_yaw_rate: Optional[float] = None
         self.sim_odom_last_time: Optional[float] = None
 
         self.active_odom_source: Optional[str] = None
+        self.yaw_rate: Optional[float] = None
         self.odom_stale_timeout_sec = float(
             self.declare_parameter('odom_stale_timeout_sec', 0.5).value
         )
@@ -1985,6 +2017,29 @@ class MPCController(Node):
             10
         )
 
+        # =========================
+        # Steering-model live diagnostic (/mpc/steering_model_diag) -- OFF by
+        # default, for the jamb-hit/wobble investigation (2026-10-31): a live
+        # check in Foxglove of whether the commanded steering actually turns
+        # the car the way the MPC's own kinematic model (vehicle_model.py's
+        # psidot = (v/L) cos(beta) tan(delta)) predicts, and whether the
+        # current pose-mode goal (a door, once goal_pose_anchor_map's fix
+        # lands) tracks correctly along/across its own axis. Gated so a run
+        # that never enables it pays nothing: no publisher, no computation,
+        # not even the one extra odom field capture it reads (hw_yaw_rate/
+        # sim_yaw_rate are free -- read off messages already subscribed to --
+        # but the publish + the trig below only run when this is true).
+        # =========================
+        self.steering_model_diag_enabled = bool(self.declare_parameter(
+            'steering_model_diag_enabled', False).value)
+        self.steering_model_diag_smooth_alpha = float(self.declare_parameter(
+            'steering_model_diag_smooth_alpha', 0.1).value)
+        self._steering_model_ratio_ema: Optional[float] = None
+        self.steering_model_diag_pub = None
+        if self.steering_model_diag_enabled:
+            self.steering_model_diag_pub = self.create_publisher(
+                DiagnosticArray, '/mpc/steering_model_diag', 10)
+
         # f1tenth_behavior's PublishMoveGoal, for a mission "turn" step (schema_
         # version 2.0). See goal_turn_callback's own docstring for how a signed
         # heading_delta_deg + speed + steering turn into an actual drive command.
@@ -2457,6 +2512,7 @@ class MPCController(Node):
         self.hw_y = msg.pose.pose.position.y
         self.hw_yaw = self.quaternion_to_yaw(msg.pose.pose.orientation)
         self.hw_v = msg.twist.twist.linear.x
+        self.hw_yaw_rate = msg.twist.twist.angular.z
         self.hw_odom_last_time = self.get_clock().now().nanoseconds * 1e-9
         # Model log only (see model_log_path in __init__).
         self.hw_odom_stamp_sec = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
@@ -2473,6 +2529,7 @@ class MPCController(Node):
         self.sim_y = msg.pose.pose.position.y
         self.sim_yaw = self.quaternion_to_yaw(msg.pose.pose.orientation)
         self.sim_v = msg.twist.twist.linear.x
+        self.sim_yaw_rate = msg.twist.twist.angular.z
         self.sim_odom_last_time = self.get_clock().now().nanoseconds * 1e-9
         # Model log only (see model_log_path in __init__).
         self.sim_odom_stamp_sec = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
@@ -3914,14 +3971,17 @@ class MPCController(Node):
         if hw_age < self.odom_stale_timeout_sec:
             source = 'hardware'
             self.x, self.y, self.yaw, self.v = self.hw_x, self.hw_y, self.hw_yaw, self.hw_v
+            self.yaw_rate = self.hw_yaw_rate
             self.state_stamp_sec = self.hw_odom_stamp_sec
         elif sim_age < self.odom_stale_timeout_sec:
             source = 'sim'
             self.x, self.y, self.yaw, self.v = self.sim_x, self.sim_y, self.sim_yaw, self.sim_v
+            self.yaw_rate = self.sim_yaw_rate
             self.state_stamp_sec = self.sim_odom_stamp_sec
         else:
             source = None
             self.x = self.y = self.yaw = self.v = None
+            self.yaw_rate = None
             self.state_stamp_sec = None
 
         # ---- DEBUG: eta' delle due sorgenti, per capire chi e' stale ----
@@ -5175,6 +5235,77 @@ class MPCController(Node):
                 throttle_duration_sec=5.0
             )
         self._log_ctrl(source, requested, speed, steering_angle)
+        if self.steering_model_diag_enabled:
+            self._publish_steering_model_diag(speed, steering_angle)
+
+    def _publish_steering_model_diag(self, speed_cmd, steering_cmd):
+        """/mpc/steering_model_diag -- see the param's own comment. Gated by
+        steering_model_diag_enabled; _publish_drive only calls this when it
+        is true, so the trig below never runs otherwise.
+
+        predicted_yaw_rate uses the EXACT formula vehicle_model.py's
+        f1tenth_state_fcn_dt_beta solves with (psidot = (v/L) cos(beta)
+        tan(delta), beta = atan((lr/L) tan(delta))), at THIS tick's published
+        speed/steering, so the ratio against measured_yaw_rate is a direct
+        read of whether the model the solver trusts matches the car: near 1.0
+        is agreement, a ratio pinned away from 1.0 (the ~0.84 another
+        approach move's own post-hoc analysis found) is the model/steering
+        mismatch suspect B asks about. measured_yaw_rate is the active odom
+        source's own twist.angular.z (gyro-informed on the real EKF) -- see
+        self.yaw_rate's own comment -- never a finite-difference of self.yaw,
+        which would also pick up this same lookup's own positional noise.
+
+        goal_along_error_m/goal_lateral_error_m are _along_lateral_error's
+        (car_xy, goal_pose_xy, goal_pose_yaw) -- live only in pose mode (a
+        door, or any move.goal_pose), NaN otherwise. See that function's own
+        comment for what a healthy vs. a still-drifting approach looks like
+        on it.
+        """
+        if self.x is None or self.y is None or self.v is None:
+            return
+        L, lr = self.params['L'], self.params['lr']
+        beta = math.atan((lr / L) * math.tan(steering_cmd))
+        yaw_rate_pred = (speed_cmd / L) * math.cos(beta) * math.tan(steering_cmd)
+        yaw_rate_meas = self.yaw_rate if self.yaw_rate is not None else math.nan
+
+        ratio = math.nan
+        if math.isfinite(yaw_rate_meas) and abs(yaw_rate_pred) > 1e-3:
+            ratio = yaw_rate_meas / yaw_rate_pred
+            a = self.steering_model_diag_smooth_alpha
+            self._steering_model_ratio_ema = (
+                ratio if self._steering_model_ratio_ema is None
+                else (1.0 - a) * self._steering_model_ratio_ema + a * ratio)
+        ratio_smoothed = (self._steering_model_ratio_ema
+                          if self._steering_model_ratio_ema is not None else math.nan)
+
+        goal_x = goal_y = goal_yaw = along_m = lateral_m = math.nan
+        if self.goal_pose_xy is not None and self.goal_pose_yaw is not None:
+            goal_x, goal_y = self.goal_pose_xy
+            goal_yaw = self.goal_pose_yaw
+            along_m, lateral_m = _along_lateral_error(
+                (self.x, self.y), self.goal_pose_xy, goal_yaw)
+
+        status = DiagnosticStatus()
+        status.name = 'mpc_corr: steering model'
+        status.level = DiagnosticStatus.OK
+        status.message = f'yaw_rate ratio (smoothed) = {ratio_smoothed:+.3f}'
+        status.values = [
+            KeyValue(key='commanded_steering_rad', value=f'{steering_cmd:.5f}'),
+            KeyValue(key='commanded_speed_mps', value=f'{speed_cmd:.5f}'),
+            KeyValue(key='predicted_yaw_rate_rad_s', value=f'{yaw_rate_pred:.5f}'),
+            KeyValue(key='measured_yaw_rate_rad_s', value=f'{yaw_rate_meas:.5f}'),
+            KeyValue(key='yaw_rate_ratio', value=f'{ratio:.5f}'),
+            KeyValue(key='yaw_rate_ratio_smoothed', value=f'{ratio_smoothed:.5f}'),
+            KeyValue(key='goal_pose_x_odom', value=f'{goal_x:.5f}'),
+            KeyValue(key='goal_pose_y_odom', value=f'{goal_y:.5f}'),
+            KeyValue(key='goal_pose_yaw_odom', value=f'{goal_yaw:.5f}'),
+            KeyValue(key='goal_along_error_m', value=f'{along_m:.5f}'),
+            KeyValue(key='goal_lateral_error_m', value=f'{lateral_m:.5f}'),
+        ]
+        msg = DiagnosticArray()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.status = [status]
+        self.steering_model_diag_pub.publish(msg)
 
     def _log_ctrl(self, source, requested, applied, steer):
         """
