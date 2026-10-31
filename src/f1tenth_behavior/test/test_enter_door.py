@@ -25,8 +25,8 @@ from f1tenth_behavior.mission.mission_config import (  # noqa: E402
 # The schema
 # ---------------------------------------------------------------------------
 def door_mission(**door):
-    spec = {'type': 'enter_door', 'door': 'nearest', 'xy_tol': 0.15,
-            'yaw_tol_deg': 10}
+    spec = {'type': 'enter_door', 'door': 'nearest', 'along_tol': 0.15,
+            'lateral_tol': 0.05, 'yaw_tol_deg': 10}
     spec.update(door)
     return {
         'mission_id': 'doors', 'schema_version': '6.0',
@@ -43,7 +43,8 @@ def test_the_example_mission_loads():
     config = load_mission_file(path)
     spec = config.moves[0].enter_door
     assert config.schema_version == '6.0'
-    assert (spec.door, spec.xy_tol, spec.yaw_tol_deg) == ('nearest', 0.15, 10.0)
+    assert (spec.door, spec.along_tol, spec.lateral_tol, spec.yaw_tol_deg) == (
+        'nearest', 0.15, 0.05, 10.0)
     assert config.moves[0].stop_condition.type == 'door_entered'
 
 
@@ -68,7 +69,9 @@ def test_left_and_right_parse_as_door_selectors():
 def test_the_tolerances_are_validated():
     for bad in (0.0, -0.1):
         with pytest.raises(MissionConfigError):
-            parse_mission(door_mission(xy_tol=bad))
+            parse_mission(door_mission(along_tol=bad))
+        with pytest.raises(MissionConfigError):
+            parse_mission(door_mission(lateral_tol=bad))
         with pytest.raises(MissionConfigError):
             parse_mission(door_mission(yaw_tol_deg=bad))
     with pytest.raises(MissionConfigError):
@@ -210,6 +213,41 @@ def test_door_frame_x_is_how_far_through_the_opening():
     assert ed.door_frame_xy((0.5, 3.0), centre, yaw)[1] == pytest.approx(-0.5)
 
 
+def test_a_single_radius_would_have_let_a_jamb_hit_read_as_entered():
+    """The along/lateral split's whole reason to exist.
+
+    A car sitting 0.12 m sideways of the axis (well past lateral_tol's
+    0.05 m -- flush against a jamb, not through the middle) and only 0.09 m
+    short along it: hypot(0.12, 0.09) == 0.15, exactly the OLD single xy_tol
+    radius -- so the pre-split check would have called this "entered". The
+    split correctly refuses it on lateral alone.
+    """
+    ed, centre, yaw = _door_scene()
+    along_tol, lateral_tol = 0.15, 0.05
+    car_xy = (centre[0] - 0.12, centre[1] - 0.09)  # lateral=0.12, along=-0.09
+    along, lateral = ed.door_frame_xy(car_xy, centre, yaw)
+    assert along == pytest.approx(-0.09, abs=1e-9)
+    assert lateral == pytest.approx(0.12, abs=1e-9)
+
+    old_single_radius_would_enter = math.hypot(along, lateral) <= 0.15
+    assert old_single_radius_would_enter is True   # the bug this replaces
+
+    new_split_entered = abs(along) <= along_tol and abs(lateral) <= lateral_tol
+    assert new_split_entered is False              # the fix
+
+
+def test_within_lateral_tol_but_short_along_is_also_not_entered():
+    """The split cuts both ways: good lateral alignment alone is not enough
+    either -- the car still has to have actually reached the opening."""
+    ed, centre, yaw = _door_scene()
+    along_tol, lateral_tol = 0.15, 0.05
+    car_xy = (centre[0], centre[1] - 0.5)   # dead on-axis, 0.5 m short
+    along, lateral = ed.door_frame_xy(car_xy, centre, yaw)
+    assert lateral == pytest.approx(0.0, abs=1e-9)
+    assert abs(along) > along_tol              # still 0.5 m short
+    assert not (abs(along) <= along_tol and abs(lateral) <= lateral_tol)
+
+
 @pytest.mark.parametrize('car_y, expect_phase', [
     (0.0, 'APPROACH'),     # 3 m short: line up first
     (2.0, 'APPROACH'),     # x_door = -1.0, still short of the skip threshold
@@ -273,7 +311,10 @@ def test_the_phase_walks_approach_then_enter_and_entered_waits_for_it():
     assert record.target_xy == pytest.approx((0.0, 2.2), abs=1e-9)
     assert record.entered is False
     # ...and the errors it reports are against the DOOR, not the pre-point.
-    assert record.xy_error_m == pytest.approx(3.0)
+    # Negative: 3 m short of the opening along its own axis (see
+    # door_frame_xy's own sign convention).
+    assert record.along_error_m == pytest.approx(-3.0)
+    assert record.lateral_error_m == pytest.approx(0.0, abs=1e-9)
 
     # At the pre-point: hand over to ENTER, now aiming at the origin.
     tick((0.0, 2.2))
@@ -284,10 +325,12 @@ def test_the_phase_walks_approach_then_enter_and_entered_waits_for_it():
     # In the doorway, square to it: entered.
     tick((0.0, 2.95))
     assert record.entered is True
-    assert record.xy_error_m == pytest.approx(0.05, abs=1e-9)
+    assert record.along_error_m == pytest.approx(-0.05, abs=1e-9)
+    assert record.lateral_error_m == pytest.approx(0.0, abs=1e-9)
     assert record.yaw_error_deg == pytest.approx(0.0, abs=1e-9)
 
-    # Turned 30 deg off the crossing direction: inside xy_tol, not entered.
+    # Turned 30 deg off the crossing direction: inside along_tol/lateral_tol,
+    # not entered (the yaw check alone fails it).
     tick((0.0, 2.95), car_yaw=yaw + math.radians(30.0))
     assert record.yaw_error_deg == pytest.approx(30.0, abs=1e-6)
     assert record.entered is False

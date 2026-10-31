@@ -27,8 +27,9 @@ THE PRE-POINT IS SKIPPED when the car is already at or past
 APPROACH_SKIP_X_M (-0.2 m) along the door's x axis: it is in the doorway
 already, or through it, and sending it back out to line up again would make
 it reverse out of a door it had arrived at. The same test ends the APPROACH
-phase, together with "within xy_tol of the pre-point" -- whichever comes
-first, so a car that overshoots the pre-point does not chase it backwards.
+phase, together with "within along_tol/lateral_tol of the pre-point" --
+whichever comes first, so a car that overshoots the pre-point does not chase
+it backwards.
 
 ONLY A STRONG DOOR MAY BE SELECTED. `Door.strong` is the detector's own
 verdict on whether a door has earned being driven at -- enough sightings, from
@@ -56,10 +57,11 @@ go_to_object's own follow gate exists to prevent.
 ARRIVAL IS MEASURED HERE, not by mpc_corr. /mpc/goal_pose is position-only on
 arrival -- mpc_corr stores the yaw and does not consume it (see
 publish_move_goal.py) -- and a doorway is the one goal whose heading is the
-point. So this behaviour measures both errors every tick against the door
-frame's origin and x axis, writes them into the move's DoorApproachRecord,
-and sets `entered` when both are inside the mission's tolerances;
-condition_eval's door_entered reads exactly that flag.
+point. So this behaviour measures all three errors every tick against the
+door frame's origin and x axis -- along, lateral and yaw -- writes them into
+the move's DoorApproachRecord, and sets `entered` when all three are inside
+the mission's tolerances; condition_eval's door_entered reads exactly that
+flag.
 
 THE GOAL IS PUBLISHED ONCE per resolved door, not every tick, for the reason
 PublishMoveGoal's docstring gives: mpc_corr resets its goal progress tracking
@@ -329,7 +331,8 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             state.door_record = DoorApproachRecord(door=spec.door)
             self.node.get_logger().info(
                 f"[enter_door] move '{move.id}': looking for {spec.door!r}, "
-                f'xy_tol {spec.xy_tol:.2f} m, yaw_tol {spec.yaw_tol_deg:.1f} deg')
+                f'along_tol {spec.along_tol:.2f} m, lateral_tol '
+                f'{spec.lateral_tol:.2f} m, yaw_tol {spec.yaw_tol_deg:.1f} deg')
 
         record = state.door_record
         car_xy = self._bb(GLOBAL_XY_KEY)
@@ -367,13 +370,20 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         dist = getattr(spec, 'approach_dist_m', None) or DEFAULT_APPROACH_DIST_M
         record.pre_point_xy = pre = pre_point(door_xy, tyaw, dist)
 
+        # door_frame_xy ONCE per tick: (along, lateral) of the car against the
+        # door's own origin and axis, reused below for the phase decision, the
+        # pre-point check and the final arrival errors, so all three agree on
+        # one number rather than three slightly different ticks of it.
+        along_to_door = lateral_to_door = None
+        if car_xy is not None:
+            along_to_door, lateral_to_door = door_frame_xy(car_xy, door_xy, tyaw)
+
         # Which phase. Decided on THIS tick's pose, not latched: a car pushed
         # back out of the doorway goes back to lining up rather than driving
         # at an origin it is no longer square to.
         if record.phase is None:
             record.phase = PHASE_ENTER if (
-                car_xy is not None
-                and door_frame_xy(car_xy, door_xy, tyaw)[0] > APPROACH_SKIP_X_M
+                along_to_door is not None and along_to_door > APPROACH_SKIP_X_M
             ) else PHASE_APPROACH
             self.node.get_logger().info(
                 f"[enter_door] move '{move.id}': {record.frame_id} phase "
@@ -381,10 +391,15 @@ class EnterDoor(py_trees.behaviour.Behaviour):
                 + (f' (pre-point {dist:.2f} m back on the door axis)'
                    if record.phase == PHASE_APPROACH
                    else ' (already in the doorway -- pre-point skipped)'))
-        elif record.phase == PHASE_APPROACH and car_xy is not None:
-            x_door = door_frame_xy(car_xy, door_xy, tyaw)[0]
-            at_pre = math.hypot(pre[0] - car_xy[0], pre[1] - car_xy[1]) <= spec.xy_tol
-            if at_pre or x_door > APPROACH_SKIP_X_M:
+        elif record.phase == PHASE_APPROACH and along_to_door is not None:
+            # The pre-point sits `dist` BEHIND the door's origin on the same
+            # axis, so its along-distance from the car is along_to_door +
+            # dist; the lateral offset to it is the same number either way --
+            # lateral is measured across the axis, unaffected by how far
+            # along it you measure from.
+            at_pre = (abs(along_to_door + dist) <= spec.along_tol
+                      and abs(lateral_to_door) <= spec.lateral_tol)
+            if at_pre or along_to_door > APPROACH_SKIP_X_M:
                 record.phase = PHASE_ENTER
                 self.node.get_logger().info(
                     f"[enter_door] move '{move.id}': {record.frame_id} "
@@ -405,11 +420,14 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         # The errors are always against the DOOR, never the pre-point: they are
         # what the move is judged on and what the report quotes, and a tiny
         # error against a point 0.8 m short of the doorway would read as
-        # arrival to anyone looking at the number.
-        record.xy_error_m = math.hypot(door_xy[0] - car_xy[0], door_xy[1] - car_xy[1])
+        # arrival to anyone looking at the number. Split along/lateral, not a
+        # single xy_tol radius -- see DoorSpec's own comment for why a radius
+        # lets the car sit flush against a jamb and still read as "entered".
+        record.along_error_m, record.lateral_error_m = along_to_door, lateral_to_door
         record.yaw_error_deg = abs(wrap_deg(tyaw - car_yaw))
         record.entered = (record.phase == PHASE_ENTER
-                          and record.xy_error_m <= spec.xy_tol
+                          and abs(record.along_error_m) <= spec.along_tol
+                          and abs(record.lateral_error_m) <= spec.lateral_tol
                           and record.yaw_error_deg <= spec.yaw_tol_deg)
         return py_trees.common.Status.SUCCESS
 

@@ -286,12 +286,20 @@ class DoorSpec:
     the first.
 
     WHAT "ENTERED" MEANS, and it is deliberately narrow: the car's map pose
-    is within xy_tol of the door frame's ORIGIN (the midpoint between the two
-    jambs) and its heading is within yaw_tol_deg of that frame's X AXIS --
-    the crossing direction, which semantic_doors fixes at the door's first
-    confirmation and never flips. So "entered" is "standing in the doorway,
-    pointing through it", not "on the far side": a mission that wants the
-    room beyond adds a move after this one.
+    is within along_tol of the door frame's ORIGIN (the midpoint between the
+    two jambs) ALONG its own X AXIS -- the crossing direction, which
+    semantic_doors fixes at the door's first confirmation and never flips --
+    AND within lateral_tol of that same axis, AND its heading is within
+    yaw_tol_deg of it. So "entered" is "standing in the doorway, pointing
+    through it", not "on the far side": a mission that wants the room beyond
+    adds a move after this one.
+
+    ALONG AND LATERAL ARE SEPARATE ON PURPOSE, not a single xy_tol radius:
+    a single radius budget lets the car sit flush against a JAMB -- up to
+    the whole radius sideways, zero along -- and still read as "entered".
+    lateral_tol is the real jamb-clearance number (half the gap between a
+    0.9 m opening and a 0.57 m car, minus margin) and stays tight; along_tol
+    is how far through the opening is close enough and can stay loose.
 
     WHY THE YAW IS CHECKED HERE AND NOT BY mpc_corr. /mpc/goal_pose is
     position-only on arrival -- mpc_corr stores the yaw and does not consume
@@ -313,7 +321,8 @@ class DoorSpec:
     """
 
     door: str              # DOOR_NEAREST, DOOR_LEFT/DOOR_RIGHT, or a 'door_<id>' frame name
-    xy_tol: float          # [m] from the door frame's origin
+    along_tol: float       # [m] through the opening, along the door frame's x axis
+    lateral_tol: float     # [m] sideways from the door frame's x axis -- the jamb budget
     yaw_tol_deg: float     # [deg] from the door frame's x axis
     acquire_timeout_sec: float = 5.0   # no STRONG door within this ->
     #                                  door_not_found / no_strong_door
@@ -794,13 +803,20 @@ def _parse_door_spec(raw: object, where: str) -> DoorSpec:
     _require(door in (DOOR_NEAREST, DOOR_LEFT, DOOR_RIGHT) or bool(DOOR_NAME_RE.match(door)),
              f'{where}: enter_door.door must be "{DOOR_NEAREST}", "{DOOR_LEFT}", '
              f'"{DOOR_RIGHT}" or "door_<id>" (got {door!r})')
-    xy_tol = _require_positive_number(raw, 'xy_tol', where, default=0.15)
+    # along_tol default unchanged from the old single xy_tol (0.15 m) -- see
+    # DoorSpec's own comment for why it may stay loose while lateral_tol may
+    # not: lateral_tol's 0.05 m default is the real jamb-clearance number
+    # (half of a 0.9 m opening minus a 0.57 m car, with margin), not a
+    # carried-over guess.
+    along_tol = _require_positive_number(raw, 'along_tol', where, default=0.15)
+    lateral_tol = _require_positive_number(raw, 'lateral_tol', where, default=0.05)
     yaw_tol_deg = _require_positive_number(raw, 'yaw_tol_deg', where, default=10.0)
     _require(yaw_tol_deg <= 180.0,
              f'{where}: enter_door.yaw_tol_deg must be at most 180 (got {yaw_tol_deg})')
     acquire = _require_positive_number(raw, 'acquire_timeout_sec', where, default=5.0)
     approach = _require_positive_number(raw, 'approach_dist_m', where, default=0.8)
-    return DoorSpec(door=door, xy_tol=float(xy_tol),
+    return DoorSpec(door=door, along_tol=float(along_tol),
+                    lateral_tol=float(lateral_tol),
                     yaw_tol_deg=float(yaw_tol_deg),
                     acquire_timeout_sec=float(acquire),
                     approach_dist_m=float(approach))

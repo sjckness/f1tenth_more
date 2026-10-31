@@ -179,7 +179,8 @@ class DoorApproachRecord:
     frame_id: Optional[str] = None             # 'door_<id>', the TF it aims at
     target_xy: Optional[Tuple[float, float]] = None
     target_yaw: Optional[float] = None         # [rad] map, the crossing direction
-    xy_error_m: Optional[float] = None
+    along_error_m: Optional[float] = None      # [m] through the opening, door x axis
+    lateral_error_m: Optional[float] = None    # [m] sideways from the door x axis
     yaw_error_deg: Optional[float] = None
     entered: bool = False
     outcome: Optional[str] = None              # door_not_found |
