@@ -442,6 +442,23 @@ class MPCController(Node):
         self.goal_pose_xy: Optional[Tuple[float, float]] = None
         self.goal_pose_yaw: Optional[float] = None  # stored but unused by corridor/termination logic this pass
         self.pose_goal_reached = False
+
+        # goal_pose_anchor_map: (x, y, yaw) of the goal AS RECEIVED, in the MAP
+        # frame, when goal_pose_callback got it from a message whose frame_id
+        # is map_frame (EnterDoor, PublishMoveGoal's move.goal_pose branch --
+        # both send doors/fixed points this way). None means either no
+        # pose-mode goal is active, or the one that is active is odom-frame
+        # already (goal_turn_callback's synthetic target: see that method) --
+        # either way goal_pose_xy/yaw are driven at RAW, the pre-existing
+        # behaviour. When set, _refresh_goal_anchor() reprojects it into
+        # goal_pose_xy/yaw every tick through the live map -> odom edge, the
+        # same correction goal_anchor_map/goal_anchor_odom already give
+        # goal_distance mode and for the same reason (_pose_odom_to_map's
+        # docstring): without it a target captured once in map drifts away
+        # from the car's own odom-frame driving state by however much map ->
+        # odom has moved since, which for a doorway is easily enough to
+        # mis-aim at a jamb instead of the opening.
+        self.goal_pose_anchor_map: Optional[Tuple[float, float, float]] = None
         self.pose_goal_tolerance = float(
             self.declare_parameter('pose_goal_tolerance', 0.15).value
         )
@@ -2565,6 +2582,7 @@ class MPCController(Node):
         # command along with its per-move overrides (see _clear_drive_state).
         self.goal_pose_xy = None
         self.goal_pose_yaw = None
+        self.goal_pose_anchor_map = None
         self.pose_goal_reached = False
         self._clear_drive_state()
         self._invalidate_move_state()
@@ -2689,17 +2707,40 @@ class MPCController(Node):
         publish pass, which likewise keeps recomputing from its cached grid/pose
         of whatever age and only fails safe when the input has NEVER arrived --
         and that "never" case cannot occur here, since capture seeds a value.
+
+        ALSO refreshes goal_pose_anchor_map's reprojection into goal_pose_xy/
+        goal_pose_yaw, when a pose-mode move captured one (see that attribute's
+        comment in __init__): same correction, same one-lookup-per-tick
+        sharing, same hold-last-good-value-on-failure rule. goal_anchor_map and
+        goal_pose_anchor_map are never both set at once -- goal_distance_
+        callback/goal_pose_callback/goal_turn_callback/the drive callback each
+        clear the other modes' anchor -- so this never reprojects two moves'
+        worth of state off one lookup; sharing it is purely to avoid a second
+        TF query on ticks where only one of the two happens to be set.
         """
-        if self.goal_anchor_map is None:
+        need_distance = self.goal_anchor_map is not None
+        need_pose = self.goal_pose_anchor_map is not None
+        if not need_distance and not need_pose:
             return
         tf_map_odom = self._lookup_map_odom(max_age_sec=self.map_odom_max_age_sec)
         if tf_map_odom is None:
-            self.get_logger().warn(
-                'ANCHOR/hold | map -> odom unavailable OR STALE this tick: '
-                'holding last reprojected anchor (NOT reverting to the raw '
-                'odom anchor)', throttle_duration_sec=5.0)
+            if need_distance:
+                self.get_logger().warn(
+                    'ANCHOR/hold | map -> odom unavailable OR STALE this tick: '
+                    'holding last reprojected anchor (NOT reverting to the raw '
+                    'odom anchor)', throttle_duration_sec=5.0)
+            if need_pose:
+                self.get_logger().warn(
+                    'POSEGOAL/hold | map -> odom unavailable OR STALE this tick: '
+                    'holding last reprojected goal_pose (NOT reverting to the '
+                    'raw map numbers)', throttle_duration_sec=5.0)
             return
-        self.goal_anchor_odom = _pose_map_to_odom(*self.goal_anchor_map, *tf_map_odom)
+        if need_distance:
+            self.goal_anchor_odom = _pose_map_to_odom(*self.goal_anchor_map, *tf_map_odom)
+        if need_pose:
+            gx, gy, gyaw = _pose_map_to_odom(*self.goal_pose_anchor_map, *tf_map_odom)
+            self.goal_pose_xy = (gx, gy)
+            self.goal_pose_yaw = gyaw
 
     def goal_pose_callback(self, msg: PoseStamped):
         if self.x is None or self.y is None:
@@ -2722,9 +2763,34 @@ class MPCController(Node):
         self._no_goal_warned = False
         self._clear_drive_state()
         self._invalidate_move_state()
+
+        # MAP -> ODOM DRIFT CORRECTION (see goal_pose_anchor_map's own comment
+        # in __init__ for why this is needed at all). EnterDoor and
+        # PublishMoveGoal's move.goal_pose branch both send this already in
+        # MAP frame -- header.frame_id == self.map_frame -- while self.x/self.y
+        # above are this node's own ODOM state. Capturing the map-frame point
+        # here and letting _refresh_goal_anchor() reproject it every tick is
+        # what keeps the two in agreement for as long as this move runs, the
+        # same treatment goal_distance_callback's own anchor already gets.
+        # An odom-frame goal (goal_turn_callback's synthetic target re-uses
+        # this same state, see that method) needs no correction and keeps
+        # frame_id unset, so it is left alone here. Any OTHER frame is
+        # unexpected: warn and drive at it raw rather than guess.
+        self.goal_pose_anchor_map = None
+        if msg.header.frame_id == self.map_frame:
+            self.goal_pose_anchor_map = (
+                self.goal_pose_xy[0], self.goal_pose_xy[1], self.goal_pose_yaw)
+        elif msg.header.frame_id and msg.header.frame_id != self.odom_frame:
+            self.get_logger().warn(
+                f'goal_pose in frame {msg.header.frame_id!r}, expected '
+                f'{self.map_frame!r}: driving at it RAW, no map -> odom drift '
+                'correction applied.', throttle_duration_sec=5.0)
+
         self.get_logger().info(
             f'Nuovo goal_pose=({self.goal_pose_xy[0]:.3f}, {self.goal_pose_xy[1]:.3f}) '
-            f'yaw={self.goal_pose_yaw:+.3f} (yaw non ancora utilizzato, solo posizione)'
+            f'yaw={self.goal_pose_yaw:+.3f} (yaw non ancora utilizzato, solo posizione) '
+            f'frame={msg.header.frame_id!r}'
+            + (' [map-anchored]' if self.goal_pose_anchor_map is not None else '')
         )
 
     def goal_object_callback(self, msg: ObjectGoal):
@@ -2809,6 +2875,7 @@ class MPCController(Node):
         self.goal_reached = False
         self.goal_pose_xy = None
         self.goal_pose_yaw = None
+        self.goal_pose_anchor_map = None
         self.pose_goal_reached = False
         self._no_goal_warned = False
         self._clear_drive_state()
@@ -3167,11 +3234,16 @@ class MPCController(Node):
         self.pose_goal_reached = False
         # Switching to turn (pose-mode-backed) -- clear any distance-mode
         # goal so the two stay mutually exclusive, same pattern goal_pose_
-        # callback/goal_distance_callback already use for each other.
+        # callback/goal_distance_callback already use for each other. Also
+        # clear any pose-mode map anchor a PREVIOUS goal_pose move left set:
+        # this target is synthesised directly in odom above, and without this
+        # _refresh_goal_anchor() would overwrite it next tick with that stale
+        # move's reprojection.
         self.goal_distance = None
         self.goal_start_xy = None
         self.goal_anchor_map = None
         self.goal_anchor_odom = None
+        self.goal_pose_anchor_map = None
         self.goal_reached = False
         self._no_goal_warned = False
         self._clear_drive_state()
@@ -3386,6 +3458,7 @@ class MPCController(Node):
         self.goal_anchor_odom = None
         self.goal_pose_xy = None
         self.goal_pose_yaw = None
+        self.goal_pose_anchor_map = None
         self.pose_goal_reached = False
         self.goal_reached = False
         self._no_goal_warned = False
