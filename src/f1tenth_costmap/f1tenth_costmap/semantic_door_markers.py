@@ -110,7 +110,7 @@ def side_of(centre_xy, car_xy, car_yaw):
     return 'L' if bearing > 0.0 else 'R'
 
 
-def label_of(door, car_pose=None):
+def label_of(door, car_pose=None, gate=''):
     """The text a door is labelled with: id, width, case, strength, flags.
 
     The flags are the half of a door's story the geometry does not tell --
@@ -131,7 +131,8 @@ def label_of(door, car_pose=None):
     else:
         state = 'STRONG' if getattr(door, 'strong', True) else 'confirmed'
     side = f' {side_of(door.centre, car_pose[:2], car_pose[2])}' if car_pose is not None else ''
-    return (f'door {door.id} {door.width:.2f}m case {door.case} {state}{side}{tail}')
+    why = f' | {gate}' if gate else ''
+    return (f'door {door.id} {door.width:.2f}m case {door.case} {state}{side}{tail}{why}')
 
 
 def _base(door, frame_id, stamp, slot, kind, lifetime):
@@ -148,7 +149,7 @@ def _base(door, frame_id, stamp, slot, kind, lifetime):
 
 
 def door_markers(door, frame_id, stamp, jamb_diameter_m=0.10, height_m=1.0,
-                 lifetime=1.0, car_pose=None):
+                 lifetime=1.0, car_pose=None, gate=''):
     """The five markers of one door."""
     j0, j1 = door.jambs()
     out = []
@@ -181,7 +182,7 @@ def door_markers(door, frame_id, stamp, jamb_diameter_m=0.10, height_m=1.0,
                                                   float(door.centre[1]))
     text.pose.position.z = height_m + TEXT_CLEARANCE_M
     text.scale.z = TEXT_SIZE_M
-    text.text = label_of(door, car_pose)
+    text.text = label_of(door, car_pose, gate)
     out.append(text)
     return out
 
@@ -201,7 +202,7 @@ def delete_markers(door_id, frame_id, stamp):
 
 
 def marker_array(doors, previous_ids, frame_id, stamp, jamb_diameter_m=0.10,
-                 height_m=1.0, lifetime=1.0, car_pose=None):
+                 height_m=1.0, lifetime=1.0, car_pose=None, gate_fn=None):
     """(MarkerArray, ids drawn): every live door, plus DELETEs for the gone ones.
 
     `doors` is every live track, candidates included -- /viz always draws both,
@@ -214,7 +215,8 @@ def marker_array(doors, previous_ids, frame_id, stamp, jamb_diameter_m=0.10,
     for door in doors:
         live.add(int(door.id))
         msg.markers.extend(door_markers(
-            door, frame_id, stamp, jamb_diameter_m, height_m, lifetime, car_pose))
+            door, frame_id, stamp, jamb_diameter_m, height_m, lifetime, car_pose,
+            gate_fn(door) if gate_fn else ''))
     for gone in sorted(set(previous_ids) - live):
         msg.markers.extend(delete_markers(gone, frame_id, stamp))
     return msg, live

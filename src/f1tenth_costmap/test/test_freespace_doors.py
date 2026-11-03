@@ -409,7 +409,7 @@ def test_a_door_is_kept_in_the_map_after_it_leaves_view():
     g = room_door_room(0.90)
     _w, _s, cands = g.detect(robot, through_the_gap(robot), p)
     # Two sightings a metre apart: the shipped confirm policy wants travel,
-    # not repetition (confirm_pose_spread_m 1.0, no same-pose fallback).
+    # not repetition (confirm_pose_spread_m 0.3, no same-pose fallback).
     for i in range(2):
         tracker.update(cands, (robot[0] + i * 1.0, robot[1]), float(i))
     assert len(tracker.confirmed()) == 1

@@ -4126,7 +4126,7 @@ freespace_doors_merge_tracks_yaw_deg:
   default: 25.0
   description: "Largest angle [deg] between two tracks' door axes that still counts as the same opening, for the wider freespace_doors_merge_tracks_parallel_m radius only. Undirected: an axis has no sign, so this is 0..90."
 freespace_doors_strong_min_hits:
-  default: 5
+  default: 3
   description: "Sightings a CONFIRMED door needs before it counts as STRONG. Confirmed means publishable; strong means a mission may drive at it -- f1tenth_behavior's enter_door resolves both 'nearest' and 'door_<id>' over STRONG doors only, and fails with no_strong_door when a matching door exists but has not earned it. 0 drops the requirement."
 freespace_doors_strong_grid_max_age_s:
   default: 12.0
@@ -4210,8 +4210,8 @@ freespace_doors_merge_max_m:
   default: 0.3
   description: "Candidates whose centres are closer than this [m] are collapsed into one. One doorway produces several jump pairs (the median filter, a two-beam-wide jamb, a far surface at two depths), and the tracker associates each candidate to AT MOST ONE track -- so handing it five copies of one door spawns four spurious tracks. The survivor is the one with the most beams through it and inherits the union of the cluster's flags."
 freespace_doors_confirm_pose_spread_m:
-  default: 1.0
-  description: "How far apart [m] two of a door's sightings must have been made from before it is CONFIRMED. This, not a hit count, is what rejects a one-scan artefact: a reflection or a beam that slipped past a corner is perfectly repeatable from one standing position, and counting it ten times proves nothing, but it does not survive being looked at from a metre away. 1.0 m is the measured choice, not a guess -- the sweep in output/doors/freespace.md put it at 57 confirmed doors on corridor10m_20261019T131815 against 98 for the first, permissive default of 0.15 m, and it lost not one of the 29 STRONG doors. 0 disables the policy and falls back to freespace_doors_confirm_hits."
+  default: 0.3
+  description: "How far apart [m] two of a door's sightings must have been made from before it is CONFIRMED. This, not a hit count, is what rejects a one-scan artefact: a reflection or a beam that slipped past a corner is perfectly repeatable from one standing position, and counting it ten times proves nothing, but it does not survive being looked at from a metre away. The swept choice was 1.0 m; loosened to 0.3 m on request (no bag check). The 1.0 m sweep result follows -- the sweep in output/doors/freespace.md put it at 57 confirmed doors on corridor10m_20261019T131815 against 98 for the first, permissive default of 0.15 m, and it lost not one of the 29 STRONG doors. 0 disables the policy and falls back to freespace_doors_confirm_hits."
 freespace_doors_confirm_same_pose_hits:
   default: 0
   description: "How many hits confirm a door regardless of where they came from. 0 DISABLES THE FALLBACK, which means A STATIONARY CAR NEVER CONFIRMS A DOOR -- deliberate, and the direct consequence of the sweep above: with the fallback at 3 almost everything seen three times in 0.3 s confirmed, and the pose-spread policy barely bit. Set it back to 3 if a mission has to resolve a door from a standstill, and expect the false-positive count to climb."

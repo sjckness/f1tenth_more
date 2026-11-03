@@ -229,13 +229,12 @@ class FreespaceParams:
         # --- tracking (handed to semantic_doors.DoorTracker)
         self.assoc_max_m = 0.30
         self.confirm_hits = 3
-        # 1.0 m of travel between two sightings, and no same-pose fallback:
-        # the measured sweep (output/doors/freespace.md) put this at 57
-        # confirmed doors against 98 for the permissive first defaults,
-        # without losing a single STRONG one. A STATIONARY CAR NOW NEVER
+        # 0.3 m of travel between two sightings (loosened from the swept 1.0
+        # m, which was 57 confirmed doors against 98 at 0.15 m), and no
+        # same-pose fallback. A STATIONARY CAR NOW NEVER
         # CONFIRMS A DOOR, which is the deliberate consequence of
         # confirm_same_pose_hits 0.
-        self.confirm_pose_spread_m = 1.0
+        self.confirm_pose_spread_m = 0.3
         self.confirm_same_pose_hits = 0
         self.max_tracks = 32
         # One doorway, one track. merge_max_m above only merges CANDIDATES
@@ -244,7 +243,7 @@ class FreespaceParams:
         self.merge_tracks_overlap = 1.00
         self.merge_tracks_parallel_m = 1.00
         self.merge_tracks_yaw_deg = 25.0
-        self.strong_min_hits = 5
+        self.strong_min_hits = 3
         # A STRONG DOOR MUST HAVE BEEN CHECKED AGAINST A GRID THAT EXISTS AND
         # IS RECENT. Older than this and the candidate carries `grid_stale`,
         # which bars it from strong while leaving it publishable -- the scan

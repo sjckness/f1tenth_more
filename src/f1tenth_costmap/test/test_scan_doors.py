@@ -410,10 +410,10 @@ def _hits(tracker, p, segs, xs, grid=None, t0=0.0):
 
 
 def test_two_hits_from_poses_far_enough_apart_confirm_a_door():
-    """Two sightings, a metre of travel between them -- that is the whole bar.
+    """Two sightings, 30 cm of travel between them -- that is the whole bar.
 
-    A metre and not 0.15 m since the measured sweep: see
-    test_the_shipped_defaults_require_a_metre_of_travel_and_no_fallback.
+    Was a metre after the measured sweep, loosened to 0.3 m: see
+    test_the_shipped_defaults_require_30cm_of_travel_and_no_fallback.
     """
     p = fd.FreespaceParams()
     segs = corridor(doors=(3.0,))
@@ -736,7 +736,7 @@ def test_two_doorways_further_apart_than_their_width_both_survive():
 # ---------------------------------------------------------------------------
 # strength: confirmed means publishable, strong means drivable
 # ---------------------------------------------------------------------------
-def test_the_shipped_defaults_require_a_metre_of_travel_and_no_fallback():
+def test_the_shipped_defaults_require_30cm_of_travel_and_no_fallback():
     """The measured sweep's choice, pinned so it cannot drift back.
 
     confirm_same_pose_hits 0 means A STATIONARY CAR NEVER CONFIRMS A DOOR.
@@ -745,9 +745,9 @@ def test_the_shipped_defaults_require_a_metre_of_travel_and_no_fallback():
     barely bit.
     """
     p = fd.FreespaceParams()
-    assert p.confirm_pose_spread_m == pytest.approx(1.0)
+    assert p.confirm_pose_spread_m == pytest.approx(0.3)
     assert p.confirm_same_pose_hits == 0
-    assert p.strong_min_hits == 5
+    assert p.strong_min_hits == 3
     assert p.strong_min_spread_m == pytest.approx(1.0)
 
 
@@ -999,3 +999,16 @@ def test_a_grid_stale_or_blocked_flag_bars_strong():
         trk.flags = (flag,)
         assert not tracker.is_strong(trk), flag
         tracker.tracks.remove(trk)
+
+
+def test_first_failing_gate_names_the_next_thing_a_door_needs():
+    p = fd.FreespaceParams()
+    segs = corridor(doors=(3.0,))
+    tracker = _hits(sd.DoorTracker(p.door_params()), p, segs, (0.0, 0.1), grid=Grid().ray_cast(segs))
+    trk = tracker.tracks[0]
+    assert tracker.first_failing_gate(trk) == 'travel 0.1/0.3m'
+    _hits(tracker, p, segs, (0.4,), grid=Grid().ray_cast(segs), t0=5.0)
+    trk = tracker.tracks[0]
+    assert trk.confirmed
+    from f1tenth_costmap import semantic_door_markers as sdm
+    assert sdm.label_of(trk, gate='hits 2/3').endswith(' | hits 2/3')

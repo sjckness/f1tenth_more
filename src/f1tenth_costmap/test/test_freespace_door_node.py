@@ -217,7 +217,7 @@ def test_the_node_builds_its_params_from_stack_params():
 # ---------------------------------------------------------------------------
 def test_driving_past_the_door_confirms_it_and_publishes_the_four_outputs():
     # A metre of travel: the shipped confirm policy wants a second
-    # viewpoint, not a second look (confirm_pose_spread_m 1.0).
+    # viewpoint, not a second look (confirm_pose_spread_m 0.3).
     node = _drive(_node(), (0.0, 0.6, 1.2))
 
     doors = node.doors_pub.publish.call_args[0][0]

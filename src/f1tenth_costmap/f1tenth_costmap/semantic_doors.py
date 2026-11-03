@@ -890,6 +890,28 @@ class DoorTracker:
             return False
         return trk.pose_spread() >= p.strong_min_spread_m
 
+    def first_failing_gate(self, trk):
+        """The first thing between this track and STRONG, as a short string.
+
+        '' when it is strong. Order: the confirmation travel, the hit count,
+        the strong travel, then flags ('width' for `marginal`, else the flag
+        name). Meant for the /viz label, so it reads "travel 0.2/0.3m".
+        """
+        p = self.p
+        if not trk.confirmed:
+            if p.confirm_pose_spread_m > 0.0:
+                return (f'travel {trk.pose_spread():.1f}/'
+                        f'{p.confirm_pose_spread_m:.1f}m')
+            return f'hits {trk.hits}/{p.confirm_hits}'
+        if p.strong_min_hits and trk.hits < p.strong_min_hits:
+            return f'hits {trk.hits}/{p.strong_min_hits}'
+        if trk.pose_spread() < p.strong_min_spread_m:
+            return (f'travel {trk.pose_spread():.1f}/'
+                    f'{p.strong_min_spread_m:.1f}m')
+        if trk.flags:
+            return 'width' if 'marginal' in trk.flags else trk.flags[0]
+        return ''
+
     def should_confirm(self, trk):
         """Is this track ready to be published? See DoorParams' two knobs.
 

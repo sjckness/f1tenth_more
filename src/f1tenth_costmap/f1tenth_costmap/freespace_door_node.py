@@ -502,7 +502,8 @@ class FreespaceDoorNode(Node):
         # candidates stay visible in Foxglove" asks for.
         markers, self._viz_ids = sdm.marker_array(
             self._tracker.tracks, self._viz_ids, self.map_frame, stamp,
-            self.jamb_diameter_m, self.viz_height_m, car_pose=pose)
+            self.jamb_diameter_m, self.viz_height_m, car_pose=pose,
+            gate_fn=self._tracker.first_failing_gate)
         self.viz_pub.publish(markers)
 
         if self._tf is not None and confirmed:
