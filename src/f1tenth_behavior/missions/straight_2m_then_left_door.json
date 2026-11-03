@@ -1,0 +1,38 @@
+{
+  "mission_id": "straight_2m_then_left_door",
+  "schema_version": "6.0",
+  "description": "Drive straight 2 m, then drive into the door on the LEFT and stop in it, facing the way through. The 2 m straight is also what lets the door detector confirm the door (confirmation wants pose spread along the approach). The door is picked ONCE, when the second move starts: the nearest STRONG confirmed door on the left of the car's heading at that moment (side_of: positive relative bearing). It is held for the rest of the move, never re-picked. A door on the left that is already behind the car still counts as left, and the car turns back to it. Needs a door detector publishing /perception/doors_semantic and the global EKF. If no left door is found within 5 s of the second move starting, the move fails door_not_found and the mission aborts. Entry is the same as enter_nearest_door: a pre-point 0.8 m back on the door's own axis, then straight down that axis. Entered means within 0.15 m along the axis, within 0.05 m sideways of it, and within 10 deg of it.",
+  "moves": [
+    {
+      "id": "move_0_straight_2m",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.4
+      },
+      "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+      },
+      "timeout_sec": 20,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "move_1_enter_left_door",
+      "enter_door": {
+        "type": "enter_door",
+        "door": "left",
+        "along_tol": 0.15,
+        "lateral_tol": 0.05,
+        "yaw_tol_deg": 10,
+        "acquire_timeout_sec": 5.0,
+        "approach_dist_m": 0.8
+      },
+      "stop_condition": {
+        "type": "door_entered"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
