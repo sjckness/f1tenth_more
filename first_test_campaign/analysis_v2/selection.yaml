@@ -1,0 +1,111 @@
+# selection.yaml -- unica fonte delle run incluse nell'analisi v2 (RULES.md §2).
+# Precompilato da SCOUT_DATA (2026-11-02) da RULES.md §11 + comando originale
+# dell'utente; riscritto dall'orchestratore nel formato a riga esatto richiesto
+# (vedi .sjck/interfaces/analysis_v2_data.md §7 per il motivo).
+# Tutte le run sotto ESISTONO in first_test_campaign/<Mxx>/ (nessuna ricerca in
+# archivio necessaria). Gruppo = missione (cartella Mxx_...) + ostacolo.
+# M06 e M08 restano separate (RULES.md §12 D4).
+#
+# Formato riga: [run, ostacolo(si|no), metriche(si|no), png(si|no),
+#                selezionate(si|no), maschera(si|no), dall_alto(si|no)]
+
+output_folder: risultati_v2
+
+runs:
+#  run  ostacolo metriche png selezionate maschera dall_alto
+
+  # --- G1  M01_forward_3m ---
+  - [P001-R001-20260921T145508, no, si, si, si, si, si]
+  - [P001-R002-20260921T145711, no, si, si, si, si, si]
+  - [P001-R003-20260921T145854, no, si, si, si, si, si]
+  - [P001-R004-20260921T150023, no, si, si, si, si, si]
+  - [P001-R005-20260921T150157, no, si, si, si, si, si]
+
+  # --- G2  M02_approach_wall ---
+  # P002-R001: due cartelle (20260922T142524, 20261008T132715) + una riga solo nel
+  # csv (20260921T150345). Per la v2 vale il 22/09 (RULES.md §11, nota finale).
+  - [P002-R001-20260922T142524, no, si, si, si, si, si]
+  - [P002-R002-20260922T142712, no, si, si, si, si, si]
+  - [P002-R003-20260922T142859, no, si, si, si, si, si]
+  - [P002-R004-20260922T143058, no, si, si, si, si, si]
+  - [P002-R005-20260922T143244, no, si, si, si, si, si]
+
+  # --- G3  M03_bottle ---
+  - [P003-R004-20260928T165409, no, si, si, si, si, si]
+  - [P003-R005-20260928T165545, no, si, si, si, si, si]
+  - [P003-R006-20260928T165817, no, si, si, si, si, si]
+  - [P003-R009-20260928T170138, no, si, si, si, si, si]
+  - [P003-R010-20260928T170337, no, si, si, si, si, si]
+
+  # --- G4  M04_person ---
+  - [P004-R007-20260924T134658, no, si, si, si, si, si]
+  - [P004-R008-20260924T134911, no, si, si, si, si, si]
+  - [P004-R009-20260924T135136, no, si, si, si, si, si]
+  - [P004-R010-20260924T135341, no, si, si, si, si, si]
+  - [P004-R011-20260924T135544, no, si, si, si, si, si]
+
+  # --- G5  M05_turn_left_wall ---
+  - [P005-R003-20260924T140430, no, si, si, si, si, si]
+  - [P005-R005-20260924T141303, no, si, si, si, si, si]
+  - [P005-R006-20260924T141529, no, si, si, si, si, si]
+  - [P005-R007-20260924T141924, no, si, si, si, si, si]
+  - [P005-R008-20260924T142157, no, si, si, si, si, si]
+
+  # --- G6  M01_forward_3m + ostacolo ("go ahead 4 meters") ---
+  - [P001-R007-20260930T173000, si, si, si, si, si, si]
+  - [P001-R008-20260930T173125, si, si, si, si, si, si]
+  - [P001-R009-20260930T173424, si, si, si, si, si, si]
+  - [P001-R010-20260930T173632, si, si, si, si, si, si]
+  - [P001-R011-20260930T173814, si, si, si, si, si, si]
+
+  # --- G7  M02_approach_wall + ostacolo ---
+  # ATTENZIONE: solo commands/imu/kinematics/mpc/llm_calls.csv; niente meta.json,
+  # events.jsonl, plan.json, corridors.jsonl -> metriche evento/piano null con motivo.
+  - [P002-R023-20261020T185108, si, si, si, si, si, si]
+  - [P002-R024-20261020T185329, si, si, si, si, si, si]
+  - [P002-R025-20261020T185553, si, si, si, si, si, si]
+  - [P002-R026-20261020T185812, si, si, si, si, si, si]
+  - [P002-R027-20261020T190051, si, si, si, si, si, si]
+
+  # --- G9  M04_person + ostacolo ---
+  - [P004-R014-20261001T112202, si, si, si, si, si, si]
+  - [P004-R015-20261001T112447, si, si, si, si, si, si]
+  - [P004-R016-20261001T112933, si, si, si, si, si, si]
+  - [P004-R017-20261001T113120, si, si, si, si, si, si]
+  - [P004-R018-20261001T113259, si, si, si, si, si, si]
+
+  # --- G10 M05_turn_left_wall + ostacolo (RULES.md §12 D6) ---
+  # DA ATTIVARE A MANO (togliere "# "). Nessun campo "obstacle" in meta/plan
+  # (object_corridor_mode sempre "off"). Indizi raccolti da SCOUT_DATA: eventi
+  # estop/contact, detection per classe in tracks.jsonl, min_obstacle_clearance
+  # di meta.json (minimo LiDAR su QUALSIASI ritorno). Le G5 del 24/09 vedono
+  # quasi solo "chair". Piano llm_38d747d91edf (R010-R018) / llm_ac24d6eb5bda
+  # (R019-R021): wall_turn 90 deg (timeout 27 s, abort) + straight 1.0 m.
+  # - [P005-R010-20261022T143825, si, si, si, si, si, si]  # 2026-10-22 14:38 | aborted (logger node shut down) | 15.3 s | estop IsProximityTooClose @11.5 s | tracks: person 41, potted plant 21, bottle 20, kite 12, tv 6 | min_obs_clear 0.036 m | path 4.01 m
+  # - [P005-R011-20261022T144154, si, si, si, si, si, si]  # 2026-10-22 14:41 | completed | 11.8 s | nessun estop/contact | tracks: chair 31, person 23, bottle 10, tv 10 | min_obs_clear 0.322 m | path 3.87 m
+  # - [P005-R012-20261023T155217, si, si, si, si, si, si]  # 2026-10-23 15:52 | aborted (superseded by new test) | 203.0 s (log lasciato aperto) | estop IsProximityTooClose @11.9 s, IsBatteryLow @124.7 s | tracks: person 332 | min_obs_clear 0.053 m | path 8.79 m | min_corridor_clearance -3.92 (sospetto)
+  # - [P005-R013-20261023T155541, si, si, si, si, si, si]  # 2026-10-23 15:55 | aborted (mission aborted @27.5 s) | 29.6 s | 4 estop + 4 contact LiDAR (fino a -0.106 m @23.2 s) | tracks: person 132, tv 2 | min_obs_clear -0.118 m | path 4.81 m
+  # - [P005-R014-20261023T160155, si, si, si, si, si, si]  # 2026-10-23 16:01 | aborted (abort manuale /mission/abort_mission @142.9 s) | 144.9 s | estop @9.9 s | tracks: person 24 | min_obs_clear 0.010 m | path 3.79 m
+  # - [P005-R015-20261023T161739, si, si, si, si, si, si]  # 2026-10-23 16:17 | completed @12.0 s | 14.0 s | nessun estop/contact | tracks: person 55, tv 33 | min_obs_clear 0.169 m | path 3.00 m
+  # - [P005-R016-20261023T162007, si, si, si, si, si, si]  # 2026-10-23 16:20 | aborted: load_mission failed (delivery_failed) -> auto mai partita, candidata not_started | 7.5 s | path 0.00 m
+  # - [P005-R017-20261023T162114, si, si, si, si, si, si]  # 2026-10-23 16:21 | LOG TRONCATO: niente meta.json, events.jsonl vuoto, padding NUL, assente dal csv -> candidata log_invalid | kinematics ~32 s | tracks: person 32
+  # - [P005-R018-20261023T172352, si, si, si, si, si, si]  # 2026-10-23 17:23 | aborted (superseded by new test) | 155.3 s (log lasciato aperto) | estop + contact LiDAR -0.0004 m @18.0 s | tracks: person 253 | min_obs_clear -0.001 m | path 8.38 m | min_corridor_clearance -3.54 (sospetto)
+  # - [P005-R019-20261023T172628, si, si, si, si, si, si]  # 2026-10-23 17:26 | aborted (mission aborted @27.0 s = timeout move 27 s) | 29.1 s | nessun estop/contact | tracks: person 30 | min_obs_clear 0.018 m | path 4.25 m
+  # - [P005-R020-20261023T173226, si, si, si, si, si, si]  # 2026-10-23 17:32 | aborted (logger node shut down) | 54.6 s | estop @10.2 s | tracks: person 40 | min_obs_clear 0.052 m | path 3.46 m
+  # - [P005-R021-20261023T173455, si, si, si, si, si, si]  # 2026-10-23 17:34 | completed @10.8 s, poi estop @11.0 s | 12.9 s | tracks: person 38, tv 6 | min_obs_clear 0.080 m | path 3.46 m
+
+  # --- G11 M06 / M08 (RULES.md §12 D4: separate) ---
+  - [P006-R002-20261027T141233, no, si, si, si, si, si]
+  - [P006-R003-20261027T141517, no, si, si, si, si, si]
+  - [P006-R004-20261027T141736, no, si, si, si, si, si]
+  - [P008-R001-20261027T133550, no, si, si, si, si, si]
+  - [P008-R002-20261027T133837, no, si, si, si, si, si]
+
+  # --- G12 M07_chair_then_straight_4m ---
+  # P007-R001 esiste anche in M07_stop_at_chair/ (20261027T143116): qui si usa
+  # quello di M07_chair_then_straight_4m (missione richiesta).
+  - [P007-R001-20261027T165917, no, si, si, si, si, si]
+  - [P007-R002-20261027T170135, no, si, si, si, si, si]
+  - [P007-R003-20261027T170317, no, si, si, si, si, si]
+  - [P007-R004-20261027T171737, no, si, si, si, si, si]
+  - [P007-R005-20261028T131845, no, si, si, si, si, si]

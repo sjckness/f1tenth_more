@@ -85,3 +85,17 @@ src/f1tenth_behavior/mission_reports/
 !first_test_campaign/analysis/**/*.csv
 
 .sjck/
+
+# first_test_campaign/analysis_v2 (campaign analysis v2): generated output only.
+# Source (RULES.md, selection.yaml, manual_verdicts.yaml, run_analysis.py,
+# scripts/*.py) stays tracked. The output_folder is set in selection.yaml
+# (currently risultati_v2); --output may point elsewhere, so ignore the
+# generic output names too.
+first_test_campaign/analysis_v2/_test/
+first_test_campaign/analysis_v2/risultati_v2/
+first_test_campaign/analysis_v2/output/
+# verify_checks.py's temporary selection copy; can survive if an intermediate
+# delete fails.
+first_test_campaign/analysis_v2/selection.yaml.test_tmp
+first_test_campaign/analysis_v2/*.mp4
+first_test_campaign/analysis_v2/*.png
