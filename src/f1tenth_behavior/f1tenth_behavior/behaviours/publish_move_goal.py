@@ -27,9 +27,10 @@ are two separate, enable_nav2-gated navigation backends (see
 behavior_executor_node's module docstring); only the mpc_corr path keeps
 /mpc/hold and mpc_corr's obstacle corridor in effect for mission moves, and
 Nav2's own controller has no concept of either. Confirmed with the requester
-before wiring this (see chat log) rather than assumed. Position-only, same
-scope limit as mpc_corr.py's own goal_pose_callback: yaw is sent (mpc_corr
-stores it) but not consumed for arrival.
+before wiring this (see chat log) rather than assumed. The yaw is sent and,
+since 2026-11-05, consumed: mpc_corr approaches the point along a corridor
+ending on that yaw when it can (mpc_goal_pose_use_yaw). Arrival is still
+position-only.
 
 Turn-mode moves (move.turn set, schema_version 2.0) publish
 f1tenth_messages/TurnGoal to mpc_corr's own /mpc/goal_turn input -- the third

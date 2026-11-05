@@ -464,16 +464,38 @@ class MPCController(Node):
             'map_odom_max_age_sec', 0.2).value)
 
         # =========================
-        # Goal pose (runtime command via /mpc/goal_pose) -- position-only
-        # arrival this pass, no final-yaw alignment (see build_straight_corridor/
-        # control_loop for the scope note). Mutually exclusive with goal_distance
-        # mode: whichever topic was published to most recently wins -- each
-        # callback clears the other mode's state (see goal_pose_callback/
-        # goal_distance_callback).
+        # Goal pose (runtime command via /mpc/goal_pose). Mutually exclusive
+        # with goal_distance mode: whichever topic was published to most
+        # recently wins -- each callback clears the other mode's state (see
+        # goal_pose_callback/goal_distance_callback). Arrival is still
+        # POSITION-ONLY (pose_goal_tolerance); the yaw shapes the corridor the
+        # car drives there along, see goal_pose_use_yaw below.
         # =========================
         self.goal_pose_xy: Optional[Tuple[float, float]] = None
-        self.goal_pose_yaw: Optional[float] = None  # stored but unused by corridor/termination logic this pass
+        self.goal_pose_yaw: Optional[float] = None
         self.pose_goal_reached = False
+
+        # THE GOAL'S YAW IS HOW THE CAR ARRIVES, not a number stored and
+        # ignored. True: a /mpc/goal_pose goal is approached along a corridor
+        # that ENDS ON THE POSE -- corridor_curves_to_pose, the cubic Bezier
+        # tangent to the live yaw at the car and to goal_pose_yaw at the goal
+        # -- with psiRef (the terminal yaw cost's reference) the goal's yaw.
+        # Used whenever that curve is drivable (peak curvature within the
+        # car's R_min) and no longer than corr_L_base; otherwise the corridor
+        # is the bearing one this mode always had, so a pose the car cannot
+        # reach at that heading from where it is degrades to "drive at the
+        # point" rather than to a reference that asks for more than full lock.
+        # WHY: before 2026-11-05 the yaw was dropped, so EnterDoor's goal (a
+        # doorway, its yaw the way through) was a POINT: the car chased it in
+        # a straight line and reached it side-on, 72 deg off the door axis in
+        # 2026-11-05T14-35-46 straight_2m_then_left_door, then drove past the
+        # door because 0.9 m is not enough to turn 72 deg. False: the
+        # position-only behaviour, byte-identical corridors.
+        # goal_turn's synthetic goal reuses goal_pose_xy/yaw but is NOT
+        # affected: goal_pose_honour_yaw is set by goal_pose_callback only.
+        self.goal_pose_use_yaw = bool(self.declare_parameter(
+            'goal_pose_use_yaw', get_value('mpc_goal_pose_use_yaw')).value)
+        self.goal_pose_honour_yaw = False
 
         # goal_pose_anchor_map: (x, y, yaw) of the goal AS RECEIVED, in the MAP
         # frame, when goal_pose_callback got it from a message whose frame_id
@@ -2808,6 +2830,8 @@ class MPCController(Node):
 
         self.goal_pose_xy = (msg.pose.position.x, msg.pose.position.y)
         self.goal_pose_yaw = self.quaternion_to_yaw(msg.pose.orientation)
+        # getattr: the goal_pose_callback test stand-ins predate the switch.
+        self.goal_pose_honour_yaw = bool(getattr(self, 'goal_pose_use_yaw', False))
         self.pose_goal_reached = False
         # Switching to pose mode -- clear any distance-mode goal so the two
         # modes stay mutually exclusive: whichever topic was published to most
@@ -2845,8 +2869,10 @@ class MPCController(Node):
 
         self.get_logger().info(
             f'Nuovo goal_pose=({self.goal_pose_xy[0]:.3f}, {self.goal_pose_xy[1]:.3f}) '
-            f'yaw={self.goal_pose_yaw:+.3f} (yaw non ancora utilizzato, solo posizione) '
-            f'frame={msg.header.frame_id!r}'
+            f'yaw={self.goal_pose_yaw:+.3f} '
+            + ('(arrivo con questo yaw: corridoio a posa) '
+               if self.goal_pose_honour_yaw else '(yaw ignorato, solo posizione) ')
+            + f'frame={msg.header.frame_id!r}'
             + (' [map-anchored]' if self.goal_pose_anchor_map is not None else '')
         )
 
@@ -3288,6 +3314,9 @@ class MPCController(Node):
             self.y + reach * math.sin(target_yaw),
         )
         self.goal_pose_yaw = target_yaw
+        # A turn's synthetic target is a point on the bearing, not a pose to
+        # arrive on: the corridor keeps the bearing geometry it is tuned on.
+        self.goal_pose_honour_yaw = False
         self.pose_goal_reached = False
         # Switching to turn (pose-mode-backed) -- clear any distance-mode
         # goal so the two stay mutually exclusive, same pattern goal_pose_
@@ -5567,8 +5596,9 @@ class MPCController(Node):
                 throttle_duration_sec=1.0)
 
         elif self.goal_pose_xy is not None:
-            # Pose mode -- position-only arrival, no final-yaw alignment this
-            # pass (see build_straight_corridor's scope note). Mutually
+            # Pose mode -- position-only ARRIVAL: the goal's yaw shapes the
+            # corridor the car comes in along (goal_pose_use_yaw), it is not
+            # an arrival condition. Mutually
             # exclusive with distance mode: goal_pose_callback/
             # goal_distance_callback each clear the other mode's state, so
             # goal_distance/goal_start_xy are guaranteed None here.
@@ -6401,6 +6431,12 @@ class MPCController(Node):
         # the ordinary length-driven geometry: the corridor ends where a
         # heading ramp of that length happens to put it.
         pose_target = None
+        # (psiEnd, L) of the goal_pose branch's BEARING corridor, set only
+        # when that branch asked for a pose corridor instead (goal_pose_use_
+        # yaw): what the build site falls back to when the pose curve is not
+        # drivable. None everywhere else, including the object branch, whose
+        # fallback is its own target-line geometry.
+        goal_pose_fallback = None
 
         # The standoff point this corridor was built to reach, and the tracked
         # target it was derived from -- both odom, both None off the object
@@ -6852,6 +6888,17 @@ class MPCController(Node):
             gx, gy = self.goal_pose_xy
             psiEnd = math.atan2(gy - Y0, gx - X0)
             L = float(np.clip(math.hypot(gx - X0, gy - Y0), 1.0, self.corr_L_base))
+            # ARRIVING ON THE GOAL'S YAW (goal_pose_use_yaw, see __init__):
+            # ask for the pose corridor, ending ON (gx, gy) tangent to the
+            # goal's yaw, and keep the bearing corridor just computed as the
+            # fallback the build site returns to when that curve is not
+            # drivable or is longer than corr_L_base. getattr: the corridor
+            # test stand-ins predate the switch, and absent means off.
+            _gyaw = getattr(self, 'goal_pose_yaw', None)
+            if getattr(self, 'goal_pose_honour_yaw', False) and _gyaw is not None:
+                goal_pose_fallback = (psiEnd, L)
+                pose_target = (gx, gy)
+                psiEnd = float(_gyaw)
         else:
             # STRAIGHT (goal_distance) move: a corridor that ALWAYS PASSES
             # THROUGH THE CAR'S CURRENT POSITION, pointed along a FROZEN,
@@ -7145,9 +7192,40 @@ class MPCController(Node):
             _over_cap = float(geom['length']) > max(float(self.corr_L_base),
                                                     1e-3) + 1e-9
             if geom['feasible'] and not _over_cap:
-                object_corridor_shape = 'pose_arc'
+                object_corridor_shape = ('goal_pose_arc' if goal_pose_fallback is not None
+                                         else 'pose_arc')
                 L = float(geom['length'])
                 L_full = L
+            elif goal_pose_fallback is not None:
+                # goal_pose: back to the BEARING corridor the branch computed
+                # before asking for the pose -- the one this mode always had,
+                # psiRef the bearing. Over the cap the pose is too far to plan
+                # the arrival yet (the next rebuilds, closer, ask again);
+                # infeasible, the pose cannot be reached at that yaw from here
+                # within full lock, and a reference that asks for more is what
+                # this fallback exists to avoid.
+                self.get_logger().info(
+                    'CORR/goal_pose | pose corridor '
+                    + (f'{geom["length"]:.2f} m long, past corr_L_base='
+                       f'{self.corr_L_base:.2f} m' if _over_cap else
+                       f'needs kappa={geom["kappa_max"]:.3f} 1/m against '
+                       f'R_min={float("nan") if _r_min is None else _r_min:.3f} m')
+                    + ': bearing corridor this rebuild',
+                    throttle_duration_sec=1.0)
+                pose_target = None
+                psiEnd, L_full = goal_pose_fallback
+                L = min(L_full, max(float(self.corr_L_base), 1e-3))
+                corridor_cut = L < L_full - 1e-9
+                _scale = (L_full / L) if corridor_cut and L > 0.0 else 1.0
+                u_start_use = min(1.0, self.corr_turn_u_start * _scale)
+                u_end_use = min(1.0, self.corr_turn_u_end * _scale)
+                # R_min was taken for the pose's turn direction; the bearing
+                # may turn the other way.
+                if _limits is not None and _params is not None:
+                    _bound = (_limits['delta_max']
+                              if wrap_pi(psiEnd - psiStart) >= 0.0
+                              else _limits['delta_min'])
+                    _r_min = min_turn_radius(_params['L'], _bound)
             elif _over_cap:
                 self.get_logger().info(
                     f'CORR/pose | the fit is {geom["length"]:.2f} m long for a '

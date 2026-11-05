@@ -1541,6 +1541,12 @@ mpc_arc_corr_sigma_m:
 mpc_arc_line_sigma_m:
   default: 0.35
   description: "Tolerance [m] on distance to the TARGET LINE while flying an arc corridor. Effective weight rho/(20 sigma^2) = 0.408. LOOSER than the corridor tolerance on purpose: this is a SLOW HOMING term, not path-following. The arc is re-anchored on the car every rebuild and so has no memory of accumulated lateral offset, which is the lateral homing the corridor has never had by design; this term supplies it. 0.35 m sits ABOVE the arc's own mean departure from the line (0.194 m) so it does not fight the corridor's designed shape, and BELOW the maximum (0.466 m) so it still acts on a real excursion. Total lateral stiffness 0.800 + 0.408 = 1.208, against the 1.25 the car is tuned at, with the untested term the weaker of the two on the first runs. PROVISIONAL."
+# ------------------------------------------------------------------
+# mpc_goal_pose_use_yaw -- mpc_corr (MPC_corr.py goal_pose_use_yaw)
+# ------------------------------------------------------------------
+mpc_goal_pose_use_yaw:
+  default: true
+  description: "TRUE SINCE 2026-11-05. A /mpc/goal_pose goal (EnterDoor, a mission goal_pose move) is approached along a corridor that ENDS ON THE POSE: the cubic Bezier tangent to the live yaw at the car and to the goal's yaw at the goal (corridor_curves_to_pose, the object branch's pose_arc), with the terminal yaw cost's reference the goal's yaw. Used on every rebuild where that curve fits the car's R_min and is no longer than corr_L_base (3.0 m); otherwise that rebuild is the bearing corridor this mode always had (logged as CORR/goal_pose). Arrival stays position-only (pose_goal_tolerance). goal_turn is not affected. WHY: until now the yaw was dropped, so a doorway goal was a point the car reached side-on -- 72 deg off the door axis in 2026-11-05T14-35-46 straight_2m_then_left_door, after which 0.9 m was not enough to turn into the door. false: the position-only corridors, byte-identical to before."
 object_c_safety:
   default: 1.5
   description: "Margin on the per-rebuild distance cap: rotating the corridor by dpsi is given c_safety * R_min * dpsi metres of remaining range. FLOOR IS 1.0, not the 1.5 wall_turn enforces -- wall_turn needs 1.5 because its corridor bends along a smoothstep whose peak slope is 1.5, while this corridor is straight and the car flies a plain arc onto it, where the honest factor is 1.0. Shipped at 1.5 as margin; a value in [1.0, 1.5) is a tuning choice and is accepted."
