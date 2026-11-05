@@ -295,6 +295,19 @@ _DEFAULT_TOPICS = [
     # is an ORIGINAL, not a relay copy: see _RECORDED_VIZ_ORIGINALS.
     '/perception/doors',
     '/viz/doors',
+    # The map-frame doors (door_source 'freespace', the default, or
+    # 'semantic'): what enter_door picks its door from. freespace_door_node or
+    # semantic_layer_node publish them under the same names. Without these a
+    # door mission's bag says where the car was sent (/mpc/goal_pose, the
+    # pre-point) but not which door that was or what else was on offer --
+    # 2026-11-05T14-25-46 straight_2m_then_left_door had only the log line
+    # "'left' resolved to 'door_2'". The debug JSON is freespace_door_node's
+    # per-candidate gate verdicts. /viz/doors_semantic is an original, like
+    # /viz/doors: see _RECORDED_VIZ_ORIGINALS.
+    '/perception/doors_semantic',
+    '/viz/doors_semantic',
+    '/costmap/semantic_doors',
+    '/costmap/freespace_doors/debug',
     '/perception/stereo_wall',
     '/perception/scene_labels',
     '/perception/scene_labels_debug',
@@ -439,8 +452,10 @@ _NEVER_RECORDED_PREFIXES = ('/viz/', '/viz_internal/')
 # ...except these, which live under /viz/ but are published by a node in
 # their own right, not relayed from a source a bag already has: /viz/doors is
 # lidar_front_wall_node's door markers (door_markers.py), the only record of
-# the doors as Foxglove drew them.
-_RECORDED_VIZ_ORIGINALS = ('/viz/doors',)
+# the doors as Foxglove drew them; /viz/doors_semantic is the same for the
+# map-frame doors (freespace_door_node / semantic_layer_node,
+# semantic_door_markers.py).
+_RECORDED_VIZ_ORIGINALS = ('/viz/doors', '/viz/doors_semantic')
 
 
 def _relay_copy(topic):
