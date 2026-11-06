@@ -109,6 +109,7 @@ not sit in the list forever.
 """
 
 import itertools
+import logging
 import math
 
 import numpy as np
@@ -791,6 +792,31 @@ def _blend_axis(old, new, alpha):
     return old if n < 1e-9 else (x / n, y / n)
 
 
+_log = logging.getLogger('semantic_doors')
+
+#: A confirmed door's normal moving by more than this [deg] in ONE update is
+#: logged as a warning. By construction (follow_normal) it cannot exceed 90 deg;
+#: anything near this size means the axis fit itself jumped.
+NORMAL_JUMP_WARN_DEG = 30.0
+
+
+def follow_normal(prev, axis):
+    """(new_normal, jump_deg): the normal for the current EMA `axis`, oriented
+    to keep the previous crossing direction `prev`.
+
+    The perpendicular of an undirected axis has an arbitrary sign; picking the
+    one with a non-negative dot against `prev` bounds the change to 90 deg per
+    update, so the door frame's x axis can follow the refined axis but never
+    flips. Reversing the direction is deliberately NOT possible here: it takes
+    an explicit decision, not a sign ambiguity.
+    """
+    nx, ny = -axis[1], axis[0]
+    if nx * prev[0] + ny * prev[1] < 0.0:
+        nx, ny = -nx, -ny
+    dot = max(-1.0, min(1.0, nx * prev[0] + ny * prev[1]))
+    return (nx, ny), math.degrees(math.acos(dot))
+
+
 class DoorTracker:
     """The door list: association, the confirm lifecycle, the fixed direction."""
 
@@ -864,6 +890,12 @@ class DoorTracker:
             trk.centre = ((1.0 - a) * trk.centre[0] + a * cand.centre[0],
                           (1.0 - a) * trk.centre[1] + a * cand.centre[1])
             trk.axis = _blend_axis(trk.axis, cand.axis, a)
+            if trk.normal is not None:
+                # Follow the refined axis, keep the direction (follow_normal).
+                trk.normal, jump = follow_normal(trk.normal, trk.axis)
+                if jump > NORMAL_JUMP_WARN_DEG:
+                    _log.warning('door_%d normal turned %.1f deg in one update',
+                                 trk.id, jump)
             trk.width = (1.0 - a) * trk.width + a * cand.width
             trk.case = cand.case
             trk.wall_id0, trk.wall_id1 = cand.wall_id0, cand.wall_id1

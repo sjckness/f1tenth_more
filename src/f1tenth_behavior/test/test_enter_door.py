@@ -502,3 +502,35 @@ def test_a_confirmed_but_not_strong_door_fails_with_no_strong_door():
     strong = run([_door_msg(3, (0.0, 3.0), True)])
     assert strong.door_record.outcome is None
     assert strong.door_record.door_id == 3
+
+
+# ---------------------------------------------------------------------------
+# Tolerances: one source, never tighter than mpc_corr's 0.15 m arrival latch
+# ---------------------------------------------------------------------------
+def test_phase_and_entered_tolerances_match_what_the_mpc_can_deliver():
+    from f1tenth_behavior.behaviours import enter_door as ed
+    # Default lateral budget: 0.15 for a normal door, 25% of the width for a narrow one.
+    assert ed.lateral_tol(0.9) == pytest.approx(0.15)
+    assert ed.lateral_tol(0.5) == pytest.approx(0.125)
+    assert ed.lateral_tol(0.9, override_m=0.1) == pytest.approx(0.1)
+    lat, yaw_tol, along_tol, dist = ed.lateral_tol(0.9), 20.0, 0.15, 0.8
+
+    # The car mpc_corr stops 0.12 m off the axis, 0.1 m short of the pre-point,
+    # 15 deg crooked: the old 5 cm check never fired here, so the move stalled.
+    assert ed.at_pre_point(-0.9, 0.12, 15.0, dist, along_tol, lat, yaw_tol)
+    # Off the line by more than the budget, or pointing too far off: still APPROACH.
+    assert not ed.at_pre_point(-0.9, 0.20, 15.0, dist, along_tol, lat, yaw_tol)
+    assert not ed.at_pre_point(-0.9, 0.05, 25.0, dist, along_tol, lat, yaw_tol)
+    assert not ed.at_pre_point(-1.2, 0.0, 0.0, dist, along_tol, lat, yaw_tol)
+
+    # Entered: the MPC latches within 0.15 m of the centre, so 0.12 m short counts.
+    assert ed.has_entered(-0.12, 0.10, 18.0, along_tol, lat, yaw_tol)
+    assert ed.has_entered(0.6, 0.0, 0.0, along_tol, lat, yaw_tol)       # well through
+    assert not ed.has_entered(-0.4, 0.0, 0.0, along_tol, lat, yaw_tol)  # not there yet
+    assert not ed.has_entered(0.0, 0.18, 0.0, along_tol, lat, yaw_tol)
+    assert not ed.has_entered(0.0, 0.0, 30.0, along_tol, lat, yaw_tol)
+
+    # Infeasible-entry groundwork: bad heading and less room than R_min.
+    assert ed.entry_infeasible(40.0, 0.5, yaw_tol, 0.9)
+    assert not ed.entry_infeasible(40.0, 2.0, yaw_tol, 0.9)
+    assert not ed.entry_infeasible(10.0, 0.5, yaw_tol, 0.9)

@@ -395,8 +395,9 @@ def test_the_crossing_direction_is_fixed_at_confirmation_and_survives_crossing()
         cycle(x, 10 + i)
     after = tracker.by_id(door_id)
     assert after is not None, 'the door lost its identity after the crossing'
-    assert after.normal == first_normal
-    assert after.yaw() == first_yaw
+    # The normal FOLLOWS the refined axis but keeps its direction (never flips).
+    assert after.normal[0] * first_normal[0] + after.normal[1] * first_normal[1] > 0.99
+    assert abs(math.degrees(after.yaw() - first_yaw)) < 5.0
     assert len(tracker.tracks) == 1, 'a second track was spawned for the same door'
 
 
@@ -623,3 +624,20 @@ def test_only_curve_cells_are_offered_as_candidates():
     deg = fd.neighbour_count(skel)
     for cell in fd._bottleneck_cells(window, skel, p):
         assert deg[cell] == 2, cell
+
+
+def test_normal_follows_the_axis_but_never_flips():
+    from f1tenth_costmap.semantic_doors import follow_normal
+    prev = (1.0, 0.0)
+    # Axis rotated 20 deg: the normal turns with it, same side.
+    a = math.radians(20.0)
+    n, jump = follow_normal(prev, (math.cos(math.pi / 2 + a), math.sin(math.pi / 2 + a)))
+    assert n[0] > 0.0 and abs(jump - 20.0) < 1e-6
+    # The same axis handed back with the opposite sign (undirected): no flip.
+    n2, jump2 = follow_normal(prev, (-math.cos(math.pi / 2 + a), -math.sin(math.pi / 2 + a)))
+    assert n2[0] > 0.0 and abs(jump2 - 20.0) < 1e-6
+    # An axis 90+ deg away can only be reached by sign, never by a >90 deg flip.
+    for deg in (80, 100, 170, 179):
+        t = math.radians(deg)
+        _n, j = follow_normal(prev, (math.cos(t + math.pi / 2), math.sin(t + math.pi / 2)))
+        assert j <= 90.0 + 1e-9

@@ -125,6 +125,25 @@ DEFAULT_APPROACH_DIST_M = 0.8
 #: is to be lined up BEFORE the jambs, not after them.
 APPROACH_SKIP_X_M = -0.2
 
+#: mpc_corr latches a /mpc/goal_pose arrival at this radius (its
+#: pose_goal_tolerance, 0.15 m) and then HOLDS THE CAR. Any phase decision here
+#: tighter than that can never fire for a car the MPC has already stopped, and
+#: the goal is not re-sent, so the move stalls in front of the door.
+MPC_POSE_TOL_M = 0.15
+
+#: door_lat_tol_m default: min(this, LAT_TOL_WIDTH_FRAC * door width) [m].
+#: Capped at MPC_POSE_TOL_M so the budget is never tighter than what the MPC
+#: can deliver, and shrunk for a narrow door so the car is still inside the jambs.
+LAT_TOL_WIDTH_FRAC = 0.25
+
+#: door_entry_yaw_tol_deg default. A crooked car that is ON the door's line and
+#: pointing in counts: the heading only has to be good enough not to clip a jamb.
+DEFAULT_ENTRY_YAW_TOL_DEG = 20.0
+
+#: The goal is re-sent when the door axis turns by more than this [deg], as
+#: well as when its position moves by REPUBLISH_EPS_M.
+REPUBLISH_YAW_DEG = 5.0
+
 #: Phase names, as they appear in the move's record and the log.
 PHASE_APPROACH, PHASE_ENTER = 'APPROACH', 'ENTER'
 
@@ -179,6 +198,45 @@ def _doors(msg, strong_only: bool) -> dict:
         out[int(door.id)] = ((float(door.center.x), float(door.center.y)),
                              math.atan2(float(door.normal.y), float(door.normal.x)))
     return out
+
+
+def door_widths(msg) -> dict:
+    """{id: width [m]} of the CONFIRMED doors in a DoorArray."""
+    return {int(d.id): float(d.width) for d in msg.doors
+            if d.state == Door.STATE_CONFIRMED}
+
+
+def lateral_tol(width_m, override_m=0.0) -> float:
+    """door_lat_tol_m: `override_m` if > 0, else min(0.15, 0.25 * door width)."""
+    if override_m and override_m > 0.0:
+        return float(override_m)
+    if width_m is None or width_m <= 0.0:
+        return MPC_POSE_TOL_M
+    return min(MPC_POSE_TOL_M, LAT_TOL_WIDTH_FRAC * float(width_m))
+
+
+def at_pre_point(along, lateral, heading_err_deg, dist, along_tol, lat_tol, yaw_tol_deg):
+    """APPROACH is over: at the pre-point's along window, on the axis, pointing in."""
+    return (abs(along + dist) <= along_tol and abs(lateral) <= lat_tol
+            and heading_err_deg <= yaw_tol_deg)
+
+
+def has_entered(along, lateral, heading_err_deg, along_tol, lat_tol, yaw_tol_deg):
+    """Centre crossed (within along_tol short of it counts: the MPC stops that
+    far out), on the line, pointing in. No upper bound on `along`."""
+    return (along >= -along_tol and abs(lateral) <= lat_tol
+            and heading_err_deg <= yaw_tol_deg)
+
+
+def angle_gap_deg(a, b) -> float:
+    """|a - b| in degrees, wrapped, for two yaws in radians."""
+    return abs(wrap_deg(a - b))
+
+
+def entry_infeasible(heading_err_deg, remaining_m, yaw_tol_deg, r_min_m) -> bool:
+    """Heading outside tolerance with less room left than one minimum turning
+    radius: forward-only steering cannot fix it. Groundwork for reverse."""
+    return heading_err_deg > yaw_tol_deg and remaining_m < r_min_m
 
 
 def wrap_deg(radians_delta: float) -> float:
@@ -263,6 +321,14 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         self.goal_pose_pub = None
         self.hold_pub = None
         self.doors = {}
+        self.widths = {}
+        #: door_lat_tol_m (0 = auto, see lateral_tol) and door_entry_yaw_tol_deg.
+        #: ROS parameters of the behavior executor, read in setup().
+        self.lat_tol_override_m = 0.0
+        self.entry_yaw_tol_deg = DEFAULT_ENTRY_YAW_TOL_DEG
+        self._published_yaw = None
+        #: Minimum turning radius [m] for the infeasible-entry log; None = unknown.
+        self.r_min_m = None
         #: The subset of `doors` a mission may actually resolve to. Kept
         #: separate rather than filtering `doors`, so following a resolved
         #: door is unaffected by its strength changing.
@@ -283,10 +349,28 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             self.node = kwargs['node']
         except KeyError as e:
             raise KeyError("EnterDoor.setup() didn't find 'node' in kwargs") from e
+        self._declare_params()
         self.node.create_subscription(DoorArray, self._doors_topic, self._doors_cb, 10)
         self.goal_pose_pub = self.node.create_publisher(
             PoseStamped, self._goal_pose_topic, 10)
         self.hold_pub = self.node.create_publisher(Bool, self._hold_topic, 10)
+
+    def _declare_params(self):
+        """door_lat_tol_m / door_entry_yaw_tol_deg, plus R_min from the steering limits."""
+        def declare(name, default):
+            if not self.node.has_parameter(name):
+                self.node.declare_parameter(name, default)
+            return self.node.get_parameter(name).value
+        self.lat_tol_override_m = float(declare('door_lat_tol_m', 0.0))
+        self.entry_yaw_tol_deg = float(declare(
+            'door_entry_yaw_tol_deg', DEFAULT_ENTRY_YAW_TOL_DEG))
+        try:
+            from f1tenth_params.param_defaults import get_value
+            bound = max(abs(float(get_value('mpc_steering_angle_min_rad'))),
+                        abs(float(get_value('mpc_steering_angle_max_rad'))))
+            self.r_min_m = float(get_value('mpc_wheelbase_m')) / math.tan(bound)
+        except Exception:  # noqa: BLE001 - groundwork log only
+            self.r_min_m = None
 
     def _doors_cb(self, msg):
         if msg.header.frame_id and msg.header.frame_id != self.map_frame:
@@ -296,6 +380,7 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             return
         self.doors = confirmed_doors(msg)
         self.strong = strong_doors(msg)
+        self.widths = door_widths(msg)
         self.doors_received_sec = self._clock()
 
     def _bb(self, key):
@@ -309,6 +394,7 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         self._active_move_key = None
         self._move_start_sec = None
         self._published_xy = None
+        self._published_yaw = None
         self._last_seen_sec = None
 
     def update(self):
@@ -377,6 +463,11 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         along_to_door = lateral_to_door = None
         if car_xy is not None:
             along_to_door, lateral_to_door = door_frame_xy(car_xy, door_xy, tyaw)
+        # ONE tolerance source. mpc_corr latches arrival at 0.15 m and stops the
+        # car, so nothing below may be tighter than that (see MPC_POSE_TOL_M).
+        lat_tol = lateral_tol(self.widths.get(record.door_id), self.lat_tol_override_m)
+        yaw_tol = self.entry_yaw_tol_deg
+        heading_err = (angle_gap_deg(tyaw, car_yaw) if car_yaw is not None else None)
 
         # Which phase. Decided on THIS tick's pose, not latched: a car pushed
         # back out of the doorway goes back to lining up rather than driving
@@ -397,8 +488,9 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             # dist; the lateral offset to it is the same number either way --
             # lateral is measured across the axis, unaffected by how far
             # along it you measure from.
-            at_pre = (abs(along_to_door + dist) <= spec.along_tol
-                      and abs(lateral_to_door) <= spec.lateral_tol)
+            at_pre = (heading_err is not None
+                      and at_pre_point(along_to_door, lateral_to_door, heading_err,
+                                       dist, spec.along_tol, lat_tol, yaw_tol))
             if at_pre or along_to_door > APPROACH_SKIP_X_M:
                 record.phase = PHASE_ENTER
                 self.node.get_logger().info(
@@ -408,11 +500,16 @@ class EnterDoor(py_trees.behaviour.Behaviour):
 
         tx, ty = door_xy if record.phase == PHASE_ENTER else pre
         record.target_xy = (tx, ty)
+        # Re-send when the target moved OR the axis turned: a door whose EMA
+        # axis rotates a few degrees at an unchanged centre leaves the corridor
+        # ending on a stale psiEnd otherwise.
         if (self._published_xy is None
                 or math.hypot(tx - self._published_xy[0],
-                              ty - self._published_xy[1]) > REPUBLISH_EPS_M):
+                              ty - self._published_xy[1]) > REPUBLISH_EPS_M
+                or angle_gap_deg(tyaw, self._published_yaw) > REPUBLISH_YAW_DEG):
             self._publish_goal(move, tx, ty, tyaw)
             self._published_xy = (tx, ty)
+            self._published_yaw = tyaw
 
         if car_xy is None or car_yaw is None:
             record.entered = False
@@ -424,11 +521,21 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         # single xy_tol radius -- see DoorSpec's own comment for why a radius
         # lets the car sit flush against a jamb and still read as "entered".
         record.along_error_m, record.lateral_error_m = along_to_door, lateral_to_door
-        record.yaw_error_deg = abs(wrap_deg(tyaw - car_yaw))
+        record.yaw_error_deg = heading_err
         record.entered = (record.phase == PHASE_ENTER
-                          and abs(record.along_error_m) <= spec.along_tol
-                          and abs(record.lateral_error_m) <= spec.lateral_tol
-                          and record.yaw_error_deg <= spec.yaw_tol_deg)
+                          and has_entered(along_to_door, lateral_to_door, heading_err,
+                                          spec.along_tol, lat_tol, yaw_tol))
+        # Groundwork for the reverse MPC: heading out of tolerance with less
+        # room than one minimum turning radius means going forward cannot fix it.
+        if (self.r_min_m is not None and along_to_door is not None
+                and entry_infeasible(heading_err, math.hypot(tx - car_xy[0], ty - car_xy[1]),
+                                     yaw_tol, self.r_min_m)):
+            self.node.get_logger().warn(
+                f"[enter_door] move '{move.id}': entry infeasible going forward -- "
+                f'heading error {heading_err:.1f} deg > {yaw_tol:.1f} deg with '
+                f'{math.hypot(tx - car_xy[0], ty - car_xy[1]):.2f} m to the target, less '
+                f'than R_min {self.r_min_m:.2f} m (reverse would be needed)',
+                throttle_duration_sec=2.0)
         return py_trees.common.Status.SUCCESS
 
     def _publish_goal(self, move, x, y, yaw):

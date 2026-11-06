@@ -455,7 +455,8 @@ def test_the_crossing_direction_is_fixed_at_confirmation():
     first = door.normal
     assert first[1] > 0.8, 'the crossing direction does not point through the wall'
     _hits(tracker, p, segs, (2.0, 2.6, 3.2), t0=20.0)
-    assert tracker.by_id(door.id).normal == first
+    after = tracker.by_id(door.id).normal
+    assert after[0] * first[0] + after[1] * first[1] > 0.99     # follows the axis, never turns round
     assert len(tracker.tracks) == 1
 
 
