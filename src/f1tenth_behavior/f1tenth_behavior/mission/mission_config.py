@@ -332,7 +332,7 @@ class DoorSpec:
     #: drives the last stretch straight down the axis. The pre-point is
     #: skipped when the car is already in the doorway. See
     #: behaviours/enter_door.py, THE APPROACH PRE-POINT.
-    approach_dist_m: float = 0.8
+    approach_dist_m: float = 0.0   # 0 = auto: clamp(1.3 * R_min, 0.8, 1.6), see enter_door
 
 
 @dataclass(frozen=True)
@@ -814,7 +814,8 @@ def _parse_door_spec(raw: object, where: str) -> DoorSpec:
     _require(yaw_tol_deg <= 180.0,
              f'{where}: enter_door.yaw_tol_deg must be at most 180 (got {yaw_tol_deg})')
     acquire = _require_positive_number(raw, 'acquire_timeout_sec', where, default=5.0)
-    approach = _require_positive_number(raw, 'approach_dist_m', where, default=0.8)
+    approach = (_require_positive_number(raw, 'approach_dist_m', where, default=0.8)
+                if 'approach_dist_m' in raw else 0.0)
     return DoorSpec(door=door, along_tol=float(along_tol),
                     lateral_tol=float(lateral_tol),
                     yaw_tol_deg=float(yaw_tol_deg),

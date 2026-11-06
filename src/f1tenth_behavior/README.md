@@ -197,7 +197,7 @@ it, facing the way through.
 | `lateral_tol` | float > 0 | no, default `0.05` | [m] sideways from the door frame's x axis -- the jamb-clearance budget. Split from a single `xy_tol` radius, which let the car read as "entered" while sitting flush against a jamb. |
 | `yaw_tol_deg` | float > 0, <= 180 | no, default `10.0` | [deg] from the door frame's x axis. |
 | `acquire_timeout_sec` | float > 0 | no, default `5.0` | No confirmed door matching `door` within this -> the move fails `door_not_found` and the mission aborts. |
-| `approach_dist_m` | float > 0 | no, default `0.8` | How far back along the door's own x axis the APPROACH pre-point sits -- see below. |
+| `approach_dist_m` | float > 0 | no, default auto: `clamp(1.3 * R_min, 0.8, 1.6)` (1.24 m at the shipped steering limits) | How far back along the door's own x axis the APPROACH pre-point sits -- see below. |
 
 An `enter_door` step **requires** `stop_condition.type == "door_entered"` and
 `timeout_sec`, and does not allow `on_object` -- the same three constraints a

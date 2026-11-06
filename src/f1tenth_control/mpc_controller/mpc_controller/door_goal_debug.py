@@ -11,9 +11,9 @@ import math
 from typing import Dict, Optional, Tuple
 
 #: The pre-point enter_door aims at first sits this far back on the door axis
-#: (enter_door.DEFAULT_APPROACH_DIST_M). The matcher tries the pre-point and
+#: (enter_door.auto_approach_dist: 1.3 * R_min 0.956 = 1.24 at the shipped steering limits). The matcher tries the pre-point and
 #: the centre, so a goal in either phase finds its door.
-PRE_POINT_DIST_M = 0.8
+PRE_POINT_DIST_M = 1.24
 
 #: A door further than this from the goal [m] (by the nearer of the two
 #: candidate points) is not "the door this goal is for".

@@ -111,13 +111,23 @@ from f1tenth_behavior.mission.runtime import (
 #: would change which doorway the car is driving at.
 REPUBLISH_EPS_M = 0.05
 
-#: Where the pre-point sits on the door's x axis, as a distance BEHIND the
-#: opening [m]. The brief's door_approach_dist_m. A mission overrides it per
-#: move with enter_door.approach_dist_m; this is what it defaults to. 0.8 m is
-#: a little over one car length ahead of the jambs -- far enough that the
-#: final leg is straight, near enough that the car is not asked to line up
-#: from across the room.
+#: Pre-point distance BEHIND the opening [m]: clamp(APPROACH_R_MIN_FACTOR *
+#: R_min, APPROACH_DIST_MIN_M, APPROACH_DIST_MAX_M). A mission can still force
+#: one with enter_door.approach_dist_m (> 0); left out, this formula decides.
+#: Why not a fixed 0.8: a car that arrives 60 deg off the axis needs about one
+#: R_min of arc to square up, and 0.8 m is less than that (2026-11-06 run: the
+#: car reached the pre-point 61 deg off and swung away). 0.8 stays the floor and
+#: the value used when R_min is unknown.
 DEFAULT_APPROACH_DIST_M = 0.8
+APPROACH_R_MIN_FACTOR = 1.3
+APPROACH_DIST_MIN_M = 0.8
+APPROACH_DIST_MAX_M = 1.6
+
+#: APPROACH -> ENTER also fires within this distance [m] of the pre-point.
+PRE_POINT_SWITCH_M = 0.5
+#: ... or when |lateral| <= this multiple of the lateral tolerance, whatever the
+#: heading error: on the axis, the ENTER goal (door centre) is straight ahead.
+LAT_SWITCH_FACTOR = 1.5
 
 #: The car is "in the doorway already" at or past this x in the door frame
 #: [m]: the pre-point is skipped, and an APPROACH that reaches here is over.
@@ -131,10 +141,14 @@ APPROACH_SKIP_X_M = -0.2
 #: the goal is not re-sent, so the move stalls in front of the door.
 MPC_POSE_TOL_M = 0.15
 
-#: door_lat_tol_m default: min(this, LAT_TOL_WIDTH_FRAC * door width) [m].
-#: Capped at MPC_POSE_TOL_M so the budget is never tighter than what the MPC
-#: can deliver, and shrunk for a narrow door so the car is still inside the jambs.
-LAT_TOL_WIDTH_FRAC = 0.25
+#: door_lat_tol_m default: clamp(LAT_TOL_SLACK_FRAC * (door width - car width),
+#: LAT_TOL_MIN_M, LAT_TOL_MAX_M) [m]: a share of the clearance each side of the
+#: car, bounded.
+LAT_TOL_SLACK_FRAC = 0.3
+LAT_TOL_MIN_M = 0.10
+LAT_TOL_MAX_M = 0.25
+#: Fallback car width [m] (2 x swept_clearance_body_half_width_m, URDF chassis).
+DEFAULT_CAR_WIDTH_M = 0.272
 
 #: door_entry_yaw_tol_deg default. A crooked car that is ON the door's line and
 #: pointing in counts: the heading only has to be good enough not to clip a jamb.
@@ -209,19 +223,32 @@ def door_widths(msg) -> dict:
             if d.state == Door.STATE_CONFIRMED}
 
 
-def lateral_tol(width_m, override_m=0.0) -> float:
-    """door_lat_tol_m: `override_m` if > 0, else min(0.15, 0.25 * door width)."""
+def lateral_tol(width_m, override_m=0.0, car_width_m=DEFAULT_CAR_WIDTH_M) -> float:
+    """door_lat_tol_m: `override_m` if > 0, else
+    clamp(0.3 * (door width - car width), 0.10, 0.25)."""
     if override_m and override_m > 0.0:
         return float(override_m)
     if width_m is None or width_m <= 0.0:
         return MPC_POSE_TOL_M
-    return min(MPC_POSE_TOL_M, LAT_TOL_WIDTH_FRAC * float(width_m))
+    raw = LAT_TOL_SLACK_FRAC * (float(width_m) - float(car_width_m))
+    return max(LAT_TOL_MIN_M, min(LAT_TOL_MAX_M, raw))
 
 
-def at_pre_point(along, lateral, heading_err_deg, dist, along_tol, lat_tol, yaw_tol_deg):
-    """APPROACH is over: at the pre-point's along window, on the axis, pointing in."""
-    return (abs(along + dist) <= along_tol and abs(lateral) <= lat_tol
-            and heading_err_deg <= yaw_tol_deg)
+def auto_approach_dist(r_min_m) -> float:
+    """Pre-point distance: clamp(1.3 * R_min, 0.8, 1.6); 0.8 when R_min is unknown."""
+    if r_min_m is None or r_min_m <= 0.0:
+        return DEFAULT_APPROACH_DIST_M
+    return max(APPROACH_DIST_MIN_M,
+               min(APPROACH_DIST_MAX_M, APPROACH_R_MIN_FACTOR * float(r_min_m)))
+
+
+def at_pre_point(along, lateral, dist, lat_tol):
+    """APPROACH is over: within PRE_POINT_SWITCH_M of the pre-point, OR on the
+    axis (|lateral| <= 1.5 * lat_tol). Heading error plays no part: the ENTER
+    goal's yaw is clamped to the axis +- tolerance, so a crooked car is asked to
+    point at the centre, not to square up first."""
+    near = math.hypot(along + dist, lateral) <= PRE_POINT_SWITCH_M
+    return near or abs(lateral) <= LAT_SWITCH_FACTOR * lat_tol
 
 
 def has_entered(along, lateral, heading_err_deg, along_tol, lat_tol, yaw_tol_deg):
@@ -353,6 +380,8 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         self._published_yaw = None
         #: Minimum turning radius [m] for the infeasible-entry log; None = unknown.
         self.r_min_m = None
+        #: Car width [m] for the lateral tolerance; 2 x the shared body half-width.
+        self.car_width_m = DEFAULT_CAR_WIDTH_M
         #: The subset of `doors` a mission may actually resolve to. Kept
         #: separate rather than filtering `doors`, so following a resolved
         #: door is unaffected by its strength changing.
@@ -395,6 +424,15 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             self.r_min_m = float(get_value('mpc_wheelbase_m')) / math.tan(bound)
         except Exception:  # noqa: BLE001 - groundwork log only
             self.r_min_m = None
+        try:
+            from f1tenth_params.param_defaults import get_value
+            self.car_width_m = 2.0 * float(get_value('swept_clearance_body_half_width_m'))
+        except Exception:  # noqa: BLE001 - keep the URDF fallback
+            pass
+        self.node.get_logger().info(
+            f'[enter_door] car_width {self.car_width_m:.3f} m, R_min '
+            + (f'{self.r_min_m:.3f} m' if self.r_min_m is not None else 'unknown')
+            + f', auto pre-point {auto_approach_dist(self.r_min_m):.2f} m')
 
     def _doors_cb(self, msg):
         if msg.header.frame_id and msg.header.frame_id != self.map_frame:
@@ -477,7 +515,7 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         (dx_, dy_), tyaw = target
         door_xy = (dx_, dy_)
         record.target_yaw = tyaw
-        dist = getattr(spec, 'approach_dist_m', None) or DEFAULT_APPROACH_DIST_M
+        dist = getattr(spec, 'approach_dist_m', None) or auto_approach_dist(self.r_min_m)
         record.pre_point_xy = pre = pre_point(door_xy, tyaw, dist)
 
         # door_frame_xy ONCE per tick: (along, lateral) of the car against the
@@ -489,7 +527,8 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             along_to_door, lateral_to_door = door_frame_xy(car_xy, door_xy, tyaw)
         # ONE tolerance source. mpc_corr latches arrival at 0.15 m and stops the
         # car, so nothing below may be tighter than that (see MPC_POSE_TOL_M).
-        lat_tol = lateral_tol(self.widths.get(record.door_id), self.lat_tol_override_m)
+        lat_tol = lateral_tol(self.widths.get(record.door_id), self.lat_tol_override_m,
+                              self.car_width_m)
         yaw_tol = self.entry_yaw_tol_deg
         heading_err = (angle_gap_deg(tyaw, car_yaw) if car_yaw is not None else None)
         record.lat_tol_m, record.yaw_tol_deg = lat_tol, yaw_tol
@@ -513,15 +552,13 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             # dist; the lateral offset to it is the same number either way --
             # lateral is measured across the axis, unaffected by how far
             # along it you measure from.
-            at_pre = (heading_err is not None
-                      and at_pre_point(along_to_door, lateral_to_door, heading_err,
-                                       dist, spec.along_tol, lat_tol, yaw_tol))
+            at_pre = at_pre_point(along_to_door, lateral_to_door, dist, lat_tol)
             if at_pre or along_to_door > APPROACH_SKIP_X_M:
                 record.phase = PHASE_ENTER
                 self.node.get_logger().info(
                     f"[enter_door] move '{move.id}': {record.frame_id} "
                     f'{PHASE_APPROACH} -> {PHASE_ENTER} '
-                    + ('(at the pre-point)' if at_pre else '(past it)'))
+                    + ('(near the pre-point or on the axis)' if at_pre else '(past it)'))
 
         tx, ty = door_xy if record.phase == PHASE_ENTER else pre
         record.target_xy = (tx, ty)

@@ -509,25 +509,19 @@ def test_a_confirmed_but_not_strong_door_fails_with_no_strong_door():
 # ---------------------------------------------------------------------------
 def test_phase_and_entered_tolerances_match_what_the_mpc_can_deliver():
     from f1tenth_behavior.behaviours import enter_door as ed
-    # Default lateral budget: 0.15 for a normal door, 25% of the width for a narrow one.
-    assert ed.lateral_tol(0.9) == pytest.approx(0.15)
-    assert ed.lateral_tol(0.5) == pytest.approx(0.125)
+    # Default lateral budget: clamp(0.3 * (width - 0.272 car), 0.10, 0.25).
+    assert ed.lateral_tol(0.9) == pytest.approx(0.3 * (0.9 - 0.272))   # 0.188
+    assert ed.lateral_tol(1.5) == pytest.approx(0.25)                  # upper clamp
+    assert ed.lateral_tol(0.5) == pytest.approx(0.10)                  # lower clamp
     assert ed.lateral_tol(0.9, override_m=0.1) == pytest.approx(0.1)
+    assert ed.lateral_tol(1.0, car_width_m=0.4) == pytest.approx(0.18)  # car width is an input
     lat, yaw_tol, along_tol, dist = ed.lateral_tol(0.9), 20.0, 0.15, 0.8
-
-    # The car mpc_corr stops 0.12 m off the axis, 0.1 m short of the pre-point,
-    # 15 deg crooked: the old 5 cm check never fired here, so the move stalled.
-    assert ed.at_pre_point(-0.9, 0.12, 15.0, dist, along_tol, lat, yaw_tol)
-    # Off the line by more than the budget, or pointing too far off: still APPROACH.
-    assert not ed.at_pre_point(-0.9, 0.20, 15.0, dist, along_tol, lat, yaw_tol)
-    assert not ed.at_pre_point(-0.9, 0.05, 25.0, dist, along_tol, lat, yaw_tol)
-    assert not ed.at_pre_point(-1.2, 0.0, 0.0, dist, along_tol, lat, yaw_tol)
 
     # Entered: the MPC latches within 0.15 m of the centre, so 0.12 m short counts.
     assert ed.has_entered(-0.12, 0.10, 18.0, along_tol, lat, yaw_tol)
     assert ed.has_entered(0.6, 0.0, 0.0, along_tol, lat, yaw_tol)       # well through
     assert not ed.has_entered(-0.4, 0.0, 0.0, along_tol, lat, yaw_tol)  # not there yet
-    assert not ed.has_entered(0.0, 0.18, 0.0, along_tol, lat, yaw_tol)
+    assert not ed.has_entered(0.0, 0.22, 0.0, along_tol, lat, yaw_tol)
     assert not ed.has_entered(0.0, 0.0, 30.0, along_tol, lat, yaw_tol)
 
     # Infeasible-entry groundwork: bad heading and less room than R_min.
@@ -574,3 +568,24 @@ def test_the_score_report_quotes_the_tolerances_actually_applied():
     assert '(tol 0.150), yaw error=12.0 deg (tol 20.0)' in out.note
     assert '0.050' not in out.note
     assert out.commanded == pytest.approx(0.15)
+
+
+def test_approach_ends_within_half_a_metre_of_the_pre_point_or_on_the_axis_whatever_the_yaw():
+    from f1tenth_behavior.behaviours import enter_door as ed
+    lat, dist = 0.2, 1.24
+    # on the axis (|lateral| <= 1.5 * lat_tol = 0.3), far short of the pre-point,
+    # 60 deg crooked: ENTER (the heading error is not an input any more).
+    assert ed.at_pre_point(-3.0, 0.29, dist, lat)
+    # off the axis but within 0.5 m of the pre-point: ENTER
+    assert ed.at_pre_point(-1.24 + 0.3, 0.35, dist, lat)
+    # off the axis and 0.6 m from the pre-point: still APPROACH
+    assert not ed.at_pre_point(-1.24 + 0.5, 0.35, dist, lat)
+    assert not ed.at_pre_point(-3.0, 0.31, dist, lat)
+
+
+def test_pre_point_distance_is_1_3_r_min_clamped_to_0_8_1_6():
+    from f1tenth_behavior.behaviours import enter_door as ed
+    assert ed.auto_approach_dist(0.956) == pytest.approx(1.2428)
+    assert ed.auto_approach_dist(0.3) == pytest.approx(0.8)
+    assert ed.auto_approach_dist(2.0) == pytest.approx(1.6)
+    assert ed.auto_approach_dist(None) == pytest.approx(0.8)

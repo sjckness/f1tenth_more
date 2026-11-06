@@ -37,8 +37,8 @@ def test_debug_gap_is_zero_for_the_goal_enter_door_would_send(poses, yaw_deg):
     yaw = math.radians(yaw_deg)
     centre = (5.0, 2.5)
     doors = {7: (centre, yaw)}
-    # enter_door's APPROACH goal: 0.8 m back on the axis, carrying the door yaw.
-    pre = (centre[0] - 0.8 * math.cos(yaw), centre[1] - 0.8 * math.sin(yaw), yaw)
+    # enter_door's APPROACH goal: 1.24 m back on the axis, carrying the door yaw.
+    pre = (centre[0] - dgd.PRE_POINT_DIST_M * math.cos(yaw), centre[1] - dgd.PRE_POINT_DIST_M * math.sin(yaw), yaw)
     goal_odom = _pose_map_to_odom(*pre, *TF)
     ev = dgd.evaluate(goal_odom, TF, doors)
     assert ev['door_id'] == 7 and ev['kind'] == 'pre_point'
