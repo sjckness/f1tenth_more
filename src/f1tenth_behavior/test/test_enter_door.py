@@ -534,3 +534,43 @@ def test_phase_and_entered_tolerances_match_what_the_mpc_can_deliver():
     assert ed.entry_infeasible(40.0, 0.5, yaw_tol, 0.9)
     assert not ed.entry_infeasible(40.0, 2.0, yaw_tol, 0.9)
     assert not ed.entry_infeasible(10.0, 0.5, yaw_tol, 0.9)
+
+
+def test_goal_yaw_is_the_bearing_clamped_to_the_axis_plus_minus_tolerance():
+    from f1tenth_behavior.behaviours import enter_door as ed
+    axis = math.radians(90.0)           # the door's crossing direction is +y
+    goal = (0.0, 5.0)
+    tol = 20.0
+    # Car 45 deg off the line (bearing to the goal is 45 deg from the axis):
+    # clamped to axis + tol, on the side of the bearing.
+    car = (-5.0, 0.0)                   # bearing to goal = atan2(5, 5) = 45 deg
+    assert math.degrees(ed.goal_yaw_for(car, goal, axis, tol)) == pytest.approx(90.0 - tol)
+    car = (5.0, 0.0)                    # bearing 135 deg: other side
+    assert math.degrees(ed.goal_yaw_for(car, goal, axis, tol)) == pytest.approx(90.0 + tol)
+    # Car inside the tolerance (bearing 10 deg off the axis): the bearing itself.
+    car = (-0.88, 0.0)
+    bearing = math.atan2(goal[1] - car[1], goal[0] - car[0])
+    assert abs(math.degrees(bearing) - 90.0) < tol
+    assert ed.goal_yaw_for(car, goal, axis, tol) == pytest.approx(bearing)
+    # Wrapped: an axis at 175 deg and a bearing at -170 deg are 15 deg apart.
+    axis = math.radians(175.0)
+    car, goal = (0.0, 0.0), (math.cos(math.radians(-170.0)), math.sin(math.radians(-170.0)))
+    assert ed.goal_yaw_for(car, goal, axis, tol) == pytest.approx(math.radians(-170.0))
+    # Right on top of the goal the bearing is noise: the axis.
+    assert ed.goal_yaw_for((0.0, 4.95), (0.0, 5.0), math.radians(90.0), tol) == pytest.approx(
+        math.radians(90.0))
+
+
+def test_the_score_report_quotes_the_tolerances_actually_applied():
+    from f1tenth_behavior.mission import move_scoring
+    from f1tenth_behavior.mission.runtime import DoorApproachRecord
+    move = SimpleNamespace(id='m1', enter_door=SimpleNamespace(
+        along_tol=0.15, lateral_tol=0.05, yaw_tol_deg=10.0, door='left'))
+    rec = DoorApproachRecord(door='left', frame_id='door_3', along_error_m=-0.1,
+                             lateral_error_m=0.09, yaw_error_deg=12.0,
+                             lat_tol_m=0.15, yaw_tol_deg=20.0)
+    out = move_scoring._door_outcome(move, 'door_entered', 0.0, 1.0, None, None,
+                                     None, None, rec)
+    assert '(tol 0.150), yaw error=12.0 deg (tol 20.0)' in out.note
+    assert '0.050' not in out.note
+    assert out.commanded == pytest.approx(0.15)

@@ -183,6 +183,13 @@ class DoorApproachRecord:
     lateral_error_m: Optional[float] = None    # [m] sideways from the door x axis
     yaw_error_deg: Optional[float] = None
     entered: bool = False
+    #: The tolerances the move was actually judged against (enter_door's
+    #: lateral_tol() and door_entry_yaw_tol_deg), not the mission JSON's
+    #: lateral_tol/yaw_tol_deg, which no longer decide anything. The score
+    #: report quotes these.
+    lat_tol_m: Optional[float] = None
+    yaw_tol_deg: Optional[float] = None
+    goal_yaw: Optional[float] = None           # [rad] map, the yaw last sent in the goal
     outcome: Optional[str] = None              # door_not_found |
     #                                          no_strong_door | door_lost
 

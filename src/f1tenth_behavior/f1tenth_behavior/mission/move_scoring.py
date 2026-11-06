@@ -293,20 +293,27 @@ def _door_outcome(move, stop_reason, start_time, end_time, start_global_xy,
     lateral_err = getattr(record, 'lateral_error_m', None) if record is not None else None
     yaw_err = getattr(record, 'yaw_error_deg', None) if record is not None else None
     frame = getattr(record, 'frame_id', None) if record is not None else None
+    # The tolerances enter_door really applied (EnterDoor writes them into the
+    # record every tick); the spec's are only the fallback for a move that
+    # ended before a door was resolved.
+    lat_tol = getattr(record, 'lat_tol_m', None) if record is not None else None
+    yaw_tol = getattr(record, 'yaw_tol_deg', None) if record is not None else None
+    lat_tol = float(spec.lateral_tol) if lat_tol is None else float(lat_tol)
+    yaw_tol = float(spec.yaw_tol_deg) if yaw_tol is None else float(yaw_tol)
     note = (f'enter_door moves are not scored: final along error='
             + (f'{along_err:.3f} m' if along_err is not None else 'n/a')
             + f' (tol {spec.along_tol:.3f}), lateral error='
             + (f'{lateral_err:.3f} m' if lateral_err is not None else 'n/a')
-            + f' (tol {spec.lateral_tol:.3f}), yaw error='
+            + f' (tol {lat_tol:.3f}), yaw error='
             + (f'{yaw_err:.1f} deg' if yaw_err is not None else 'n/a')
-            + f' (tol {spec.yaw_tol_deg:.1f}), door='
+            + f' (tol {yaw_tol:.1f}), door='
             + (frame or f'unresolved ({spec.door})'))
     return MoveOutcome(
         move_id=move.id, move_type='enter_door', stop_reason=stop_reason,
         start_time=start_time, end_time=end_time,
         start_global_xy=start_global_xy, end_global_xy=end_global_xy,
         start_global_yaw=start_global_yaw, end_global_yaw=end_global_yaw,
-        commanded=float(spec.lateral_tol), actual=lateral_err,
+        commanded=lat_tol, actual=lateral_err,
         outcome=(getattr(record, 'outcome', None) if record is not None else None),
         arrival_bearing_error_deg=yaw_err, note=note,
     )

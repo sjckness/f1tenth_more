@@ -140,7 +140,10 @@ LAT_TOL_WIDTH_FRAC = 0.25
 #: pointing in counts: the heading only has to be good enough not to clip a jamb.
 DEFAULT_ENTRY_YAW_TOL_DEG = 20.0
 
-#: The goal is re-sent when the door axis turns by more than this [deg], as
+#: Closer than this [m] to the goal point the bearing is not meaningful.
+NEAR_GOAL_M = 0.2
+
+#: The goal is re-sent when the goal yaw changes by more than this [deg], as
 #: well as when its position moves by REPUBLISH_EPS_M.
 REPUBLISH_YAW_DEG = 5.0
 
@@ -237,6 +240,27 @@ def entry_infeasible(heading_err_deg, remaining_m, yaw_tol_deg, r_min_m) -> bool
     """Heading outside tolerance with less room left than one minimum turning
     radius: forward-only steering cannot fix it. Groundwork for reverse."""
     return heading_err_deg > yaw_tol_deg and remaining_m < r_min_m
+
+
+def goal_yaw_for(car_xy, goal_xy, axis_yaw, tol_deg) -> float:
+    """The yaw to put in the goal: the bearing from the car to the goal point,
+    clamped to axis_yaw +- tol_deg (angle-wrapped).
+
+    The goal POSITION stays on the door axis; only its yaw is relaxed, so the
+    MPC is never asked to line up tighter than the entry tolerance, and a car
+    inside the tolerance is simply asked to point at the goal. Within
+    NEAR_GOAL_M the bearing is noise, so the axis yaw is used.
+    """
+    if car_xy is None:
+        return axis_yaw
+    dx, dy = goal_xy[0] - car_xy[0], goal_xy[1] - car_xy[1]
+    if math.hypot(dx, dy) < NEAR_GOAL_M:
+        return axis_yaw
+    tol = math.radians(tol_deg)
+    off = math.atan2(math.sin(math.atan2(dy, dx) - axis_yaw),
+                     math.cos(math.atan2(dy, dx) - axis_yaw))
+    off = max(-tol, min(tol, off))
+    return math.atan2(math.sin(axis_yaw + off), math.cos(axis_yaw + off))
 
 
 def wrap_deg(radians_delta: float) -> float:
@@ -468,6 +492,7 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         lat_tol = lateral_tol(self.widths.get(record.door_id), self.lat_tol_override_m)
         yaw_tol = self.entry_yaw_tol_deg
         heading_err = (angle_gap_deg(tyaw, car_yaw) if car_yaw is not None else None)
+        record.lat_tol_m, record.yaw_tol_deg = lat_tol, yaw_tol
 
         # Which phase. Decided on THIS tick's pose, not latched: a car pushed
         # back out of the doorway goes back to lining up rather than driving
@@ -500,16 +525,20 @@ class EnterDoor(py_trees.behaviour.Behaviour):
 
         tx, ty = door_xy if record.phase == PHASE_ENTER else pre
         record.target_xy = (tx, ty)
-        # Re-send when the target moved OR the axis turned: a door whose EMA
-        # axis rotates a few degrees at an unchanged centre leaves the corridor
-        # ending on a stale psiEnd otherwise.
+        # goal_yaw: bearing to the target clamped to axis +- door_entry_yaw_tol,
+        # so the MPC is never asked to align tighter than the tolerance. Re-send
+        # when the target moved OR the goal yaw changed (the axis refining, or
+        # the car's bearing moving -- each re-send resets mpc_corr's progress
+        # tracking, hence the 5 deg threshold).
+        goal_yaw = goal_yaw_for(car_xy, (tx, ty), tyaw, yaw_tol)
+        record.goal_yaw = goal_yaw
         if (self._published_xy is None
                 or math.hypot(tx - self._published_xy[0],
                               ty - self._published_xy[1]) > REPUBLISH_EPS_M
-                or angle_gap_deg(tyaw, self._published_yaw) > REPUBLISH_YAW_DEG):
-            self._publish_goal(move, tx, ty, tyaw)
+                or angle_gap_deg(goal_yaw, self._published_yaw) > REPUBLISH_YAW_DEG):
+            self._publish_goal(move, tx, ty, goal_yaw)
             self._published_xy = (tx, ty)
-            self._published_yaw = tyaw
+            self._published_yaw = goal_yaw
 
         if car_xy is None or car_yaw is None:
             record.entered = False
