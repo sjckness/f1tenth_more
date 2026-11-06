@@ -661,3 +661,34 @@ def test_enter_freezes_the_door_pose_and_sends_its_goal_once():
     assert rec.target_xy == pytest.approx(centre, abs=1e-9)
     assert b.node.get_logger().warn.called
     assert b.goal_pose_pub.publish.call_count == sent
+
+
+def test_enter_door_ignores_a_closer_door_that_is_not_strong():
+    ed, b, state, centre, set_door, tick = _frozen_rig()
+    from f1tenth_messages.msg import Door, DoorArray
+    msg = DoorArray()
+    near = Door(id=9, state=Door.STATE_CONFIRMED, width=0.9)      # 1 m ahead
+    near.center.x, near.center.y = 0.0, 1.0
+    near.normal.x, near.normal.y = 0.0, 1.0
+    near.strong = False
+    far = Door(id=4, state=Door.STATE_CONFIRMED, width=0.9)       # 3 m ahead
+    far.center.x, far.center.y = centre
+    far.normal.x, far.normal.y = 0.0, 1.0
+    far.strong = True
+    msg.doors = [near, far]
+    b.doors, b.strong = ed.confirmed_doors(msg), ed.strong_doors(msg)
+    b.widths = ed.door_widths(msg)
+    b.doors_received_sec = 0.0
+    tick((0.0, 0.0))
+    assert state.door_record.door_id == 4
+    # with no strong door at all: no goal, a throttled warning, no failure yet
+    ed2, b2, state2, _, set_door2, tick2 = _frozen_rig()
+    msg2 = DoorArray()
+    msg2.doors = [near]
+    b2.doors, b2.strong = ed2.confirmed_doors(msg2), ed2.strong_doors(msg2)
+    b2.widths = ed2.door_widths(msg2)
+    b2.doors_received_sec = 0.0
+    tick2((0.0, 0.0))
+    assert state2.door_record.door_id is None
+    assert not b2.goal_pose_pub.publish.called
+    assert b2.node.get_logger().warn.called

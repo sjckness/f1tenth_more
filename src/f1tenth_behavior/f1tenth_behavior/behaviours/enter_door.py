@@ -507,6 +507,10 @@ class EnterDoor(py_trees.behaviour.Behaviour):
                     matched = select_door(self.doors, spec.door, car_xy, car_yaw)
                     outcome = 'no_strong_door' if matched is not None else 'door_not_found'
                     return self._fail(state, move, record, outcome, now)
+                self.node.get_logger().warn(
+                    f"[enter_door] move '{move.id}': no STRONG {spec.door!r} door "
+                    f'yet ({len(self.doors)} confirmed, {len(self.strong)} strong); '
+                    'not moving', throttle_duration_sec=2.0)
                 return py_trees.common.Status.SUCCESS
             record.door_id = door_id
             record.frame_id = f'door_{door_id}'

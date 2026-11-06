@@ -212,7 +212,9 @@ class DoorParams:
                  'merge_tracks_yaw_deg',
                  'strong_min_hits', 'strong_min_spread_m',
                  'smooth_alpha', 'candidate_forget_s', 'forget_unseen_s',
-                 'max_walls')
+                 'max_walls',
+                 'jamb_alpha', 'jamb_persist_scans', 'strip_free_min',
+                 'rays_min', 'side_flip_margin')
 
     def __init__(self, **kw):
         self.min_wall_level = LEVEL_LIDAR_CONFIRMED
@@ -299,6 +301,17 @@ class DoorParams:
         self.candidate_forget_s = 5.0
         self.forget_unseen_s = 0.0   # 0 = a confirmed door is never forgotten
         self.max_walls = 12
+        # JAMB-BLOB MODE (jamb_doors.py), OFF at jamb_alpha 0. On, a track's
+        # centre/axis/width come from its two jamb blobs filtered at
+        # jamb_alpha, and strong additionally needs jamb_persist_scans
+        # sightings with both jambs, a strip beyond the gap at least
+        # strip_free_min free with rays_min rays through it, on the crossing
+        # side; the side flips only on side_flip_margin better evidence.
+        self.jamb_alpha = 0.0
+        self.jamb_persist_scans = 5
+        self.strip_free_min = 0.85
+        self.rays_min = 4
+        self.side_flip_margin = 0.30
         for k, v in kw.items():
             if k not in self.__slots__:
                 raise TypeError(f'DoorParams got an unknown parameter {k!r}')
@@ -329,7 +342,7 @@ class DoorCandidate:
 
     __slots__ = ('jamb0', 'jamb1', 'centre', 'width', 'axis', 'case',
                  'wall_id0', 'wall_id1', 'code', 'n_beams', 'through_frac',
-                 'flags')
+                 'flags', 'blobs', 'ev')
 
     def __init__(self, jamb0, jamb1, case, wall_id0, wall_id1, code='',
                  n_beams=0, through_frac=0.0, flags=()):
@@ -352,6 +365,12 @@ class DoorCandidate:
         # tracked and published like any other; the flag rides along so the
         # markers can say so and the debug dict can count it.
         self.flags = tuple(flags)
+        #: jamb-blob mode (jamb_doors.py): True when jamb0/jamb1 ARE the two
+        #: blob positions (both jambs present), else False.
+        self.blobs = False
+        #: {'f': free fraction of the strip beyond, 'r': rays through,
+        #: 'far': unit normal pointing away from the sensor} or None.
+        self.ev = None
 
     @property
     def ok(self):
@@ -701,7 +720,7 @@ class DoorTrack:
     __slots__ = ('id', 'centre', 'axis', 'width', 'normal', 'hits', 'state',
                  'born_sec', 'last_seen_sec', 'confirmed_sec', 'case',
                  'wall_id0', 'wall_id1', 'spread_pair', 'spread', 'flags',
-                 'strong', 'birth_xy')
+                 'strong', 'birth_xy', 'blob_ref', 'blob_scans', 'side_ev')
 
     def __init__(self, track_id, cand, now_sec, robot_xy=None):
         self.id = int(track_id)
@@ -735,6 +754,12 @@ class DoorTrack:
         self.spread_pair = None
         self.spread = 0.0
         self.strong = False      # recomputed by the tracker on every sighting
+        # jamb-blob mode: the two low-gain-filtered jamb positions, how many
+        # sightings had both, and the evidence per crossing side (+1 = along
+        # (-axis_y, axis_x), -1 = against it) as {'f','r'} EMAs.
+        self.blob_ref = None
+        self.blob_scans = 0
+        self.side_ev = {1: None, -1: None}
 
     def remember_pose(self, robot_xy):
         """Fold one sighting's robot position into the running diameter."""
@@ -799,6 +824,9 @@ _log = logging.getLogger('semantic_doors')
 #: anything near this size means the axis fit itself jumped.
 NORMAL_JUMP_WARN_DEG = 30.0
 
+#: Smoothing of a track's per-side strip evidence (jamb-blob mode).
+SIDE_EV_ALPHA = 0.30
+
 
 def follow_normal(prev, axis):
     """(new_normal, jump_deg): the normal for the current EMA `axis`, oriented
@@ -815,6 +843,19 @@ def follow_normal(prev, axis):
         nx, ny = -nx, -ny
     dot = max(-1.0, min(1.0, nx * prev[0] + ny * prev[1]))
     return (nx, ny), math.degrees(math.acos(dot))
+
+
+def track_evidence(trk):
+    """(f, r) of a track's crossing side (the best side before the direction is
+    fixed); None without any jamb-blob evidence. For the /viz label."""
+    ev = None
+    if trk.normal is not None:
+        dot = trk.normal[0] * (-trk.axis[1]) + trk.normal[1] * trk.axis[0]
+        ev = trk.side_ev.get(1 if dot >= 0.0 else -1)
+    if ev is None:
+        both = [e for e in trk.side_ev.values() if e is not None]
+        ev = max(both, key=lambda e: e['f']) if both else None
+    return None if ev is None else (ev['f'], ev['r'])
 
 
 class DoorTracker:
@@ -876,6 +917,8 @@ class DoorTracker:
                 continue
             trk = DoorTrack(self._next_id, cand, now_sec, robot_xy)
             trk.remember_pose(robot_xy)
+            if self.p.jamb_alpha > 0.0:
+                self._fold_blobs(trk, cand)
             trk.strong = self.is_strong(trk)
             self._next_id += 1
             self.tracks.append(trk)
@@ -900,12 +943,97 @@ class DoorTracker:
             trk.case = cand.case
             trk.wall_id0, trk.wall_id1 = cand.wall_id0, cand.wall_id1
             trk.flags = cand.flags
+            if self.p.jamb_alpha > 0.0:
+                self._fold_blobs(trk, cand)
         trk.hits += 1
         trk.last_seen_sec = float(now_sec)
         trk.remember_pose(robot_xy)
         trk.strong = self.is_strong(trk)
         if not trk.confirmed and self.should_confirm(trk):
             self._confirm(trk, robot_xy, now_sec)
+
+    def current_side(self, trk):
+        """+1 / -1: which side of the (-axis_y, axis_x) perpendicular the
+        crossing direction points to; None before the direction is fixed."""
+        if trk.normal is None:
+            return None
+        dot = trk.normal[0] * (-trk.axis[1]) + trk.normal[1] * trk.axis[0]
+        return 1 if dot >= 0.0 else -1
+
+    def _fold_blobs(self, trk, cand):
+        """Jamb-blob mode: filter the two jamb positions at jamb_alpha, count
+        the sightings with both, fold the strip evidence into its side, and
+        re-decide the crossing side. Sightings without both jambs reset the
+        persistence count (their flags already keep the door from strong)."""
+        p = self.p
+        if not cand.blobs:
+            trk.blob_scans = 0
+            return
+        ja, jb = cand.jamb0, cand.jamb1
+        if trk.blob_ref is None:
+            trk.blob_ref = (ja, jb)
+        else:
+            r0, r1 = trk.blob_ref
+            same = (math.hypot(ja[0] - r0[0], ja[1] - r0[1])
+                    + math.hypot(jb[0] - r1[0], jb[1] - r1[1]))
+            swap = (math.hypot(ja[0] - r1[0], ja[1] - r1[1])
+                    + math.hypot(jb[0] - r0[0], jb[1] - r0[1]))
+            if swap < same:
+                ja, jb = jb, ja
+            a = p.jamb_alpha
+            trk.blob_ref = (
+                ((1 - a) * r0[0] + a * ja[0], (1 - a) * r0[1] + a * ja[1]),
+                ((1 - a) * r1[0] + a * jb[0], (1 - a) * r1[1] + a * jb[1]))
+        r0, r1 = trk.blob_ref
+        old_axis = trk.axis
+        dx, dy = r1[0] - r0[0], r1[1] - r0[1]
+        width = math.hypot(dx, dy)
+        if width > 1e-9:
+            ax, ay = dx / width, dy / width
+            if ax * old_axis[0] + ay * old_axis[1] < 0.0:
+                ax, ay = -ax, -ay
+            trk.axis = (ax, ay)
+            trk.width = width
+            trk.centre = ((r0[0] + r1[0]) / 2.0, (r0[1] + r1[1]) / 2.0)
+            if trk.normal is not None:
+                trk.normal, _ = follow_normal(trk.normal, trk.axis)
+        trk.blob_scans += 1
+        if cand.ev is not None:
+            far = cand.ev['far']
+            side = 1 if far[0] * (-trk.axis[1]) + far[1] * trk.axis[0] >= 0.0 else -1
+            a = SIDE_EV_ALPHA
+            prev = trk.side_ev[side]
+            if prev is None:
+                trk.side_ev[side] = {'f': cand.ev['f'], 'r': float(cand.ev['r'])}
+            else:
+                prev['f'] = (1 - a) * prev['f'] + a * cand.ev['f']
+                prev['r'] = (1 - a) * prev['r'] + a * cand.ev['r']
+            self._maybe_flip(trk)
+
+    def _maybe_flip(self, trk):
+        """Flip the crossing direction only on clearly better evidence from
+        the other side (side_flip_margin of free fraction, and it must pass).
+        Every flip is logged."""
+        cur = self.current_side(trk)
+        if cur is None:
+            return
+        other = -cur
+        ev_o, ev_c = trk.side_ev[other], trk.side_ev[cur]
+        if not self._side_passes(ev_o):
+            return
+        f_c = ev_c['f'] if ev_c is not None else 0.0
+        if ev_o['f'] - f_c >= self.p.side_flip_margin:
+            trk.normal = (-trk.normal[0], -trk.normal[1])
+            _log.warning(
+                'door_%d crossing direction FLIPPED: side %+d f=%.2f r=%.0f beats '
+                'side %+d f=%.2f', trk.id, other, ev_o['f'], ev_o['r'], cur, f_c)
+
+    def _side_passes(self, ev):
+        return (ev is not None and ev['f'] >= self.p.strip_free_min
+                and ev['r'] >= self.p.rays_min)
+
+    def evidence(self, trk):
+        return track_evidence(trk)
 
     def is_strong(self, trk):
         """Has this track earned being driven at? See DoorParams.
@@ -920,7 +1048,25 @@ class DoorTracker:
             return False
         if p.strong_min_hits and trk.hits < p.strong_min_hits:
             return False
+        if p.jamb_alpha > 0.0 and self._blob_gate(trk):
+            return False
         return trk.pose_spread() >= p.strong_min_spread_m
+
+    def _blob_gate(self, trk):
+        """'' when the jamb-blob evidence allows strong, else the first thing
+        missing: 'jambs n/N', 'strip', 'rays'. "neither side passes" is not
+        strong."""
+        p = self.p
+        if trk.blob_ref is None or trk.blob_scans < p.jamb_persist_scans:
+            return f'jambs {trk.blob_scans}/{p.jamb_persist_scans}'
+        side = self.current_side(trk)
+        sides = [side] if side is not None else [1, -1]
+        evs = [trk.side_ev[s] for s in sides]
+        if not any(e is not None and e['f'] >= p.strip_free_min for e in evs):
+            return 'strip'
+        if not any(self._side_passes(e) for e in evs):
+            return 'rays'
+        return ''
 
     def first_failing_gate(self, trk):
         """The first thing between this track and STRONG, as a short string.
@@ -937,6 +1083,10 @@ class DoorTracker:
             return f'hits {trk.hits}/{p.confirm_hits}'
         if p.strong_min_hits and trk.hits < p.strong_min_hits:
             return f'hits {trk.hits}/{p.strong_min_hits}'
+        if p.jamb_alpha > 0.0:
+            gate = self._blob_gate(trk)
+            if gate:
+                return gate
         if trk.pose_spread() < p.strong_min_spread_m:
             return (f'travel {trk.pose_spread():.1f}/'
                     f'{p.strong_min_spread_m:.1f}m')

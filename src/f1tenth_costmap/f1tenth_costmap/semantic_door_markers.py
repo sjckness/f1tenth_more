@@ -132,7 +132,14 @@ def label_of(door, car_pose=None, gate=''):
         state = 'STRONG' if getattr(door, 'strong', True) else 'confirmed'
     side = f' {side_of(door.centre, car_pose[:2], car_pose[2])}' if car_pose is not None else ''
     why = f' | {gate}' if gate else ''
-    return (f'door {door.id} {door.width:.2f}m case {door.case} {state}{side}{tail}{why}')
+    strong = bool(getattr(door, 'strong', True)) and door.confirmed
+    ev = None
+    if getattr(door, 'side_ev', None) is not None:
+        from f1tenth_costmap.semantic_doors import track_evidence
+        ev = track_evidence(door)
+    name = f'door_{door.id}' + ('' if strong else '?')
+    stats = f' w={door.width:.2f}' + (f' f={ev[0]:.2f} r={ev[1]:.0f}' if ev else '')
+    return f'{name}{stats} case {door.case} {state}{side}{tail}{why}'
 
 
 def _base(door, frame_id, stamp, slot, kind, lifetime):

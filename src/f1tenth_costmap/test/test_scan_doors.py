@@ -994,6 +994,10 @@ def test_a_grid_stale_or_blocked_flag_bars_strong():
     tracker = sd.DoorTracker(p.door_params())
     for flag in ('grid_stale', 'grid_blocked', 'no_grid'):
         trk = _side_track(tracker, 0.0, 0.0, (1.0, 0.0), 50)
+        # jamb-blob evidence the shipped params also require for strong
+        trk.blob_ref = (trk.jambs()[0], trk.jambs()[1])
+        trk.blob_scans = 5
+        trk.side_ev = {1: {'f': 1.0, 'r': 10.0}, -1: None}
         trk.remember_pose((0.0, -3.0))
         trk.remember_pose((5.0, -3.0))
         assert tracker.is_strong(trk), flag

@@ -76,6 +76,7 @@ import numpy as np
 
 from scipy import ndimage
 
+from f1tenth_costmap import jamb_doors as jd
 from f1tenth_costmap.semantic_doors import DoorCandidate
 
 #: OccupancyGrid.data sentinel for a cell that was never observed.
@@ -304,6 +305,11 @@ class FreespaceParams:
             merge_tracks_yaw_deg=self.merge_tracks_yaw_deg,
             strong_min_hits=self.strong_min_hits,
             strong_min_spread_m=self.strong_min_spread_m,
+            jamb_alpha=jd.JAMB_ALPHA,
+            jamb_persist_scans=jd.JAMB_PERSIST_SCANS,
+            strip_free_min=jd.STRIP_FREE_MIN,
+            rays_min=jd.RAYS_MIN,
+            side_flip_margin=jd.SIDE_FLIP_MARGIN,
             smooth_alpha=self.smooth_alpha,
             candidate_forget_s=self.candidate_forget_s,
             forget_unseen_s=self.forget_unseen_s)
@@ -819,8 +825,11 @@ def check_jambs(window, a, b, p):
     doorway, it is two numbers.
     """
     need = int(p.scan_jamb_min_cells)
-    na = window.count_occupied(a, p.scan_jamb_radius_m)
-    nb = window.count_occupied(b, p.scan_jamb_radius_m)
+    # jamb_doors.FLANK_RADIUS_M supersedes scan_jamb_radius_m (kept in the
+    # slots so the yaml mapping is untouched): one flank radius for support
+    # and for the jamb blob.
+    na = window.count_occupied(a, jd.FLANK_RADIUS_M)
+    nb = window.count_occupied(b, jd.FLANK_RADIUS_M)
     if na < need and nb < need:
         return 'no_jamb', []
     if na < need or nb < need:
@@ -857,6 +866,34 @@ def _candidate(info, code, flags):
                          NO_WALL_ID, NO_WALL_ID, code=code,
                          n_beams=info['n_beyond'],
                          flags=tuple(dict.fromkeys(list(info['flags']) + list(flags))))
+
+
+def _with_jamb_blobs(cand, info, window, laser, p):
+    """Re-express an accepted candidate by its jamb BLOBS (jamb_doors.py).
+
+    Both jambs present: the candidate's jambs become the two blob positions
+    (the occupied cells nearest the gap centre), the width gate is re-applied
+    to THEM, and the strip evidence (free fraction beyond, rays through) rides
+    along. One jamb missing keeps the scan's edge points and the `one_jamb`
+    flag the grid check already set (not strong). Nothing is fitted.
+    """
+    ja, jb, na, nb = jd.jamb_blobs(window, info['a'], info['b'])
+    if ja is None or jb is None:
+        return cand
+    width = math.hypot(jb[0] - ja[0], jb[1] - ja[1])
+    if not (float(p.width_min_detect_m) <= width <= float(p.width_max_detect_m)):
+        return _candidate(dict(info, a=ja, b=jb, width=width), 'width', ())
+    flags = list(info['flags'])
+    if not (float(p.width_min_m) <= width <= float(p.width_max_m)):
+        flags.append('marginal')
+    new = DoorCandidate(ja, jb, CASE_FREESPACE, NO_WALL_ID, NO_WALL_ID, code='',
+                        n_beams=info['n_beyond'],
+                        flags=tuple(dict.fromkeys(flags + [
+                            f for f in cand.flags if f not in ('one_jamb',)])))
+    f, far = jd.strip_free_fraction(window, ja, jb, laser)
+    new.blobs = True
+    new.ev = {'f': f, 'r': int(info['n_beyond']), 'far': far}
+    return new
 
 
 def merge_candidates(cands, max_m):
@@ -899,6 +936,9 @@ def scan_candidates(scan, window, robot_xy, p, debug=None):
         stats = {} if debug is not None else None
         grid_code, flags = check_grid(window, info, scan.laser, p, stats=stats)
         cand = _candidate(info, grid_code, flags)
+        if not grid_code and window is not None:
+            cand = _with_jamb_blobs(cand, info, window, scan.laser, p)
+            grid_code = cand.code
         if debug is not None:
             stats.update(a=tuple(round(float(v), 3) for v in info['a']),
                          b=tuple(round(float(v), 3) for v in info['b']),
