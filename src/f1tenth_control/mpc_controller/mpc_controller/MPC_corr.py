@@ -24,7 +24,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from f1tenth_comms.tf_poll import make_tf
 from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import (
-    BoundaryConstraintArray, DriveClamp, DriveCommand, MissionStatus, MpcSolverStatus,
+    BoundaryConstraintArray, DoorArray, DriveClamp, DriveCommand, MissionStatus, MpcSolverStatus,
     MultiWallTrackArray, ObjectApproachStatus, ObjectGoal, Obstacle2DArray, ReverseStatus,
     SemanticObjectArray, SpeedChannelStatus, TurnGoal, WallEstimate, WallTrack)
 from f1tenth_messages.msg import MpcParamUpdate  # LLM2 (two-llm-arch), see _llm2_setup
@@ -41,6 +41,7 @@ from mpc_controller.move_target import (
 from f1tenth_params.corridor_geometry import (
     CORRIDOR_HANDLE_FRAC, CORRIDOR_WIDTH_RATIO, POSE_HANDLE_FRAC, wrap_pi)
 from mpc_controller import corridor_backend
+from mpc_controller import door_goal_debug as dgd
 from mpc_controller import solver_backend
 from mpc_controller import wall_boundaries as wb
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
@@ -2019,6 +2020,22 @@ class MPCController(Node):
             10
         )
 
+        # LIVE DOOR -> GOAL DIAGNOSTIC (door_goal_debug.py). Read-only: compares
+        # the door as detected NOW (map) with the goal this node is driving at
+        # (odom, reprojected back to map through the live map -> odom edge) and
+        # publishes Foxglove markers + one 1 Hz log line. Nothing in the control
+        # path reads any of it. Only active while a map-frame goal_pose has a
+        # door within 1.5 m of it.
+        self.door_goal_debug = bool(self.declare_parameter(
+            'door_goal_debug', True).value)
+        self._dbg_doors = {}
+        self._dbg_last_pub_sec = 0.0
+        if self.door_goal_debug:
+            self.sub_dbg_doors = self.create_subscription(
+                DoorArray, '/perception/doors_semantic', self._dbg_doors_cb, 10)
+            self.door_goal_debug_pub = self.create_publisher(
+                MarkerArray, '/mpc/door_goal_debug', 10)
+
         # Drive-to-a-tracked-object. The ONE goal input that is republished
         # throughout its move rather than sent once, which is why it carries a
         # move_id and why its callback branches on that before touching state.
@@ -2820,6 +2837,81 @@ class MPCController(Node):
             gx, gy, gyaw = _pose_map_to_odom(*self.goal_pose_anchor_map, *tf_map_odom)
             self.goal_pose_xy = (gx, gy)
             self.goal_pose_yaw = gyaw
+
+    # ---- live door -> goal diagnostic (read-only; see door_goal_debug.py) ----
+    def _dbg_doors_cb(self, msg):
+        try:
+            self._dbg_doors = {
+                int(d.id): ((float(d.center.x), float(d.center.y)),
+                            dgd.door_axis_yaw(float(d.normal.x), float(d.normal.y)))
+                for d in msg.doors if d.state == d.STATE_CONFIRMED}
+        except Exception:  # noqa: BLE001 - diagnostics must not stop control
+            pass
+
+    def _dbg_arrow(self, mid, ns, frame, x, y, yaw, rgba, stamp, length=0.6):
+        m = Marker()
+        m.header.frame_id = frame
+        m.header.stamp = stamp
+        m.ns, m.id = ns, mid
+        m.type, m.action = Marker.ARROW, Marker.ADD
+        m.points = [Point(x=float(x), y=float(y), z=0.1),
+                    Point(x=float(x + length * math.cos(yaw)),
+                          y=float(y + length * math.sin(yaw)), z=0.1)]
+        m.scale.x, m.scale.y, m.scale.z = 0.05, 0.10, 0.12
+        m.color.r, m.color.g, m.color.b, m.color.a = rgba
+        m.lifetime.sec, m.lifetime.nanosec = 1, 0
+        return m
+
+    def _door_goal_debug_tick(self):
+        """Markers + 1 Hz line: door as detected now vs the goal in use."""
+        if (not getattr(self, 'door_goal_debug', False)
+                or getattr(self, 'goal_pose_anchor_map', None) is None):
+            return
+        if self.goal_pose_xy is None or self.goal_pose_yaw is None or not self._dbg_doors:
+            return
+        try:
+            tf = self._lookup_map_odom()
+            if tf is None:
+                return
+            gx, gy = self.goal_pose_xy
+            ev = dgd.evaluate((gx, gy, float(self.goal_pose_yaw)), tf, self._dbg_doors,
+                              honour_yaw=bool(self.goal_pose_honour_yaw))
+            if ev is None:
+                return
+            self.get_logger().info(
+                f'DOORDBG | door_{ev["door_id"]} vs goal_in_use ({ev["kind"]}): '
+                f'|d|={ev["dist_m"]:.3f} m dyaw={ev["dyaw_deg"]:+.1f} deg '
+                f'(goal yaw honoured={ev["honour_yaw"]}; map->odom yaw '
+                f'{math.degrees(tf[2]):+.1f} deg)', throttle_duration_sec=1.0)
+            now = self.get_clock().now()
+            if now.nanoseconds * 1e-9 - self._dbg_last_pub_sec < 0.2:
+                return
+            self._dbg_last_pub_sec = now.nanoseconds * 1e-9
+            stamp = now.to_msg()
+            (cx, cy), dyaw = self._dbg_doors[ev['door_id']]
+            gm = ev['goal_map']
+            arr = MarkerArray()
+            # green: door centre + axis, detected NOW, map frame
+            arr.markers.append(self._dbg_arrow(
+                0, 'door_now', self.map_frame, cx, cy, dyaw, (0.1, 0.9, 0.2, 1.0), stamp, 0.8))
+            # cyan: the goal exactly as the MPC uses it, odom frame
+            arr.markers.append(self._dbg_arrow(
+                1, 'goal_used_odom', self.odom_frame, gx, gy, float(self.goal_pose_yaw),
+                (0.1, 0.8, 1.0, 1.0), stamp))
+            # magenta: same goal reprojected to map via the live map -> odom
+            arr.markers.append(self._dbg_arrow(
+                2, 'goal_used_in_map', self.map_frame, gm[0], gm[1], gm[2],
+                (1.0, 0.2, 0.9, 1.0), stamp))
+            # yellow: psiEnd at the corridor end (odom)
+            cc = self.cached_corridor
+            if cc is not None and len(cc['xc']) > 0:
+                arr.markers.append(self._dbg_arrow(
+                    3, 'psi_end', self.odom_frame, float(cc['xc'][-1]), float(cc['yc'][-1]),
+                    float(cc['defn']['psiEnd']), (1.0, 0.9, 0.1, 1.0), stamp))
+            self.door_goal_debug_pub.publish(arr)
+        except Exception as exc:  # noqa: BLE001 - diagnostics must not stop control
+            self.get_logger().warn(f'DOORDBG failed: {type(exc).__name__}: {exc}',
+                                   throttle_duration_sec=10.0)
 
     def goal_pose_callback(self, msg: PoseStamped):
         if self.x is None or self.y is None:
@@ -5460,6 +5552,7 @@ class MPCController(Node):
         # docstring for why they must not look this up independently. No-op in
         # pose/turn mode and whenever no map anchor was captured.
         self._refresh_goal_anchor()
+        self._door_goal_debug_tick()
 
         # Same one-lookup-per-tick discipline for the object target: it is
         # read by the corridor build and by the branch below, and two
