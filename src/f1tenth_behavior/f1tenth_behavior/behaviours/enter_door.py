@@ -243,12 +243,16 @@ def auto_approach_dist(r_min_m) -> float:
 
 
 def at_pre_point(along, lateral, dist, lat_tol):
-    """APPROACH is over: within PRE_POINT_SWITCH_M of the pre-point, OR on the
-    axis (|lateral| <= 1.5 * lat_tol). Heading error plays no part: the ENTER
-    goal's yaw is clamped to the axis +- tolerance, so a crooked car is asked to
-    point at the centre, not to square up first."""
+    """APPROACH is over: the car's along position has reached the pre-point's
+    (along >= -dist), whatever the lateral error; or it is within
+    PRE_POINT_SWITCH_M of the pre-point; or on the axis (|lateral| <= 1.5 *
+    lat_tol). Heading error plays no part: the ENTER goal's yaw is clamped to
+    the axis +- tolerance, so a crooked car is asked to point at the centre, not
+    to square up first. The "passed" test is what stops a car that went by the
+    pre-point off-axis from chasing it round behind itself."""
+    passed = along + dist >= 0.0
     near = math.hypot(along + dist, lateral) <= PRE_POINT_SWITCH_M
-    return near or abs(lateral) <= LAT_SWITCH_FACTOR * lat_tol
+    return passed or near or abs(lateral) <= LAT_SWITCH_FACTOR * lat_tol
 
 
 def has_entered(along, lateral, heading_err_deg, along_tol, lat_tol, yaw_tol_deg):
@@ -391,6 +395,10 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         self._move_start_sec = None
         self._published_xy = None
         self._last_seen_sec = None
+        #: (centre_xy, axis_yaw) captured when ENTER starts; None before. From
+        #: then on the target is this pose, not the (still refining) track.
+        self._frozen = None
+        self._enter_goal_sent = False
         self.blackboard = self.attach_blackboard_client(name=name)
         self.blackboard.register_key(key=MISSION_KEY, access=py_trees.common.Access.WRITE)
         for key in (GLOBAL_XY_KEY, GLOBAL_YAW_KEY, GLOBAL_TURN_ACCUM_KEY):
@@ -458,6 +466,8 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         self._published_xy = None
         self._published_yaw = None
         self._last_seen_sec = None
+        self._frozen = None
+        self._enter_goal_sent = False
 
     def update(self):
         """Resolve the door, steer at it, and measure the arrival."""
@@ -506,14 +516,24 @@ class EnterDoor(py_trees.behaviour.Behaviour):
                 f'{record.frame_id!r}')
 
         target = self.doors.get(record.door_id)
-        if target is None:
-            if self._last_seen_sec is not None and now - self._last_seen_sec > LOST_GRACE_SEC:
-                return self._fail(state, move, record, 'door_lost', now)
-            return py_trees.common.Status.SUCCESS
-        self._last_seen_sec = now
-
-        (dx_, dy_), tyaw = target
-        door_xy = (dx_, dy_)
+        if self._frozen is not None:
+            # ENTER has started: the target is the pose captured at the switch.
+            # A lost track no longer fails the move; the frozen pose is held.
+            if target is None:
+                self.node.get_logger().warn(
+                    f'[enter_door] {record.frame_id} lost from {self._doors_topic} '
+                    'during ENTER; holding the frozen door pose',
+                    throttle_duration_sec=2.0)
+            door_xy, tyaw = self._frozen
+        else:
+            if target is None:
+                if (self._last_seen_sec is not None
+                        and now - self._last_seen_sec > LOST_GRACE_SEC):
+                    return self._fail(state, move, record, 'door_lost', now)
+                return py_trees.common.Status.SUCCESS
+            self._last_seen_sec = now
+            (dx_, dy_), tyaw = target
+            door_xy = (dx_, dy_)
         record.target_yaw = tyaw
         dist = getattr(spec, 'approach_dist_m', None) or auto_approach_dist(self.r_min_m)
         record.pre_point_xy = pre = pre_point(door_xy, tyaw, dist)
@@ -558,8 +578,13 @@ class EnterDoor(py_trees.behaviour.Behaviour):
                 self.node.get_logger().info(
                     f"[enter_door] move '{move.id}': {record.frame_id} "
                     f'{PHASE_APPROACH} -> {PHASE_ENTER} '
-                    + ('(near the pre-point or on the axis)' if at_pre else '(past it)'))
+                    + ('(passed, near or on the axis)' if at_pre else '(past the door line)'))
 
+        if record.phase == PHASE_ENTER and self._frozen is None:
+            self._frozen = (door_xy, tyaw)
+            self.node.get_logger().info(
+                f'[enter_door] {record.frame_id} pose frozen for ENTER: centre '
+                f'({door_xy[0]:.2f}, {door_xy[1]:.2f}), axis {math.degrees(tyaw):.1f} deg')
         tx, ty = door_xy if record.phase == PHASE_ENTER else pre
         record.target_xy = (tx, ty)
         # goal_yaw: bearing to the target clamped to axis +- door_entry_yaw_tol,
@@ -569,13 +594,16 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         # tracking, hence the 5 deg threshold).
         goal_yaw = goal_yaw_for(car_xy, (tx, ty), tyaw, yaw_tol)
         record.goal_yaw = goal_yaw
-        if (self._published_xy is None
+        if record.phase == PHASE_ENTER and self._enter_goal_sent:
+            pass            # frozen: the ENTER goal goes out once
+        elif (self._published_xy is None
                 or math.hypot(tx - self._published_xy[0],
                               ty - self._published_xy[1]) > REPUBLISH_EPS_M
                 or angle_gap_deg(goal_yaw, self._published_yaw) > REPUBLISH_YAW_DEG):
             self._publish_goal(move, tx, ty, goal_yaw)
             self._published_xy = (tx, ty)
             self._published_yaw = goal_yaw
+            self._enter_goal_sent = record.phase == PHASE_ENTER
 
         if car_xy is None or car_yaw is None:
             record.entered = False

@@ -576,10 +576,10 @@ def test_approach_ends_within_half_a_metre_of_the_pre_point_or_on_the_axis_whate
     # on the axis (|lateral| <= 1.5 * lat_tol = 0.3), far short of the pre-point,
     # 60 deg crooked: ENTER (the heading error is not an input any more).
     assert ed.at_pre_point(-3.0, 0.29, dist, lat)
-    # off the axis but within 0.5 m of the pre-point: ENTER
-    assert ed.at_pre_point(-1.24 + 0.3, 0.35, dist, lat)
-    # off the axis and 0.6 m from the pre-point: still APPROACH
-    assert not ed.at_pre_point(-1.24 + 0.5, 0.35, dist, lat)
+    # off the axis but within 0.5 m of the pre-point (still short of it): ENTER
+    assert ed.at_pre_point(-1.24 - 0.3, 0.35, dist, lat)
+    # off the axis, short of the pre-point and 0.8 m from it: still APPROACH
+    assert not ed.at_pre_point(-2.0, 0.35, dist, lat)
     assert not ed.at_pre_point(-3.0, 0.31, dist, lat)
 
 
@@ -589,3 +589,75 @@ def test_pre_point_distance_is_1_3_r_min_clamped_to_0_8_1_6():
     assert ed.auto_approach_dist(0.3) == pytest.approx(0.8)
     assert ed.auto_approach_dist(2.0) == pytest.approx(1.6)
     assert ed.auto_approach_dist(None) == pytest.approx(0.8)
+
+
+def test_approach_ends_once_the_car_passes_the_pre_points_along_whatever_the_lateral():
+    from f1tenth_behavior.behaviours import enter_door as ed
+    dist, lat = 1.24, 0.19
+    # 0.23 m off the axis (the 2026-11-06 run) with the pre-point 0.04 m behind:
+    # passed -> ENTER, even 0.9 m sideways (outside every other clause).
+    assert ed.at_pre_point(-1.20, 0.9, dist, lat)
+    assert ed.at_pre_point(-0.5, 0.9, dist, lat)
+    # one step short of the pre-point's along and far off the axis: APPROACH
+    assert not ed.at_pre_point(-1.30 - 0.6, 0.9, dist, lat)
+
+
+def _frozen_rig(centre_shift=0.0):
+    ed, centre, yaw = _door_scene()
+    from f1tenth_messages.msg import Door, DoorArray
+    from f1tenth_behavior.mission.mission_config import parse_mission
+    from f1tenth_behavior.mission.runtime import (
+        GLOBAL_XY_KEY, GLOBAL_YAW_KEY, MISSION_KEY, MissionRuntimeState)
+    state = MissionRuntimeState()
+    state.config = parse_mission(door_mission())
+    state.current_index = 0
+    b = ed.EnterDoor(clock=lambda: b._fake_now)
+    b._fake_now = 0.0
+    b.node, b.goal_pose_pub, b.hold_pub = MagicMock(), MagicMock(), MagicMock()
+    b.blackboard = SimpleNamespace(**{MISSION_KEY: state, GLOBAL_XY_KEY: (0.0, 0.0),
+                                      GLOBAL_YAW_KEY: yaw})
+    b._bb = lambda key: getattr(b.blackboard, key, None)
+
+    def set_door(cx, cy, axis=yaw, present=True):
+        msg = DoorArray()
+        if present:
+            d = Door(id=4, state=Door.STATE_CONFIRMED, width=0.9)
+            d.center.x, d.center.y = cx, cy
+            d.normal.x, d.normal.y = math.cos(axis), math.sin(axis)
+            d.strong = True
+            msg.doors = [d]
+        b.doors, b.strong = ed.confirmed_doors(msg), ed.strong_doors(msg)
+        b.widths = ed.door_widths(msg)
+        b.doors_received_sec = 0.0
+
+    def tick(car_xy, car_yaw=yaw):
+        b.blackboard.mission_global_xy = car_xy
+        b.blackboard.mission_global_yaw = car_yaw
+        b._fake_now += 0.1
+        return b.update()
+    return ed, b, state, centre, set_door, tick
+
+
+def test_enter_freezes_the_door_pose_and_sends_its_goal_once():
+    ed, b, state, centre, set_door, tick = _frozen_rig()
+    set_door(*centre)
+    tick((0.0, 0.0))                      # APPROACH
+    tick((0.0, 1.9))                      # passed the pre-point -> ENTER
+    rec = state.door_record
+    assert rec.phase == 'ENTER'
+    sent = b.goal_pose_pub.publish.call_count
+    assert rec.target_xy == pytest.approx(centre, abs=1e-9)
+    # the detector refines the centre by 0.3 m and the axis by 20 deg: ignored
+    set_door(centre[0] + 0.3, centre[1] + 0.2, axis=math.radians(110.0))
+    tick((0.0, 2.3))
+    assert rec.target_xy == pytest.approx(centre, abs=1e-9)
+    assert rec.target_yaw == pytest.approx(math.radians(90.0), abs=1e-9)
+    assert b.goal_pose_pub.publish.call_count == sent        # no republish
+    # track lost: hold the frozen pose, warn, do not fail the move
+    set_door(0, 0, present=False)
+    b._fake_now += 10.0                                      # past LOST_GRACE_SEC
+    status = tick((0.0, 2.6))
+    assert status.name == 'SUCCESS' and rec.outcome is None
+    assert rec.target_xy == pytest.approx(centre, abs=1e-9)
+    assert b.node.get_logger().warn.called
+    assert b.goal_pose_pub.publish.call_count == sent
