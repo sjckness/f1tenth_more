@@ -679,22 +679,43 @@ def _free_grid(occupied=(), size=12.0, res=0.05, origin=(-6.0, -6.0)):
     return db.OccGrid(data, res, origin[0], origin[1])
 
 
-def _dubins_rig(door_xy, axis, car, grid=None):
+class _FakeReverse:
+    """/mpc/request_reverse: answers with `answers` in turn, records the requests."""
+
+    def __init__(self, *answers):
+        self.answers = list(answers)
+        self.requests = []
+
+    def service_is_ready(self):
+        return True
+
+    def call_async(self, req):
+        self.requests.append(float(req.distance_m))
+        ok, reason = self.answers.pop(0) if self.answers else (True, 'accepted')
+        res = SimpleNamespace(accepted=ok, reason=reason)
+        return SimpleNamespace(done=lambda: True, result=lambda: res)
+
+
+def _dubins_rig(door_xy, axis, car, grid=None, reverse=None, rear_corridor_m=0.5):
     """Build an EnterDoor on the shipped geometry (R_min 0.923, rho 1.016, lookahead 1.385)."""
     pytest.importorskip('f1tenth_messages.msg', reason='needs the built workspace')
     from f1tenth_messages.msg import Door, DoorArray
     from f1tenth_behavior.behaviours import enter_door as ed
     from f1tenth_behavior.mission.runtime import (
-        GLOBAL_XY_KEY, GLOBAL_YAW_KEY, MISSION_KEY, MissionRuntimeState)
+        GLOBAL_XY_KEY, GLOBAL_YAW_KEY, MISSION_KEY, MissionRuntimeState, MissionState)
     state = MissionRuntimeState()
     state.config = parse_mission(door_mission())
     state.current_index = 0
+    state.state = MissionState.RUNNING
     b = ed.EnterDoor(clock=lambda: b._fake_now)
     b._fake_now = 0.0
     b.node, b.goal_pose_pub, b.hold_pub = MagicMock(), MagicMock(), MagicMock()
     b.r_min_m = R_MIN
     b.lookahead_m = max(1.0, 1.5 * R_MIN)
+    b.rear_corridor_length_m = rear_corridor_m
     b.grid = grid if grid is not None else _free_grid()
+    b.reverse_client = reverse
+    b.v_meas = 0.0
     b.blackboard = SimpleNamespace(**{MISSION_KEY: state, GLOBAL_XY_KEY: car[:2],
                                       GLOBAL_YAW_KEY: car[2]})
     b._bb = lambda key: getattr(b.blackboard, key, None)
@@ -762,7 +783,7 @@ def test_run_15_42_00_geometry_gets_a_free_path_that_ends_on_the_axis():
     assert switched_at is not None and switched_at[0] >= -0.8
     assert any('SWITCH' in line and ('rule (a)' in line or 'rule (b)' in line)
                for line in _logged(b))
-    assert not b.hold_pub.publish.called
+    assert not b.hold_pub.publish.called          # no stop, no reverse on the way
 
 
 def test_the_exit_goal_goes_out_once_and_nothing_is_ever_sent_behind_the_car():
@@ -804,7 +825,7 @@ def test_the_passed_the_pre_point_rule_is_gone():
     ed, b, state, tick = _dubins_rig(door, axis, (-1.0, 0.5, 0.0))
     assert not hasattr(ed, 'at_pre_point')
     tick()
-    assert state.door_record.phase == 'APPROACH'
+    assert state.door_record.phase in ('APPROACH', 'REVERSING')
     assert state.door_record.phase != 'ENTER'
     assert ed.switch_to_enter((-1.0, 0.5), 0.0, ed.entry_pose(door, axis, 0.5), door, axis,
                               0.5, 0.19, 20.0) == ''
@@ -815,3 +836,110 @@ def test_the_passed_the_pre_point_rule_is_gone():
     assert ed.switch_to_enter((-0.1, 0.25), 0.5, entry, door, axis, 0.5, 0.19, 20.0) == ''
     # rule (a): within 0.3 m of the entry pose, whatever the heading
     assert ed.switch_to_enter((-0.7, 0.2), 1.5, entry, door, axis, 0.5, 0.19, 20.0) == 'a'
+
+
+# Beside the door, square to it (heading +y while the door crosses +x), a wall
+# 0.3 m in front of the bumper: every forward word needs more room than that.
+SIDE_CAR = (-2.8, 0.0, math.pi / 2.0)
+SIDE_WALL = (-6.0, 0.705, 6.0, 0.80)          # bumper at y 0.405
+
+
+def test_wall_ahead_makes_entry_infeasible_and_a_straight_backup_is_requested():
+    """
+    Back up straight when the wall ahead leaves no forward path.
+
+    dmax = min(1.0, rear_corridor_length_m): the rig opens it to 1.0 m here;
+    at the shipped 0.5 m this geometry has no candidate (next test's case).
+    """
+    rev = _FakeReverse((True, 'accepted: 0.70 m'))
+    ed, b, state, tick = _dubins_rig((0.0, 0.0), 0.0, SIDE_CAR,
+                                     grid=_free_grid([SIDE_WALL]), reverse=rev,
+                                     rear_corridor_m=1.0)
+    tick()
+    rec = state.door_record
+    assert rec.phase == 'REVERSING'
+    assert any('INFEASIBLE' in line and 'blocked' in line for line in _logged(b, 'warn'))
+    assert b.hold_pub.publish.call_args.args[0].data is True      # stopped first
+    tick()                                       # stopped (v 0): search + request
+    assert len(rev.requests) == 1
+    d = rev.requests[0] - 0.05
+    assert 0.05 <= d <= 1.0
+    assert d == pytest.approx(0.65, abs=1e-9)
+    assert any('BACKUP' in line for line in _logged(b))
+    assert b.hold_pub.publish.call_args.args[0].data is False     # released for the MPC
+    assert b._rev['step'] == 'running'
+    # mpc_corr reverses: active, then back to forward, 0.66 m travelled.
+    b._reverse_status_cb(SimpleNamespace(reverse_active=True, mode='reverse',
+                                         travelled_m=0.2, last_termination_reason=''))
+    b.v_meas = -0.38
+    for k in range(1, 6):
+        tick((SIDE_CAR[0], SIDE_CAR[1] - 0.13 * k, SIDE_CAR[2]))
+        b._reverse_status_cb(SimpleNamespace(reverse_active=True, mode='reverse',
+                                             travelled_m=0.13 * k,
+                                             last_termination_reason=''))
+    assert any('REVERSING t' in line and 'v_meas -0.380' in line for line in _logged(b))
+    b.v_meas = 0.0
+    b._reverse_status_cb(SimpleNamespace(reverse_active=False, mode='forward',
+                                         travelled_m=0.66,
+                                         last_termination_reason='distance_done'))
+    tick((SIDE_CAR[0], SIDE_CAR[1] - 0.66, SIDE_CAR[2]))
+    assert any('REVERSE' in line and 'distance_done' in line and 'travelled' in line
+               for line in _logged(b))
+    # Re-planned from the backed-up pose: forward again, a free path.
+    assert rec.phase == 'APPROACH'
+    assert b._plan is not None and b._plan.feasible
+    assert b._attempts == 1
+
+
+def test_wall_behind_too_means_no_candidate_and_a_stop():
+    behind = (-6.0, -0.20, 6.0, -0.10)            # rear bumper at y -0.082
+    for rear_m in (0.5, 1.0):
+        rev = _FakeReverse()
+        grid = _free_grid([SIDE_WALL] + ([behind] if rear_m == 1.0 else []))
+        ed, b, state, tick = _dubins_rig((0.0, 0.0), 0.0, SIDE_CAR, grid=grid, reverse=rev,
+                                         rear_corridor_m=rear_m)
+        tick()
+        status = tick()
+        assert status.name == 'FAILURE'
+        assert state.door_record.outcome == 'door_needs_steered_reverse'
+        assert state.last_stop_reason == 'enter_door:door_needs_steered_reverse'
+        assert rev.requests == []
+        assert any('needs a steered reverse' in line and 'dmax' in line
+                   for line in _logged(b, 'error'))
+        assert b.hold_pub.publish.call_args.args[0].data is True
+
+
+def test_two_refused_reverses_stop_the_move():
+    rev = _FakeReverse((False, 'bt_disallowed'), (False, 'rear_unknown'))
+    ed, b, state, tick = _dubins_rig((0.0, 0.0), 0.0, SIDE_CAR,
+                                     grid=_free_grid([SIDE_WALL]), reverse=rev,
+                                     rear_corridor_m=1.0)
+    status = None
+    for _ in range(6):
+        status = tick()
+        if status.name == 'FAILURE':
+            break
+    assert status.name == 'FAILURE'
+    assert len(rev.requests) == 2
+    assert state.door_record.outcome == 'door_entry_failed'
+    errors = _logged(b, 'error')
+    assert any('failed after 2 reverses' in line and 'rear_unknown' in line for line in errors)
+    assert b.hold_pub.publish.call_args.args[0].data is True
+    # the hold was never released between the two refusals
+    assert all(c.args[0].data is True for c in b.hold_pub.publish.call_args_list)
+
+
+def test_a_reverse_that_never_reports_ends_on_its_timeout_and_counts():
+    rev = _FakeReverse((True, 'accepted'))
+    ed, b, state, tick = _dubins_rig((0.0, 0.0), 0.0, SIDE_CAR,
+                                     grid=_free_grid([SIDE_WALL]), reverse=rev,
+                                     rear_corridor_m=1.0)
+    tick()
+    tick()
+    timeout = b._rev['timeout']
+    assert timeout == pytest.approx(3.0 * 0.65 / 0.4 + 2.0)
+    tick(dt=timeout + 0.1)
+    assert any('timeout' in line for line in _logged(b))
+    assert b._attempts == 1
+    # still infeasible from the same pose: the second (last) attempt starts
+    assert state.door_record.phase == 'REVERSING'

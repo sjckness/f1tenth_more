@@ -281,18 +281,18 @@ class DoorSpec:
     Drive to a door the semantic-layer door detector has CONFIRMED and stop
     on it, facing the way through.
 
-    TWO PHASES, see approach_dist_m: APPROACH to a pre-point on the door's
-    own axis, then ENTER to the origin. The move is never "entered" during
-    the first.
+    THREE PHASES (behaviours/enter_door.py): APPROACH along a forward
+    Dubins path to an entry pose on the door's own axis (approach_dist_m /
+    door_entry_dist_m back), ENTER to the origin, then one exit goal beyond
+    it. When no forward path fits, the car backs up straight (mpc_corr's
+    reverse manoeuvre) and re-plans.
 
-    WHAT "ENTERED" MEANS, and it is deliberately narrow: the car's map pose
-    is within along_tol of the door frame's ORIGIN (the midpoint between the
-    two jambs) ALONG its own X AXIS -- the crossing direction, which
-    semantic_doors fixes at the door's first confirmation and never flips --
-    AND within lateral_tol of that same axis, AND its heading is within
-    yaw_tol_deg of it. So "entered" is "standing in the doorway, pointing
-    through it", not "on the far side": a mission that wants the room beyond
-    adds a move after this one.
+    WHAT "ENTERED" MEANS: the car is THROUGH the door -- along the door
+    frame's X AXIS (the crossing direction, which semantic_doors fixes at
+    the door's first confirmation and never flips) at least
+    door_exit_dist_m - 0.2 past the ORIGIN (the midpoint between the two
+    jambs), or within 0.2 m of the exit goal. along_tol / lateral_tol /
+    yaw_tol_deg are still recorded and reported, and no longer gate it.
 
     ALONG AND LATERAL ARE SEPARATE ON PURPOSE, not a single xy_tol radius:
     a single radius budget lets the car sit flush against a JAMB -- up to
@@ -326,13 +326,11 @@ class DoorSpec:
     yaw_tol_deg: float     # [deg] from the door frame's x axis
     acquire_timeout_sec: float = 5.0   # no STRONG door within this ->
     #                                  door_not_found / no_strong_door
-    #: [m] How far back along the door's own x axis the APPROACH pre-point
-    #: sits. The move drives there first, carrying the door's yaw, so the car
-    #: is square to a 0.90 m opening before it reaches the jambs; then it
-    #: drives the last stretch straight down the axis. The pre-point is
-    #: skipped when the car is already in the doorway. See
-    #: behaviours/enter_door.py, THE APPROACH PRE-POINT.
-    approach_dist_m: float = 0.0   # 0 = auto: clamp(1.3 * R_min, 0.8, 1.6), see enter_door
+    #: [m] How far back along the door's own x axis the APPROACH entry pose
+    #: sits (the end of the Dubins path, carrying the door's yaw). The
+    #: approach is skipped when the car is already in the doorway. See
+    #: behaviours/enter_door.py.
+    approach_dist_m: float = 0.0   # 0 = the executor's door_entry_dist_m (0.5)
 
 
 @dataclass(frozen=True)

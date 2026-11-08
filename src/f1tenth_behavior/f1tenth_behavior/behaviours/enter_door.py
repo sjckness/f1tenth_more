@@ -12,10 +12,18 @@
        /slam/map                   nav_msgs/OccupancyGrid, the grid the door
                                    detector reads; the Dubins path is checked
                                    against its occupied cells
+       /ekf_global/odometry/filtered
+                                   the same EKF, for its speed (v_meas): the
+                                   stop before a reverse and the reverse log
+       /mpc/reverse_status         mpc_corr's reverse manoeuvre, to see a
+                                   requested reverse start and end
   out  /mpc/goal_pose              PoseStamped, map: lookahead goals along the
                                    Dubins path, then the door centre, then
                                    one exit goal beyond it
-       /mpc/hold                   on a failure outcome, which aborts the mission
+       /mpc/hold                   a stop before a reverse; and on a failure
+                                   outcome, which aborts the mission
+       /mpc/request_reverse        RequestReverse (distance_m only): a straight
+                                   back-up when no forward path fits
 
 THREE PHASES. A doorway is 0.9 m wide and the car is 0.27 m wide with a
 turning radius R_min of ~0.96 m: arriving at the opening from an angle means
@@ -32,11 +40,6 @@ aims at the entry pose itself. The path is re-planned (at most
 door_replan_max_hz) when the car is more than door_replan_dev_m off it or the
 live door moved by more than 0.1 m / 5 deg.
 
-"Infeasible" is: no Dubins word, or the shortest one's footprint hits an
-occupied cell, or it is longer than 3 x the straight distance to the entry
-pose. It is logged (INFEASIBLE); the path, if there is one, is still
-followed -- forward-only driving has nothing better to offer.
-
 APPROACH -> ENTER when (a) the car is within 0.3 m of the entry pose, or (b)
 it is at or past the entry pose's along (along >= -door_entry_dist_m), within
 1.5 x lat_tol of the axis AND within yaw_tol of the axis heading. Nothing
@@ -51,6 +54,21 @@ after that, so the car is never asked to turn back to a point behind it.
 `entered` -- what the door_entered stop condition reads -- is true once the
 car is through: along >= door_exit_dist_m - 0.2, or within 0.2 m of the exit
 goal (mpc_corr's arrival latch is 0.15 m).
+
+REVERSE WHEN NO FORWARD PATH FITS. "Infeasible" is: no Dubins word, or the
+shortest one's footprint hits an occupied cell, or it is longer than 3 x the
+straight distance to the entry pose (a loop round the room is not an
+approach). Then the car is held (/mpc/hold) until stopped, and straight
+back-ups along its heading are tried, d in 0.05 m steps up to
+min(1.0, rear_corridor_length_m): the smallest d whose rear strip is free AND
+from whose end a forward path is feasible wins. EnterDoor only asks
+(/mpc/request_reverse, d + 0.05 m) and releases the hold; mpc_corr's rear
+QP drives the reverse, under its own pre-checks and the BT's
+/bt/allow_reverse. When it ends (or after 3 d / max_reverse_speed_mps + 2 s)
+the path is re-planned from wherever the car is. At most
+MAX_REVERSE_ATTEMPTS per door per move (a refused request counts); then the
+move fails door_entry_failed. No valid d at all fails it
+door_needs_steered_reverse, without moving.
 
 ONLY A STRONG DOOR MAY BE SELECTED. `Door.strong` is the detector's own
 verdict on whether a door has earned being driven at -- enough sightings, from
@@ -78,8 +96,8 @@ door frame every tick, written into the move's DoorApproachRecord.
 FAILURE IS CLEAN AND IT IS FINAL. No confirmed door to resolve within the
 spec's acquire_timeout_sec -> `door_not_found`; a matching door that is
 confirmed but not strong, for that long -> `no_strong_door`; the resolved door
-gone from the topic for LOST_GRACE_SEC before ENTER -> `door_lost`. Each one
-ends the move, holds the car and aborts the
+gone from the topic for LOST_GRACE_SEC before ENTER -> `door_lost`; the two
+reverse outcomes above. Each one ends the move, holds the car and aborts the
 mission with the reason on MissionRuntimeState.last_stop_reason. It never
 falls back to another door.
 
@@ -107,6 +125,7 @@ from f1tenth_behavior.mission.runtime import (
     GLOBAL_YAW_KEY,
     MISSION_KEY,
     MissionRuntimeState,
+    MissionState,
 )
 
 #: The car is "in the doorway already" at or past this x in the door frame
@@ -163,15 +182,39 @@ EXIT_ARRIVE_M = 0.2
 #: Re-plan when the live door moved this much from the one the plan used.
 DOOR_REPLAN_M = 0.1
 DOOR_REPLAN_DEG = 5.0
-#: Footprint margin [m] for the forward path.
+#: Footprint margin [m] for the forward path and the rear strip.
 PATH_MARGIN_M = 0.05
+REAR_MARGIN_M = 0.05
 #: Infeasible: the shortest path is longer than this x the straight distance.
 MAX_LENGTH_RATIO = 3.0
 #: Footprint sampling step along a path [m].
 PATH_STEP_M = 0.05
 
+# ---- the reverse
+MAX_REVERSE_ATTEMPTS = 2
+BACKUP_STEP_M = 0.05
+BACKUP_MAX_M = 1.0
+#: Asked for d + this: the MPC counts travelled distance conservatively.
+REVERSE_EXTRA_M = 0.05
+#: Stopped before searching: |v| below this, or after STOP_WAIT_MAX_SEC anyway.
+STOP_SPEED_MPS = 0.05
+STOP_WAIT_MAX_SEC = 2.0
+#: A /mpc/request_reverse with no answer within this is refused.
+SERVICE_WAIT_SEC = 2.0
+#: The reverse's own timeout: REVERSE_TIMEOUT_FACTOR * d / v_max + this.
+REVERSE_TIMEOUT_FACTOR = 3.0
+REVERSE_TIMEOUT_EXTRA_SEC = 2.0
+#: /mpc/reverse_status older than this is not evidence of anything.
+REVERSE_STATUS_MAX_AGE_SEC = 0.5
+REVERSE_LOG_PERIOD_SEC = 0.2          # 5 Hz
+DEFAULT_REAR_CORRIDOR_LENGTH_M = 0.5
+DEFAULT_MAX_REVERSE_SPEED_MPS = 0.4
+
 #: Phase names, as they appear in the move's record and the log.
-PHASE_APPROACH, PHASE_ENTER, PHASE_EXIT = 'APPROACH', 'ENTER', 'EXIT'
+PHASE_APPROACH, PHASE_ENTER, PHASE_EXIT, PHASE_REVERSING = (
+    'APPROACH', 'ENTER', 'EXIT', 'REVERSING')
+#: REVERSING sub-steps.
+REV_STOPPING, REV_REQUESTED, REV_RUNNING = 'stopping', 'requested', 'running'
 
 #: How long [s] the resolved door may be missing from the topic before the
 #: move fails with door_lost.
@@ -396,6 +439,33 @@ def plan_forward(q0, entry, rho, grid, fp: Footprint):
     return ForwardPlan(path, check, straight, '')
 
 
+def backed_up(q0, d):
+    """Return the pose d metres straight back along q0's heading."""
+    return (q0[0] - d * math.cos(q0[2]), q0[1] - d * math.sin(q0[2]), q0[2])
+
+
+def search_backup(q0, entry, rho, grid, fp: Footprint, dmax, step=BACKUP_STEP_M):
+    """
+    Find the smallest straight back-up d (step, 2 step, ... <= dmax) giving a forward path.
+
+    Returns (d, ForwardPlan from the backed-up pose, why_not) -- d None when
+    no candidate works; why_not then says what stopped the search.
+    """
+    n = int(math.floor(dmax / step + 1e-9))
+    why_not = f'dmax {dmax:.2f} m < step' if n < 1 else ''
+    for k in range(1, n + 1):
+        d = k * step
+        rear = dubins.straight_back_is_free(q0, d, grid, fp.half_width_m, REAR_MARGIN_M,
+                                            step=PATH_STEP_M, rear_m=fp.rear_m)
+        if not rear.free:
+            return None, None, f'rear blocked after {rear.first_blocked_s:.2f} m (d {d:.2f})'
+        plan = plan_forward(backed_up(q0, d), entry, rho, grid, fp)
+        if plan.feasible:
+            return d, plan, ''
+        why_not = f'no forward path from any d <= {d:.2f} m (last: {plan.reason})'
+    return None, None, why_not
+
+
 class EnterDoor(py_trees.behaviour.Behaviour):
     """Run the current enter_door move; see the module docstring."""
 
@@ -404,6 +474,9 @@ class EnterDoor(py_trees.behaviour.Behaviour):
                  goal_pose_topic='/mpc/goal_pose',
                  hold_topic='/mpc/hold',
                  grid_topic='/slam/map',
+                 odom_topic='/ekf_global/odometry/filtered',
+                 reverse_status_topic='/mpc/reverse_status',
+                 reverse_service='/mpc/request_reverse',
                  map_frame='map',
                  clock=time.monotonic):
         super().__init__(name=name)
@@ -411,11 +484,15 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         self._goal_pose_topic = goal_pose_topic
         self._hold_topic = hold_topic
         self._grid_topic = grid_topic
+        self._odom_topic = odom_topic
+        self._reverse_status_topic = reverse_status_topic
+        self._reverse_service = reverse_service
         self.map_frame = map_frame
         self._clock = clock
         self.node = None
         self.goal_pose_pub = None
         self.hold_pub = None
+        self.reverse_client = None
         self.doors = {}
         self.widths = {}
         #: door_lat_tol_m (0 = auto, see lateral_tol) and door_entry_yaw_tol_deg.
@@ -434,9 +511,14 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         self.republish_dist_m = DEFAULT_GOAL_REPUBLISH_DIST_M
         self.republish_yaw_deg = DEFAULT_GOAL_REPUBLISH_YAW_DEG
         self.exit_dist_m = DEFAULT_EXIT_DIST_M
+        self.rear_corridor_length_m = DEFAULT_REAR_CORRIDOR_LENGTH_M
+        self.max_reverse_speed_mps = DEFAULT_MAX_REVERSE_SPEED_MPS
         self.occupied_threshold = 65
         # World inputs.
         self.grid = None
+        self.v_meas = None
+        self.reverse_status = None
+        self.reverse_status_sec = None
         self.strong = {}
         self.doors_received_sec = None
         self._grid_warned = False
@@ -453,23 +535,33 @@ class EnterDoor(py_trees.behaviour.Behaviour):
     def rho(self):
         return self.radius_factor * (self.r_min_m if self.r_min_m else FALLBACK_R_MIN_M)
 
+    @property
+    def dmax(self):
+        return min(BACKUP_MAX_M, self.rear_corridor_length_m)
+
     def setup(self, **kwargs):
-        """Create the subscriptions and the publishers."""
+        """Create the subscriptions, the publishers and the reverse client."""
         try:
             self.node = kwargs['node']
         except KeyError as e:
             raise KeyError("EnterDoor.setup() didn't find 'node' in kwargs") from e
-        from nav_msgs.msg import OccupancyGrid
+        from nav_msgs.msg import OccupancyGrid, Odometry
         from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
+        from f1tenth_messages.msg import ReverseStatus
+        from f1tenth_messages.srv import RequestReverse
         self._declare_params()
         self.node.create_subscription(DoorArray, self._doors_topic, self._doors_cb, 10)
         map_qos = QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
                              durability=DurabilityPolicy.TRANSIENT_LOCAL,
                              history=HistoryPolicy.KEEP_LAST, depth=1)
         self.node.create_subscription(OccupancyGrid, self._grid_topic, self._grid_cb, map_qos)
+        self.node.create_subscription(Odometry, self._odom_topic, self._odom_cb, 10)
+        self.node.create_subscription(ReverseStatus, self._reverse_status_topic,
+                                      self._reverse_status_cb, 10)
         self.goal_pose_pub = self.node.create_publisher(
             PoseStamped, self._goal_pose_topic, 10)
         self.hold_pub = self.node.create_publisher(Bool, self._hold_topic, 10)
+        self.reverse_client = self.node.create_client(RequestReverse, self._reverse_service)
 
     def _declare_params(self):
         """Tolerances, the Dubins approach params, R_min and the car geometry."""
@@ -507,6 +599,9 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         except Exception:  # noqa: BLE001 - keep the URDF fallback
             front = DEFAULT_FRONT_M
         self.footprint = Footprint(front, pv('car_rear_offset_m', DEFAULT_REAR_M), half)
+        self.rear_corridor_length_m = pv('rear_corridor_length_m',
+                                         DEFAULT_REAR_CORRIDOR_LENGTH_M)
+        self.max_reverse_speed_mps = pv('max_reverse_speed_mps', DEFAULT_MAX_REVERSE_SPEED_MPS)
         self.occupied_threshold = int(pv('freespace_doors_occupied_threshold', 65))
         r_min = self.r_min_m if self.r_min_m else FALLBACK_R_MIN_M
         self.radius_factor = float(declare('door_dubins_radius_factor',
@@ -536,8 +631,10 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             f'{self.replan_dev_m:.2f} m / max {self.replan_max_hz:.1f} Hz, republish '
             f'{self.republish_dist_m:.2f} m / {self.republish_yaw_deg:.0f} deg, exit '
             f'{self.exit_dist_m:.2f} m, footprint +{fp.front_m:.3f}/-{fp.rear_m:.3f} '
-            f'x +-{fp.half_width_m:.3f} m (margin {PATH_MARGIN_M:.2f}), yaw tol '
-            f'{self.entry_yaw_tol_deg:.1f} deg, grid '
+            f'x +-{fp.half_width_m:.3f} m (margin {PATH_MARGIN_M:.2f}), backup dmax '
+            f'{self.dmax:.2f} m (rear corridor {self.rear_corridor_length_m:.2f}), '
+            f'v_rev max {self.max_reverse_speed_mps:.2f} m/s, max reverses '
+            f'{MAX_REVERSE_ATTEMPTS}, yaw tol {self.entry_yaw_tol_deg:.1f} deg, grid '
             f'{self._grid_topic} occ>={self.occupied_threshold}')
 
     # ------------------------------------------------------------ inputs
@@ -562,6 +659,13 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             self.node.get_logger().warn(f'[enter_door] grid unusable: {exc}',
                                         throttle_duration_sec=5.0)
 
+    def _odom_cb(self, msg):
+        self.v_meas = float(msg.twist.twist.linear.x)
+
+    def _reverse_status_cb(self, msg):
+        self.reverse_status = msg
+        self.reverse_status_sec = self._clock()
+
     def _bb(self, key):
         """Return a blackboard value, or None while nothing has written it yet."""
         try:
@@ -585,6 +689,12 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         self._plan_s = 0.0
         self._last_goal = None            # (x, y, yaw) last published
         self._last_infeasible = ''
+        self._last_refusal = ''
+        # The reverse.
+        self._attempts = 0
+        self._rev = None                  # dict while REVERSING
+        self._holding = False             # this behaviour holds the car
+        self._fail_detail = ''
 
     def _clear(self):
         self._active_move_key = None
@@ -695,7 +805,9 @@ class EnterDoor(py_trees.behaviour.Behaviour):
                     f'{PHASE_APPROACH} (entry pose {entry_dist:.2f} m back on the axis)')
 
         status = None
-        if record.phase == PHASE_APPROACH:
+        if record.phase == PHASE_REVERSING:
+            status = self._tick_reversing(ctx)
+        elif record.phase == PHASE_APPROACH:
             rule = switch_to_enter(car_xy, car_yaw, entry, door_xy, tyaw, entry_dist,
                                    lat_tol, yaw_tol)
             if rule:
@@ -707,6 +819,7 @@ class EnterDoor(py_trees.behaviour.Behaviour):
                     f'{heading_err:.1f} deg, '
                     f'{math.hypot(car[0] - entry[0], car[1] - entry[1]):.2f} m from the '
                     'entry pose')
+                self._release_hold(state)
             else:
                 status = self._tick_approach(ctx)
         if status is not None:
@@ -748,7 +861,7 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         why = ''
         force = self._plan is None
         if force:
-            why = 'initial'
+            why = 'initial' if not self._attempts and not self._last_infeasible else 'resume'
         else:
             (pdx, pdy), pyaw = self._plan_door
             moved = math.hypot(door_xy[0] - pdx, door_xy[1] - pdy)
@@ -769,14 +882,9 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             plan = plan_forward(car, entry, self.rho, self._grid_or_warn(), self.footprint)
             self._log_plan(move, plan, car)
             if not plan.feasible:
-                self._last_infeasible = plan.reason
-                self.node.get_logger().warn(
-                    f"[enter_door] INFEASIBLE move '{move.id}': forward entry -- "
-                    f'{plan.reason} (followed anyway: no reverse)',
-                    throttle_duration_sec=2.0)
-                if plan.path is None:
-                    return py_trees.common.Status.SUCCESS
+                return self._start_reverse(c, plan.reason)
             self._adopt(plan, now, door_xy, tyaw)
+            self._release_hold(c['state'])
         plan = self._plan
         if plan is None:            # rate-limited with nothing to follow yet
             return None
@@ -836,6 +944,193 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             f'{self.exit_dist_m:.2f} m beyond the centre ({ex[0]:.2f}, {ex[1]:.2f}); '
             'no further goals')
 
+    # ------------------------------------------------------------ the reverse
+
+    def _start_reverse(self, c, reason):
+        move, record, now, car = c['move'], c['record'], c['now'], c['car']
+        self._last_infeasible = reason
+        self._plan = None
+        self.node.get_logger().warn(
+            f"[enter_door] INFEASIBLE move '{move.id}': forward entry -- {reason} "
+            f'(heading err {c["heading_err"]:.1f} deg, along {c["along"]:+.2f} m, '
+            f'lateral {c["lateral"]:+.2f} m, reverses so far {self._attempts})')
+        if self._attempts >= MAX_REVERSE_ATTEMPTS:
+            self._fail_detail = (
+                f'door entry failed after {self._attempts} reverses: car '
+                f'({car[0]:.2f}, {car[1]:.2f}, {math.degrees(car[2]):.0f} deg), door '
+                f'({c["door_xy"][0]:.2f}, {c["door_xy"][1]:.2f}, '
+                f'{math.degrees(c["tyaw"]):.0f} deg), last infeasible: {reason}'
+                + (f'; last reverse refused: {self._last_refusal}' if self._last_refusal
+                   else ''))
+            return self._fail(c['state'], move, record, 'door_entry_failed', now)
+        self._hold()
+        record.phase = PHASE_REVERSING
+        self._rev = {'step': REV_STOPPING, 'since': now}
+        return py_trees.common.Status.SUCCESS
+
+    def _tick_reversing(self, c):
+        rev = self._rev
+        if rev['step'] == REV_STOPPING:
+            return self._rev_stopping(c)
+        if rev['step'] == REV_REQUESTED:
+            return self._rev_requested(c)
+        return self._rev_running(c)
+
+    def _rev_stopping(self, c):
+        move, record, now, car = c['move'], c['record'], c['now'], c['car']
+        stopped = self.v_meas is not None and abs(self.v_meas) < STOP_SPEED_MPS
+        if not stopped and now - self._rev['since'] < STOP_WAIT_MAX_SEC:
+            return py_trees.common.Status.SUCCESS
+        grid = self._grid_or_warn()
+        # Rolled to a pose a forward path fits from? Then no reverse.
+        plan = plan_forward(car, c['entry'], self.rho, grid, self.footprint)
+        if plan.feasible:
+            self._log_plan(move, plan, car)
+            record.phase = PHASE_APPROACH
+            self._rev = None
+            self._adopt(plan, now, c['door_xy'], c['tyaw'])
+            self._release_hold(c['state'])
+            return self._tick_approach(c)
+        d, after, why_not = search_backup(car, c['entry'], self.rho, grid, self.footprint,
+                                          self.dmax)
+        if d is None:
+            self._fail_detail = (
+                f'door entry needs a steered reverse: heading err '
+                f'{c["heading_err"]:.1f} deg, along {c["along"]:+.2f} m, lateral '
+                f'{c["lateral"]:+.2f} m, R_min '
+                + (f'{self.r_min_m:.2f}' if self.r_min_m else 'unknown')
+                + f' m, dmax {self.dmax:.2f} m ({why_not}); infeasible: '
+                f'{self._last_infeasible}')
+            self.node.get_logger().error(f"[enter_door] move '{move.id}': {self._fail_detail}")
+            return self._fail(c['state'], move, record, 'door_needs_steered_reverse', now)
+        qb = backed_up(car, d)
+        self.node.get_logger().info(
+            f"[enter_door] BACKUP move '{move.id}': d {d:.2f} m straight back to "
+            f'({qb[0]:.2f}, {qb[1]:.2f}), then {after.path.word} L {after.path.length:.2f} m '
+            f'(free, unknown cells {after.check.unknown_cells}); requesting '
+            f'{d + REVERSE_EXTRA_M:.2f} m')
+        # A fresh goal clears mpc_corr's arrival latch (a latched goal returns
+        # before the reverse manoeuvre is ticked); while the hold is on it
+        # does not move the car.
+        self._publish_goal(move, c['entry'][0], c['entry'][1], c['entry'][2])
+        self._last_goal = None
+        future, why = self._call_reverse(d + REVERSE_EXTRA_M)
+        self._rev = {'step': REV_REQUESTED, 'since': now, 'd': d, 'future': future,
+                     'why': why, 'start': car}
+        return self._rev_requested(c)
+
+    def _call_reverse(self, distance_m):
+        client = self.reverse_client
+        if client is None:
+            return None, 'no reverse client'
+        try:
+            if not client.service_is_ready():
+                return None, f'{self._reverse_service} not available'
+            from f1tenth_messages.srv import RequestReverse
+            req = RequestReverse.Request()
+            req.distance_m = float(distance_m)
+            return client.call_async(req), ''
+        except Exception as exc:  # noqa: BLE001 - a failed call is a refused one
+            return None, f'call failed: {exc}'
+
+    def _rev_requested(self, c):
+        move, now = c['move'], c['now']
+        rev = self._rev
+        future = rev['future']
+        accepted, reason = None, rev.get('why', '')
+        if future is None:
+            accepted = False
+        elif future.done():
+            try:
+                res = future.result()
+                accepted, reason = bool(res.accepted), str(res.reason)
+            except Exception as exc:  # noqa: BLE001
+                accepted, reason = False, f'call failed: {exc}'
+        elif now - rev['since'] > SERVICE_WAIT_SEC:
+            accepted, reason = False, f'no answer within {SERVICE_WAIT_SEC:.0f} s'
+        if accepted is None:
+            return py_trees.common.Status.SUCCESS
+        if not accepted:
+            self._attempts += 1
+            self.node.get_logger().warn(
+                f"[enter_door] REVERSE move '{move.id}': request "
+                f'{rev["d"] + REVERSE_EXTRA_M:.2f} m REFUSED: {reason} (attempt '
+                f'{self._attempts}/{MAX_REVERSE_ATTEMPTS})')
+            self._last_refusal = reason
+            return self._back_to_approach(c, keep_hold=True)
+        self._release_hold(c['state'])
+        d = rev['d']
+        rev.update(step=REV_RUNNING, since=now, accept_sec=now, seen_active=False,
+                   last_log=None, timeout=REVERSE_TIMEOUT_FACTOR * d
+                   / max(self.max_reverse_speed_mps, 0.05) + REVERSE_TIMEOUT_EXTRA_SEC,
+                   v_peak=0.0)
+        self.node.get_logger().info(
+            f"[enter_door] REVERSE move '{move.id}': accepted ({reason}); timeout "
+            f'{rev["timeout"]:.1f} s')
+        return py_trees.common.Status.SUCCESS
+
+    def _status_fresh(self, after_sec):
+        return (self.reverse_status is not None and self.reverse_status_sec is not None
+                and self.reverse_status_sec >= after_sec
+                and self._clock() - self.reverse_status_sec <= REVERSE_STATUS_MAX_AGE_SEC)
+
+    def _rev_running(self, c):
+        move, now, car = c['move'], c['now'], c['car']
+        rev = self._rev
+        st = self.reverse_status if self._status_fresh(rev['accept_sec']) else None
+        sx, sy, syaw = rev['start']
+        own = -(car[0] - sx) * math.cos(syaw) - (car[1] - sy) * math.sin(syaw)
+        if st is not None and bool(st.reverse_active):
+            rev['seen_active'] = True
+        if self.v_meas is not None:
+            rev['v_peak'] = min(rev['v_peak'], self.v_meas)
+        t = now - rev['accept_sec']
+        if rev['last_log'] is None or now - rev['last_log'] >= REVERSE_LOG_PERIOD_SEC - 1e-9:
+            rev['last_log'] = now
+            mode = st.mode if st is not None else '?'
+            sign = {'reverse': '-', 'stopping': '0', 'forward': '+'}.get(mode, '?')
+            self.node.get_logger().info(
+                f'[enter_door] REVERSING t {t:.2f} s v_meas '
+                + (f'{self.v_meas:+.3f}' if self.v_meas is not None else 'n/a')
+                + f' m/s cmd {sign} (mode {mode}) travelled {own:.3f} m (mpc '
+                + (f'{st.travelled_m:.3f}' if st is not None else 'n/a') + ' m)')
+        done = ''
+        if rev['seen_active'] and st is not None and not bool(st.reverse_active):
+            done = st.last_termination_reason or 'ended'
+        elif t > rev['timeout']:
+            done = f'timeout {rev["timeout"]:.1f} s'
+        if not done:
+            return py_trees.common.Status.SUCCESS
+        self._attempts += 1
+        asked = rev['d'] + REVERSE_EXTRA_M
+        self.node.get_logger().info(
+            f"[enter_door] REVERSE move '{move.id}': done ({done}) after {t:.1f} s: "
+            f'travelled {own:.3f} m (mpc '
+            + (f'{st.travelled_m:.3f}' if st is not None else 'n/a')
+            + f' m) of {asked:.2f} m requested (planned d {rev["d"]:.2f}), peak v '
+            f'{rev["v_peak"]:+.2f} m/s; attempt {self._attempts}/{MAX_REVERSE_ATTEMPTS}; '
+            're-planning')
+        return self._back_to_approach(c, keep_hold=False)
+
+    def _back_to_approach(self, c, keep_hold):
+        c['record'].phase = PHASE_APPROACH
+        self._rev = None
+        self._plan = None
+        if not keep_hold:
+            self._release_hold(c['state'])
+        return self._tick_approach(c)
+
+    def _hold(self):
+        self._holding = True
+        self.hold_pub.publish(Bool(data=True))
+
+    def _release_hold(self, state):
+        if not self._holding:
+            return
+        self._holding = False
+        if getattr(state, 'state', MissionState.RUNNING) == MissionState.RUNNING:
+            self.hold_pub.publish(Bool(data=False))
+
     # ------------------------------------------------------------ output
 
     def _publish_goal(self, move, x, y, yaw):
@@ -871,7 +1166,10 @@ class EnterDoor(py_trees.behaviour.Behaviour):
                    'apart, with no flags, before a mission may drive at it'),
                'door_lost': (
                    f'{record.frame_id} disappeared from {self._doors_topic} for more '
-                   f'than {LOST_GRACE_SEC:.1f} s')}[outcome]
+                   f'than {LOST_GRACE_SEC:.1f} s'),
+               'door_entry_failed': self._fail_detail,
+               'door_needs_steered_reverse': self._fail_detail}[outcome]
+        self._holding = False
         self.hold_pub.publish(Bool(data=True))
         state.last_stop_reason = f'enter_door:{outcome}'
         self.node.get_logger().error(
