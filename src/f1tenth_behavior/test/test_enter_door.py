@@ -262,7 +262,7 @@ def test_the_pre_point_is_skipped_when_the_car_is_already_in_the_doorway(
     assert phase == expect_phase
 
 
-def test_the_phase_walks_approach_then_enter_and_entered_waits_for_it():
+def test_the_phase_walks_approach_enter_exit_and_entered_waits_for_the_far_side():
     """The whole move, driven tick by tick against a fake node."""
     ed, centre, yaw = _door_scene()
     from f1tenth_messages.msg import Door, DoorArray
@@ -302,38 +302,37 @@ def test_the_phase_walks_approach_then_enter_and_entered_waits_for_it():
         behaviour._fake_now += 0.1
         return behaviour.update()
 
-    # Far short of the door: APPROACH, aiming at the pre-point, not entered.
+    # Far short of the door: APPROACH along a (straight) Dubins path to the
+    # entry pose 0.5 m back on the axis, aiming one lookahead ahead.
     tick((0.0, 0.0))
     record = state.door_record
     assert record.frame_id == 'door_4'
     assert record.phase == 'APPROACH'
-    assert record.pre_point_xy == pytest.approx((0.0, 2.2), abs=1e-9)
-    assert record.target_xy == pytest.approx((0.0, 2.2), abs=1e-9)
+    assert record.pre_point_xy == pytest.approx((0.0, 2.5), abs=1e-9)
+    assert record.target_xy == pytest.approx((0.0, behaviour.lookahead_m), abs=1e-6)
     assert record.entered is False
-    # ...and the errors it reports are against the DOOR, not the pre-point.
-    # Negative: 3 m short of the opening along its own axis (see
-    # door_frame_xy's own sign convention).
+    # ...and the errors it reports are against the DOOR, not the entry pose.
     assert record.along_error_m == pytest.approx(-3.0)
     assert record.lateral_error_m == pytest.approx(0.0, abs=1e-9)
 
-    # At the pre-point: hand over to ENTER, now aiming at the origin.
-    tick((0.0, 2.2))
+    # Within 0.3 m of the entry pose: rule (a) hands over to ENTER (the centre).
+    tick((0.0, 2.3))
     assert record.phase == 'ENTER'
     assert record.target_xy == pytest.approx(centre, abs=1e-9)
-    assert record.entered is False          # 0.8 m from the door still
-
-    # In the doorway, square to it: entered.
-    tick((0.0, 2.95))
-    assert record.entered is True
-    assert record.along_error_m == pytest.approx(-0.05, abs=1e-9)
-    assert record.lateral_error_m == pytest.approx(0.0, abs=1e-9)
-    assert record.yaw_error_deg == pytest.approx(0.0, abs=1e-9)
-
-    # Turned 30 deg off the crossing direction: inside along_tol/lateral_tol,
-    # not entered (the yaw check alone fails it).
-    tick((0.0, 2.95), car_yaw=yaw + math.radians(30.0))
-    assert record.yaw_error_deg == pytest.approx(30.0, abs=1e-6)
     assert record.entered is False
+
+    # Within 0.3 m of the centre: ONE exit goal 0.8 m beyond it.
+    tick((0.0, 2.8))
+    assert record.phase == 'EXIT'
+    assert record.target_xy == pytest.approx((0.0, 3.8), abs=1e-9)
+    assert record.entered is False          # still in the doorway
+    sent = behaviour.goal_pose_pub.publish.call_count
+
+    # Through: along >= 0.8 - 0.2. The heading is not part of it any more.
+    tick((0.0, 3.65), car_yaw=yaw + math.radians(30.0))
+    assert record.entered is True
+    assert record.yaw_error_deg == pytest.approx(30.0, abs=1e-6)
+    assert behaviour.goal_pose_pub.publish.call_count == sent    # nothing after the exit
 
 
 def test_a_car_that_starts_in_the_doorway_never_leaves_to_line_up():
@@ -357,8 +356,6 @@ def test_a_car_that_starts_in_the_doorway_never_leaves_to_line_up():
     door = Door(id=1, state=Door.STATE_CONFIRMED, width=0.9)
     door.center.x, door.center.y = centre
     door.normal.x, door.normal.y = math.cos(yaw), math.sin(yaw)
-    # STRONG, because selection resolves over strong doors only -- these
-    # tests are about the approach phases, not about earning selection.
     door.strong = True
     msg.doors = [door]
     behaviour.doors = ed.confirmed_doors(msg)
@@ -367,10 +364,17 @@ def test_a_car_that_starts_in_the_doorway_never_leaves_to_line_up():
 
     behaviour.update()
     record = state.door_record
-    assert record.phase == 'ENTER'
-    # It never aimed at the pre-point, which is 0.75 m BEHIND where it stands.
-    assert record.target_xy == pytest.approx(centre, abs=1e-9)
-    assert record.entered is True
+    # In the doorway already, 5 cm from the centre: straight to the exit goal.
+    assert record.phase == 'EXIT'
+    sent = [_goal_of(c) for c in behaviour.goal_pose_pub.publish.call_args_list]
+    assert sent == [pytest.approx((0.0, 3.8, yaw), abs=1e-9)]
+    assert record.entered is False
+
+
+def _goal_of(call):
+    m = call.args[0]
+    q = m.pose.orientation
+    return (m.pose.position.x, m.pose.position.y, 2.0 * math.atan2(q.z, q.w))
 
 
 # -------------------------------------------------------------------- preflight
@@ -524,11 +528,6 @@ def test_phase_and_entered_tolerances_match_what_the_mpc_can_deliver():
     assert not ed.has_entered(0.0, 0.22, 0.0, along_tol, lat, yaw_tol)
     assert not ed.has_entered(0.0, 0.0, 30.0, along_tol, lat, yaw_tol)
 
-    # Infeasible-entry groundwork: bad heading and less room than R_min.
-    assert ed.entry_infeasible(40.0, 0.5, yaw_tol, 0.9)
-    assert not ed.entry_infeasible(40.0, 2.0, yaw_tol, 0.9)
-    assert not ed.entry_infeasible(10.0, 0.5, yaw_tol, 0.9)
-
 
 def test_goal_yaw_is_the_bearing_clamped_to_the_axis_plus_minus_tolerance():
     from f1tenth_behavior.behaviours import enter_door as ed
@@ -568,38 +567,6 @@ def test_the_score_report_quotes_the_tolerances_actually_applied():
     assert '(tol 0.150), yaw error=12.0 deg (tol 20.0)' in out.note
     assert '0.050' not in out.note
     assert out.commanded == pytest.approx(0.15)
-
-
-def test_approach_ends_within_half_a_metre_of_the_pre_point_or_on_the_axis_whatever_the_yaw():
-    from f1tenth_behavior.behaviours import enter_door as ed
-    lat, dist = 0.2, 1.24
-    # on the axis (|lateral| <= 1.5 * lat_tol = 0.3), far short of the pre-point,
-    # 60 deg crooked: ENTER (the heading error is not an input any more).
-    assert ed.at_pre_point(-3.0, 0.29, dist, lat)
-    # off the axis but within 0.5 m of the pre-point (still short of it): ENTER
-    assert ed.at_pre_point(-1.24 - 0.3, 0.35, dist, lat)
-    # off the axis, short of the pre-point and 0.8 m from it: still APPROACH
-    assert not ed.at_pre_point(-2.0, 0.35, dist, lat)
-    assert not ed.at_pre_point(-3.0, 0.31, dist, lat)
-
-
-def test_pre_point_distance_is_1_3_r_min_clamped_to_0_8_1_6():
-    from f1tenth_behavior.behaviours import enter_door as ed
-    assert ed.auto_approach_dist(0.956) == pytest.approx(1.2428)
-    assert ed.auto_approach_dist(0.3) == pytest.approx(0.8)
-    assert ed.auto_approach_dist(2.0) == pytest.approx(1.6)
-    assert ed.auto_approach_dist(None) == pytest.approx(0.8)
-
-
-def test_approach_ends_once_the_car_passes_the_pre_points_along_whatever_the_lateral():
-    from f1tenth_behavior.behaviours import enter_door as ed
-    dist, lat = 1.24, 0.19
-    # 0.23 m off the axis (the 2026-11-06 run) with the pre-point 0.04 m behind:
-    # passed -> ENTER, even 0.9 m sideways (outside every other clause).
-    assert ed.at_pre_point(-1.20, 0.9, dist, lat)
-    assert ed.at_pre_point(-0.5, 0.9, dist, lat)
-    # one step short of the pre-point's along and far off the axis: APPROACH
-    assert not ed.at_pre_point(-1.30 - 0.6, 0.9, dist, lat)
 
 
 def _frozen_rig(centre_shift=0.0):
@@ -642,14 +609,14 @@ def test_enter_freezes_the_door_pose_and_sends_its_goal_once():
     ed, b, state, centre, set_door, tick = _frozen_rig()
     set_door(*centre)
     tick((0.0, 0.0))                      # APPROACH
-    tick((0.0, 1.9))                      # passed the pre-point -> ENTER
+    tick((0.0, 2.3))                      # 0.2 m from the entry pose -> ENTER
     rec = state.door_record
     assert rec.phase == 'ENTER'
     sent = b.goal_pose_pub.publish.call_count
     assert rec.target_xy == pytest.approx(centre, abs=1e-9)
     # the detector refines the centre by 0.3 m and the axis by 20 deg: ignored
     set_door(centre[0] + 0.3, centre[1] + 0.2, axis=math.radians(110.0))
-    tick((0.0, 2.3))
+    tick((0.0, 2.5))
     assert rec.target_xy == pytest.approx(centre, abs=1e-9)
     assert rec.target_yaw == pytest.approx(math.radians(90.0), abs=1e-9)
     assert b.goal_pose_pub.publish.call_count == sent        # no republish
@@ -692,3 +659,159 @@ def test_enter_door_ignores_a_closer_door_that_is_not_strong():
     assert state2.door_record.door_id is None
     assert not b2.goal_pose_pub.publish.called
     assert b2.node.get_logger().warn.called
+
+
+# ---------------------------------------------------------------------------
+# The Dubins approach, the exit goal and the reverse
+# ---------------------------------------------------------------------------
+R_MIN = 0.305 / math.tan(0.319)        # wheelbase / max(abs(steering bounds)): 0.923 m
+
+
+def _free_grid(occupied=(), size=12.0, res=0.05, origin=(-6.0, -6.0)):
+    import numpy as np
+    from f1tenth_behavior.behaviours import dubins as db
+    n = int(round(size / res))
+    data = np.zeros((n, n), dtype=np.int16)
+    for x0, y0, x1, y1 in occupied:
+        i0, i1 = int((x0 - origin[0]) / res), int(math.ceil((x1 - origin[0]) / res))
+        j0, j1 = int((y0 - origin[1]) / res), int(math.ceil((y1 - origin[1]) / res))
+        data[max(j0, 0):max(j1, 0), max(i0, 0):max(i1, 0)] = 100
+    return db.OccGrid(data, res, origin[0], origin[1])
+
+
+def _dubins_rig(door_xy, axis, car, grid=None):
+    """Build an EnterDoor on the shipped geometry (R_min 0.923, rho 1.016, lookahead 1.385)."""
+    pytest.importorskip('f1tenth_messages.msg', reason='needs the built workspace')
+    from f1tenth_messages.msg import Door, DoorArray
+    from f1tenth_behavior.behaviours import enter_door as ed
+    from f1tenth_behavior.mission.runtime import (
+        GLOBAL_XY_KEY, GLOBAL_YAW_KEY, MISSION_KEY, MissionRuntimeState)
+    state = MissionRuntimeState()
+    state.config = parse_mission(door_mission())
+    state.current_index = 0
+    b = ed.EnterDoor(clock=lambda: b._fake_now)
+    b._fake_now = 0.0
+    b.node, b.goal_pose_pub, b.hold_pub = MagicMock(), MagicMock(), MagicMock()
+    b.r_min_m = R_MIN
+    b.lookahead_m = max(1.0, 1.5 * R_MIN)
+    b.grid = grid if grid is not None else _free_grid()
+    b.blackboard = SimpleNamespace(**{MISSION_KEY: state, GLOBAL_XY_KEY: car[:2],
+                                      GLOBAL_YAW_KEY: car[2]})
+    b._bb = lambda key: getattr(b.blackboard, key, None)
+    msg = DoorArray()
+    d = Door(id=7, state=Door.STATE_CONFIRMED, width=0.9)
+    d.center.x, d.center.y = door_xy
+    d.normal.x, d.normal.y = math.cos(axis), math.sin(axis)
+    d.strong = True
+    msg.doors = [d]
+    b.doors, b.strong, b.widths = ed.confirmed_doors(msg), ed.strong_doors(msg), \
+        ed.door_widths(msg)
+    b.doors_received_sec = 0.0
+
+    def tick(pose=None, dt=0.1):
+        if pose is not None:
+            b.blackboard.mission_global_xy = (pose[0], pose[1])
+            b.blackboard.mission_global_yaw = pose[2]
+        b._fake_now += dt
+        return b.update()
+    return ed, b, state, tick
+
+
+def _logged(b, level='info'):
+    return [str(c.args[0]) for c in getattr(b.node.get_logger(), level).call_args_list]
+
+
+def test_run_15_42_00_geometry_gets_a_free_path_that_ends_on_the_axis():
+    """2026-11-06T15-42-00: car (1.93, 0.25, 12 deg), door (4.13, 1.83), axis ~80 deg."""
+    door, axis = (4.13, 1.83), math.radians(80.0)
+    car = (1.93, 0.25, math.radians(12.0))
+    ed, b, state, tick = _dubins_rig(door, axis, car)
+    tick()
+    rec = state.door_record
+    assert rec.phase == 'APPROACH'
+    plan = b._plan
+    assert plan is not None and plan.feasible
+    path = plan.path
+    assert path.word == 'RSL'
+    assert path.length == pytest.approx(2.557, abs=0.005)
+    assert b.rho == pytest.approx(1.1 * R_MIN)
+    end = path.end()
+    along, lateral = ed.door_frame_xy(end[:2], door, axis)
+    assert along == pytest.approx(-0.5, abs=0.02)
+    assert abs(lateral) < 0.02
+    assert abs(ed.wrap_deg(end[2] - axis)) < 1.0
+    assert any('PLAN' in line and 'RSL' in line for line in _logged(b))
+
+    # Drive the car along the plan: goals advance, ENTER fires by (a) or (b),
+    # never before along -0.8.
+    goals_s = []
+    switched_at = None
+    s = 0.0
+    while s < path.length + 0.5 and rec.phase == 'APPROACH':
+        s += 0.1
+        pose = path.pose_at(s)
+        n_before = b.goal_pose_pub.publish.call_count
+        tick(pose)
+        if b.goal_pose_pub.publish.call_count > n_before and rec.phase == 'APPROACH':
+            g = _goal_of(b.goal_pose_pub.publish.call_args)
+            goals_s.append(path.project(g[0], g[1])[0])
+        if rec.phase == 'ENTER':
+            switched_at = ed.door_frame_xy(pose[:2], door, axis)
+    assert len(goals_s) >= 3
+    assert all(b2 > a2 for a2, b2 in zip(goals_s, goals_s[1:]))
+    assert switched_at is not None and switched_at[0] >= -0.8
+    assert any('SWITCH' in line and ('rule (a)' in line or 'rule (b)' in line)
+               for line in _logged(b))
+    assert not b.hold_pub.publish.called
+
+
+def test_the_exit_goal_goes_out_once_and_nothing_is_ever_sent_behind_the_car():
+    door, axis = (4.13, 1.83), math.radians(80.0)
+    ed, b, state, tick = _dubins_rig(door, axis, (1.93, 0.25, math.radians(12.0)))
+    tick()
+    path = b._plan.path
+    s = 0.0
+    while state.door_record.phase == 'APPROACH':
+        s += 0.1
+        tick(path.pose_at(s))
+    # ENTER: drive down the axis through the door.
+    for along in [x / 20.0 for x in range(-10, 21)]:
+        pose = (door[0] + along * math.cos(axis), door[1] + along * math.sin(axis), axis)
+        n = b.goal_pose_pub.publish.call_count
+        tick(pose)
+        for c in b.goal_pose_pub.publish.call_args_list[n:]:
+            g = _goal_of(c)
+            # every goal is ahead of the car along the door axis
+            assert ed.door_frame_xy(g[:2], door, axis)[0] > along
+    exits = [c for c in b.goal_pose_pub.publish.call_args_list
+             if ed.door_frame_xy(_goal_of(c)[:2], door, axis)[0] > 0.5]
+    assert len(exits) == 1
+    gx = _goal_of(exits[0])
+    assert ed.door_frame_xy(gx[:2], door, axis)[0] == pytest.approx(0.8, abs=1e-9)
+    assert state.door_record.phase == 'EXIT'
+    assert state.door_record.entered is True
+    assert sum('EXIT' in line for line in _logged(b)) == 1
+
+
+def test_the_passed_the_pre_point_rule_is_gone():
+    """
+    Do not switch to ENTER just for being past the old pre-point.
+
+    1.0 m short (past the old 1.24 m pre-point), 0.5 m off the axis, square:
+    the old rule sent this car to ENTER; now it is no approach at all.
+    """
+    door, axis = (0.0, 0.0), 0.0
+    ed, b, state, tick = _dubins_rig(door, axis, (-1.0, 0.5, 0.0))
+    assert not hasattr(ed, 'at_pre_point')
+    tick()
+    assert state.door_record.phase == 'APPROACH'
+    assert state.door_record.phase != 'ENTER'
+    assert ed.switch_to_enter((-1.0, 0.5), 0.0, ed.entry_pose(door, axis, 0.5), door, axis,
+                              0.5, 0.19, 20.0) == ''
+    # rule (b) needs all three: past the entry along, on the axis, square
+    entry = ed.entry_pose(door, axis, 0.5)
+    assert ed.switch_to_enter((-0.1, 0.25), 0.1, entry, door, axis, 0.5, 0.19, 20.0) == 'b'
+    assert ed.switch_to_enter((-0.1, 0.30), 0.1, entry, door, axis, 0.5, 0.19, 20.0) == ''
+    assert ed.switch_to_enter((-0.1, 0.25), 0.5, entry, door, axis, 0.5, 0.19, 20.0) == ''
+    # rule (a): within 0.3 m of the entry pose, whatever the heading
+    assert ed.switch_to_enter((-0.7, 0.2), 1.5, entry, door, axis, 0.5, 0.19, 20.0) == 'a'
