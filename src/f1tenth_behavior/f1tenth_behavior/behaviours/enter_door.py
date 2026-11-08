@@ -24,6 +24,10 @@
                                    outcome, which aborts the mission
        /mpc/request_reverse        RequestReverse (distance_m only): a straight
                                    back-up when no forward path fits
+       /mpc/door_goal_debug        MarkerArray, ns enter_door/*: the path, the
+                                   entry pose, the lookahead and exit goals,
+                                   the planned back-up (mpc_corr publishes its
+                                   own markers on the same topic)
 
 THREE PHASES. A doorway is 0.9 m wide and the car is 0.27 m wide with a
 turning radius R_min of ~0.96 m: arriving at the opening from an angle means
@@ -220,6 +224,10 @@ REV_STOPPING, REV_REQUESTED, REV_RUNNING = 'stopping', 'requested', 'running'
 #: move fails with door_lost.
 LOST_GRACE_SEC = 2.0
 
+#: Marker namespaces on /mpc/door_goal_debug.
+MARKER_NS = ('enter_door/path', 'enter_door/entry', 'enter_door/lookahead',
+             'enter_door/exit', 'enter_door/backup')
+MARKER_PERIOD_SEC = 1.0
 
 
 def confirmed_doors(msg) -> dict:
@@ -477,6 +485,7 @@ class EnterDoor(py_trees.behaviour.Behaviour):
                  odom_topic='/ekf_global/odometry/filtered',
                  reverse_status_topic='/mpc/reverse_status',
                  reverse_service='/mpc/request_reverse',
+                 debug_topic='/mpc/door_goal_debug',
                  map_frame='map',
                  clock=time.monotonic):
         super().__init__(name=name)
@@ -487,11 +496,13 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         self._odom_topic = odom_topic
         self._reverse_status_topic = reverse_status_topic
         self._reverse_service = reverse_service
+        self._debug_topic = debug_topic
         self.map_frame = map_frame
         self._clock = clock
         self.node = None
         self.goal_pose_pub = None
         self.hold_pub = None
+        self.marker_pub = None
         self.reverse_client = None
         self.doors = {}
         self.widths = {}
@@ -547,6 +558,7 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             raise KeyError("EnterDoor.setup() didn't find 'node' in kwargs") from e
         from nav_msgs.msg import OccupancyGrid, Odometry
         from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
+        from visualization_msgs.msg import MarkerArray
         from f1tenth_messages.msg import ReverseStatus
         from f1tenth_messages.srv import RequestReverse
         self._declare_params()
@@ -561,6 +573,7 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         self.goal_pose_pub = self.node.create_publisher(
             PoseStamped, self._goal_pose_topic, 10)
         self.hold_pub = self.node.create_publisher(Bool, self._hold_topic, 10)
+        self.marker_pub = self.node.create_publisher(MarkerArray, self._debug_topic, 10)
         self.reverse_client = self.node.create_client(RequestReverse, self._reverse_service)
 
     def _declare_params(self):
@@ -694,9 +707,13 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         self._attempts = 0
         self._rev = None                  # dict while REVERSING
         self._holding = False             # this behaviour holds the car
+        self._backup_line = None          # [(x, y)] planned back-up, for the marker
+        self._markers_dirty = True
+        self._markers_sec = None
         self._fail_detail = ''
 
     def _clear(self):
+        self._clear_markers()
         self._active_move_key = None
         self._reset_move_state()
 
@@ -823,12 +840,14 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             else:
                 status = self._tick_approach(ctx)
         if status is not None:
+            self._publish_markers(now)
             return status
 
         if record.phase == PHASE_ENTER:
             if self._frozen is None:
                 self._frozen = (door_xy, tyaw)
                 self._plan = None
+                self._markers_dirty = True
                 self.node.get_logger().info(
                     f'[enter_door] {record.frame_id} pose frozen for ENTER: centre '
                     f'({door_xy[0]:.2f}, {door_xy[1]:.2f}), axis '
@@ -850,6 +869,7 @@ class EnterDoor(py_trees.behaviour.Behaviour):
                               or math.hypot(car[0] - ex[0], car[1] - ex[1]) <= EXIT_ARRIVE_M)
         else:
             record.entered = False
+        self._publish_markers(now)
         return py_trees.common.Status.SUCCESS
 
     # ------------------------------------------------------------ APPROACH
@@ -901,6 +921,7 @@ class EnterDoor(py_trees.behaviour.Behaviour):
                 or angle_gap_deg(goal[2], last[2]) > self.republish_yaw_deg):
             self._publish_goal(move, goal[0], goal[1], goal[2])
             self._last_goal = goal
+            self._markers_dirty = True
         record.entered = False
         return py_trees.common.Status.SUCCESS
 
@@ -909,6 +930,8 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         self._plan_sec = now
         self._plan_door = (door_xy, tyaw)
         self._plan_s = 0.0
+        self._backup_line = None
+        self._markers_dirty = True
 
     def _grid_or_warn(self):
         if self.grid is None and not self._grid_warned:
@@ -938,6 +961,7 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         record.phase = PHASE_EXIT
         record.goal_yaw = ex[2]
         self._publish_goal(move, ex[0], ex[1], ex[2])
+        self._markers_dirty = True
         self.node.get_logger().info(
             f"[enter_door] EXIT move '{move.id}': {record.frame_id} at along "
             f'{along:+.2f} m, lateral {lateral:+.2f} m: one exit goal '
@@ -1004,6 +1028,8 @@ class EnterDoor(py_trees.behaviour.Behaviour):
             self.node.get_logger().error(f"[enter_door] move '{move.id}': {self._fail_detail}")
             return self._fail(c['state'], move, record, 'door_needs_steered_reverse', now)
         qb = backed_up(car, d)
+        self._backup_line = [(car[0], car[1]), (qb[0], qb[1])]
+        self._markers_dirty = True
         self.node.get_logger().info(
             f"[enter_door] BACKUP move '{move.id}': d {d:.2f} m straight back to "
             f'({qb[0]:.2f}, {qb[1]:.2f}), then {after.path.word} L {after.path.length:.2f} m '
@@ -1116,6 +1142,8 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         c['record'].phase = PHASE_APPROACH
         self._rev = None
         self._plan = None
+        self._backup_line = None
+        self._markers_dirty = True
         if not keep_hold:
             self._release_hold(c['state'])
         return self._tick_approach(c)
@@ -1145,6 +1173,86 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         self.node.get_logger().info(
             f"[enter_door] move '{move.id}': published goal_pose=(x={x:.2f}, "
             f'y={y:.2f}, yaw={math.degrees(yaw):.1f} deg) to /mpc/goal_pose.')
+
+    def _marker_list(self, stamp):
+        """Return the enter_door markers as (ns, Marker or None); None means DELETE."""
+        from geometry_msgs.msg import Point
+        from visualization_msgs.msg import Marker
+
+        def base(ns, mtype, rgba):
+            m = Marker()
+            m.header.frame_id = self.map_frame
+            m.header.stamp = stamp
+            m.ns, m.id, m.type, m.action = ns, 0, mtype, Marker.ADD
+            m.color.r, m.color.g, m.color.b, m.color.a = rgba
+            m.pose.orientation.w = 1.0
+            return m
+
+        def strip(ns, pts, rgba):
+            m = base(ns, Marker.LINE_STRIP, rgba)
+            m.scale.x = 0.04
+            m.points = [Point(x=float(x), y=float(y), z=0.05) for x, y in pts]
+            return m
+
+        def arrow(ns, pose, rgba, length=0.5):
+            m = base(ns, Marker.ARROW, rgba)
+            x, y, yaw = pose
+            m.points = [Point(x=float(x), y=float(y), z=0.12),
+                        Point(x=float(x + length * math.cos(yaw)),
+                              y=float(y + length * math.sin(yaw)), z=0.12)]
+            m.scale.x, m.scale.y, m.scale.z = 0.05, 0.10, 0.12
+            return m
+
+        rec_entry = None
+        rec = getattr(self._bb(MISSION_KEY), 'door_record', None)
+        if rec is not None and rec.pre_point_xy is not None and rec.target_yaw is not None:
+            rec_entry = (rec.pre_point_xy[0], rec.pre_point_xy[1], rec.target_yaw)
+        out = []
+        out.append(('enter_door/path', strip(
+            'enter_door/path', [(p[0], p[1]) for p in self._plan.path.sample(0.1)],
+            (0.2, 0.9, 0.3, 1.0)) if self._plan is not None else None))
+        out.append(('enter_door/entry', arrow('enter_door/entry', rec_entry,
+                                              (0.2, 0.4, 1.0, 1.0))
+                    if rec_entry is not None and self._exit_goal is None else None))
+        out.append(('enter_door/lookahead', arrow('enter_door/lookahead', self._last_goal,
+                                                  (1.0, 0.6, 0.0, 1.0), 0.4)
+                    if self._last_goal is not None and self._plan is not None else None))
+        out.append(('enter_door/exit', arrow('enter_door/exit', self._exit_goal,
+                                             (0.7, 0.2, 0.9, 1.0))
+                    if self._exit_goal is not None else None))
+        out.append(('enter_door/backup', strip('enter_door/backup', self._backup_line,
+                                               (1.0, 0.1, 0.1, 1.0))
+                    if self._backup_line else None))
+        return out
+
+    def _publish_markers(self, now, delete_all=False):
+        if self.marker_pub is None:
+            return
+        if not delete_all and not self._markers_dirty and self._markers_sec is not None \
+                and now - self._markers_sec < MARKER_PERIOD_SEC:
+            return
+        try:
+            from visualization_msgs.msg import Marker, MarkerArray
+            stamp = self.node.get_clock().now().to_msg()
+            arr = MarkerArray()
+            for ns, m in (self._marker_list(stamp) if not delete_all
+                          else [(ns, None) for ns in MARKER_NS]):
+                if m is None:
+                    m = Marker()
+                    m.header.frame_id = self.map_frame
+                    m.header.stamp = stamp
+                    m.ns, m.id, m.action = ns, 0, Marker.DELETE
+                arr.markers.append(m)
+            self.marker_pub.publish(arr)
+        except Exception as exc:  # noqa: BLE001 - debug output must not stop the move
+            self.node.get_logger().warn(f'[enter_door] markers failed: {exc}',
+                                        throttle_duration_sec=10.0)
+        self._markers_dirty = False
+        self._markers_sec = now
+
+    def _clear_markers(self):
+        if self._active_move_key is not None:
+            self._publish_markers(self._clock(), delete_all=True)
 
     def _fail(self, state, move, record, outcome, now):
         """End the move with `outcome`: hold the car and abort the mission."""

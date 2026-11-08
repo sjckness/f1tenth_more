@@ -50,6 +50,7 @@
   <depend>sensor_msgs</depend>
   <!-- tick_timing.BtTicker: BT tick duration p50/p95 on /diagnostics. -->
   <depend>diagnostic_msgs</depend>
+  <depend>visualization_msgs</depend>
 
   <exec_depend>f1tenth_navigation</exec_depend>
   <exec_depend>launch</exec_depend>

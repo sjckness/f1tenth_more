@@ -868,6 +868,7 @@ def test_wall_ahead_makes_entry_infeasible_and_a_straight_backup_is_requested():
     assert any('BACKUP' in line for line in _logged(b))
     assert b.hold_pub.publish.call_args.args[0].data is False     # released for the MPC
     assert b._rev['step'] == 'running'
+    assert b._backup_line is not None
     # mpc_corr reverses: active, then back to forward, 0.66 m travelled.
     b._reverse_status_cb(SimpleNamespace(reverse_active=True, mode='reverse',
                                          travelled_m=0.2, last_termination_reason=''))
@@ -943,3 +944,41 @@ def test_a_reverse_that_never_reports_ends_on_its_timeout_and_counts():
     assert b._attempts == 1
     # still infeasible from the same pose: the second (last) attempt starts
     assert state.door_record.phase == 'REVERSING'
+
+
+def test_debug_markers_show_the_plan_and_are_deleted_when_the_move_ends():
+    pytest.importorskip('visualization_msgs.msg', reason='needs visualization_msgs')
+    from visualization_msgs.msg import Marker
+    rev = _FakeReverse((True, 'accepted'))
+    ed, b, state, tick = _dubins_rig((0.0, 0.0), 0.0, SIDE_CAR,
+                                     grid=_free_grid([SIDE_WALL]), reverse=rev,
+                                     rear_corridor_m=1.0)
+    b.marker_pub = MagicMock()
+
+    def last():
+        return {m.ns: m for m in b.marker_pub.publish.call_args.args[0].markers}
+    tick()
+    tick()                                   # backup planned and requested
+    ms = last()
+    assert set(ms) == set(ed.MARKER_NS)
+    assert ms['enter_door/backup'].action == Marker.ADD
+    assert ms['enter_door/backup'].type == Marker.LINE_STRIP
+    assert ms['enter_door/entry'].type == Marker.ARROW
+    assert all(m.header.frame_id == 'map' for m in ms.values())
+    assert ms['enter_door/path'].action == Marker.DELETE     # no forward plan yet
+    # after the reverse: a forward plan, the lookahead goal, no backup any more
+    b._reverse_status_cb(SimpleNamespace(reverse_active=True, mode='reverse',
+                                         travelled_m=0.3, last_termination_reason=''))
+    tick((SIDE_CAR[0], SIDE_CAR[1] - 0.3, SIDE_CAR[2]))
+    b._reverse_status_cb(SimpleNamespace(reverse_active=False, mode='forward',
+                                         travelled_m=0.66,
+                                         last_termination_reason='distance_done'))
+    tick((SIDE_CAR[0], SIDE_CAR[1] - 0.66, SIDE_CAR[2]))
+    ms = last()
+    assert ms['enter_door/path'].action == Marker.ADD and len(ms['enter_door/path'].points) > 10
+    assert ms['enter_door/lookahead'].action == Marker.ADD
+    assert ms['enter_door/backup'].action == Marker.DELETE
+    # the move ends (no enter_door move any more): everything deleted
+    state.current_index = 5
+    tick()
+    assert all(m.action == Marker.DELETE for m in last().values())
