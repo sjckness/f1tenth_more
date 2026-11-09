@@ -69,9 +69,9 @@ one-shot) possa raggiungere get_plan_from_llm(), piu' LLAMA_TIMEOUT alzato
 a 90s come margine di sicurezza e un except dedicato per ConnectionError
 dentro get_plan_from_llm() stessa (server riavviato/crashato a meta'
 sessione, dopo che il warm-up era gia' passato).
-Quel warm-up ('ciao') carica solo il modello. Subito dopo, _warm_prefix()
-manda il system prompt VERO, cosi' il suo prefisso e' gia' nella cache dei
-prompt al primo comando (vedi _completion: cache_prompt, stop).
+Il nodo passa a quel warm-up il system prompt VERO (warm_prompt), cosi' la
+stessa richiesta carica il modello e lascia il prefisso nella cache dei
+prompt per il primo comando (vedi _completion: cache_prompt, stop).
 
 --------------------------------------------------------------------------
 Load -> start (vedi _deliver_mission): start_mission parte nell'istante in
@@ -173,6 +173,38 @@ LLAMA_URL = "http://127.0.0.1:8083/completion"
 # una chiamata appesa blocca tutto.
 LLAMA_TIMEOUT = 90.0
 
+# Stringhe di stop di _completion(), le stesse per tutti e tre i prompt
+# (legacy, v2, v2 no_go_to): la '}' che chiude il JSON seguita da un a-capo o
+# da uno spazio, cioe' il punto in cui il modello smette di rispondere e
+# comincia a scrivere altro. Misurato su llama-server 42532af, 20 comandi di
+# test_intent_evals_live x 3 richieste per prompt, cosa segue il JSON:
+# - v2: '\n' + una coppia comando:/risposta: allucinata (60/60);
+# - no_go_to: la STESSA risposta ripetuta sulla stessa riga dopo uno spazio
+#   (i suoi esempi non hanno righe 'comando:'), 19/60 fino a n_predict;
+# - legacy: prosa dopo uno spazio o un a-capo (" To translate...",
+#   "\nEcco la traduzione...", " // Il comando..."), 7/60 fino a n_predict.
+# '\ncomando:' (il solo stop di prima) fermava solo v2 e 18/60 legacy.
+# Nessuna risposta valida contiene queste stringhe: e' UNA riga di JSON
+# compatto (nessun a-capo, nemmeno dentro una stringa, dove sarebbe
+# escapato), e fuori dalle stringhe JSON compatto o con i separatori di
+# default (', ', ': ') non ha mai '} '. Dentro una stringa '} ' potrebbe
+# stare solo se l'operatore la dettasse; lo verifica
+# test_no_known_answer_contains_a_stop_string su golden, eval ed esempi.
+# llama-server TOGLIE la stringa di stop dal testo, e qui con lei la '}'
+# finale: _completion() la rimette (stopping_word) prima di raw_decode().
+LLAMA_STOP = ['}\n', '} ']
+
+# Tetto di token generati per una risposta, dal caso peggiore che lo schema
+# (schemas/intent_v1.json) ammette, contato con POST /tokenize sullo stesso
+# modello (qwen2.5-3b-instruct-q5_k_m): 8 fasi della forma piu' lunga
+# ({"mode":"go_to","target":"baseball glove","thresh":19.99}, 20 token)
+# piu' "unsupported" al massimo dello schema (10 voci da 200 caratteri),
+# JSON compatto su una riga = 789 token. ceil(789 * 1.5) = 1184, gia'
+# multiplo di 32 (37 * 32). Le risposte reali misurate: 15-47 token. Costa
+# solo quando lo stop non scatta (~46 token/s sull'Orin: ~26 s nel caso
+# peggiore), e allora _completion() lo dice con un WARNING.
+LLAMA_N_PREDICT = 1184
+
 # Vocabolario ESATTO del piano LLM -- INVARIATO (validate_plan lo applica,
 # non ha nulla a che fare con lo schema missioni reale, vedi plan_translate.py).
 VALID_MODES = ("straight", "wall_turn")
@@ -264,7 +296,13 @@ class LlamaServerUnreachableError(RuntimeError):
     requests con dentro un traceback urllib3 illeggibile."""
 
 
-def _wait_for_llama_server(url: str, max_wait_s: float = 90.0) -> float:
+def _build_prompt(system_prompt: str, command_text: str) -> str:
+    """Return the exact prompt string the planner sends: system prompt + command tail."""
+    return system_prompt + f'\ncomando: "{command_text}"\nrisposta:'
+
+
+def _wait_for_llama_server(url: str, max_wait_s: float = 90.0,
+                           warm_prompt=None) -> float:
     """Attende che llama-server sia raggiungibile E scaldato prima di
     lasciar passare qualsiasi comando -- vedi il modulo docstring, sezione
     "Pass successivo (readiness/warm-up)", per il problema che questo
@@ -290,20 +328,30 @@ def _wait_for_llama_server(url: str, max_wait_s: float = 90.0) -> float:
     cieca -- non e' detto che ritentare risolva un problema diverso da "non
     ancora in ascolto".
 
+    `warm_prompt` (opzionale): se dato, la richiesta usa QUEL prompt, con
+    cache_prompt True, invece di 'ciao' -- LLMPlannerNode.__init__ passa il
+    system prompt reale nel formato di _completion() (_build_prompt), cosi'
+    la stessa richiesta carica il modello E lascia il prefisso nella cache
+    dei prompt. Con -np 1 (models.yaml) e' l'unico modo per non pagarlo
+    due volte: un 'ciao' occuperebbe l'unico slot e il primo comando, o un
+    secondo warm-up, rielaborerebbe ~2550 token (~1.3 s sull'Orin).
+    Senza warm_prompt la richiesta e' esattamente quella di sempre.
+
     Ritorna i secondi di attesa impiegati al successo. Solleva
     LlamaServerUnreachableError (non una ConnectionError grezza) se
     max_wait_s viene esaurito senza mai riuscire a connettersi.
     """
+    if warm_prompt is None:
+        payload = {'prompt': 'ciao', 'n_predict': 8, 'temperature': 0.0}
+    else:
+        payload = {'prompt': warm_prompt, 'n_predict': 8, 'temperature': 0.0,
+                   'cache_prompt': True}
     t0 = time.time()
     delay = 1.0
     last_exc = None
     while True:
         try:
-            response = requests.post(
-                url,
-                json={'prompt': 'ciao', 'n_predict': 8, 'temperature': 0.0},
-                timeout=LLAMA_TIMEOUT,
-            )
+            response = requests.post(url, json=payload, timeout=LLAMA_TIMEOUT)
             if response.status_code == 503:
                 # llama-server answers 503 ("Loading model") from the moment its
                 # port opens until the model is loaded (measured on the Thor:
@@ -329,39 +377,6 @@ def _wait_for_llama_server(url: str, max_wait_s: float = 90.0) -> float:
         delay = min(delay * 2, 5.0)
 
 
-def _warm_prefix(url: str, system_prompt: str) -> float:
-    """
-    Mette il system prompt REALE nella cache dei prompt di llama-server.
-
-    _wait_for_llama_server() scalda il modello con 'ciao', che non ha nulla in
-    comune con il prompt vero: il primo comando pagherebbe comunque
-    l'elaborazione dell'intero system prompt. Questa richiesta ha la stessa
-    forma di _completion() (stesso prefisso, stesso formato della coda) con
-    n_predict 1, cosi' il prefisso e' in cache prima del primo comando.
-
-    Solo un'ottimizzazione: un errore di rete o HTTP NON ferma la costruzione
-    del nodo. Logga un WARNING con il tipo dell'eccezione e ritorna -1.0, senza
-    ritentare. Timeout = LLAMA_TIMEOUT letto al momento della chiamata, come
-    _wait_for_llama_server(). Ritorna i secondi impiegati in caso di successo.
-    """
-    prompt = system_prompt + '\ncomando: "vai dritto"\nrisposta:'
-    t0 = time.time()
-    try:
-        response = requests.post(
-            url,
-            json={'prompt': prompt, 'n_predict': 1, 'temperature': 0.0,
-                  'cache_prompt': True},
-            timeout=LLAMA_TIMEOUT,
-        )
-        response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        logging.getLogger(__name__).warning(
-            f'_warm_prefix: prefisso del prompt non scaldato '
-            f"({type(e).__name__}: {e}); il primo comando lo elaborera' per intero.")
-        return -1.0
-    return time.time() - t0
-
-
 def _completion(system_prompt: str, command_text: str):
     """POST verso /completion e ritorna il PRIMO valore JSON valido nella risposta.
 
@@ -379,24 +394,30 @@ def _completion(system_prompt: str, command_text: str):
       'comando: ...' viene rielaborata. E' gia' il default di llama-server
       42532af; esplicito perche' il costo per comando dipende da questo.
       Cambiare un solo byte del prompt invalida la cache (e il benchmark).
-    - stop (a capo + 'comando:'): la generazione si ferma dove il modello
-      comincerebbe una coppia comando:/risposta: allucinata, invece di
-      proseguire fino a n_predict. Nessuna risposta valida puo' contenerlo:
-      il JSON e' su una riga e una stringa JSON non contiene a-capo letterali.
+    - stop LLAMA_STOP: la generazione si ferma dove il modello comincerebbe
+      una risposta allucinata dopo la sua (vedi LLAMA_STOP per cosa taglia e
+      perche' nessuna risposta valida puo' contenerla), invece di proseguire
+      fino a n_predict (LLAMA_N_PREDICT, dal caso peggiore dello schema).
+
+    llama-server toglie la stringa di stop dal testo restituito; se e' stato
+    lo stop a fermarlo (stop_type 'word'), la si rimette in coda (campo
+    stopping_word) prima di raw_decode(), che la scarta come qualunque altro
+    testo dopo il JSON. Fermato dal tetto (stop_type 'limit') -> WARNING con
+    i token generati: la risposta puo' essere troncata, e in quel caso
+    raw_decode() solleva come sempre.
 
     raw_decode() invece di json.loads(): parsa SOLO il primo valore JSON valido
     e ignora quello che il modello genera dopo. Era il fix per il modello che
     continuava oltre la "}" di chiusura con altre coppie comando:/risposta:
     allucinate (json.loads() rifiutava tutto con "Extra data"); con `stop`
-    serve di rado, ma resta come rete di sicurezza (per esempio un prompt
-    senza 'comando:' negli esempi, dove lo stop non scatta).
+    serve di rado, ma resta come rete di sicurezza.
     """
-    prompt = system_prompt + f'\ncomando: "{command_text}"\nrisposta:'
+    prompt = _build_prompt(system_prompt, command_text)
     try:
         response = requests.post(
             LLAMA_URL,
-            json={'prompt': prompt, 'n_predict': 512, 'temperature': 0.0,
-                  'cache_prompt': True, 'stop': ['\ncomando:']},
+            json={'prompt': prompt, 'n_predict': LLAMA_N_PREDICT, 'temperature': 0.0,
+                  'cache_prompt': True, 'stop': LLAMA_STOP},
             timeout=LLAMA_TIMEOUT,
         )
     except requests.exceptions.ConnectionError as e:
@@ -405,7 +426,18 @@ def _completion(system_prompt: str, command_text: str):
             "all'avvio -- e' stato riavviato o e' crashato?)."
         ) from e
     response.raise_for_status()
-    raw = response.json().get('content', '').strip()
+    body = response.json()
+    raw = body.get('content', '')
+    stop_type = body.get('stop_type')
+    if stop_type == 'word':
+        raw += body.get('stopping_word') or ''
+    elif stop_type == 'limit':
+        generated = (body.get('timings') or {}).get('predicted_n',
+                                                    body.get('tokens_predicted'))
+        logging.getLogger(__name__).warning(
+            f'risposta troncata dal tetto n_predict={LLAMA_N_PREDICT} '
+            f'({generated} token generati)')
+    raw = raw.strip()
     try:
         parsed, end_index = json.JSONDecoder().raw_decode(raw)
     except ValueError as e:
@@ -854,6 +886,18 @@ def _emit_result(outcome: dict) -> None:
                   file=sys.stderr, flush=True)
 
 
+def _lat_add(node, key: str, seconds: float) -> None:
+    """
+    Add `seconds` to one bucket of the command's latency breakdown.
+
+    A no-op on an object without `_lat`: the planner methods are also run
+    unbound on test stubs, which must not need to know about the timing.
+    """
+    lat = getattr(node, '_lat', None)
+    if isinstance(lat, dict):
+        lat[key] = lat.get(key, 0.0) + seconds
+
+
 def _llm_failure_outcome(exc: Exception, attempts: int) -> dict:
     """Esito per un'eccezione arrivata dalla chiamata all'LLM.
 
@@ -910,6 +954,9 @@ class LLMPlannerNode(Node):
         self._llm_t_sent = None
         self._llm_t_received = None
         self._command_text = ''
+        # Latenza del comando per stadio (perf_counter, secondi), riempita da
+        # _lat_add e loggata/emessa da run_command().
+        self._lat = None
 
         # llm_url/llm_timeout_sec: gli unici parametri ROS di questo nodo.
         # Default sui moduli-level LLAMA_URL/LLAMA_TIMEOUT gia' definiti in
@@ -996,14 +1043,14 @@ class LLMPlannerNode(Node):
         # quella funzione) se il server non risponde entro max_wait_s --
         # NIENTE viene costruito dopo questo punto in quel caso (nodo
         # inutilizzabile senza backend).
-        elapsed = _wait_for_llama_server(LLAMA_URL)
-        self.get_logger().info(f'Server raggiunto e scaldato in {elapsed:.1f}s.')
-        # Poi il prefisso VERO (self._system_prompt, gia' scelto sopra per
-        # entrambi i planner_path): il 'ciao' qui sopra scalda solo il modello.
-        # Un fallimento e' gia' loggato come WARNING da _warm_prefix().
-        warm_s = _warm_prefix(LLAMA_URL, self._system_prompt)
-        if warm_s >= 0.0:
-            self.get_logger().info(f'Prefisso del prompt scaldato in {warm_s:.1f}s.')
+        # La richiesta di warm-up e' gia' il prompt VERO (self._system_prompt,
+        # scelto sopra per entrambi i planner_path, nel formato di
+        # _completion()): carica il modello e lascia il prefisso in cache in
+        # una richiesta sola.
+        elapsed = _wait_for_llama_server(
+            LLAMA_URL, warm_prompt=_build_prompt(self._system_prompt, 'vai dritto'))
+        self.get_logger().info(
+            f'Server raggiunto, modello e prefisso del prompt scaldati in {elapsed:.1f}s.')
 
         self.load_client = self.create_client(LoadMission, '/mission/load_mission')
         self.start_client = self.create_client(Trigger, '/mission/start_mission')
@@ -1253,17 +1300,21 @@ class LLMPlannerNode(Node):
         """
         t0 = time.time()
         self._note_llm_sent()
+        t_llm = time.perf_counter()
         try:
             plan = get_plan_from_llm(command_text)
         except Exception as e:
             self._note_llm_received()
+            _lat_add(self, 'llm', time.perf_counter() - t_llm)
             self.get_logger().error(
                 f'LLM: traduzione fallita ({type(e).__name__}: {e}). Nulla caricato.')
             self._outcome = _llm_failure_outcome(e, attempts=1)
             return None
         self._note_llm_received()
+        _lat_add(self, 'llm', time.perf_counter() - t_llm)
         dt = time.time() - t0
 
+        t_tr = time.perf_counter()
         plan, fixes = normalize_plan(plan)
         for f in fixes:
             self.get_logger().warn(f'corretto -> {f}')
@@ -1277,6 +1328,7 @@ class LLMPlannerNode(Node):
                 'error_type': 'InvalidPlan', 'error_message': reason,
                 'attempts': 1, 'llm_raw': json.dumps(plan, ensure_ascii=False),
             }
+            _lat_add(self, 'traduzione', time.perf_counter() - t_tr)
             return None
         for w in warns:
             self.get_logger().warn(w)
@@ -1290,7 +1342,9 @@ class LLMPlannerNode(Node):
                 'error_type': type(e).__name__, 'error_message': str(e),
                 'attempts': 1, 'llm_raw': json.dumps(plan, ensure_ascii=False),
             }
+            _lat_add(self, 'traduzione', time.perf_counter() - t_tr)
             return None
+        _lat_add(self, 'traduzione', time.perf_counter() - t_tr)
         return mission, (), dt, 1, ()
 
     def _plan_v2(self, command_text: str):
@@ -1311,19 +1365,26 @@ class LLMPlannerNode(Node):
         rejections = []          # un record per tentativo rifiutato (vedi _emit_result)
         for attempt in range(1, MAX_INTENT_RETRIES + 2):
             self._note_llm_sent()
+            t_llm = time.perf_counter()
             try:
                 intent = get_intent_from_llm(command_text, self._system_prompt, feedback)
             except Exception as e:
                 self._note_llm_received()
+                _lat_add(self, 'llm', time.perf_counter() - t_llm)
                 self.get_logger().error(
                     f'LLM: generazione fallita ({type(e).__name__}: {e}). Nulla caricato.')
                 self._outcome = _llm_failure_outcome(e, attempts=attempt)
                 self._outcome['rejections'] = rejections
                 return None
             self._note_llm_received()
+            _lat_add(self, 'llm', time.perf_counter() - t_llm)
 
+            t_tr = time.perf_counter()
             try:
-                result = translate(intent, go_to_enabled=self._go_to_enabled)
+                try:
+                    result = translate(intent, go_to_enabled=self._go_to_enabled)
+                finally:
+                    _lat_add(self, 'traduzione', time.perf_counter() - t_tr)
             except UnsupportedIntentModeError as e:
                 # B3: separable from an ordinary schema rejection on purpose.
                 # Getting here means the model authored a mode the prompt
@@ -1453,15 +1514,38 @@ class LLMPlannerNode(Node):
         self._llm_t_sent = None
         self._llm_t_received = None
         self._plan_result_sent = False
+        self._lat = {'llm': 0.0, 'traduzione': 0.0, 'servizi': 0.0, 'conferma': 0.0}
+        t0 = time.perf_counter()
         try:
             return self.process_command(command_text)
         finally:
-            _emit_result(self._outcome or {
+            outcome = self._outcome or {
                 'status': 'node_error', 'stage': 'node',
                 'error_type': 'Unhandled',
                 'error_message': 'nessun esito registrato (vedi stderr)',
                 'attempts': None, 'llm_raw': None,
-            })
+            }
+            # totale = tutto il comando MENO l'attesa della conferma
+            # dell'operatore (--confirm o unsupported), che non e' latenza
+            # del sistema. llm somma tutti i tentativi; servizi e'
+            # abort + load + start (0 in --dry-run).
+            lat = self._lat
+            latency = {
+                'llm_s': round(lat['llm'], 3),
+                'translate_s': round(lat['traduzione'], 3),
+                'services_s': round(lat['servizi'], 3),
+                'total_s': round(time.perf_counter() - t0 - lat['conferma'], 3),
+            }
+            self.get_logger().info(
+                f'latenza: llm={latency["llm_s"]:.2f}s '
+                f'traduzione={latency["translate_s"]:.2f}s '
+                f'servizi={latency["services_s"]:.2f}s totale={latency["total_s"]:.2f}s')
+            # Chiave in piu' nella riga RESULT: i suoi consumatori (f1tenth_ctl,
+            # f1tenth_telegram, scripts/sim/llm.sh, tools/sim/llm_runs.py)
+            # leggono solo le chiavi che conoscono; /test/plan_result costruisce
+            # il proprio payload e non la vede.
+            outcome['latency'] = latency
+            _emit_result(outcome)
 
     def process_command(self, command_text: str) -> bool:
         planned = (self._plan_v2(command_text) if self._planner_path == 'v2'
@@ -1535,6 +1619,7 @@ class LLMPlannerNode(Node):
         if unsupported or self.opts.confirm:
             prompt_text = ('CONFERMI di voler avviare solo la parte tradotta? [s/N] '
                            if unsupported else 'caricare ed avviare? [s/N] ')
+            t_confirm = time.perf_counter()
             try:
                 if input(prompt_text).strip().lower() not in ('s', 'si', 'y'):
                     self.get_logger().info('annullato')
@@ -1544,8 +1629,14 @@ class LLMPlannerNode(Node):
                     'conferma richiesta ma nessun terminale disponibile: nulla avviato.'
                     if unsupported else 'annullato')
                 return False
+            finally:
+                _lat_add(self, 'conferma', time.perf_counter() - t_confirm)
 
-        return self._deliver_mission(mission_path)
+        t_services = time.perf_counter()
+        try:
+            return self._deliver_mission(mission_path)
+        finally:
+            _lat_add(self, 'servizi', time.perf_counter() - t_services)
 
     def _deliver_mission(self, mission_path: str) -> bool:
         """

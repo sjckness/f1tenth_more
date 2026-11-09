@@ -26,9 +26,12 @@ got restarted/crashed mid-session -- a different case from "never came up",
 which _wait_for_llama_server() alone handles).
 
 The payload now also carries cache_prompt and stop (request-cost pass:
-neither changes what the model sees); TestWarmPrefix covers _warm_prefix(),
-which caches the real system prompt at startup, and TestPromptPrefixStability
-checks that the retry feedback never lands before the cached prefix.
+neither changes what the model sees). TestWarmPrompt covers the startup
+request that loads the model and caches the real system prompt in one go,
+TestStopAndCeiling how a generation ends (LLAMA_STOP, LLAMA_N_PREDICT, the
+truncation warning), TestStopStringsNeverCutAValidAnswer that no known valid
+answer contains a stop string, and TestPromptPrefixStability that the retry
+feedback never lands before the cached prefix.
 
 Run standalone: python3 -m pytest test/test_llm_planner_request.py -v
 """
@@ -41,23 +44,24 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from llm import llm_planner_node, plan_translate
+from llm import llm_planner_node, llm_warmup, plan_translate
 
 
 class _FakeResponse:
     """Just enough of requests.Response for get_plan_from_llm()'s own use
     of it (.raise_for_status(), .json())."""
 
-    def __init__(self, content_field, status_code=200):
+    def __init__(self, content_field, status_code=200, extra=None):
         self._content_field = content_field
         self.status_code = status_code
         self.text = content_field
+        self._extra = extra or {}
 
     def raise_for_status(self):
         pass
 
     def json(self):
-        return {'content': self._content_field}
+        return dict(self._extra, content=self._content_field)
 
 
 class TestRequestShape:
@@ -114,9 +118,9 @@ class TestRequestShape:
         assert isinstance(payload['prompt'], str)
         assert 'messages' not in payload
         assert payload['temperature'] == pytest.approx(0.0)
-        assert payload['n_predict'] == 512
+        assert payload['n_predict'] == llm_planner_node.LLAMA_N_PREDICT
         assert payload['cache_prompt'] is True
-        assert payload['stop'] == ['\ncomando:']
+        assert payload['stop'] == llm_planner_node.LLAMA_STOP
 
         # No chat/ChatML templating -- the prompt and the command both appear
         # verbatim, concatenated, in the same "comando: ...\nrisposta:" shape
@@ -211,6 +215,9 @@ def _system_prompt(path):
     """Return the system prompt the given planner path sends."""
     if path == 'legacy':
         return llm_planner_node.SYSTEM_PROMPT
+    if path == 'no_go_to':
+        return plan_translate.load_intent_prompt(
+            plan_translate.INTENT_PROMPT_NO_GO_TO_FILENAME)
     return plan_translate.load_intent_prompt()
 
 
@@ -231,38 +238,45 @@ class TestPromptPrefixStability:
         assert prompt.endswith('\nrisposta:')
 
 
-class TestWarmPrefix:
-    """_warm_prefix(): puts the real system prompt in llama-server's prompt cache."""
+class TestWarmPrompt:
+    """_wait_for_llama_server(warm_prompt=...): one request loads the model AND the prefix."""
 
     @pytest.mark.parametrize('path', ['legacy', 'v2'])
     @patch('llm.llm_planner_node.requests.post')
-    def test_posts_the_real_system_prompt_as_prefix(self, mock_post, path):
-        """Same prefix as the planner's request, cache_prompt on, one token."""
+    def test_warm_prompt_is_posted_with_cache_prompt(self, mock_post, path):
+        """Given a warm_prompt, it replaces 'ciao' and asks the server to cache it."""
         mock_post.return_value = _FakeResponse('{')
-        system_prompt = _system_prompt(path)
+        warm = llm_planner_node._build_prompt(_system_prompt(path), 'vai dritto')
 
-        elapsed = llm_planner_node._warm_prefix('http://x/completion', system_prompt)
+        llm_planner_node._wait_for_llama_server('http://x/completion', warm_prompt=warm)
 
-        assert elapsed >= 0.0
         assert mock_post.call_count == 1
         args, kwargs = mock_post.call_args
         assert args[0] == 'http://x/completion'
-        payload = kwargs['json']
-        assert payload['prompt'].startswith(system_prompt)
-        assert payload['cache_prompt'] is True
-        assert payload['n_predict'] == 1
-        assert payload['temperature'] == pytest.approx(0.0)
-        assert '<|im_start|>' not in payload['prompt']
+        assert kwargs['json'] == {'prompt': warm, 'n_predict': 8, 'temperature': 0.0,
+                                  'cache_prompt': True}
         assert kwargs['timeout'] == llm_planner_node.LLAMA_TIMEOUT
 
-    @pytest.mark.parametrize('path', ['legacy', 'v2'])
+    @patch('llm.llm_planner_node.requests.post')
+    def test_without_warm_prompt_the_ciao_request_is_unchanged(self, mock_post):
+        """No warm_prompt: exactly the request the node always sent."""
+        mock_post.return_value = _FakeResponse('{')
+
+        llm_planner_node._wait_for_llama_server('http://x/completion')
+
+        assert mock_post.call_args[1]['json'] == {
+            'prompt': 'ciao', 'n_predict': 8, 'temperature': 0.0}
+
+    @pytest.mark.parametrize('path', ['legacy', 'v2', 'no_go_to'])
     @patch('llm.llm_planner_node.requests.post')
     def test_warm_up_and_real_request_share_the_system_prompt_prefix(self, mock_post, path):
         """The prefix the warm-up caches is the one a real command reuses."""
         mock_post.return_value = _FakeResponse(TestRequestShape.V2_RESPONSE)
         system_prompt = _system_prompt(path)
 
-        llm_planner_node._warm_prefix('http://x/completion', system_prompt)
+        llm_planner_node._wait_for_llama_server(
+            'http://x/completion',
+            warm_prompt=llm_planner_node._build_prompt(system_prompt, 'vai dritto'))
         warm = mock_post.call_args[1]['json']['prompt']
         llm_planner_node._completion(system_prompt, 'gira a destra e vai al muro')
         real = mock_post.call_args[1]['json']['prompt']
@@ -272,31 +286,125 @@ class TestWarmPrefix:
         # The same tail format too, up to the command itself.
         assert warm[:common].endswith('\ncomando: "')
 
-    @pytest.mark.parametrize('exc', [
-        requests.exceptions.ConnectionError('refused'),
-        requests.exceptions.HTTPError('500 Server Error'),
-        requests.exceptions.Timeout('timed out'),
-    ], ids=['connection', 'http', 'timeout'])
-    @patch('llm.llm_planner_node.requests.post')
-    def test_failure_returns_minus_one_and_warns(self, mock_post, exc):
-        """Only an optimisation: no exception, a WARNING naming the error, no retry."""
-        if isinstance(exc, requests.exceptions.HTTPError):
-            resp = MagicMock()
-            resp.raise_for_status.side_effect = exc
-            mock_post.return_value = resp
-        else:
-            mock_post.side_effect = exc
+    def test_llm_warmup_sends_the_same_prompt_as_the_planner(self):
+        """llm_warmup (started by llm.launch.py) primes the exact prefix the node uses."""
+        with patch('llm.llm_warmup.requests.post') as mock_post:
+            mock_post.return_value = MagicMock(json=lambda: {'timings': {}})
+            llm_warmup.warm_up('http://x', 'SYSTEM', timeout_s=1.0)
+        payload = mock_post.call_args[1]['json']
+        assert payload['prompt'] == llm_planner_node._build_prompt(
+            'SYSTEM', llm_warmup.WARMUP_COMMAND)
+        assert payload['cache_prompt'] is True
 
-        # The module logger itself, patched: caplog records nothing under the
-        # pytest 6.2.5 + ROS plugin set this package runs with.
+    def test_warm_prefix_is_gone(self):
+        """The second warm-up request is folded into _wait_for_llama_server."""
+        assert not hasattr(llm_planner_node, '_warm_prefix')
+
+
+class TestStopAndCeiling:
+    """LLAMA_STOP / LLAMA_N_PREDICT: how a generation ends, and what is done with it."""
+
+    @patch('llm.llm_planner_node.requests.post')
+    def test_stopping_word_is_put_back_before_parsing(self, mock_post):
+        """llama-server cuts the stop string, '}' included: the answer still parses."""
+        answer = {'plan': [], 'unsupported': ['vai dalla persona']}
+        text = ' ' + json.dumps(answer, separators=(',', ':'))
+        for stop in llm_planner_node.LLAMA_STOP:
+            cut = text[:-1]          # what the server returns: the closing '}' is gone
+            mock_post.return_value = _FakeResponse(
+                cut, extra={'stop_type': 'word', 'stopping_word': stop})
+
+            assert llm_planner_node._completion('SYSTEM', 'vai dalla persona') == answer
+
+    @patch('llm.llm_planner_node.requests.post')
+    def test_limit_logs_a_truncation_warning(self, mock_post):
+        """stop_type 'limit' -> one WARNING with n_predict and the tokens generated."""
+        mock_post.return_value = _FakeResponse(
+            TestRequestShape.V2_RESPONSE + ' ' + TestRequestShape.V2_RESPONSE,
+            extra={'stop_type': 'limit', 'timings': {'predicted_n': 1184}})
         logger = logging.getLogger('llm.llm_planner_node')
         with patch.object(logger, 'warning') as mock_warning:
-            elapsed = llm_planner_node._warm_prefix('http://x/completion', 'SYSTEM')
+            llm_planner_node._completion('SYSTEM', 'x')
 
-        assert elapsed == -1.0
-        assert mock_post.call_count == 1
         assert mock_warning.call_count == 1
-        assert type(exc).__name__ in mock_warning.call_args[0][0]
+        message = mock_warning.call_args[0][0]
+        assert 'risposta troncata dal tetto n_predict=' in message
+        assert str(llm_planner_node.LLAMA_N_PREDICT) in message
+        assert '1184 token' in message
+
+    @patch('llm.llm_planner_node.requests.post')
+    def test_truncated_json_still_raises_with_llm_raw(self, mock_post):
+        """A cut-off answer is not repaired: same JSONDecodeError, llm_raw attached."""
+        mock_post.return_value = _FakeResponse(
+            '{"plan":[{"mode":"go_to","target":"pers',
+            extra={'stop_type': 'limit', 'timings': {'predicted_n': 1184}})
+        logger = logging.getLogger('llm.llm_planner_node')
+        with patch.object(logger, 'warning'):
+            with pytest.raises(json.JSONDecodeError) as exc_info:
+                llm_planner_node._completion('SYSTEM', 'x')
+        assert exc_info.value.llm_raw == '{"plan":[{"mode":"go_to","target":"pers'
+
+    @patch('llm.llm_planner_node.requests.post')
+    def test_eos_and_word_do_not_warn(self, mock_post):
+        """Only 'limit' is a truncation."""
+        logger = logging.getLogger('llm.llm_planner_node')
+        for extra in ({'stop_type': 'eos'}, {'stop_type': 'word', 'stopping_word': '} '}):
+            mock_post.return_value = _FakeResponse(TestRequestShape.V2_RESPONSE, extra=extra)
+            with patch.object(logger, 'warning') as mock_warning:
+                llm_planner_node._completion('SYSTEM', 'x')
+            assert mock_warning.call_count == 0
+
+    def test_n_predict_is_a_multiple_of_32_above_the_worst_case(self):
+        """789 tokens measured for the schema's longest answer (see LLAMA_N_PREDICT)."""
+        assert llm_planner_node.LLAMA_N_PREDICT % 32 == 0
+        assert llm_planner_node.LLAMA_N_PREDICT >= 789 * 1.5
+
+
+def _known_answers():
+    """Yield (source, intent) for every answer this package knows to be valid."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    golden_dir = os.path.join(here, 'golden')
+    for name in sorted(os.listdir(golden_dir)):
+        if name.endswith('.json'):
+            with open(os.path.join(golden_dir, name), encoding='utf-8') as fh:
+                yield f'golden/{name}', json.load(fh)['intent']
+    import test_intent_evals_live as evals
+    for cases in (evals.CASES, evals.NO_GO_TO_CASES):
+        for command, expected, _why in cases:
+            if expected == evals.REFUSED:
+                yield f'eval {command!r}', {'plan': [], 'unsupported': [command]}
+            else:
+                yield f'eval {command!r}', {'plan': expected, 'unsupported': []}
+    prompts = {
+        'legacy': llm_planner_node.SYSTEM_PROMPT,
+        'v2': plan_translate.load_intent_prompt(),
+        'no_go_to': plan_translate.load_intent_prompt(
+            plan_translate.INTENT_PROMPT_NO_GO_TO_FILENAME),
+    }
+    for prompt_name, text in prompts.items():
+        for line in text.splitlines():
+            line = line[len('risposta:'):].strip() if line.startswith('risposta:') else line
+            if line.startswith('{'):
+                yield f'{prompt_name} prompt example', json.loads(line)
+
+
+class TestStopStringsNeverCutAValidAnswer:
+    """No answer this package knows to be valid contains a LLAMA_STOP string."""
+
+    def test_known_answers_exist(self):
+        """Guards the test below: an empty corpus would prove nothing."""
+        sources = {s.split(' ')[0] for s, _ in _known_answers()}
+        assert {'legacy', 'v2', 'no_go_to', 'eval'} <= sources
+        assert any(s.startswith('golden/') for s in sources)
+
+    def test_no_known_answer_contains_a_stop_string(self):
+        """Compact (what the model writes) and spaced (json.dumps default) forms."""
+        for source, intent in _known_answers():
+            for text in (json.dumps(intent, separators=(',', ':'), ensure_ascii=False),
+                         json.dumps(intent, ensure_ascii=False)):
+                assert '\n' not in text, source
+                for stop in llm_planner_node.LLAMA_STOP:
+                    assert stop not in text, (source, stop, text)
 
 
 class TestWaitForLlamaServer:
