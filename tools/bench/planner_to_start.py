@@ -206,6 +206,8 @@ def representative(run: dict):
         return False, f"unsupported {res.get('unsupported')}"
     if res.get('ambiguous'):
         return False, 'ambiguous'
+    if str(run.get('end', '')).startswith('ready_refused'):
+        return True, ''          # --not-ready-start stop: stages up to the refusal only
     if run.get('t', {}).get('t_running') is None:
         return False, 'never RUNNING'
     return True, ''
@@ -228,7 +230,7 @@ def stats(values):
             'p95': percentile(vals, 95), 'max': max(vals)}
 
 
-def summarize(runs):
+def summarize(runs, deltas=DELTAS):
     """Per command and overall: stats per delta over the representative runs."""
     kept = [r for r in runs if representative(r)[0]]
     excluded = [{'command': r['command'], 'run': r['run'], 'why': representative(r)[1]}
@@ -238,8 +240,8 @@ def summarize(runs):
         groups.setdefault(r['command'], []).append(r)
     out = {'per_command': {}, 'overall': {}, 'excluded': excluded, 'kept': len(kept)}
     for cmd, rs in groups.items():
-        out['per_command'][cmd] = {d: stats([r['deltas'].get(d) for r in rs]) for d in DELTAS}
-    out['overall'] = {d: stats([r['deltas'].get(d) for r in kept]) for d in DELTAS}
+        out['per_command'][cmd] = {d: stats([r['deltas'].get(d) for r in rs]) for d in deltas}
+    out['overall'] = {d: stats([r['deltas'].get(d) for r in kept]) for d in deltas}
     return out
 
 
@@ -247,30 +249,123 @@ def _fmt(v):
     return '-' if v is None else f'{v:.3f}'
 
 
-def markdown_table(summary) -> str:
+def markdown_table(summary, deltas=DELTAS, stages=STAGES) -> str:
     """One markdown table: rows = command (+ overall) x stage; the largest median stage bold."""
-    lines = ['| command | ' + ' | '.join(DELTAS) + ' |',
-             '|---|' + '---|' * len(DELTAS)]
+    lines = ['| command | ' + ' | '.join(deltas) + ' |',
+             '|---|' + '---|' * len(deltas)]
     rows = list(summary['per_command'].items()) + [('**overall**', summary['overall'])]
     for name, st in rows:
-        medians = {s: (st.get(s) or {}).get('median') for s in STAGES}
+        medians = {s: (st.get(s) or {}).get('median') for s in stages}
         known = {s: v for s, v in medians.items() if v is not None}
         largest = max(known, key=known.get) if known else None
         cells = []
-        for d in DELTAS:
+        for d in deltas:
             s = st.get(d)
             cell = '-' if not s else f"{_fmt(s['median'])} / {_fmt(s['p95'])} / {_fmt(s['max'])}"
             cells.append(f'**{cell}**' if d == largest else cell)
         lines.append(f'| {name} | ' + ' | '.join(cells) + ' |')
     lines.append('')
     lines.append('cells: median / p95 / max, seconds; bold = the largest stage of that row '
-                 f"(stages: {', '.join(STAGES)}). Representative runs: {summary['kept']}.")
+                 f"(stages: {', '.join(stages)}). Representative runs: {summary['kept']}.")
     if summary['excluded']:
         lines.append('')
         lines.append('Excluded (not representative):')
         for e in summary['excluded']:
             lines.append(f"- run {e['run']} {e['command']!r}: {e['why']}")
     return '\n'.join(lines)
+
+
+# ---------------------------------------------------------------- production flow (pure)
+#
+# --flow production drives the chain the operator drives, through f1tenth_ctl's
+# own CLI, against the planner unit f1tenth_ctl already runs (persistent,
+# --dry-run, stdin = its FIFO) and the stack's llama-server:
+#   send planner "<cmd>"        -> the FIFO line            (t_cmd = 0, t_send_ret)
+#   the RESULT line appended to the planner unit's log       (t_plan_done)
+#   planner-log --since <cursor> -> ctl STORES the mission   (t_plan_fetched)
+#   [pause: the operator reading the plan; 0 s or --variant-pause-s]
+#   mission-load <stored id>    -> /mission/status LOADED    (t_load_call, t_loaded, t_load_ret)
+#   [pause]
+#   mission-start               -> /mission/status RUNNING   (t_start_call, t_running, t_start_ret)
+#   first /ackermann_drive with a non-zero speed (or steering, see first_move_rule)
+#                                                            (t_first_move)
+PROD_STAGES = ('llm_and_ctl', 'fetch_cli', 'load_cli', 'start_cli', 'running_to_move')
+PROD_DELTAS = PROD_STAGES + ('send_cli', 'ready_cli', 'pause', 'total_to_running',
+                             'total_to_move', 'total_to_move_no_pause')
+CTL_BIN_DEFAULT = '/opt/f1tenth_ws/src/f1tenth_ctl/bin/f1tenth_ctl'
+PLANNER_LOG_DEFAULT = '~/.local/state/f1tenth_ctl/logs/planner.log'
+DRIVE_TOPIC = '/ackermann_drive'
+COLD_IDLE_S = 300.0
+MOVE_EPS = 1e-3
+
+
+def compute_prod_deltas(t: dict) -> dict:
+    """Per-stage durations (seconds) of one production run from its t_* (t_cmd = 0)."""
+    def sub(a, b):
+        return None if a is None or b is None else a - b
+
+    pause = 0.0
+    for a, b in (('t_load_call', 't_plan_fetched'), ('t_start_call', 't_load_ret')):
+        p = sub(t.get(a), t.get(b))
+        pause = None if p is None or pause is None else pause + p
+    d = {
+        'send_cli': t.get('t_send_ret'),
+        'llm_and_ctl': t.get('t_plan_done'),
+        'fetch_cli': sub(t.get('t_plan_fetched'), t.get('t_plan_done')),
+        'pause': pause,
+        'load_cli': sub(t.get('t_loaded'), t.get('t_load_call')),
+        'start_cli': sub(t.get('t_running'), t.get('t_start_call')),
+        'ready_cli': None,
+        'running_to_move': sub(t.get('t_first_move'), t.get('t_running')),
+        'total_to_running': t.get('t_running'),
+        'total_to_move': t.get('t_first_move'),
+    }
+    if t.get('t_running') is None:
+        # mission-start refused (READY false): its whole wall time is the READY part.
+        d['ready_cli'] = sub(t.get('t_start_ret'), t.get('t_start_call'))
+    d['total_to_move_no_pause'] = sub(d['total_to_move'], pause)
+    return d
+
+
+def first_move_rule(mission) -> str:
+    """'steering' when the mission's first move is a turn, else 'speed'."""
+    try:
+        mode = str(mission['moves'][0]['drive']['mode'])
+    except (KeyError, IndexError, TypeError):
+        return 'speed'
+    return 'steering' if 'turn' in mode else 'speed'
+
+
+def is_move(speed: float, steering: float, rule: str) -> bool:
+    """True when a drive command is a move under `rule` (see first_move_rule)."""
+    value = steering if rule == 'steering' else speed
+    return abs(value) > MOVE_EPS
+
+
+def parse_ctl_json(stdout: str):
+    """f1tenth_ctl's answer: the last line of its stdout that is a JSON object."""
+    for line in reversed((stdout or '').strip().splitlines()):
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(obj, dict):
+            return obj
+    return None
+
+
+def stored_mission(planner_log_answer):
+    """(stored id, mission) of the last RESULT entry ctl stored, or (None, None)."""
+    for entry in reversed((planner_log_answer or {}).get('results') or []):
+        rec = entry.get('stored')
+        if rec and rec.get('id'):
+            return rec['id'], entry.get('mission')
+    return None, None
+
+
+def is_cold(idle_s, threshold: float = COLD_IDLE_S) -> bool:
+    """A run after >= threshold s without planner activity is cold."""
+    return idle_s is not None and idle_s >= threshold
 
 
 def check_safety(car_is_safe: bool):
@@ -447,7 +542,7 @@ class Planner:
 class Stack:
     """The tool's own ROS side: /mission/status (kept for the session) and the mission services."""
 
-    def __init__(self):
+    def __init__(self, drive=False):
         import rclpy
         from rclpy.executors import SingleThreadedExecutor
         from rclpy.qos import (QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile,
@@ -468,10 +563,21 @@ class Stack:
         self.cond = threading.Condition()
         self.node.create_subscription(MissionStatus, STATUS_TOPIC, self._on_status, qos)
         self.abort_client = self.node.create_client(Trigger, ABORT_SERVICE)
+        self.drives = []         # (perf_counter, speed, steering_angle), --flow production
+        if drive:
+            from ackermann_msgs.msg import AckermannDriveStamped
+            self.node.create_subscription(AckermannDriveStamped, DRIVE_TOPIC,
+                                          self._on_drive, 50)
         self.executor = SingleThreadedExecutor()
         self.executor.add_node(self.node)
         self._spin = threading.Thread(target=self.executor.spin, daemon=True)
         self._spin.start()
+
+    def _on_drive(self, msg):
+        with self.cond:
+            self.drives.append((time.perf_counter(), float(msg.drive.speed),
+                                float(msg.drive.steering_angle)))
+            self.cond.notify_all()
 
     def _on_status(self, msg):
         with self.cond:
@@ -637,8 +743,316 @@ def run_once(stack: Stack, planner_factory, mode: str, command: str, index: int,
     return run
 
 
+class LogTail:
+    """Lines appended to a file from its current end on, time-stamped on arrival (5 ms poll)."""
+
+    def __init__(self, path: str):
+        self.path = path
+        self.lines = []          # (perf_counter, line)
+        self.cond = threading.Condition()
+        self._stop = False
+        try:
+            self._offset = os.path.getsize(path)
+        except OSError:
+            self._offset = 0
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def _run(self):
+        buf = b''
+        while not self._stop:
+            try:
+                with open(self.path, 'rb') as fh:
+                    fh.seek(self._offset)
+                    chunk = fh.read()
+            except OSError:
+                chunk = b''
+            now = time.perf_counter()
+            if chunk:
+                self._offset += len(chunk)
+                buf += chunk
+                while b'\n' in buf:
+                    raw, buf = buf.split(b'\n', 1)
+                    with self.cond:
+                        self.lines.append((now, raw.decode(errors='replace')))
+                        self.cond.notify_all()
+            time.sleep(0.005)
+
+    def wait_for(self, pred, timeout: float):
+        """First (time, line) satisfying pred(line), waiting up to timeout; None otherwise."""
+        deadline = time.perf_counter() + timeout
+        i = 0
+        with self.cond:
+            while True:
+                while i < len(self.lines):
+                    if pred(self.lines[i][1]):
+                        return self.lines[i]
+                    i += 1
+                left = deadline - time.perf_counter()
+                if left <= 0:
+                    return None
+                self.cond.wait(left)
+
+    def stop(self):
+        self._stop = True
+        self._thread.join(timeout=1.0)
+
+
+def ctl_call(ctl: list, argv: list, timeout: float, current=None):
+    """Run one f1tenth_ctl CLI command; return (t_call, t_return, answer, rc)."""
+    t_call = time.perf_counter()
+    proc = subprocess.Popen([*ctl, *argv], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, text=True, start_new_session=True)
+    if current is not None:
+        current['ctl'] = proc
+    try:
+        out, _err = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        os.killpg(proc.pid, signal.SIGKILL)
+        out, _err = proc.communicate()
+    t_ret = time.perf_counter()
+    if current is not None:
+        current['ctl'] = None
+    return t_call, t_ret, parse_ctl_json(out), proc.returncode
+
+
+def planner_unit(planner_log: str) -> dict:
+    """The running production planner (ctl's unit): its command line and log idle time."""
+    info = {'cmdline': None, 'dry_run': None, 'idle_s': None}
+    for pid in os.listdir('/proc'):
+        if not pid.isdigit():
+            continue
+        try:
+            with open(f'/proc/{pid}/cmdline', 'rb') as fh:
+                argv = [a.decode(errors='replace') for a in fh.read().split(b'\0') if a]
+        except OSError:
+            continue
+        if any(a.endswith('llm_planner_node') for a in argv) and 'run' not in argv[:3]:
+            info['cmdline'] = ' '.join(argv)
+            info['dry_run'] = '--dry-run' in argv
+    try:
+        info['idle_s'] = time.time() - os.path.getmtime(planner_log)
+    except OSError:
+        pass
+    return info
+
+
+def watch_start(stack, t_call: float, n_status: int, rule: str, th, holder, move_timeout: float,
+                log):
+    """Watch RUNNING and the first move while a start runs in `th`; abort at once on either."""
+    n_drive = len(stack.drives)
+    deadline = t_call + 40.0
+    t_move = t_run = None
+    while time.perf_counter() < deadline:
+        t_run = first_state_after(stack.statuses[n_status:], 'RUNNING', t_call)
+        if t_run is not None:
+            for td, speed, steer in stack.drives[n_drive:]:
+                if td >= t_run and is_move(speed, steer, rule):
+                    t_move = td
+                    break
+            if t_move is not None or time.perf_counter() > t_run + move_timeout:
+                break
+        elif not th.is_alive() and time.perf_counter() > holder.get('r', (0, 0))[1] + 2.0:
+            break           # the start returned and nothing is RUNNING 2 s later
+        time.sleep(0.002)
+    if t_move is not None or t_run is not None:
+        safe_abort(stack, log)       # stop the mission at once
+    th.join(timeout=45.0)
+    return t_run, t_move
+
+
+def run_prod_once(stack, args, command: str, index: int, pause: float, variant: str,
+                  log, current) -> dict:
+    """One production-flow run. The caller aborts afterwards (always)."""
+    ctl = [args.ctl]
+    unit = planner_unit(args.planner_log)
+    run = {'command': command, 'run': index, 'variant': variant, 'flow': 'production',
+           'tag': 'cold' if is_cold(unit['idle_s']) else 'warm', 'idle_s': unit['idle_s'],
+           't': {}, 'result': None, 'latency': None, 'error': None, 'ctl': {}}
+    ok, msg = stack.abort()
+    if stack.wait_state(STOPPED_STATES, timeout=10.0) is None and stack.state() is not None:
+        run['error'] = f'reset: state {stack.state()!r} not idle/aborted/complete in 10 s ({msg})'
+        return run
+    t = run['t']
+    tail = LogTail(os.path.expanduser(args.planner_log))
+    n_status = len(stack.statuses)
+    try:
+        # send: the line goes to the planner's FIFO (t_cmd = 0)
+        t0, t_ret, ans, rc = ctl_call(ctl, ['send', 'planner', command], 30.0, current)
+        t['t_cmd'] = 0.0
+        t['t_send_ret'] = t_ret - t0
+        run['ctl']['send'] = ans
+        if not (ans or {}).get('ok'):
+            run['error'] = f'send failed: {ans}'
+            return run
+        cursor = ans.get('cursor', 0)
+        hit = tail.wait_for(lambda ln: parse_result(ln) is not None, args.run_timeout)
+        if hit is None:
+            run['error'] = f'no RESULT in the planner log within {args.run_timeout:.0f} s'
+            return run
+        t['t_plan_done'] = hit[0] - t0
+        run['result'] = parse_result(hit[1])
+        for ts, line in tail.lines:
+            lat = parse_latenza(line)
+            if lat:
+                run['latency'] = lat
+        res = run['result'] or {}
+        run['attempts'] = res.get('attempts')
+        run['status'] = res.get('status')
+        if res.get('status') != 'ok':
+            return run              # refused / failed plan: listed, nothing to load
+        # planner-log: what the bot polls; ctl stores the mission here
+        _, t_ret, ans, rc = ctl_call(ctl, ['planner-log', '--since', str(cursor)], 30.0,
+                                     current)
+        t['t_plan_fetched'] = t_ret - t0
+        sid, mission = stored_mission(ans)
+        if sid is None:
+            run['error'] = 'planner-log stored no mission'
+            return run
+        run['stored_id'] = sid
+        rule = first_move_rule(mission or res.get('mission'))
+        run['first_move_rule'] = rule
+        time.sleep(pause)
+        t_call, t_ret, ans, rc = ctl_call(ctl, ['mission-load', sid], 40.0, current)
+        t['t_load_call'], t['t_load_ret'] = t_call - t0, t_ret - t0
+        run['ctl']['load'] = {k: ans.get(k) for k in ('ok', 'error', 'refused', 'elapsed_s')} \
+            if ans else None
+        t_loaded = first_state_after(stack.statuses[n_status:], 'LOADED', t_call)
+        t['t_loaded'] = t_loaded - t0 if t_loaded is not None else None
+        if not (ans or {}).get('ok'):
+            run['error'] = f'mission-load failed: {ans}'
+            return run
+        time.sleep(pause)
+        # mission-start runs in the background: the first move is watched (and the
+        # mission aborted) while the CLI may still be waiting for its status echo.
+        t_call = time.perf_counter()
+        t['t_start_call'] = t_call - t0
+        holder = {}
+        th = threading.Thread(target=lambda: holder.update(
+            r=ctl_call(ctl, ['mission-start'], 40.0, current)), daemon=True)
+        th.start()
+        t_run, t_move = watch_start(stack, t_call, n_status, rule, th, holder,
+                                    args.move_timeout, log)
+        ans = holder['r'][2] if 'r' in holder else None
+        if 'r' in holder:
+            t['t_start_ret'] = holder['r'][1] - t0
+            run['ctl']['start'] = {k: ans.get(k) for k in (
+                'ok', 'error', 'refused', 'elapsed_s', 'countdown_s')} if ans else None
+        refused = str((ans or {}).get('refused') or '')
+        if t_run is None and refused.startswith('not READY') and args.not_ready_start == 'stop':
+            # READY is false (on the bench: battery disconnected). ctl refuses before it
+            # starts anything; the run ends here, timed up to the refusal (ready_cli).
+            run['end'] = f'ready_refused: {refused}'
+            return run
+        if t_run is None and not (ans or {}).get('ok'):
+            run['error'] = f'mission-start failed: {ans}'
+        t['t_running'] = t_run - t0 if t_run is not None else None
+        t['t_first_move'] = t_move - t0 if t_move is not None else None
+        if t_run is not None and t_move is None:
+            run['error'] = run['error'] or f'no move within {args.move_timeout:.0f} s of RUNNING'
+        return run
+    finally:
+        tail.stop()
+        run['deltas'] = compute_prod_deltas(t)
+        if (t.get('t_running') is None and not run['error'] and run.get('status') == 'ok'
+                and not run.get('end')):
+            run['error'] = 'never RUNNING'
+
+
+def run_prod_session(args, log=print) -> dict:
+    """--flow production: the operator's chain through f1tenth_ctl, aborted after every run."""
+    meta = session_metadata(args)
+    meta['flow'] = 'production'
+    meta['image_ref'] = os.environ.get('F1TENTH_IMAGE_REF')
+    meta['planner_unit'] = planner_unit(os.path.expanduser(args.planner_log))
+    meta['ctl'] = args.ctl
+    meta['first_move'] = (f'first {DRIVE_TOPIC} after RUNNING with |drive.speed| > {MOVE_EPS} '
+                          '(|drive.steering_angle| when the first move is a turn)')
+    log('session: ' + json.dumps(meta, ensure_ascii=False))
+    if not meta['planner_unit']['cmdline']:
+        raise SystemExit('no planner unit running: start it the operator way, '
+                         '`f1tenth_ctl start planner`')
+    if not meta['planner_unit']['dry_run']:
+        raise SystemExit('the running planner is not --dry-run: it would start missions itself')
+    stack = Stack(drive=True)
+    current = {'ctl': None}
+    runs = []
+    interrupted = {'sig': None}
+
+    def on_signal(sig, _frame):
+        interrupted['sig'] = sig
+        raise KeyboardInterrupt
+
+    old = {s: signal.signal(s, on_signal) for s in (signal.SIGINT, signal.SIGTERM)}
+    confirmed = False
+    try:
+        if not stack.services_available(10.0):
+            raise RuntimeError(f'{ABORT_SERVICE} not available: is the stack up?')
+        commands = list(args.cmd or DEFAULT_SUITE)
+        plan = [(i, c, 0.0, 'pause0') for i in range(args.runs) for c in commands]
+        plan += [(args.runs + k, commands[k % len(commands)], args.variant_pause_s,
+                  f'pause{args.variant_pause_s:g}') for k in range(args.variant_runs)]
+        for index, command, pause, variant in plan:
+            run = run_prod_once(stack, args, command, index, pause, variant, log, current)
+            if not safe_abort(stack, log):
+                run['error'] = run['error'] or 'abort not confirmed'
+                runs.append(run)
+                raise RuntimeError('abort not confirmed: stopping the session')
+            runs.append(run)
+            slim = dict(run, result={k: v for k, v in (run['result'] or {}).items()
+                                     if k not in ('mission', 'llm_raw')})
+            log('RUN ' + json.dumps(slim, ensure_ascii=False))
+            if args.out:
+                _write_prod(args.out, meta, runs)
+        confirmed = True
+    except KeyboardInterrupt:
+        log(f'interrupted ({interrupted["sig"]}): aborting')
+    finally:
+        for s in old:
+            signal.signal(s, signal.SIG_IGN)
+        # A mission-start CLI in flight could still start the mission: kill it first.
+        proc = current.get('ctl')
+        if proc is not None and proc.poll() is None:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        ok = safe_abort(stack, log)
+        confirmed = confirmed and ok
+        final_state = stack.state()
+        for s, h in old.items():
+            signal.signal(s, h)
+        stack.close()
+    session = prod_session_doc(meta, runs)
+    session.update(complete=confirmed, final_state=final_state)
+    if args.out:
+        _write_prod(args.out, meta, runs, session)
+    return session
+
+
+def prod_session_doc(meta, runs) -> dict:
+    """The production session document: runs + one summary per pause variant."""
+    variants = {}
+    for r in runs:
+        variants.setdefault(r.get('variant', 'pause0'), []).append(r)
+    return {'meta': meta, 'runs': runs, 'flow': 'production',
+            'summary': summarize(variants.get('pause0', []), PROD_DELTAS),
+            'summaries': {v: summarize(rs, PROD_DELTAS) for v, rs in variants.items()},
+            'complete': False}
+
+
+def _write_prod(path, meta, runs, session=None):
+    doc = session or prod_session_doc(meta, runs)
+    tmp = path + '.tmp'
+    with open(tmp, 'w') as fh:
+        json.dump(doc, fh, indent=1, ensure_ascii=False)
+    os.replace(tmp, path)
+
+
 def run_session(args, log=print) -> dict:
     """The live part: the whole session, always ending in a confirmed abort."""
+    if getattr(args, 'flow', None) == 'production':
+        return run_prod_session(args, log)
     meta = session_metadata(args)
     log('session: ' + json.dumps(meta, ensure_ascii=False))
     stack = Stack()
@@ -731,6 +1145,22 @@ def build_parser():
     p.add_argument('--cold-first', action='store_true',
                    help='tag the first run cold (restart the stack yourself beforehand)')
     p.add_argument('--mode', choices=('oneshot', 'persistent'), default='oneshot')
+    p.add_argument('--flow', choices=('oneshot', 'persistent', 'production'),
+                   help='oneshot / persistent (as --mode), or production: the operator chain '
+                        'through f1tenth_ctl (send, planner-log, mission-load, mission-start) '
+                        'against the planner unit it runs')
+    p.add_argument('--ctl', default=CTL_BIN_DEFAULT, help='production: the f1tenth_ctl CLI')
+    p.add_argument('--planner-log', default=PLANNER_LOG_DEFAULT,
+                   help="production: the planner unit's log (f1tenth_ctl logs/planner.log)")
+    p.add_argument('--move-timeout', type=float, default=10.0,
+                   help='production: seconds after RUNNING to wait for the first move')
+    p.add_argument('--variant-runs', type=int, default=0,
+                   help='production: extra runs with --variant-pause-s before load and start')
+    p.add_argument('--variant-pause-s', type=float, default=3.0)
+    p.add_argument('--not-ready-start', choices=('fail', 'stop'), default='fail',
+                   help="production: when mission-start refuses 'not READY', fail the run "
+                        "(default) or end it there, timed up to the refusal (ready_cli); "
+                        'READY is never bypassed')
     p.add_argument('--out', help='results JSON (rewritten after every run)')
     p.add_argument('--budget-s', type=float,
                    help='exit 1 when the median total_to_running exceeds this')
@@ -754,22 +1184,32 @@ def main(argv=None, session_fn=None) -> int:
     if args.cmd and args.suite:
         print('use --cmd or --suite, not both', file=sys.stderr)
         return 2
+    if args.flow in ('oneshot', 'persistent'):
+        args.mode = args.flow
+    args.planner_log = os.path.expanduser(args.planner_log)
     pid_file = os.environ.get('F1T_BENCH_PID_FILE')
     if pid_file:
         with open(pid_file, 'w') as fh:
             fh.write(str(os.getpid()))
     session = (session_fn or run_session)(args)
     print()
-    print(markdown_table(session['summary']))
+    if session.get('flow') == 'production':
+        for variant, summary in session['summaries'].items():
+            print(f'### {variant}')
+            print(markdown_table(summary, PROD_DELTAS, PROD_STAGES))
+            print()
+    else:
+        print(markdown_table(session['summary']))
     print()
     print('attempts per run: ' + ', '.join(
         f"{r['run']}:{r['command'][:24]}={r.get('attempts')}" for r in session['runs']))
     if not session['complete']:
         return 3
     if args.budget_s is not None:
-        med = (session['summary']['overall'].get('total_to_running') or {}).get('median')
+        key = 'total_to_move' if session.get('flow') == 'production' else 'total_to_running'
+        med = (session['summary']['overall'].get(key) or {}).get('median')
         if med is None or med > args.budget_s:
-            print(f'BUDGET EXCEEDED: median total_to_running {med} > {args.budget_s} s')
+            print(f'BUDGET EXCEEDED: median {key} {med} > {args.budget_s} s')
             return 1
     return 0
 
