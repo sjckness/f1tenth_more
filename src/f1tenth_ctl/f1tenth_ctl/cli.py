@@ -800,11 +800,10 @@ def cmd_mission_start(settings: Settings, args, t_begin: float) -> dict:
     if not st.get('ready'):
         return refuse('not READY: ' + ', '.join(st.get('failing') or ['unknown']),
                       failing=st.get('failing'))
-    # require_ready: the daemon re-checks READY on its own live measurements right before
-    # it calls the loader, on top of the check above (the one-shot path has no such step).
+    # The daemon re-checks READY on its own live measurements right before it calls the
+    # loader, on top of the check above, for every start (the one-shot path has no such step).
     res = run_mission_op(settings,
-                         _mission_spec(settings, op='start', path=rec['path'],
-                                       require_ready=True), timeout=25.0)
+                         _mission_spec(settings, op='start', path=rec['path']), timeout=25.0)
     if res.get('ready_refused'):
         return refuse(res['error'], failing=res.get('failing'))
     countdown = missions.armed_countdown(res.get('start'), settings.mission_countdown_s)

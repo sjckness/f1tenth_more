@@ -411,7 +411,8 @@ class RosOps:
         why = self.spec_mismatch(spec) or self.stale_reason()
         if why:
             return {'fallback': why}
-        if op == 'start' and spec.get('require_ready'):
+        if op == 'start':
+            # Every start, whatever the client sent: there is no flag to leave this out.
             refused = self.ready_refusal()
             if refused:
                 return {'result': refused}

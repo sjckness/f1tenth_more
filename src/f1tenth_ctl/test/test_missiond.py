@@ -325,7 +325,7 @@ def test_a_spec_the_daemon_does_not_follow_is_a_fallback():
 
 def test_start_with_a_ready_snapshot_goes_through():
     ops, _, calls = make_ops()
-    out = ops.execute({'op': 'start', 'spec': {'require_ready': True, 'path': '/m.json'}})
+    out = ops.execute({'op': 'start', 'spec': {'path': '/m.json'}})
     assert out['result']['ok'] and len(calls) == 1
 
 
@@ -339,7 +339,7 @@ def test_start_with_a_ready_snapshot_goes_through():
 ])
 def test_a_not_ready_measurement_refuses_start_and_the_core_never_runs(bad, failing, words):
     ops, _, calls = make_ops(measured=dict(GOOD, **bad))
-    out = ops.execute({'op': 'start', 'spec': {'require_ready': True}})
+    out = ops.execute({'op': 'start', 'spec': {}})
     assert out['result']['ok'] is False and out['result']['error'] == words
     assert out['result']['ready_refused'] is True and out['result']['failing'] == failing
     assert calls == []
@@ -349,17 +349,21 @@ def test_a_latched_estop_is_refused_with_the_cli_s_own_words():
     latched = dict(GOOD, estop={'received': True, 'emergency_stop_active': True,
                                 'state': 'LOADED'})
     ops, _, calls = make_ops(measured=latched)
-    out = ops.execute({'op': 'start', 'spec': {'require_ready': True}})
+    out = ops.execute({'op': 'start', 'spec': {}})
     assert out['result']['error'] == 'the e-stop is latched (estop-reset first)'
     assert calls == []
 
 
-def test_load_does_not_check_ready_and_a_start_without_the_flag_does_not_either():
+def test_load_does_not_check_ready_but_every_start_does_whatever_the_request_says():
     bad = dict(GOOD, battery={'received': False, 'has_data': False})
     ops, _, calls = make_ops(measured=bad)
     assert ops.execute({'op': 'load', 'spec': {'path': '/m.json'}})['result']['ok']
-    assert ops.execute({'op': 'start', 'spec': {}})['result']['ok']      # old behaviour kept
-    assert len(calls) == 2
+    assert len(calls) == 1
+    # no require_ready key, an explicit false, junk: all refused, the loader is never called
+    for spec in ({}, {'require_ready': False}, {'require_ready': None}, {'path': '/m.json'}):
+        out = ops.execute({'op': 'start', 'spec': spec})
+        assert out['result']['ready_refused'] is True and out['result']['ok'] is False
+    assert len(calls) == 1
 
 
 def test_the_daemon_serves_only_load_start_ping_and_the_read_only_status():
@@ -490,13 +494,13 @@ def test_not_ready_on_the_cli_side_and_on_the_daemon_side_refuse_identically(
     assert cli_side['refused'] == 'not READY: scan, battery' and cli_side['id'] == 'r1'
 
 
-def test_the_start_spec_asks_the_daemon_for_its_own_ready_check(settings, monkeypatch):
+def test_the_start_spec_carries_no_opt_in_for_the_daemons_ready_check(settings, monkeypatch):
     _stage_start(settings, monkeypatch, ready_now=True)
     seen = []
     monkeypatch.setattr(cli, 'run_mission_op',
                         lambda s, spec, timeout: seen.append(spec) or {'ok': False, 'error': 'x'})
     cli.cmd_mission_start(settings, _start_args(), time.monotonic())
-    assert seen[0]['op'] == 'start' and seen[0]['require_ready'] is True
+    assert seen[0]['op'] == 'start' and 'require_ready' not in seen[0]      # no opt-in flag
     assert seen[0]['path'] == '/m.json'
 
 
