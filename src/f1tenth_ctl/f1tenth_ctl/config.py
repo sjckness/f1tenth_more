@@ -19,6 +19,8 @@ import shlex
 import subprocess
 from typing import Dict, List, Optional
 
+from . import envcache
+
 PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 SOURCE_ROOT = os.path.dirname(PACKAGE_DIR)
 
@@ -68,14 +70,27 @@ def base_environment() -> Dict[str, str]:
     return env
 
 
-def source_env_file(path: str, timeout: float = 20.0) -> Dict[str, str]:
-    """Source `path` in bash on the base environment and return the result."""
+def source_env_file(path: str, timeout: float = 20.0,
+                    trace_path: Optional[str] = None) -> Dict[str, str]:
+    """
+    Source `path` in bash on the base environment and return the result.
+
+    With trace_path, bash also writes an xtrace of the sourcing there (PS4
+    marker `+F1TSRC `), which envcache reads to find every file sourced. The
+    result is the same: the trace goes to its own descriptor, and the variables
+    and descriptor it needs are set before `set -a`, so none is exported.
+    """
     if not os.path.isfile(path):
         raise ConfigError(f'env file not found: {path}')
     script = 'set -a; . "$1" >&2 || exit 97; set +a; env -0'
+    argv = ['bash', '-c', script, 'f1tenth_ctl', path]
+    if trace_path:
+        script = ('exec 9>"$2"; BASH_XTRACEFD=9; PS4="+F1TSRC "; set -x; '
+                  'set -a; . "$1" >&2 || exit 97; set +a; set +x; env -0')
+        argv = ['bash', '-c', script, 'f1tenth_ctl', path, trace_path]
     try:
         proc = subprocess.run(
-            ['bash', '-c', script, 'f1tenth_ctl', path], env=base_environment(),
+            argv, env=base_environment(),
             capture_output=True, timeout=timeout)
     except subprocess.TimeoutExpired as exc:
         raise ConfigError(f'sourcing {path} took more than {timeout:.0f} s') from exc
@@ -264,4 +279,6 @@ def settings_from_env(env_file: str, env: Dict[str, str]) -> Settings:
 
 def load(env_file: Optional[str] = None) -> Settings:
     path = env_file or default_env_file()
-    return settings_from_env(path, source_env_file(path))
+    # The sourcing is 0.7 s of every CLI call on the Orin: envcache reuses its
+    # result while no file it depends on changed (and sources normally on any doubt).
+    return settings_from_env(path, envcache.load_env(path, base_environment(), source_env_file))
