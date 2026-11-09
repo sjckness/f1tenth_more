@@ -331,6 +331,110 @@ def test_wrapper_refuses_when_neither_side_exists(fake):
 
 # ---- stack_mode.sh ---------------------------------------------------------------------
 
+# ---- the native-fallback guard (2026-11-09: a reboot, no container, `start stack` went native) ----
+
+def pin(fake, mode):
+    d = fake.home / '.config' / 'f1tenth'
+    d.mkdir(parents=True, exist_ok=True)
+    (d / 'car_mode').write_text(mode + '\n')
+
+
+LAUNCHING = [['start', 'stack'], ['start', 'planner'], ['start', 'logger'], ['connect'],
+             ['discovery', 'up']]
+HARMLESS = [['status'], ['stop', 'stack'], ['killall'], ['discovery', 'down'],
+            ['discovery', 'status'], ['planner-log', '--since', '5'], ['estop'],
+            ['mission-status'], ['check']]
+
+
+@pytest.mark.parametrize('cmd', LAUNCHING, ids=lambda c: ' '.join(c))
+@pytest.mark.parametrize('state', ['absent', 'exited', 'created', 'dead'])
+def test_container_pinned_and_container_down_refuses_to_launch_native(fake, state, cmd):
+    pin(fake, 'container')
+    r = run([WRAPPER, *cmd, '--json'], with_env(fake.env, FAKE_STATE=state))
+    out = json.loads(r.stdout)
+    assert r.returncode == 1 and out['ok'] is False and out['side'] == 'refused'
+    assert 'NATIVE' in out['error'] and 'stack_mode.sh container' in out['error']
+    assert '--allow-native' in out['error']
+    assert 'native-ctl' not in fake.read_log()       # nothing was launched
+
+
+def test_container_pinned_and_the_daemon_down_refuses_too(fake):
+    pin(fake, 'container')
+    r = run([WRAPPER, 'start', 'stack'], with_env(fake.env, FAKE_DOCKER_ERR=DOCKER_REFUSED_DAEMON))
+    assert r.returncode == 1 and 'NATIVE' in r.stdout and 'native-ctl' not in fake.read_log()
+
+
+@pytest.mark.parametrize('cmd', HARMLESS, ids=lambda c: ' '.join(c))
+def test_container_pinned_and_container_down_still_runs_what_launches_nothing(fake, cmd):
+    pin(fake, 'container')
+    r = run([WRAPPER, *cmd, '--json'], fake.env)
+    assert r.returncode == 0 and json.loads(r.stdout)['side'] == 'native'
+
+
+@pytest.mark.parametrize('how', ['flag', 'env'])
+def test_container_pinned_native_on_purpose_with_the_explicit_override(fake, how):
+    pin(fake, 'container')
+    if how == 'flag':
+        r = run([WRAPPER, 'start', '--allow-native', 'stack', '--json'], fake.env)
+    else:
+        r = run([WRAPPER, 'start', 'stack', '--json'], with_env(fake.env, F1T_ALLOW_NATIVE='1'))
+    assert r.returncode == 0, r.stdout
+    # the native ctl never sees the wrapper's own flag
+    assert json.loads(r.stdout) == {'ok': True, 'side': 'native', 'args': 'start stack --json'}
+
+
+def test_container_pinned_and_running_is_unchanged_and_the_flag_is_stripped(fake):
+    pin(fake, 'container')
+    env = with_env(fake.env, FAKE_STATE='running')
+    r = run([WRAPPER, 'start', 'stack', '--allow-native'], env)
+    assert r.stdout.strip() == ('FAKE-EXEC f1tenth_car /opt/f1tenth_ws/src/f1tenth_ctl/bin/'
+                                'f1tenth_ctl start stack')
+    assert 'native-ctl' not in fake.read_log()
+
+
+@pytest.mark.parametrize('cmd', LAUNCHING, ids=lambda c: ' '.join(c))
+def test_native_pinned_on_purpose_is_unchanged(fake, cmd):
+    pin(fake, 'native')
+    r = run([WRAPPER, *cmd, '--json'], fake.env)
+    assert r.returncode == 0 and json.loads(r.stdout)['side'] == 'native'
+
+
+@pytest.mark.parametrize('cmd', LAUNCHING, ids=lambda c: ' '.join(c))
+def test_no_pin_at_all_is_unchanged(fake, cmd):
+    assert not (fake.home / '.config' / 'f1tenth' / 'car_mode').exists()
+    r = run([WRAPPER, *cmd, '--json'], fake.env)
+    assert r.returncode == 0 and json.loads(r.stdout)['side'] == 'native'
+
+
+def test_which_is_not_affected_by_the_pin(fake):
+    pin(fake, 'container')
+    assert run([WRAPPER, '--which'], fake.env).stdout.strip() == 'native'
+
+
+def test_stack_mode_records_the_mode_it_switched_to(fake):
+    mode_file = fake.home / '.config' / 'f1tenth' / 'car_mode'
+    # a no-op switch (the container already runs) pins it too
+    run([STACK_MODE, 'container'], with_env(fake_tools(fake), FAKE_STATE='running'))
+    assert mode_file.read_text().strip() == 'container'
+    # the real switch to container and to native
+    mode_file.unlink()
+    r = run([STACK_MODE, 'container'], with_env(fake_tools(fake), FAKE_STATE='absent'))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert mode_file.read_text().strip() == 'container'
+    r = run([STACK_MODE, 'native'], with_env(fake_tools(fake), FAKE_STATE='running'))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert mode_file.read_text().strip() == 'native'
+
+
+def test_stack_mode_dry_run_pins_nothing_and_a_failed_switch_pins_nothing(fake):
+    mode_file = fake.home / '.config' / 'f1tenth' / 'car_mode'
+    run([STACK_MODE, 'container', '--dry-run'], fake_tools(fake))
+    run([STACK_MODE, 'native', '--dry-run'], fake_tools(fake))
+    assert not mode_file.exists()
+    r = run([STACK_MODE, 'container'], with_env(fake_tools(fake, guard_rc=1), FAKE_STATE='absent'))
+    assert r.returncode == 1 and not mode_file.exists()
+
+
 def fake_tools(fake, guard_rc=0):
     guard = script(fake.tmp / 'guard',
                    '#!/bin/bash\necho "guard $*" >> "$FAKE_LOG"\n'

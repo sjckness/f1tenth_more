@@ -38,6 +38,7 @@ NATIVE_CTL=${F1T_NATIVE_CTL:-$HOME/dev_ws/f1tenth_more/src/f1tenth_ctl/bin/f1ten
 DOCKER_ORIN=${F1T_DOCKER_ORIN:-$REPO/scripts/docker_orin.sh}
 GUARD=${F1T_GUARD:-$REPO/scripts/orin_stack_guard.sh}
 UNIT_ENV=$HOME/.config/f1tenth/car_container.env
+MODE_FILE=${F1T_CAR_MODE_FILE:-$HOME/.config/f1tenth/car_mode}
 CTR=f1tenth_car
 CAR_UNIT=f1tenth-car-container.service
 GW_UNIT=f1tenth-gateway.service
@@ -98,6 +99,13 @@ wait_guard() {
   done
 }
 
+# The mode the car was last switched to: read by f1tenth_ctl_car, which refuses to launch the
+# native stack while this says `container` and the container is down.
+pin_mode() {
+  [ "$DRY" = 1 ] && { say "dry-run: would record mode $1 in $MODE_FILE"; return 0; }
+  mkdir -p "$(dirname "$MODE_FILE")" && echo "$1" > "$MODE_FILE.tmp" && mv -f "$MODE_FILE.tmp" "$MODE_FILE"
+}
+
 write_unit_env() {
   local archive=$1 allow=$2
   if [ "$DRY" = 1 ]; then say "dry-run: would write $UNIT_ENV: F1T_ARCHIVE_MODE=$archive F1T_ALLOW_DRIFT=$allow"; return 0; fi
@@ -152,7 +160,7 @@ cmd_container() {
   case "$st" in
     running)
       [ "$(ctr_role)" = car ] || fail "$CTR runs as '$(ctr_role)' (harness): docker_orin.sh down first"
-      say "already in container mode ($CTR running)"; return 0 ;;
+      pin_mode container; say "already in container mode ($CTR running)"; return 0 ;;
     unknown) fail "Docker does not answer (above): the container cannot start; nothing was changed" ;;
   esac
   say "-> container (archive $archive$( [ "$allow" = 1 ] && echo ', allow drift'); $CTR: $st)"
@@ -211,6 +219,7 @@ cmd_container() {
       fail "after the start $CTR is $st${role:+ (role $role)}, not running as the car: the car has NO stack now (docker_orin.sh status; docker_orin.sh history; stack_mode native)"
     fi
   fi
+  pin_mode container
   [ "$DRY" = 1 ] || say "container mode in $(( $(date +%s) - T0 )) s$( [ $(( $(date +%s) - T0 )) -le 60 ] || echo ' (over the 60 s target)')"
 }
 
@@ -247,6 +256,7 @@ cmd_native() {
   else
     say "$GW_UNIT is not installed: nothing native to start"
   fi
+  pin_mode native
   [ "$DRY" = 1 ] || say "native mode in $(( $(date +%s) - T0 )) s$( [ $(( $(date +%s) - T0 )) -le 60 ] || echo ' (over the 60 s target)')"
 }
 

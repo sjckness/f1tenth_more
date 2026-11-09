@@ -25,6 +25,14 @@
 # native side inspect + ps.
 #
 #   f1tenth_ctl_car --which    prints the side (container, native, refused: <why>), exit 0/1
+#
+# Guard: stack_mode.sh records the mode it last switched to in ~/.config/f1tenth/car_mode
+# (F1T_CAR_MODE_FILE). While that says `container` and the container is NOT running, the
+# commands that would LAUNCH native processes (start, connect, discovery up) are refused,
+# loudly, exit 1, instead of falling back to the native stack (2026-11-09: after a reboot the
+# container was gone and `start stack` started the native Humble stack). Everything else
+# (status, stop, killall, estop, planner-log ...) and the pinned-native case are unchanged.
+# Deliberate override: --allow-native (stripped before the ctl sees it) or F1T_ALLOW_NATIVE=1.
 # Env: F1T_NATIVE_CTL (~/dev_ws/f1tenth_more/src/f1tenth_ctl/bin/f1tenth_ctl),
 # F1T_CONTAINER_CTL (/opt/f1tenth_ws/src/f1tenth_ctl/bin/f1tenth_ctl).
 set -u
@@ -81,6 +89,14 @@ side() {
   esac
 }
 
+# --allow-native belongs to this wrapper: take it out before any ctl sees the arguments.
+allow_native=${F1T_ALLOW_NATIVE:-0}
+args=()
+for a in "$@"; do if [ "$a" = --allow-native ]; then allow_native=1; else args+=("$a"); fi; done
+set -- ${args[@]+"${args[@]}"}
+MODE_FILE=${F1T_CAR_MODE_FILE:-$HOME/.config/f1tenth/car_mode}
+launches_native() { case "${1:-}" in start|connect) return 0 ;; discovery) [ "${2:-}" = up ] ;; *) return 1 ;; esac; }
+
 s=$(side)
 if [ "${1:-}" = --which ]; then
   echo "$s"
@@ -91,6 +107,9 @@ case "$s" in
   container) exec docker exec "$CTR" "$CONTAINER_CTL" "$@" ;;
   native)
     [ -x "$NATIVE_CTL" ] || refuse "no native f1tenth_ctl at $NATIVE_CTL and $CTR is not running"
+    if [ "$allow_native" != 1 ] && [ "$(cat "$MODE_FILE" 2>/dev/null)" = container ] && launches_native "$@"; then
+      refuse "the car is set to container mode ($MODE_FILE) but $CTR is not running: '$1' would start the NATIVE stack. Bring the container up first (stack_mode.sh container [--allow-drift]); to run native on purpose: stack_mode.sh native, or --allow-native / F1T_ALLOW_NATIVE=1"
+    fi
     exec "$NATIVE_CTL" "$@" ;;
   refused:*) refuse "${s#refused:}" ;;
 esac
