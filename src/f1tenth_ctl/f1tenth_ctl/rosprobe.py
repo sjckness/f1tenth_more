@@ -775,8 +775,6 @@ def mission_core(spec: dict, ex, statuses: list, load_cli, start_cli, load_type,
     same checks. `statuses` is the node's /mission/status samples, (time, e-stop, state,
     path); `tick` is called while waiting, to keep a long-lived caller's own work going.
     """
-    from std_srvs.srv import Trigger
-
     op = spec.get('op')
     out = {}
     if statuses:
@@ -818,6 +816,7 @@ def mission_core(spec: dict, ex, statuses: list, load_cli, start_cli, load_type,
             return refuse(f"the loaded mission is not this one ({out['json_path']})")
         if not start_cli.service_is_ready():
             return refuse('/mission/start_mission not available')
+        from std_srvs.srv import Trigger
         out['start'] = _call(ex, start_cli, Trigger.Request(), 5.0, tick)
         target = None
     else:

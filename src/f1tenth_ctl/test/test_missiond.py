@@ -3,10 +3,8 @@
 import argparse
 import json
 import os
-import shutil
 import socket
 import stat
-import tempfile
 import threading
 import time
 
@@ -14,14 +12,6 @@ from f1tenth_ctl import cli, config, missiond, monitor, ready
 import pytest
 
 MIN = '\n'.join(f'F1T_{n.upper()}_CMD="sleep 1"' for n in config.MANAGED) + '\n'
-
-
-@pytest.fixture
-def sock():
-    """Yield a short socket path (unix paths are limited to ~100 characters)."""
-    d = tempfile.mkdtemp(prefix='md')
-    yield os.path.join(d, 'm.sock')
-    shutil.rmtree(d, ignore_errors=True)
 
 
 class Daemon:
@@ -372,9 +362,10 @@ def test_load_does_not_check_ready_and_a_start_without_the_flag_does_not_either(
     assert len(calls) == 2
 
 
-def test_the_daemon_serves_only_load_start_and_ping():
-    assert missiond.OPS == ('load', 'start', 'ping')
-    for forbidden in ('abort', 'abort_mission', 'estop', 'emergency_stop', 'status'):
+def test_the_daemon_serves_only_load_start_ping_and_the_read_only_status():
+    assert missiond.OPS == ('load', 'start', 'ping', 'status')
+    for forbidden in ('abort', 'abort_mission', 'estop', 'emergency_stop', 'estop_reset',
+                      'killall', 'validate'):
         assert forbidden not in missiond.OPS
 
 
@@ -436,18 +427,18 @@ def test_a_refusal_from_the_daemon_is_returned_as_it_is(settings, monkeypatch):
     assert probe.calls == []
 
 
-def test_only_load_and_start_ever_reach_the_daemon(settings, monkeypatch):
+def test_only_load_start_and_status_ever_reach_the_daemon(settings, monkeypatch):
     probe = Probe()
     sent = []
     monkeypatch.setattr(cli, 'run_rosprobe', probe)
     monkeypatch.setattr(missiond, 'request',
                         lambda p, op, *a, **k: sent.append(op) or ('result', {'ok': True}))
-    for op in ('status', 'validate', 'abort', 'estop'):
+    for op in ('validate', 'abort', 'estop', 'estop_reset'):
         cli.run_mission_op(settings, {'op': op}, 25)
     assert sent == [] and len(probe.calls) == 4
-    cli.run_mission_op(settings, {'op': 'load'}, 25)
-    cli.run_mission_op(settings, {'op': 'start'}, 25)
-    assert sent == ['load', 'start']
+    for op in ('load', 'start', 'status'):
+        cli.run_mission_op(settings, {'op': op}, 25)
+    assert sent == ['load', 'start', 'status']
 
 
 def test_the_daemon_can_be_switched_off_in_the_env_file(tmp_path, monkeypatch):

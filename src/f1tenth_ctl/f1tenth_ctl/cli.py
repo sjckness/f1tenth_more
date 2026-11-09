@@ -91,16 +91,21 @@ def run_mission_op(settings: Settings, spec: dict, timeout: float) -> dict:
     """
     Run a mission load/start: through the monitor's daemon when it answers, else as before.
 
-    Only a load or a start goes to the daemon (abort and the e-stop never do: see
-    missiond.py). Whatever the daemon cannot take BEFORE it runs anything (no socket, a hung
-    loop, a lost status view) falls back to the one-shot probe, which is exactly what ran
-    before. A refusal is an answer, not a failure: it is returned, never retried.
+    Only a load, a start or a read-only status goes to the daemon (abort and the e-stop never
+    do: see missiond.py). Whatever the daemon cannot take BEFORE it runs anything (no socket, a
+    hung loop, a lost status view) falls back to the one-shot probe, which is exactly what ran
+    before. A refusal is an answer, not a failure: it is returned, never retried. A status
+    waits at most missiond.STATUS_WAIT_S for the daemon (it may be busy with a load) and
+    otherwise takes the old path: it has nothing to repeat by mistake.
     """
     op = spec.get('op')
-    if op in ('load', 'start') and settings.monitor_enabled \
+    if op in ('load', 'start', 'status') and settings.monitor_enabled \
             and monitor.mission_daemon_enabled(settings):
-        kind, payload = missiond.request(missiond.sock_path(settings.state_dir), op, spec,
-                                         timeout)
+        read_only = op == 'status'
+        kind, payload = missiond.request(
+            missiond.sock_path(settings.state_dir), op, spec,
+            min(timeout, missiond.STATUS_WAIT_S) if read_only else timeout,
+            read_only=read_only)
         if kind == 'result':
             return payload
         if kind == 'error':
@@ -814,7 +819,7 @@ def cmd_mission_start(settings: Settings, args, t_begin: float) -> dict:
 
 
 def cmd_mission_status(settings: Settings, args) -> dict:
-    res = run_rosprobe(settings, 'mission', _mission_spec(settings, op='status'), timeout=15.0)
+    res = run_mission_op(settings, _mission_spec(settings, op='status'), timeout=15.0)
     desc = missions.describe_state(settings, res.get('ros_state'), res.get('json_path'),
                                    countdown_s=settings.mission_countdown_s)
     out = {'ok': bool(res.get('ok')), **desc,

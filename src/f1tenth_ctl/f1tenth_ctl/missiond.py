@@ -8,6 +8,11 @@ already a long-lived participant that has discovered everything and holds a
 /mission/status subscription, so it also serves these two requests over a local unix
 socket, and the CLI is a thin client of it (`request()`).
 
+`status` is a third, read-only request: the mission state as the monitor's own subscription sees
+it, for `mission-status` (the bot asks twice per planned command). It never calls a service and
+changes nothing, and because it is read-only a client that gets no quick answer simply takes the
+old path (there is nothing that could have happened twice).
+
 Why the monitor and not a new daemon: it already holds the subscriptions and the READY
 checks (so `start` re-checks READY on live data, not on a file), it is already managed
 (started by status/connect, stopped with the stack), and a second long-lived participant
@@ -51,7 +56,8 @@ CONNECT_S = 0.2           # connect and hello: past this the client takes the ol
 LOOP_MAX_AGE_S = 1.0      # a monitor loop that has not turned for this long is hung
 REQUEST_READ_S = 5.0      # a client that connected must send its request within this
 QUEUE_WAIT_S = 40.0       # a request waits this long for the one in front of it
-OPS = ('load', 'start', 'ping')
+OPS = ('load', 'start', 'ping', 'status')
+STATUS_WAIT_S = 1.5       # a read-only status that is not answered this fast takes the old path
 
 
 def sock_path(state_dir: str) -> str:
@@ -273,12 +279,14 @@ class Server:
 # ---------------------------------------------------------------- client
 
 def request(path: str, op: str, spec: dict, timeout_s: float,
-            connect_s: float = CONNECT_S) -> Tuple[str, object]:
+            connect_s: float = CONNECT_S, read_only: bool = False) -> Tuple[str, object]:
     """
     Ask the daemon. Return ('result', dict) | ('fallback', why) | ('error', message).
 
     'fallback' only when nothing was sent, or the daemon said it ran nothing; once the
-    request is out an unanswered call is an 'error', never a second attempt.
+    request is out an unanswered call is an 'error', never a second attempt. A read_only
+    request has nothing to repeat by mistake, so it falls back on a late or odd answer too
+    (the daemon is busy with a load or a start): it never waits for more than timeout_s.
     """
     if not os.path.exists(path):
         return 'fallback', 'no daemon socket'
@@ -304,17 +312,21 @@ def request(path: str, op: str, spec: dict, timeout_s: float,
         # From here on the request may run: no fallback.
         reply_line = _recv_line(s, timeout_s)
         if reply_line is None:
+            if read_only:
+                return 'fallback', f'no answer in {timeout_s:g} s (busy)'
             return 'error', (f'mission daemon gave no answer in {timeout_s:g} s '
                              f'(the {op} may have happened: check mission-status)')
         try:
             reply = json.loads(reply_line)
         except ValueError:
-            return 'error', 'mission daemon answered garbage'
+            return ('fallback', 'garbage answer') if read_only else (
+                'error', 'mission daemon answered garbage')
         if 'fallback' in reply:
             return 'fallback', str(reply['fallback'])
         if isinstance(reply.get('result'), dict):
             return 'result', reply['result']
-        return 'error', 'mission daemon answered without a result'
+        return ('fallback', 'no result') if read_only else (
+            'error', 'mission daemon answered without a result')
     finally:
         s.close()
 
