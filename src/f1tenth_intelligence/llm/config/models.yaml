@@ -29,7 +29,13 @@ qwen25_3b_instruct:
   # system-prompt prefix (llm_planner_node._completion, cache_prompt). Only one
   # planner client exists. Without it llama-server 42532af picks "auto": 4
   # slots on a unified KV buffer.
-  extra_args: ["-ngl", "999", "-np", "1"]
+  # -c 4096: the single slot's whole context (the model's default, 32768,
+  # holds 1152 MiB of KV cache; 4096 holds 144 MiB, measured, same latency and
+  # outputs). Budget, counted with /tokenize on this model: the v2 prompt (2430
+  # tokens) + the longest eval command's tail (30) + LLAMA_N_PREDICT (1184)
+  # = 3644 <= 4096 - 256. The no_go_to prompt is smaller (2976 in total).
+  # Recount when the prompt or LLAMA_N_PREDICT grows.
+  extra_args: ["-ngl", "999", "-np", "1", "-c", "4096"]
 # LLM2 (two-llm-arch): the second llama-server, started by llm2.launch.py for
 # llm2_mpc_param_node (interrogations.yaml's llm2_mpc_params). THE SAME FILE
 # as qwen25_3b_instruct above -- 2438740384 bytes, sha256
