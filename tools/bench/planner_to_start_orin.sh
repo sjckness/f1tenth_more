@@ -10,6 +10,12 @@
 #                container and put it first on the PLANNER's PYTHONPATH, to time
 #                planner code the image was not built with. Without it the
 #                planner is the image's own (/opt/f1tenth_ws/SOURCES says which).
+# --ctl-overlay  copy this checkout's src/f1tenth_ctl into the container and run
+#                the production flow's CLI from there (--ctl <copy>/bin/f1tenth_ctl):
+#                times ctl code the image was not built with. The running units
+#                (the monitor, the planner) stay the image's own.
+# --env VAR=VAL  set VAR in the tool's environment inside the container (and so in
+#                the CLI calls it makes): e.g. --env F1T_ENV_CACHE=0. Repeatable.
 #
 # The results JSON (--out NAME) is written in the container's /tmp/f1t_bench and
 # copied back to output/bench/ here. Ctrl-C / SIGTERM here is forwarded to the
@@ -23,16 +29,20 @@ CONTAINER="${F1T_BENCH_CONTAINER:-f1tenth_car}"
 REPO="$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)"
 DEST=/tmp/f1t_bench
 OVERLAY=0
+CTL_OVERLAY=0
+ENVS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --llm-overlay) OVERLAY=1; shift ;;
+    --ctl-overlay) CTL_OVERLAY=1; shift ;;
+    --env) ENVS+=(-e "$2"); shift 2 ;;
     --) shift; break ;;
     *) break ;;
   esac
 done
 
 HEAD="$(git -C "$REPO" rev-parse --short HEAD)"
-if ! git -C "$REPO" diff --quiet -- tools/bench src/f1tenth_intelligence/llm; then
+if ! git -C "$REPO" diff --quiet -- tools/bench src/f1tenth_intelligence/llm src/f1tenth_ctl; then
   HEAD="$HEAD+dirty"
 fi
 
@@ -44,6 +54,13 @@ if [ "$OVERLAY" = 1 ]; then
   docker exec "$CONTAINER" rm -rf "$DEST/llm_src"
   docker cp "$REPO/src/f1tenth_intelligence/llm" "$CONTAINER:$DEST/llm_src" >/dev/null
   EXTRA=(--planner-pythonpath "$DEST/llm_src")
+fi
+
+if [ "$CTL_OVERLAY" = 1 ]; then
+  docker exec "$CONTAINER" rm -rf "$DEST/ctl_overlay"
+  docker cp "$REPO/src/f1tenth_ctl" "$CONTAINER:$DEST/ctl_overlay" >/dev/null
+  docker exec "$CONTAINER" find "$DEST/ctl_overlay" -name __pycache__ -prune -exec rm -rf {} +
+  EXTRA+=(--ctl "$DEST/ctl_overlay/bin/f1tenth_ctl")
 fi
 
 # --out: keep only the file name; it is written in $DEST and copied back.
@@ -60,7 +77,7 @@ forward() {
 trap forward INT TERM
 
 set +e
-docker exec -i -e F1T_BENCH_GIT_HEAD="$HEAD" -e F1T_BENCH_PID_FILE="$DEST/tool.pid" \
+docker exec -i -e F1T_BENCH_GIT_HEAD="$HEAD" -e F1T_BENCH_PID_FILE="$DEST/tool.pid" "${ENVS[@]}" \
   "$CONTAINER" bash -c '
     set -a; . "${F1T_CTL_ENV:-/opt/f1tenth_ws/src/f1tenth_ctl/config/ctl_container.env}" || exit 97; set +a
     exec python3 '"$DEST"'/planner_to_start.py "$@"' bench "${ARGS[@]}" "${EXTRA[@]}" &
