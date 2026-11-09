@@ -130,7 +130,7 @@ class Flow:
             if self.planning:
                 return None, f'still planning «{self.planning}»'
             self.planning = text
-        ex = planner.Exchange(text)
+        ex = planner.Exchange(text, wait_s=self.cfg.planner_wait_s)
         if not ex.send(self.t, self.cfg.timeout('default')):
             self.planning = None
         return ex, None

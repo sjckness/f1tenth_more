@@ -161,7 +161,7 @@ class PlannerChat:
             return
         try:
             while not ex.done:
-                self.sleep(planner.POLL_S)
+                self.sleep(ex.poll_delay())
                 ex.poll(self.c.t, self.c.cfg.timeout('status'))
         finally:
             self.offer = self.flow.finish_plan(ex)

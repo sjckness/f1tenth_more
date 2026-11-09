@@ -288,6 +288,22 @@ class TestProductionFlow:
         assert d['ready_cli'] == pytest.approx(0.8)          # the CLI up to its refusal
         assert d['start_cli'] is None and d['total_to_move'] is None
 
+    def test_totals_for_the_plan_and_for_a_refused_start(self):
+        t = {k: v for k, v in self.T.items() if k not in ('t_running', 't_first_move')}
+        t['t_start_ret'] = 15.4
+        d = bench.compute_prod_deltas(t)
+        assert d['cmd_to_plan'] == 12.8 and d['total_to_refusal'] == pytest.approx(15.4)
+        assert bench.compute_prod_deltas(self.T)['total_to_refusal'] is None
+
+    def test_plan_poll_flag(self):
+        assert bench.build_parser().parse_args(['--car-is-safe', '--plan-poll', '2']
+                                               ).plan_poll == 2.0
+
+    def test_plan_wait_flag(self):
+        args = bench.build_parser().parse_args(['--car-is-safe', '--plan-wait', '8'])
+        assert args.plan_wait == 8.0
+        assert bench.build_parser().parse_args(['--car-is-safe']).plan_wait == 0.0
+
     def test_ready_cli_only_without_running(self):
         assert bench.compute_prod_deltas(self.T)['ready_cli'] is None
 

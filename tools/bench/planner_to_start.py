@@ -291,7 +291,8 @@ def markdown_table(summary, deltas=DELTAS, stages=STAGES) -> str:
 #                                                            (t_first_move)
 PROD_STAGES = ('llm_and_ctl', 'fetch_cli', 'load_cli', 'start_cli', 'running_to_move')
 PROD_DELTAS = PROD_STAGES + ('send_cli', 'ready_cli', 'pause', 'total_to_running',
-                             'total_to_move', 'total_to_move_no_pause')
+                             'total_to_move', 'total_to_move_no_pause', 'cmd_to_plan',
+                             'total_to_refusal')
 CTL_BIN_DEFAULT = '/opt/f1tenth_ws/src/f1tenth_ctl/bin/f1tenth_ctl'
 PLANNER_LOG_DEFAULT = '~/.local/state/f1tenth_ctl/logs/planner.log'
 DRIVE_TOPIC = '/ackermann_drive'
@@ -324,6 +325,10 @@ def compute_prod_deltas(t: dict) -> dict:
         # mission-start refused (READY false): its whole wall time is the READY part.
         d['ready_cli'] = sub(t.get('t_start_ret'), t.get('t_start_call'))
     d['total_to_move_no_pause'] = sub(d['total_to_move'], pause)
+    d['cmd_to_plan'] = t.get('t_plan_fetched')       # command -> the plan in the caller's hand
+    d['total_to_refusal'] = None
+    if t.get('t_running') is None and t.get('t_start_ret') is not None:
+        d['total_to_refusal'] = sub(t['t_start_ret'], pause)   # command -> READY refusal
     return d
 
 
@@ -886,6 +891,25 @@ def run_prod_once(stack, args, command: str, index: int, pause: float, variant: 
             run['error'] = f'send failed: {ans}'
             return run
         cursor = ans.get('cursor', 0)
+        fetched = None
+        if args.plan_wait > 0:
+            # the bot's way: planner-log --wait right after the send, no polling
+            _, t_ret, fetched, rc = ctl_call(
+                ctl, ['planner-log', '--since', str(cursor), '--wait', f'{args.plan_wait:g}'],
+                args.plan_wait + 30.0, current)
+            t['t_plan_fetched'] = t_ret - t0
+        elif args.plan_poll > 0:
+            # the bot today: sleep, planner-log from the cursor, repeat until the RESULT
+            cur, deadline = cursor, time.perf_counter() + args.run_timeout
+            while time.perf_counter() < deadline:
+                time.sleep(args.plan_poll)
+                _, t_ret, answer, rc = ctl_call(
+                    ctl, ['planner-log', '--since', str(cur)], 30.0, current)
+                cur = (answer or {}).get('cursor', cur)
+                if (answer or {}).get('results'):
+                    fetched = answer
+                    t['t_plan_fetched'] = t_ret - t0
+                    break
         hit = tail.wait_for(lambda ln: parse_result(ln) is not None, args.run_timeout)
         if hit is None:
             run['error'] = f'no RESULT in the planner log within {args.run_timeout:.0f} s'
@@ -901,10 +925,12 @@ def run_prod_once(stack, args, command: str, index: int, pause: float, variant: 
         run['status'] = res.get('status')
         if res.get('status') != 'ok':
             return run              # refused / failed plan: listed, nothing to load
-        # planner-log: what the bot polls; ctl stores the mission here
-        _, t_ret, ans, rc = ctl_call(ctl, ['planner-log', '--since', str(cursor)], 30.0,
-                                     current)
-        t['t_plan_fetched'] = t_ret - t0
+        if fetched is None:
+            # planner-log: what the bot polls; ctl stores the mission here
+            _, t_ret, fetched, rc = ctl_call(ctl, ['planner-log', '--since', str(cursor)],
+                                             30.0, current)
+            t['t_plan_fetched'] = t_ret - t0
+        ans = fetched
         sid, mission = stored_mission(ans)
         if sid is None:
             run['error'] = 'planner-log stored no mission'
@@ -1152,6 +1178,12 @@ def build_parser():
     p.add_argument('--ctl', default=CTL_BIN_DEFAULT, help='production: the f1tenth_ctl CLI')
     p.add_argument('--planner-log', default=PLANNER_LOG_DEFAULT,
                    help="production: the planner unit's log (f1tenth_ctl logs/planner.log)")
+    p.add_argument('--plan-wait', type=float, default=0.0,
+                   help='production: fetch the plan with `planner-log --wait S` right after '
+                        'the send (the bot with a long-poll), not after the log tail saw it')
+    p.add_argument('--plan-poll', type=float, default=0.0,
+                   help="production: emulate the bot's polling: sleep S, planner-log, repeat "
+                        '(the bot uses 2)')
     p.add_argument('--move-timeout', type=float, default=10.0,
                    help='production: seconds after RUNNING to wait for the first move')
     p.add_argument('--variant-runs', type=int, default=0,

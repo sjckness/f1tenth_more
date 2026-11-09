@@ -29,6 +29,16 @@ JSON_HEAD = re.compile(r'^JSON \((?P<id>.*)\):\s*$')
 MAX_CHARS = 3500               # a Telegram message holds 4096
 POLL_S = 2.0
 MAX_S = 60.0
+# Long-poll: `planner-log --since N --wait S` blocks on the car until the RESULT line of
+# the command just sent is in the log (f1tenth_ctl >= the one that has --wait). 0 = the
+# old way: a plain planner-log every POLL_S.
+WAIT_S = 8.0
+
+
+def wait_flag_rejected(res: dict) -> bool:
+    """Return True when an older f1tenth_ctl refused `--wait` (argparse: exit 2, no JSON)."""
+    return (res.get('transport_error') == 'parse' and res.get('_rc') == 2
+            and 'unrecognized arguments' in str(res.get('error', '')))
 
 
 def validate(text: str):
@@ -147,10 +157,14 @@ class Exchange:
     DONE = '🏁 planner answered in {s} s'
     TIMEOUT = '⌛ no RESULT line after {s} s: stopped following the log'
 
-    def __init__(self, text: str, clock=time.monotonic, max_s: float = MAX_S):
+    def __init__(self, text: str, clock=time.monotonic, max_s: float = MAX_S,
+                 wait_s: float = 0.0):
         self.text = text
         self.clock = clock
         self.max_s = max_s
+        # Seconds one planner-log may block on the car (0: plain polling). Dropped for
+        # good, with the call repeated the old way, when the car's ctl does not know it.
+        self.wait_s = max(0.0, float(wait_s))
         self.cursor = None
         self.lines: List[str] = []
         self.results: List[dict] = []     # f1tenth_ctl's RESULT entries (stored missions)
@@ -181,11 +195,24 @@ class Exchange:
         self.finished = self.clock()
         return True
 
+    def poll_delay(self) -> float:
+        """Return the seconds to sleep before the next poll (0: the call itself waits)."""
+        return 0.0 if self.wait_s > 0 else POLL_S
+
+    def _planner_log(self, transport, timeout: float) -> dict:
+        argv = ['planner-log', '--since', str(self.cursor)]
+        if self.wait_s > 0:
+            res = transport.ctl(argv + ['--wait', f'{self.wait_s:g}'], timeout + self.wait_s)
+            if not wait_flag_rejected(res):
+                return res
+            self.wait_s = 0.0        # an older ctl on the car: plain polling from now on
+        return transport.ctl(argv, timeout)
+
     def poll(self, transport, timeout: float) -> bool:
         """Fetch the new lines; return whether the message has to change."""
         if self.done:
             return False
-        res = transport.ctl(['planner-log', '--since', str(self.cursor)], timeout)
+        res = self._planner_log(transport, timeout)
         changed = False
         if res.get('transport_error') or not res.get('ok'):
             self.error = res.get('error') or 'planner-log failed'

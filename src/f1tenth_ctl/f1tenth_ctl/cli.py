@@ -14,7 +14,9 @@ object on stdout (--json, the default, for the Telegram bot) or a short text
     f1tenth_ctl killall [--reset-discovery] [--dry-run]
     f1tenth_ctl check                        environment check only
     f1tenth_ctl send planner "<command>"     one line to the planner's stdin (<= 500 chars)
-    f1tenth_ctl planner-log [--since N]      the planner's output after byte offset N
+    f1tenth_ctl planner-log [--since N] [--wait S]
+                                             the planner's output after byte offset N
+                                             (--wait: until its RESULT line, at most S s)
     f1tenth_ctl missions [-n N]              the stored plans (one per planner RESULT)
     f1tenth_ctl mission-load <id>            validate + load a stored plan
     f1tenth_ctl mission-start                start it: READY, no e-stop, nothing running
@@ -35,6 +37,7 @@ import subprocess
 import sys
 import threading
 import time
+from typing import Optional
 
 from . import discovery, envcheck, human, missions, monitor, procscan, ready, units
 from .config import ConfigError, load, MANAGED, Settings, SOURCE_ROOT
@@ -604,9 +607,64 @@ def planner_results(settings: Settings, lines, offsets) -> list:
     return out
 
 
+WAIT_POLL_S = 0.05            # planner-log --wait: how often the log's size is looked at
+WAIT_ALIVE_S = 1.0            # ... and the planner's unit
+
+
+def is_result_line(line: str) -> bool:
+    """Return True for the planner's `RESULT {json}` line (its prompt may be glued to it)."""
+    while line.startswith(PLANNER_PROMPT):
+        line = line[len(PLANNER_PROMPT):]
+    return line.startswith(RESULT_PREFIX)
+
+
+def wait_for_result(settings: Settings, since: Optional[int], max_bytes: int, wait_s: float,
+                    sleep=time.sleep, clock=time.monotonic) -> dict:
+    """
+    Return read_log_since's answer, but not before a RESULT line is in it (or wait_s ran out).
+
+    The same answer as without waiting, only later: the lines up to and including the
+    RESULT, the cursor after them. It returns at once when there is no cursor, when the
+    chunk was cut by max_bytes (the caller carries on from the new cursor, as it does
+    today), and when the planner's unit stops running. The log's size is looked at every
+    WAIT_POLL_S; the file is read only when it grew.
+    """
+    path = settings.log_path('planner')
+    res = units.read_log_since(path, since, max_bytes)
+    if since is None or wait_s <= 0:
+        return res
+    deadline = clock() + wait_s
+    next_alive = clock() + WAIT_ALIVE_S
+    seen_size = res['size']
+    while True:
+        if any(is_result_line(line) for line in res['lines']) or res['truncated']:
+            return res
+        now = clock()
+        if now >= deadline:
+            return res
+        if now >= next_alive:
+            next_alive = now + WAIT_ALIVE_S
+            if not units.is_running(settings, 'planner'):
+                return res
+        sleep(min(WAIT_POLL_S, max(0.0, deadline - now)))
+        try:
+            size = os.path.getsize(path)
+        except OSError:
+            size = 0
+        if size != seen_size:
+            seen_size = size
+            res = units.read_log_since(path, since, max_bytes)
+
+
 def cmd_planner_log(settings: Settings, args) -> dict:
-    """Return the planner's output since a cursor (a byte offset of its log), ANSI stripped."""
-    res = units.read_log_since(settings.log_path('planner'), args.since, args.max_bytes)
+    """
+    Return the planner's output since a cursor (a byte offset of its log), ANSI stripped.
+
+    With --wait SECONDS it first waits (at most that long) for the RESULT line of the
+    command just sent, so a caller gets the answer the moment it exists instead of at its
+    next poll: same fields, same stored mission.
+    """
+    res = wait_for_result(settings, args.since, args.max_bytes, getattr(args, 'wait', 0.0))
     running = units.is_running(settings, 'planner')
     out = {'ok': True, 'target': 'planner', 'since': args.since, 'running': running,
            'plan_only': planner_plan_only(settings) if running else None, **res}
@@ -801,6 +859,9 @@ def build_parser() -> argparse.ArgumentParser:
                     help='byte offset from `send` or a previous planner-log; '
                          'none: only the current end')
     pl.add_argument('--max-bytes', type=int, default=65536)
+    pl.add_argument('--wait', type=float, default=0.0, metavar='SECONDS',
+                    help='with --since: wait up to this long for the RESULT line of the '
+                         'command just sent, and answer as soon as it is there')
     ml = sub.add_parser('mission-load', parents=[common],
                         help='validate and load a stored mission (from `missions`)')
     ml.add_argument('id')
