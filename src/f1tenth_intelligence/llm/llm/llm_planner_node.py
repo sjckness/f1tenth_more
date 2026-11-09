@@ -69,6 +69,9 @@ one-shot) possa raggiungere get_plan_from_llm(), piu' LLAMA_TIMEOUT alzato
 a 90s come margine di sicurezza e un except dedicato per ConnectionError
 dentro get_plan_from_llm() stessa (server riavviato/crashato a meta'
 sessione, dopo che il warm-up era gia' passato).
+Quel warm-up ('ciao') carica solo il modello. Subito dopo, _warm_prefix()
+manda il system prompt VERO, cosi' il suo prefisso e' gia' nella cache dei
+prompt al primo comando (vedi _completion: cache_prompt, stop).
 
 --------------------------------------------------------------------------
 Load -> start (vedi _deliver_mission): start_mission parte nell'istante in
@@ -326,6 +329,39 @@ def _wait_for_llama_server(url: str, max_wait_s: float = 90.0) -> float:
         delay = min(delay * 2, 5.0)
 
 
+def _warm_prefix(url: str, system_prompt: str) -> float:
+    """
+    Mette il system prompt REALE nella cache dei prompt di llama-server.
+
+    _wait_for_llama_server() scalda il modello con 'ciao', che non ha nulla in
+    comune con il prompt vero: il primo comando pagherebbe comunque
+    l'elaborazione dell'intero system prompt. Questa richiesta ha la stessa
+    forma di _completion() (stesso prefisso, stesso formato della coda) con
+    n_predict 1, cosi' il prefisso e' in cache prima del primo comando.
+
+    Solo un'ottimizzazione: un errore di rete o HTTP NON ferma la costruzione
+    del nodo. Logga un WARNING con il tipo dell'eccezione e ritorna -1.0, senza
+    ritentare. Timeout = LLAMA_TIMEOUT letto al momento della chiamata, come
+    _wait_for_llama_server(). Ritorna i secondi impiegati in caso di successo.
+    """
+    prompt = system_prompt + '\ncomando: "vai dritto"\nrisposta:'
+    t0 = time.time()
+    try:
+        response = requests.post(
+            url,
+            json={'prompt': prompt, 'n_predict': 1, 'temperature': 0.0,
+                  'cache_prompt': True},
+            timeout=LLAMA_TIMEOUT,
+        )
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        logging.getLogger(__name__).warning(
+            f'_warm_prefix: prefisso del prompt non scaldato '
+            f"({type(e).__name__}: {e}); il primo comando lo elaborera' per intero.")
+        return -1.0
+    return time.time() - t0
+
+
 def _completion(system_prompt: str, command_text: str):
     """POST verso /completion e ritorna il PRIMO valore JSON valido nella risposta.
 
@@ -337,17 +373,30 @@ def _completion(system_prompt: str, command_text: str):
     Duplicarlo per il secondo percorso avrebbe significato due spelling della
     stessa richiesta che divergono al primo tuning.
 
+    Due campi in piu' che non cambiano cosa il modello vede, solo quanto costa:
+    - cache_prompt True: il prefisso (il system prompt, identico byte per byte
+      a ogni comando) resta nella KV cache dello slot e solo la coda
+      'comando: ...' viene rielaborata. E' gia' il default di llama-server
+      42532af; esplicito perche' il costo per comando dipende da questo.
+      Cambiare un solo byte del prompt invalida la cache (e il benchmark).
+    - stop (a capo + 'comando:'): la generazione si ferma dove il modello
+      comincerebbe una coppia comando:/risposta: allucinata, invece di
+      proseguire fino a n_predict. Nessuna risposta valida puo' contenerlo:
+      il JSON e' su una riga e una stringa JSON non contiene a-capo letterali.
+
     raw_decode() invece di json.loads(): parsa SOLO il primo valore JSON valido
-    e ignora quello che il modello genera dopo -- bug riprodotto, il modello
-    continua oltre la "}" di chiusura con altre coppie comando:/risposta:
-    allucinate e json.loads() rifiutava l'intera risposta con "Extra data"
-    anche quando il piano, fino a quel punto, era perfettamente valido.
+    e ignora quello che il modello genera dopo. Era il fix per il modello che
+    continuava oltre la "}" di chiusura con altre coppie comando:/risposta:
+    allucinate (json.loads() rifiutava tutto con "Extra data"); con `stop`
+    serve di rado, ma resta come rete di sicurezza (per esempio un prompt
+    senza 'comando:' negli esempi, dove lo stop non scatta).
     """
     prompt = system_prompt + f'\ncomando: "{command_text}"\nrisposta:'
     try:
         response = requests.post(
             LLAMA_URL,
-            json={'prompt': prompt, 'n_predict': 512, 'temperature': 0.0},
+            json={'prompt': prompt, 'n_predict': 512, 'temperature': 0.0,
+                  'cache_prompt': True, 'stop': ['\ncomando:']},
             timeout=LLAMA_TIMEOUT,
         )
     except requests.exceptions.ConnectionError as e:
@@ -949,6 +998,12 @@ class LLMPlannerNode(Node):
         # inutilizzabile senza backend).
         elapsed = _wait_for_llama_server(LLAMA_URL)
         self.get_logger().info(f'Server raggiunto e scaldato in {elapsed:.1f}s.')
+        # Poi il prefisso VERO (self._system_prompt, gia' scelto sopra per
+        # entrambi i planner_path): il 'ciao' qui sopra scalda solo il modello.
+        # Un fallimento e' gia' loggato come WARNING da _warm_prefix().
+        warm_s = _warm_prefix(LLAMA_URL, self._system_prompt)
+        if warm_s >= 0.0:
+            self.get_logger().info(f'Prefisso del prompt scaldato in {warm_s:.1f}s.')
 
         self.load_client = self.create_client(LoadMission, '/mission/load_mission')
         self.start_client = self.create_client(Trigger, '/mission/start_mission')

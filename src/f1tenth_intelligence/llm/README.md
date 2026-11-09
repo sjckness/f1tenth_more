@@ -224,6 +224,21 @@ falls back to it** — a silent downgrade would produce a mission from a
 different prompt with different semantics and the display would still look
 reasonable.
 
+## Request cost
+
+A request is the system prompt plus a short `comando: "..."` tail.
+`cache_prompt: true` keeps that prefix in llama-server's KV cache, so only the
+tail is re-read. This only holds while the prompt stays **byte-identical**: one
+changed byte in `prompts/*.txt` or `SYSTEM_PROMPT` invalidates the cache and
+every latency benchmark. `stop: ["\ncomando:"]` ends generation where the model
+would start a made-up next example, instead of running on to `n_predict` 512.
+A valid answer is one JSON line, so it cannot contain that string. At startup,
+`_wait_for_llama_server()` only loads the model (prompt `ciao`).
+`_warm_prefix()` then sends the real system prompt with `n_predict` 1, so the
+first command already finds the prefix cached. If it fails, the node logs a
+WARNING and still starts. `models.yaml` gives the planner's server `-np 1`, a
+single slot, so no other request can evict the cached prefix.
+
 ## Failure handling
 
 | Condition | Behaviour |

@@ -25,10 +25,17 @@ now-distinct ConnectionError message (server was reachable at startup but
 got restarted/crashed mid-session -- a different case from "never came up",
 which _wait_for_llama_server() alone handles).
 
+The payload now also carries cache_prompt and stop (request-cost pass:
+neither changes what the model sees); TestWarmPrefix covers _warm_prefix(),
+which caches the real system prompt at startup, and TestPromptPrefixStability
+checks that the retry feedback never lands before the cached prefix.
+
 Run standalone: python3 -m pytest test/test_llm_planner_request.py -v
 """
 
 import json
+import logging
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -100,11 +107,16 @@ class TestRequestShape:
 
         payload = kwargs['json']
         # Raw /completion payload only -- no "messages" array, no chat
-        # roles, nothing OpenAI-chat-specific.
-        assert set(payload.keys()) == {'prompt', 'n_predict', 'temperature'}
+        # roles, nothing OpenAI-chat-specific. cache_prompt and stop change
+        # the cost of the request, not what the model sees.
+        assert set(payload.keys()) == {'prompt', 'n_predict', 'temperature',
+                                       'cache_prompt', 'stop'}
         assert isinstance(payload['prompt'], str)
         assert 'messages' not in payload
         assert payload['temperature'] == pytest.approx(0.0)
+        assert payload['n_predict'] == 512
+        assert payload['cache_prompt'] is True
+        assert payload['stop'] == ['\ncomando:']
 
         # No chat/ChatML templating -- the prompt and the command both appear
         # verbatim, concatenated, in the same "comando: ...\nrisposta:" shape
@@ -193,6 +205,98 @@ class TestRequestShape:
         assert 'Connection refused' not in message
         # exception chaining preserved (from e) -- not silently dropped.
         assert isinstance(exc_info.value.__cause__, requests.exceptions.ConnectionError)
+
+
+def _system_prompt(path):
+    """Return the system prompt the given planner path sends."""
+    if path == 'legacy':
+        return llm_planner_node.SYSTEM_PROMPT
+    return plan_translate.load_intent_prompt()
+
+
+class TestPromptPrefixStability:
+    """The cached prefix is the system prompt: nothing may be inserted before it."""
+
+    @patch('llm.llm_planner_node.requests.post')
+    def test_retry_feedback_keeps_system_prompt_as_exact_prefix(self, mock_post):
+        """The retry feedback goes after the command, so the cache still matches."""
+        mock_post.return_value = _FakeResponse(TestRequestShape.V2_RESPONSE)
+        system_prompt = plan_translate.load_intent_prompt()
+
+        llm_planner_node.get_intent_from_llm('vai dritto', system_prompt, feedback='x')
+
+        prompt = mock_post.call_args[1]['json']['prompt']
+        assert prompt.startswith(system_prompt + '\ncomando: "vai dritto')
+        assert 'rifiutato: x.' in prompt[len(system_prompt):]
+        assert prompt.endswith('\nrisposta:')
+
+
+class TestWarmPrefix:
+    """_warm_prefix(): puts the real system prompt in llama-server's prompt cache."""
+
+    @pytest.mark.parametrize('path', ['legacy', 'v2'])
+    @patch('llm.llm_planner_node.requests.post')
+    def test_posts_the_real_system_prompt_as_prefix(self, mock_post, path):
+        """Same prefix as the planner's request, cache_prompt on, one token."""
+        mock_post.return_value = _FakeResponse('{')
+        system_prompt = _system_prompt(path)
+
+        elapsed = llm_planner_node._warm_prefix('http://x/completion', system_prompt)
+
+        assert elapsed >= 0.0
+        assert mock_post.call_count == 1
+        args, kwargs = mock_post.call_args
+        assert args[0] == 'http://x/completion'
+        payload = kwargs['json']
+        assert payload['prompt'].startswith(system_prompt)
+        assert payload['cache_prompt'] is True
+        assert payload['n_predict'] == 1
+        assert payload['temperature'] == pytest.approx(0.0)
+        assert '<|im_start|>' not in payload['prompt']
+        assert kwargs['timeout'] == llm_planner_node.LLAMA_TIMEOUT
+
+    @pytest.mark.parametrize('path', ['legacy', 'v2'])
+    @patch('llm.llm_planner_node.requests.post')
+    def test_warm_up_and_real_request_share_the_system_prompt_prefix(self, mock_post, path):
+        """The prefix the warm-up caches is the one a real command reuses."""
+        mock_post.return_value = _FakeResponse(TestRequestShape.V2_RESPONSE)
+        system_prompt = _system_prompt(path)
+
+        llm_planner_node._warm_prefix('http://x/completion', system_prompt)
+        warm = mock_post.call_args[1]['json']['prompt']
+        llm_planner_node._completion(system_prompt, 'gira a destra e vai al muro')
+        real = mock_post.call_args[1]['json']['prompt']
+
+        common = len(os.path.commonprefix([warm, real]))
+        assert common >= len(system_prompt)
+        # The same tail format too, up to the command itself.
+        assert warm[:common].endswith('\ncomando: "')
+
+    @pytest.mark.parametrize('exc', [
+        requests.exceptions.ConnectionError('refused'),
+        requests.exceptions.HTTPError('500 Server Error'),
+        requests.exceptions.Timeout('timed out'),
+    ], ids=['connection', 'http', 'timeout'])
+    @patch('llm.llm_planner_node.requests.post')
+    def test_failure_returns_minus_one_and_warns(self, mock_post, exc):
+        """Only an optimisation: no exception, a WARNING naming the error, no retry."""
+        if isinstance(exc, requests.exceptions.HTTPError):
+            resp = MagicMock()
+            resp.raise_for_status.side_effect = exc
+            mock_post.return_value = resp
+        else:
+            mock_post.side_effect = exc
+
+        # The module logger itself, patched: caplog records nothing under the
+        # pytest 6.2.5 + ROS plugin set this package runs with.
+        logger = logging.getLogger('llm.llm_planner_node')
+        with patch.object(logger, 'warning') as mock_warning:
+            elapsed = llm_planner_node._warm_prefix('http://x/completion', 'SYSTEM')
+
+        assert elapsed == -1.0
+        assert mock_post.call_count == 1
+        assert mock_warning.call_count == 1
+        assert type(exc).__name__ in mock_warning.call_args[0][0]
 
 
 class TestWaitForLlamaServer:
