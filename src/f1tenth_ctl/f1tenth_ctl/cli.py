@@ -39,7 +39,7 @@ import threading
 import time
 from typing import Optional
 
-from . import discovery, envcheck, human, missions, monitor, procscan, ready, units
+from . import discovery, envcheck, human, missiond, missions, monitor, procscan, ready, units
 from .config import ConfigError, load, MANAGED, Settings, SOURCE_ROOT
 
 STATUS_BUDGET_S = 4.5      # status must answer in < 5 s, env sourcing included
@@ -85,6 +85,27 @@ def _finish_rosprobe(proc: subprocess.Popen, timeout: float) -> dict:
 
 def run_rosprobe(settings: Settings, mode: str, spec: dict, timeout: float) -> dict:
     return _finish_rosprobe(_start_rosprobe(settings, mode, spec), timeout)
+
+
+def run_mission_op(settings: Settings, spec: dict, timeout: float) -> dict:
+    """
+    Run a mission load/start: through the monitor's daemon when it answers, else as before.
+
+    Only a load or a start goes to the daemon (abort and the e-stop never do: see
+    missiond.py). Whatever the daemon cannot take BEFORE it runs anything (no socket, a hung
+    loop, a lost status view) falls back to the one-shot probe, which is exactly what ran
+    before. A refusal is an answer, not a failure: it is returned, never retried.
+    """
+    op = spec.get('op')
+    if op in ('load', 'start') and settings.monitor_enabled \
+            and monitor.mission_daemon_enabled(settings):
+        kind, payload = missiond.request(missiond.sock_path(settings.state_dir), op, spec,
+                                         timeout)
+        if kind == 'result':
+            return payload
+        if kind == 'error':
+            return {'error': payload}
+    return run_rosprobe(settings, 'mission', spec, timeout=timeout)
 
 
 def _thresholds(settings: Settings) -> dict:
@@ -732,9 +753,9 @@ def cmd_mission_load(settings: Settings, args) -> dict:
     armed = settings.mission_countdown_s if armed is None else float(armed)
     counting = bool(cur.get('started_at')) and (
         time.time() - cur['started_at'] < armed + 5.0)
-    res = run_rosprobe(settings, 'mission',
-                       _mission_spec(settings, op='load', path=rec['path'],
-                                     counting_down=counting), timeout=25.0)
+    res = run_mission_op(settings,
+                         _mission_spec(settings, op='load', path=rec['path'],
+                                       counting_down=counting), timeout=25.0)
     out.update(res)
     if res.get('ok'):
         missions.set_current(settings, id=rec['id'], path=rec['path'], loaded_at=time.time(),
@@ -774,8 +795,13 @@ def cmd_mission_start(settings: Settings, args, t_begin: float) -> dict:
     if not st.get('ready'):
         return refuse('not READY: ' + ', '.join(st.get('failing') or ['unknown']),
                       failing=st.get('failing'))
-    res = run_rosprobe(settings, 'mission',
-                       _mission_spec(settings, op='start', path=rec['path']), timeout=25.0)
+    # require_ready: the daemon re-checks READY on its own live measurements right before
+    # it calls the loader, on top of the check above (the one-shot path has no such step).
+    res = run_mission_op(settings,
+                         _mission_spec(settings, op='start', path=rec['path'],
+                                       require_ready=True), timeout=25.0)
+    if res.get('ready_refused'):
+        return refuse(res['error'], failing=res.get('failing'))
     countdown = missions.armed_countdown(res.get('start'), settings.mission_countdown_s)
     out = {'id': rec['id'], 'mission_id': rec.get('mission_id'), 'ready': True,
            'countdown_s': countdown, **res}

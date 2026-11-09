@@ -18,7 +18,7 @@ import shlex
 import time
 from typing import Optional
 
-from . import units
+from . import missiond, units
 from .config import ProcSpec, Settings, SOURCE_ROOT
 
 NAME = 'monitor'
@@ -31,10 +31,19 @@ def _paths(settings: Settings):
             os.path.join(settings.state_dir, 'monitor.spec.json'))
 
 
+def mission_daemon_enabled(settings: Settings) -> bool:
+    """Return False when F1T_MISSIOND is 0/false/no/off in the env file (the one-shot path)."""
+    return settings.env.get('F1T_MISSIOND', '1').strip().lower() not in ('0', 'false', 'no', 'off')
+
+
 def probe_spec(settings: Settings, thresholds: dict) -> dict:
     snap, _ = _paths(settings)
     spec = {'checks': thresholds['checks'], 'window_s': thresholds['window_s'],
             'use_sim_time': thresholds['use_sim_time'], 'out': snap, 'period_s': 0.5}
+    spec['status_topic'] = settings.status_topic     # what the daemon's status view follows
+    if mission_daemon_enabled(settings):
+        # mission-load / mission-start through the monitor's node (missiond.py)
+        spec['mission_sock'] = missiond.sock_path(settings.state_dir)
     spec['spec_id'] = hashlib.sha1(
         json.dumps(spec, sort_keys=True).encode()).hexdigest()[:12]
     return spec
