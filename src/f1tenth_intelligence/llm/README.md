@@ -246,6 +246,11 @@ request can evict the cached prefix. Every command logs one
 `latenza: llm=… traduzione=… servizi=… totale=…` line, and the RESULT line
 carries the same numbers under `latency`.
 
+End to end on the live stack (process start, LLM, services, start to RUNNING):
+`tools/bench/planner_to_start_orin.sh -- --car-is-safe --suite`. It **starts
+real missions**: run it only with the car lifted or the motor output off. See
+the tool's header.
+
 ## Failure handling
 
 | Condition | Behaviour |
