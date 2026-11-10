@@ -1,0 +1,276 @@
+#!/usr/bin/env bash
+# hil_orin -- the ORIN side of the HIL setup: the UNCHANGED car stack, in the Jazzy container, on
+# host networking, driven by Isaac Sim on the workstation.
+#
+# Runs ON THE ORIN (host side; it talks to the container through docker).
+#
+# Usage:
+#   scripts/sim/hil_orin env                    print what both sides must agree on (also used by
+#                                               the workstation's preflight over ssh)
+#   scripts/sim/hil_orin preflight              checks only: docker, image, container, host
+#                                               networking, link, socket buffers, clock source
+#   scripts/sim/hil_orin up                     start the container (if it is not running)
+#   scripts/sim/hil_orin stack [k:=v ...]       launch the stack in it (sim:=isaac)
+#   scripts/sim/hil_orin check [args ...]       copy scripts/sim/hil_check into the container
+#                                               and run it there (args go to hil_check)
+#   scripts/sim/hil_orin shell                  a shell in the container with the HIL ROS env
+#   scripts/sim/hil_orin down                   stop the container
+#
+# Options: --dry-run (print, run nothing), -h.
+#
+# WHAT IS AND IS NOT CHANGED ON THE CAR SIDE. The stack is the car's own bringup:
+#   ros2 launch f1tenth_bringup supervisor_bringup.launch.py sim:=isaac use_sim_time:=true \
+#        discovery_server_address:=<ip> discovery_server_port:=<port> fastdds_profile:=<rendered>
+# sim:=isaac drops the device drivers, swaps camera.launch.py for the ZED frame publishers and
+# loads config/sim/isaac.yaml after the normal parameters (supervisor_bringup.launch.py:213-236).
+# No sim-specific node runs on the Orin, and nothing of the sim does: the only extra process is
+# the Fast DDS Discovery Server the supervisor starts anyway, exactly as on the car.
+#
+# HOST NETWORKING IS NOT OPTIONAL on this machine: the Orin's kernel cannot load bridge.ko, so a
+# container started without --network host comes up with only `lo` and no DNS, silently
+# (CLAUDE.md, "Orin Docker"). This script refuses to use a container that is not on the host net.
+#
+# The container itself is built and managed by docker/orin/* and scripts/docker_orin.sh, which
+# live on main-jazzy-rust. When that script is present it is used (so this branch does not
+# duplicate it); otherwise an explicit `docker run --network host` is printed for you to run.
+if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
+set -eo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$HERE/../.." && pwd)"
+log() { echo "[hil-orin $(date +%H:%M:%S)] $*"; }
+die() { echo "[hil-orin] ERROR: $*" >&2; exit 1; }
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
+
+CMD="${1:-}"
+case "$CMD" in
+  env|preflight|up|stack|check|shell|down) shift ;;
+  -h|--help|help|"") usage; exit 0 ;;
+  *) die "unknown subcommand '$CMD' (env|preflight|up|stack|check|shell|down; --help)" ;;
+esac
+DRY=false; PASS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run) DRY=true; shift ;;
+    -h|--help) usage; exit 0 ;;
+    --) shift; PASS+=("$@"); break ;;
+    *) PASS+=("$1"); shift ;;
+  esac
+done
+
+command -v python3 >/dev/null || die "python3 not found"
+eval "$(python3 "$HERE/hil_config.py" --sh)" || die "cannot read the HIL config"
+TMPD="$(mktemp -d /tmp/hil_orin.XXXXXX)"
+trap 'rm -rf "$TMPD"' EXIT
+PROFILE_IN_CONTAINER=/tmp/f1tenth_hil_profile.xml
+CHECK_IN_CONTAINER=/tmp/f1tenth_hil_check.py
+
+docker_ok() { command -v docker >/dev/null && docker info >/dev/null 2>&1; }
+running() { docker ps -q -f "name=^${HIL_ORIN_CONTAINER}$" | grep -q .; }
+host_net() {   # the container must be on the host network
+  [ "$(docker inspect -f '{{.HostConfig.NetworkMode}}' "$HIL_ORIN_CONTAINER" 2>/dev/null)" = host ]
+}
+link_ip() {
+  local route
+  route="$(ip -o -4 route get "$HIL_LINK_WORKSTATION_IP" 2>&1)" \
+    || { LINK_ERR="no route to the workstation ($HIL_LINK_WORKSTATION_IP): $route"; return 1; }
+  case "$route" in
+    *" via "*) LINK_ERR="the route to the workstation goes through a gateway, not the link ($route)"; return 1 ;;
+  esac
+  LINK_IP="$(sed -n 's/.* src \([0-9.]*\).*/\1/p' <<< "$route")"
+  LINK_IFACE="$(sed -n 's/.* dev \([^ ]*\).*/\1/p' <<< "$route")"
+  [ -n "$LINK_IP" ] || { LINK_ERR="no source address on the route ($route)"; return 1; }
+  return 0
+}
+
+render_profile() {   # the stack side keeps shared memory (one container, one IPC namespace)
+  local out="$TMPD/hil_stack.xml" async=''
+  if [ "${HIL_LINK_ASYNC_WRITER:-false}" = true ]; then
+    async=$(printf '  <data_writer profile_name="f1tenth_hil_writer" is_default_profile="true">\n    <qos>\n      <publishMode><kind>ASYNCHRONOUS</kind><flow_controller_name>hil_images</flow_controller_name></publishMode>\n    </qos>\n  </data_writer>')
+  fi
+  local buf=$(( ${HIL_LINK_SOCKET_BUFFER_MB:-16} * 1024 * 1024 ))
+  local flow=$(( ${HIL_LINK_FLOW_MBIT:-800} * 1000000 / 8 / 100 ))
+  python3 - "$REPO/src/f1tenth_bringup/config/sim/dds/hil.xml.in" "$out" "${LINK_IP:-$HIL_LINK_ORIN_IP}" \
+           '<transport_id>f1t_shm</transport_id>' "$buf" "$flow" "$async" <<'PY'
+import sys
+src, out, ip, shm, buf, flow, async_writer = sys.argv[1:8]
+text = open(src).read()
+for key, value in (("@ETH_IP@", ip), ("@SHM_TRANSPORT@", shm), ("@BUFFER_BYTES@", buf),
+                   ("@FLOW_BYTES@", flow), ("@ASYNC_WRITER@", async_writer)):
+    text = text.replace(key, value)
+open(out, "w").write(text)
+import xml.etree.ElementTree as ET
+ET.parse(out)
+PY
+  echo "$out"
+}
+
+print_env() {
+  cat <<TXT
+  ROS_DOMAIN_ID           $HIL_ROS_DOMAIN_ID
+  RMW_IMPLEMENTATION      $HIL_ROS_RMW
+  ROS_DISCOVERY_SERVER    $HIL_DISCOVERY_SERVER
+  link                    orin $HIL_LINK_ORIN_IP <-> workstation $HIL_LINK_WORKSTATION_IP
+  container               $HIL_ORIN_CONTAINER (host network required: ${HIL_ORIN_REQUIRE_HOST_NETWORK})
+  config                  $HIL_CONFIG_FILE
+TXT
+}
+
+# Environment for everything run inside the container. The image's entrypoint already sources
+# scripts/env/jazzy.sh (Jazzy + the installed workspace); these override what HIL changes.
+container_env() {
+  CENV=(-e "ROS_DOMAIN_ID=$HIL_ROS_DOMAIN_ID" -e "RMW_IMPLEMENTATION=$HIL_ROS_RMW"
+        -e "F1TENTH_DISCOVERY_SERVER=$HIL_DISCOVERY_SERVER" -e "ROS_DISCOVERY_SERVER=$HIL_DISCOVERY_SERVER"
+        -e "FASTRTPS_DEFAULT_PROFILES_FILE=$PROFILE_IN_CONTAINER"
+        -e ROS_AUTOMATIC_DISCOVERY_RANGE= -e ROS_STATIC_PEERS=)
+}
+
+copy_profile() {
+  local p="$1"
+  log "copying the rendered Fast DDS profile into the container ($PROFILE_IN_CONTAINER)"
+  $DRY && { echo "  docker cp $p $HIL_ORIN_CONTAINER:$PROFILE_IN_CONTAINER"; return 0; }
+  docker cp "$p" "$HIL_ORIN_CONTAINER:$PROFILE_IN_CONTAINER" >/dev/null
+}
+
+preflight() {
+  local bad=0
+  print_env
+  docker_ok || { log "cannot talk to the docker daemon"; return 1; }
+  if link_ip; then
+    log "link: $LINK_IP on $LINK_IFACE -> $HIL_LINK_WORKSTATION_IP"
+    if ping -c1 -W2 "$HIL_LINK_WORKSTATION_IP" >/dev/null 2>&1; then
+      log "the workstation answers on the link"
+    else
+      log "the workstation does not answer ping"; bad=1
+    fi
+  else
+    log "LINK: $LINK_ERR"; bad=1
+  fi
+  if [ "$LINK_IP" != "$HIL_LINK_ORIN_IP" ] && [ -n "${LINK_IP:-}" ]; then
+    log "WARNING: this host answers on $LINK_IP, link.orin_ip says $HIL_LINK_ORIN_IP"
+  fi
+  # Socket buffers: the profile asks for ${HIL_LINK_SOCKET_BUFFER_MB} MB, the kernel caps it.
+  local want=$(( ${HIL_LINK_SOCKET_BUFFER_MB:-16} * 1024 * 1024 )) have
+  have="$(cat /proc/sys/net/core/rmem_max 2>/dev/null || echo 0)"
+  if [ "$have" -lt "$want" ]; then
+    log "net.core.rmem_max is $have, the profile asks for $want: the images will be dropped in bursts."
+    log "   sudo sysctl -w net.core.rmem_max=$want net.core.wmem_max=$want   (setup.md, step 6)"
+    bad=1
+  else
+    log "socket buffers: rmem_max $have >= $want"
+  fi
+  if running; then
+    if host_net; then
+      log "container $HIL_ORIN_CONTAINER is running on the host network"
+    else
+      log "container $HIL_ORIN_CONTAINER is NOT on the host network: it has no usable network at all on this machine"
+      bad=1
+    fi
+    local image
+    image="$(docker inspect -f '{{.Config.Image}}' "$HIL_ORIN_CONTAINER")"
+    log "image: $image"
+  else
+    log "container $HIL_ORIN_CONTAINER is not running ('$0 up')"
+    bad=1
+  fi
+  # A production Discovery Server on 11811 is fine; ours must be free or ours.
+  if ss -lunp 2>/dev/null | grep -q ":$HIL_ROS_DISCOVERY_SERVER_PORT "; then
+    log "something already listens on UDP $HIL_ROS_DISCOVERY_SERVER_PORT (ours from an earlier run?)"
+  fi
+  if [ "$bad" -eq 0 ]; then log "preflight OK"; else log "preflight found problems (above)"; fi
+  return "$bad"
+}
+
+start_container() {
+  if running; then log "container $HIL_ORIN_CONTAINER already running"; return 0; fi
+  if [ -x "$REPO/scripts/docker_orin.sh" ]; then
+    log "starting the container through scripts/docker_orin.sh (the car's own wrapper)"
+    $DRY && { echo "  scripts/docker_orin.sh up"; return 0; }
+    "$REPO/scripts/docker_orin.sh" up
+    return 0
+  fi
+  local image="${HIL_ORIN_IMAGE:-}"
+  if [ -z "$image" ] && [ -r "$HOME/.config/f1tenth/car_image" ]; then
+    image="$(awk 'NR==1{print $1}' "$HOME/.config/f1tenth/car_image")"
+  fi
+  [ -n "$image" ] || die "no image: set orin.image in $HIL_CONFIG_FILE or pin one in ~/.config/f1tenth/car_image
+(the image is built by docker/orin/build.sh on main-jazzy-rust; see output/hil/setup.md)"
+  cat <<TXT
+scripts/docker_orin.sh is not on this branch, so start the container yourself - host networking
+and host IPC are both required:
+
+  docker run -d --name $HIL_ORIN_CONTAINER --network host --ipc host --runtime nvidia \\
+    --init --restart no \\
+    -e F1T_CONTAINER_ROLE=car -e F1T_AUTOSTART=none \\
+    -e ROS_DOMAIN_ID=$HIL_ROS_DOMAIN_ID -e RMW_IMPLEMENTATION=$HIL_ROS_RMW \\
+    -e F1TENTH_DISCOVERY_SERVER=$HIL_DISCOVERY_SERVER \\
+    $image sleep infinity
+
+Then run '$0 stack'. (On main-jazzy-rust: scripts/docker_orin.sh up, after
+~/.local/bin/stack_mode container.)
+TXT
+  return 1
+}
+
+trap 'rm -rf "$TMPD"; exit 130' INT TERM
+
+case "$CMD" in
+  env) print_env ;;
+  preflight) preflight ;;
+  up) start_container ;;
+  stack|check|shell)
+    # --dry-run prints what would run and checks nothing live, so the commands can be reviewed
+    # from any machine (this repository is read on linus too).
+    if ! $DRY; then
+      docker_ok || die "cannot talk to the docker daemon"
+      running || die "container $HIL_ORIN_CONTAINER is not running ('$0 up')"
+      if [ "${HIL_ORIN_REQUIRE_HOST_NETWORK}" = true ] && ! host_net; then
+        die "container $HIL_ORIN_CONTAINER is not on the host network (see --help)"
+      fi
+    fi
+    link_ip || log "LINK: $LINK_ERR (rendering the profile with link.orin_ip)"
+    PROFILE="$(render_profile)"
+    copy_profile "$PROFILE"
+    container_env
+    case "$CMD" in
+      stack)
+        LAUNCH=(ros2 launch f1tenth_bringup supervisor_bringup.launch.py
+                sim:=isaac use_sim_time:=true
+                "discovery_server_address:=$HIL_DISCOVERY_SERVER_IP"
+                "discovery_server_port:=$HIL_ROS_DISCOVERY_SERVER_PORT"
+                "fastdds_profile:=$PROFILE_IN_CONTAINER")
+        # shellcheck disable=SC2206  # the config holds a space-separated argument list on purpose
+        [ -n "${HIL_ORIN_STACK_ARGS:-}" ] && LAUNCH+=(${HIL_ORIN_STACK_ARGS})
+        [ ${#PASS[@]} -gt 0 ] && LAUNCH+=("${PASS[@]}")
+        echo "== stack (sim:=isaac) in $HIL_ORIN_CONTAINER =="
+        echo "cmd: ${LAUNCH[*]}"
+        $DRY && { echo "(dry run)"; exit 0; }
+        # -i keeps Ctrl+C reaching the launch; </dev/null is NOT used here on purpose (unlike the
+        # other exec calls) because this one is the foreground process of the run.
+        exec docker exec -it "${CENV[@]}" "$HIL_ORIN_CONTAINER" bash -lc \
+          "exec $(printf '%q ' "${LAUNCH[@]}")" ;;
+      check)
+        # hil_check is copied in rather than taken from the image: the image is built from
+        # whichever branch produced it, and this check must match THIS checkout. The camera rate
+        # comes from the one config file so it never has to be given twice; an explicit
+        # --camera-rate in the arguments still wins (it comes later on the command line).
+        CHK=(python3 "$CHECK_IN_CONTAINER" "--camera-rate=${HIL_SIM_STEREO_RATE:-10}" "${PASS[@]}")
+        echo "cmd: ${CHK[*]}"
+        $DRY && { echo "(dry run) docker cp $REPO/scripts/sim/hil_check $HIL_ORIN_CONTAINER:$CHECK_IN_CONTAINER"; exit 0; }
+        docker cp "$REPO/scripts/sim/hil_check" "$HIL_ORIN_CONTAINER:$CHECK_IN_CONTAINER" >/dev/null
+        # </dev/null: `docker exec` keeps stdin open and would swallow the rest of a piped script.
+        docker exec "${CENV[@]}" "$HIL_ORIN_CONTAINER" bash -lc \
+          "exec $(printf '%q ' "${CHK[@]}")" < /dev/null ;;
+      shell)
+        $DRY && { echo "  docker exec -it ${CENV[*]} $HIL_ORIN_CONTAINER bash -l"; exit 0; }
+        exec docker exec -it "${CENV[@]}" "$HIL_ORIN_CONTAINER" bash -l ;;
+    esac ;;
+  down)
+    if [ -x "$REPO/scripts/docker_orin.sh" ]; then
+      $DRY && { echo "  scripts/docker_orin.sh down"; exit 0; }
+      exec "$REPO/scripts/docker_orin.sh" down
+    fi
+    running || { log "container $HIL_ORIN_CONTAINER is not running"; exit 0; }
+    echo "cmd: docker stop -t 120 $HIL_ORIN_CONTAINER"
+    $DRY && exit 0
+    exec docker stop -t 120 "$HIL_ORIN_CONTAINER" ;;
+esac

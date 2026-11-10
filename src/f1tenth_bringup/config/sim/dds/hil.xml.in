@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fast DDS profile TEMPLATE for the HIL link: Isaac Sim on the WORKSTATION, the car stack in the
+  Jazzy container on the JETSON ORIN. Rendered per host by scripts/sim/sim_isaac_hil (sim side) and
+  scripts/sim/hil_orin (stack side); never edit addresses here.
+
+  Placeholders: @ETH_IP@ this host's address on the link, @SHM_TRANSPORT@ the shared-memory
+  transport (stack side only - see isaac_local.xml for why Isaac must not use SHM),
+  @BUFFER_BYTES@ socket buffer size, @ASYNC_WRITER@ the optional asynchronous writer profile.
+
+  Why a separate file from eth.xml.in (the linus <-> Thor cable):
+  - the socket buffers are explicit and large. The heavy topics here are two 0.92 MB images, and
+    Fast DDS sends ONE UNICAST COPY PER REMOTE SUBSCRIBER: 2 readers for /camera/image_raw and 3
+    for depth_registered, i.e. ~5 copies, ~570 Mbit/s at 15 Hz (output/zenoh/recon.md 2.1-2.2).
+    A 0.92 MB sample is fragmented into ~15 datagrams that must all survive; the default 64 kB
+    receive buffer drops them in bursts, which is what "3 frames in 60 s" looked like on the
+    Gazebo link. The OS limit must be raised to match (sysctl net.core.rmem_max, see
+    output/hil/setup.md - it needs sudo).
+  - maxMessageSize stays under the smallest MTU on the path (1500 B Ethernet -> 65500 B UDP
+    datagram is fine, but a VPN or a bridge in the path is not; keep this value if you insert one).
+  - the participant lease is the stack's own 5 s / 1 s (config/fastdds_profile.xml, fix batch 5):
+    a participant that dies without disposing is dropped within 5 s, and the lease is announced by
+    each participant itself, so BOTH sides must load a profile that sets it.
+  Fast DDS loads exactly one default profile per process: this file REPLACES
+  config/fastdds_profile.xml for a HIL run (the launch takes it as fastdds_profile:=).
+-->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>f1t_shm</transport_id>
+      <type>SHM</type>
+    </transport_descriptor>
+    <transport_descriptor>
+      <transport_id>f1t_udp_hil</transport_id>
+      <type>UDPv4</type>
+      <maxMessageSize>65000</maxMessageSize>
+      <sendBufferSize>@BUFFER_BYTES@</sendBufferSize>
+      <receiveBufferSize>@BUFFER_BYTES@</receiveBufferSize>
+      <interfaceWhiteList>
+        <address>@ETH_IP@</address>
+        <address>127.0.0.1</address>
+      </interfaceWhiteList>
+    </transport_descriptor>
+  </transport_descriptors>
+  <participant profile_name="f1tenth_hil" is_default_profile="true">
+    <rtps>
+      <builtin>
+        <discovery_config>
+          <leaseDuration><sec>5</sec></leaseDuration>
+          <leaseAnnouncement><sec>1</sec></leaseAnnouncement>
+        </discovery_config>
+      </builtin>
+      <userTransports>
+        @SHM_TRANSPORT@
+        <transport_id>f1t_udp_hil</transport_id>
+      </userTransports>
+      <useBuiltinTransports>false</useBuiltinTransports>
+      <!-- Only used when @ASYNC_WRITER@ is rendered (hil.yaml link.async_writer: true): it shapes
+           the image bursts instead of letting one 0.92 MB sample go out as fast as the NIC takes
+           it. Declared always; an unused descriptor costs nothing. -->
+      <flow_controller_descriptors>
+        <flow_controller_descriptor>
+          <name>hil_images</name>
+          <scheduler>FIFO</scheduler>
+          <max_bytes_per_period>@FLOW_BYTES@</max_bytes_per_period>
+          <period_ms>10</period_ms>
+        </flow_controller_descriptor>
+      </flow_controller_descriptors>
+    </rtps>
+  </participant>
+@ASYNC_WRITER@
+</profiles>

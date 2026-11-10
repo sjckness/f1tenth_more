@@ -1,0 +1,353 @@
+#!/usr/bin/env bash
+# sim_isaac_hil -- the WORKSTATION side of the HIL setup: Isaac Sim here, the car stack in the
+# Jazzy container on the Jetson Orin. Same style as scripts/sim/sim_isaac.sh (which drives the
+# linus + Thor setup over a direct cable and stays untouched).
+#
+# Usage:
+#   scripts/sim/sim_isaac_hil preflight [--orin]     checks only: config, link, image, world, Orin
+#   scripts/sim/sim_isaac_hil world --plan           the office SDF -> report (no Isaac needed)
+#   scripts/sim/sim_isaac_hil world --convert        convert the office SDF to USD (needs Isaac)
+#   scripts/sim/sim_isaac_hil sim                    start Isaac Sim (Ctrl+C stops it)
+#   scripts/sim/sim_isaac_hil reset                  call /sim/reset
+#   scripts/sim/sim_isaac_hil run CMD ...            one command in the sim's ROS environment
+#   scripts/sim/sim_isaac_hil env                    print the environment both sides must share
+#
+# Options:
+#   --world NAME     office | room6x6 | corridor | office_nvidia | base_room | hospital
+#                    (default: sim.world in sim/isaac/config/hil.yaml)
+#   --layout NAME    scene layout preset (office: corridor | door | open_space | people)
+#   --gui            open the Isaac GUI (default headless)
+#   --rate HZ        camera rate, overriding sim.stereo.rate (the LINK budget lives here)
+#   --set K=V        extra sim config override, repeatable (see sim/isaac/sim/config.py)
+#   --dry-run        print everything, start nothing
+#   -h, --help       this text
+#
+# EVERY machine-specific value comes from sim/isaac/config/hil.yaml (or hil.local.yaml):
+# addresses, domain, Discovery Server, image and container names, the camera budget. Nothing is
+# hardcoded here. The stack on the Orin is the unchanged car stack (sim:=isaac): only parameters
+# differ, and scripts/sim/hil_orin starts it with the matching ones.
+if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
+set -eo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$HERE/../.." && pwd)"
+
+log() { echo "[hil $(date +%H:%M:%S)] $*"; }
+die() { echo "[hil] ERROR: $*" >&2; exit 1; }
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
+
+CMD="${1:-}"
+case "$CMD" in
+  preflight|sim|reset|run|env|world) shift ;;
+  -h|--help|help|"") usage; exit 0 ;;
+  *) die "unknown subcommand '$CMD' (preflight|world|sim|reset|run|env; --help)" ;;
+esac
+WORLD=""; LAYOUT=""; GUI=""; RATE=""; DRY=false; CHECK_ORIN=false; SETS=(); PASS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --world) WORLD="${2:?--world needs a name}"; shift 2 ;;
+    --world=*) WORLD="${1#*=}"; shift ;;
+    --layout) LAYOUT="${2:?--layout needs a name}"; shift 2 ;;
+    --layout=*) LAYOUT="${1#*=}"; shift ;;
+    --rate) RATE="${2:?--rate needs a number}"; shift 2 ;;
+    --rate=*) RATE="${1#*=}"; shift ;;
+    --set) SETS+=("${2:?--set needs KEY=VALUE}"); shift 2 ;;
+    --set=*) SETS+=("${1#*=}"); shift ;;
+    --gui) GUI=true; shift ;;
+    --orin) CHECK_ORIN=true; shift ;;
+    --dry-run) DRY=true; shift ;;
+    -h|--help) usage; exit 0 ;;
+    --) shift; PASS+=("$@"); break ;;
+    *) if [ "$CMD" = run ] || [ "$CMD" = world ]; then PASS+=("$1"); shift; else die "unknown option '$1' (--help)"; fi ;;
+  esac
+done
+
+# ---- configuration (one file, read once) -------------------------------------------------
+command -v python3 >/dev/null || die "python3 not found"
+CFG="$(python3 "$HERE/hil_config.py" --sh)" || die "cannot read the HIL config"
+eval "$CFG"
+WORLD="${WORLD:-$HIL_SIM_WORLD}"
+LAYOUT_EXPLICIT=false
+[ -n "$LAYOUT" ] && LAYOUT_EXPLICIT=true
+LAYOUT="${LAYOUT:-${HIL_SIM_LAYOUT:-}}"
+[ -n "$GUI" ] || GUI="$HIL_SIM_GUI"
+RATE="${RATE:-$HIL_SIM_STEREO_RATE}"
+ISAAC_DIR="$REPO/$HIL_SIM_ISAAC_DIR"
+# sim.layout in the config belongs to sim.world. Asking for another world on the command line
+# must not carry the old world's layout name into it (the sim would abort: "layout not in
+# presets"). An explicit --layout is always passed through, so a typo still fails loudly.
+if [ -n "$LAYOUT" ] && [ "$LAYOUT_EXPLICIT" = false ] && [ -f "$ISAAC_DIR/config/scenes/$WORLD.yaml" ]; then
+  if ! python3 -c "
+import sys, yaml
+scene = yaml.safe_load(open(sys.argv[1])) or {}
+sys.exit(0 if sys.argv[2] in (scene.get('presets') or {}) else 1)
+" "$ISAAC_DIR/config/scenes/$WORLD.yaml" "$LAYOUT" 2>/dev/null; then
+    echo "[hil] world '$WORLD' has no layout '$LAYOUT' (that is sim.layout of '$HIL_SIM_WORLD'): using the world's own default"
+    LAYOUT=""
+  fi
+fi
+DDS_SRC="$REPO/src/f1tenth_bringup/config/sim/dds"
+TMPD="$(mktemp -d "/tmp/sim_isaac_hil.XXXXXX")"
+cleanup() {
+  local rc=$?
+  trap - EXIT
+  trap '' INT TERM
+  if $ISAAC_STARTED && docker ps -q -f "name=^${HIL_SIM_CONTAINER}$" | grep -q .; then
+    log "stopping Isaac Sim (docker stop $HIL_SIM_CONTAINER)"
+    docker stop -t 40 "$HIL_SIM_CONTAINER" >/dev/null 2>&1 || true
+  fi
+  rm -rf "$TMPD"
+  exit "$rc"
+}
+ISAAC_STARTED=false
+
+# ---- link --------------------------------------------------------------------------------
+# link_ip [soft]: this host's source address and interface on the route to the Orin.
+# 'soft' reports instead of exiting (preflight wants every finding, and --dry-run must work on a
+# machine that has no link at all) and falls back to link.workstation_ip.
+link_ip() {
+  local soft="${1:-}" route
+  LINK_IP=""; LINK_IFACE=""
+  if ! route="$(ip -o -4 route get "$HIL_LINK_ORIN_IP" 2>&1)"; then
+    LINK_ERROR="no route to the Orin ($HIL_LINK_ORIN_IP): $route"
+  else
+    case "$route" in
+      *" via "*) LINK_ERROR="the route to $HIL_LINK_ORIN_IP goes through a gateway, not the link ($route)" ;;
+      *) LINK_IP="$(sed -n 's/.* src \([0-9.]*\).*/\1/p' <<< "$route")"
+         LINK_IFACE="$(sed -n 's/.* dev \([^ ]*\).*/\1/p' <<< "$route")"
+         [ -n "$LINK_IP" ] || LINK_ERROR="no source address on the route to $HIL_LINK_ORIN_IP ($route)" ;;
+    esac
+  fi
+  if [ -z "$LINK_IP" ]; then
+    if [ "$soft" = soft ]; then
+      log "LINK: $LINK_ERROR"
+      log "      using link.workstation_ip ($HIL_LINK_WORKSTATION_IP) for the rendered DDS profile"
+      LINK_IP="$HIL_LINK_WORKSTATION_IP"
+      return 1
+    fi
+    die "$LINK_ERROR
+Bring the link up first (output/hil/setup.md step 1) or fix link.* in $HIL_CONFIG_FILE.
+A HIL run must stay on the direct link: the images are ~$HIL_CAMERA_MBIT Mbit/s."
+  fi
+  if [ "$LINK_IP" != "$HIL_LINK_WORKSTATION_IP" ]; then
+    log "WARNING: this host answers on $LINK_IP, but link.workstation_ip says $HIL_LINK_WORKSTATION_IP"
+  fi
+  return 0
+}
+
+render_profile() {   # <with_shm:true|false> -> path of the rendered Fast DDS profile
+  local shm="$1" out="$TMPD/hil_$1.xml" t='' async=''
+  [ "$shm" = true ] && t='<transport_id>f1t_shm</transport_id>'
+  if [ "${HIL_LINK_ASYNC_WRITER:-false}" = true ]; then
+    async=$(printf '  <data_writer profile_name="f1tenth_hil_writer" is_default_profile="true">\n    <qos>\n      <publishMode><kind>ASYNCHRONOUS</kind><flow_controller_name>hil_images</flow_controller_name></publishMode>\n    </qos>\n  </data_writer>')
+  fi
+  local buf=$(( ${HIL_LINK_SOCKET_BUFFER_MB:-16} * 1024 * 1024 ))
+  local flow=$(( ${HIL_LINK_FLOW_MBIT:-800} * 1000000 / 8 / 100 ))   # bytes per 10 ms period
+  python3 - "$DDS_SRC/hil.xml.in" "$out" "$LINK_IP" "$t" "$buf" "$flow" "$async" <<'PY'
+import sys
+src, out, ip, shm, buf, flow, async_writer = sys.argv[1:8]
+text = open(src).read()
+for key, value in (("@ETH_IP@", ip), ("@SHM_TRANSPORT@", shm), ("@BUFFER_BYTES@", buf),
+                   ("@FLOW_BYTES@", flow), ("@ASYNC_WRITER@", async_writer)):
+    text = text.replace(key, value)
+open(out, "w").write(text)
+import xml.etree.ElementTree as ET
+ET.parse(out)          # a malformed profile is silently ignored by Fast DDS: fail here instead
+PY
+  echo "$out"
+}
+
+# ---- the environment both sides must share -----------------------------------------------
+print_env() {
+  cat <<TXT
+HIL environment (from $HIL_CONFIG_FILE)
+  ROS_DOMAIN_ID           $HIL_ROS_DOMAIN_ID          (must be identical on both sides)
+  RMW_IMPLEMENTATION      $HIL_ROS_RMW                (must be identical on both sides)
+  ROS_DISCOVERY_SERVER    $HIL_DISCOVERY_SERVER       (server runs on the $HIL_ROS_DISCOVERY_SERVER_HOST)
+  link                    workstation $HIL_LINK_WORKSTATION_IP <-> orin $HIL_LINK_ORIN_IP
+  world / layout          $WORLD${LAYOUT:+ / $LAYOUT}
+  camera                  ${HIL_SIM_STEREO_WIDTH}x${HIL_SIM_STEREO_HEIGHT} at ${RATE} Hz, right camera $HIL_SIM_STEREO_RIGHT_CAMERA
+                          ~$HIL_CAMERA_MBIT Mbit/s on the wire (one copy per remote subscriber)
+  Orin stack              $HIL_ORIN_SSH, container $HIL_ORIN_CONTAINER
+TXT
+}
+
+# ---- checks ------------------------------------------------------------------------------
+preflight() {
+  local bad=0
+  log "config: $HIL_CONFIG_FILE"
+  print_env
+  [ -d "$ISAAC_DIR" ] || die "no $ISAAC_DIR (sim.isaac_dir in the config)"
+  [ -f "$ISAAC_DIR/config/scenes/$WORLD.yaml" ] || die "no such world: $WORLD (sim/isaac/config/scenes/$WORLD.yaml)"
+  log "world file: $ISAAC_DIR/config/scenes/$WORLD.yaml"
+  if python3 "$ISAAC_DIR/tools/check_config.py" --scene "$WORLD" ${LAYOUT:+--layouts} >"$TMPD/scene.log" 2>&1; then
+    log "scene config loads"
+  else
+    sed 's/^/    /' "$TMPD/scene.log"; bad=1
+  fi
+  grep -q 'WARNING' "$TMPD/scene.log" && sed -n 's/^/    /p' "$TMPD/scene.log" | grep WARNING || true
+  if [ "$WORLD" = office ] && [ ! -e "$ISAAC_DIR/usd/generated/office/office.usd" ]; then
+    log "the office USD is not generated yet: run '$0 world --convert' once (needs Isaac)"
+    bad=1
+  fi
+  # The stack arguments hil_orin will pass must exist in the launch file this branch carries.
+  # A typo here shows up on the Orin as "Included launch description missing required argument",
+  # minutes into a run; this is a text check and costs nothing.
+  local launch="$REPO/src/f1tenth_bringup/launch/supervisor_bringup.launch.py"
+  if [ -f "$launch" ]; then
+    local missing=""
+    local a
+    for a in sim use_sim_time discovery_server_address discovery_server_port fastdds_profile; do
+      grep -q "DeclareLaunchArgument($" "$launch" 2>/dev/null || true
+      grep -q "'$a'" "$launch" || missing="$missing $a"
+    done
+    if [ -n "$missing" ]; then
+      log "supervisor_bringup.launch.py declares no:$missing"; bad=1
+    else
+      log "stack launch arguments present: sim, use_sim_time, discovery_server_{address,port}, fastdds_profile"
+    fi
+  else
+    log "no $launch (is this the car repository?)"; bad=1
+  fi
+  command -v docker >/dev/null || { log "docker not found"; bad=1; }
+  if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
+    docker info --format '{{json .Runtimes}}' | grep -q nvidia || { log "docker has no 'nvidia' runtime"; bad=1; }
+    docker image inspect "$HIL_SIM_IMAGE" >/dev/null 2>&1 \
+      || { log "image $HIL_SIM_IMAGE missing: sim/isaac/docker/build.sh"; bad=1; }
+    docker ps -q -f "name=^${HIL_SIM_CONTAINER}$" | grep -q . \
+      && { log "container $HIL_SIM_CONTAINER already running (docker stop $HIL_SIM_CONTAINER)"; bad=1; }
+  else
+    log "cannot talk to the docker daemon"; bad=1
+  fi
+  command -v nvidia-smi >/dev/null && log "GPU: $(nvidia-smi --query-gpu=name,memory.used,memory.total --format=csv,noheader | head -1)"
+  if link_ip soft; then
+    log "link: $LINK_IP on $LINK_IFACE -> $HIL_LINK_ORIN_IP"
+    if ping -c1 -W2 "$HIL_LINK_ORIN_IP" >/dev/null 2>&1; then
+      log "the Orin answers on the link"
+    else
+      log "the Orin does not answer ping on $HIL_LINK_ORIN_IP"; bad=1
+    fi
+  else
+    bad=1
+  fi
+  local budget=$(( HIL_CAMERA_MBIT * 100 / ${HIL_LINK_SPEED_MBIT:-1000} ))
+  log "camera budget: $HIL_CAMERA_MBIT Mbit/s = ${budget} % of the ${HIL_LINK_SPEED_MBIT:-1000} Mbit/s link"
+  [ "$budget" -gt 60 ] && log "WARNING: over 60 % of the link. Lower sim.stereo.rate (--rate) or the resolution."
+  if $CHECK_ORIN; then
+    log "asking the Orin for its side (ssh $HIL_ORIN_SSH)"
+    if ssh -o ConnectTimeout=5 -o BatchMode=yes "$HIL_ORIN_SSH" \
+         "cd '$HIL_ORIN_REPO' 2>/dev/null && scripts/sim/hil_orin env" > "$TMPD/orin.env" 2>"$TMPD/orin.err"; then
+      sed 's/^/    /' "$TMPD/orin.env"
+      local odom
+      odom="$(sed -n 's/^ *ROS_DOMAIN_ID *\([0-9]*\).*/\1/p' "$TMPD/orin.env" | head -1)"
+      if [ -n "$odom" ] && [ "$odom" != "$HIL_ROS_DOMAIN_ID" ]; then
+        log "MISMATCH: the Orin uses ROS_DOMAIN_ID $odom, this side $HIL_ROS_DOMAIN_ID"; bad=1
+      fi
+    else
+      log "could not reach the Orin: $(tr -d '\n' < "$TMPD/orin.err" | cut -c1-200)"; bad=1
+    fi
+  fi
+  if [ "$bad" -eq 0 ]; then log "preflight OK"; else log "preflight found problems (above)"; fi
+  return "$bad"
+}
+
+# ---- Isaac -------------------------------------------------------------------------------
+isaac_args() {
+  # The stack publishes every static sensor frame itself, as on the car: Isaac must not.
+  # The ZED is rendered where the stack's TF says it is (deployed car TF, bag 2026-10-15), and the
+  # odometry/IMU noise matches the car's vesc.yaml - the same overrides scripts/sim/sim_isaac.sh
+  # passes, kept in one place here so both scripts cannot drift.
+  ISAAC_ARGS=("$ISAAC_DIR/launch.sh" --ros-distro jazzy --dds-profile "$PROFILE"
+    --scene "$WORLD" --rtf-log
+    --set ros_interface.publish_static_tf=false
+    --set "car_spec.sensors.zed.lens_center_xyz=[0.2293615, 0.0, 0.2196267]"
+    --set car_spec.sensors.zed.pitch=-0.03635
+    --set sensors.odometry.covariance.pose_xy=0.2
+    --set sensors.odometry.covariance.pose_yaw=0.03
+    --set sensors.odometry.covariance.twist_vx=0.0
+    --set sensors.imu.noise.gyro_stddev=0.0013217
+    # the link budget: sim side only, never the stack
+    --set "sensors.stereo.rate=$RATE"
+    --set "sensors.stereo.width=$HIL_SIM_STEREO_WIDTH"
+    --set "sensors.stereo.height=$HIL_SIM_STEREO_HEIGHT"
+    --set "sensors.stereo.right_camera=$HIL_SIM_STEREO_RIGHT_CAMERA")
+  [ -n "$LAYOUT" ] && ISAAC_ARGS+=(--set "scene.layout=$LAYOUT")
+  local extra
+  for extra in ${HIL_SIM_EXTRA_SET:-}; do ISAAC_ARGS+=(--set "$extra"); done
+  local s
+  for s in "${SETS[@]}"; do ISAAC_ARGS+=(--set "$s"); done
+  [ "$GUI" = true ] && ISAAC_ARGS+=(--gui)
+  ISAAC_ENV=(ROS_DOMAIN_ID="$HIL_ROS_DOMAIN_ID" ROS_DISCOVERY_SERVER="$HIL_DISCOVERY_SERVER"
+             ROS_AUTOMATIC_DISCOVERY_RANGE= RMW_IMPLEMENTATION="$HIL_ROS_RMW"
+             ISAAC_CONTAINER_NAME="$HIL_SIM_CONTAINER" F1T_ISAAC_IMAGE="$HIL_SIM_IMAGE"
+             F1T_REPO="$REPO")
+}
+
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+
+case "$CMD" in
+  env) print_env ;;
+  preflight) preflight ;;
+  world)
+    # The SDF -> USD conversion. --plan runs anywhere; --convert needs Isaac, so it runs in the
+    # container, where this repository is mounted at /home/isaac_ws.
+    case " ${PASS[*]} " in
+      *" --convert "*)
+        docker image inspect "$HIL_SIM_IMAGE" >/dev/null 2>&1 || die "image $HIL_SIM_IMAGE missing"
+        CONV=(docker run --rm --network host --runtime nvidia -e ACCEPT_EULA=Y -e PRIVACY_CONSENT=Y
+              -e OMNI_KIT_ALLOW_ROOT=1 -e PYTHONDONTWRITEBYTECODE=1
+              -v "$ISAAC_DIR:/home/isaac_ws:rw" -v "$REPO:/workspaces/f1tenth_more:ro"
+              -v "$HOME/.cache/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw"
+              -v "$HOME/.cache/isaac-sim/cache/ov:/root/.cache/ov:rw"
+              "$HIL_SIM_IMAGE" /isaac-sim/python.sh /home/isaac_ws/tools/sdf_to_usd.py
+              --sdf /workspaces/f1tenth_more/src/f1tenth_sim/worlds/husarion_office_2x.sdf
+              --models-dir /workspaces/f1tenth_more/src/husarion_gz_worlds/models
+              --fuel-cache "${GZ_FUEL_CACHE:-$HOME/.gz/fuel}"
+              --out /home/isaac_ws/usd/generated/office
+              --report /home/isaac_ws/usd/generated/office/report.json "${PASS[@]}")
+        echo "cmd: ${CONV[*]}"
+        $DRY && { echo "(dry run)"; exit 0; }
+        "${CONV[@]}" ;;
+      *)
+        exec python3 "$ISAAC_DIR/tools/sdf_to_usd.py" --plan \
+          --report "$ISAAC_DIR/usd/generated/office_plan.json" "${PASS[@]}" ;;
+    esac ;;
+  sim)
+    if $DRY; then
+      preflight || true                    # --dry-run inspects; it never requires a live link
+      link_ip soft || true
+    else
+      preflight || die "preflight failed: fix what it listed, or inspect with --dry-run"
+    fi
+    PROFILE="$(render_profile false)"
+    isaac_args
+    echo "== Isaac Sim (world $WORLD${LAYOUT:+/$LAYOUT}, domain $HIL_ROS_DOMAIN_ID, DS $HIL_DISCOVERY_SERVER) =="
+    echo "profile: $PROFILE"
+    echo "env: ${ISAAC_ENV[*]}"
+    echo "cmd: ${ISAAC_ARGS[*]}"
+    $DRY && { echo "(dry run)"; exit 0; }
+    ISAAC_STARTED=true
+    env "${ISAAC_ENV[@]}" "${ISAAC_ARGS[@]}" < /dev/null &
+    wait $! || true ;;
+  reset|run)
+    link_ip
+    PROFILE="$(render_profile true)"
+    set +u
+    [ -f /opt/ros/jazzy/setup.bash ] || die "no /opt/ros/jazzy: the reset/run helpers need a ROS 2 Jazzy on this host"
+    # shellcheck disable=SC1091
+    source /opt/ros/jazzy/setup.bash
+    set -u
+    export ROS_DOMAIN_ID="$HIL_ROS_DOMAIN_ID" RMW_IMPLEMENTATION="$HIL_ROS_RMW" \
+           ROS_DISCOVERY_SERVER="$HIL_DISCOVERY_SERVER" FASTRTPS_DEFAULT_PROFILES_FILE="$PROFILE" \
+           ROS_SUPER_CLIENT=TRUE
+    unset ROS_AUTOMATIC_DISCOVERY_RANGE ROS_LOCALHOST_ONLY ROS_STATIC_PEERS
+    if [ "$CMD" = reset ]; then
+      echo "cmd: ros2 service call /sim/reset std_srvs/srv/Trigger"
+      $DRY && exit 0
+      exec timeout --foreground 20 ros2 service call /sim/reset std_srvs/srv/Trigger
+    fi
+    [ ${#PASS[@]} -gt 0 ] || die "run: no command given (e.g. run ros2 topic hz /scan)"
+    echo "cmd: ${PASS[*]}"
+    $DRY && exit 0
+    exec "${PASS[@]}" ;;
+esac

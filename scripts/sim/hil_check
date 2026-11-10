@@ -1,0 +1,352 @@
+#!/usr/bin/env python3
+"""hil_check -- is the HIL link healthy? Run this INSIDE the Orin container, with the sim running.
+
+    scripts/sim/hil_orin check                  # from the Orin host (recommended)
+    python3 /tmp/f1tenth_hil_check.py           # inside the container (hil_orin copies it there)
+    scripts/sim/hil_check --self-test           # the pure logic, no ROS at all (runs anywhere)
+
+It answers, in one command and in this order:
+
+  1. /clock   is there one, is it advancing, and at what real-time factor
+  2. topics   is every sensor topic the stack needs actually published, with a matching QoS
+  3. rates    is each one within --tolerance (default 10 %) of what it should be
+  4. stamps   how old each message is when it arrives here (the link's one-way delay, sim clock)
+  5. TF       is the tree complete: map -> odom -> base_link -> laser / imu / the ZED chain
+  6. drive    one ackermann command, and does the car actually move in Isaac
+  7. loop     the control loop's own rate and latency (/ackermann_drive, and scan -> command)
+
+Exit code 0 only if every selected check passed.
+
+WHAT IT PUBLISHES. Step 6 publishes AckermannDriveStamped on the sim's command topic
+(/ackermann_drive) for --drive-seconds, then zeros, then waits for the car to stop. That topic is
+the MUX OUTPUT: this deliberately bypasses the stack's arbitration, because what is under test is
+the sim link, not the mux. Never run it while a mission is driving - and pass --no-drive if the
+stack is doing anything at all.
+"""
+from __future__ import annotations
+
+import argparse
+import math
+import os
+import sys
+import time
+
+# ---------------------------------------------------------------------------- expectations
+# (topic, type, expected Hz in HIL, the real car's Hz, source of the real value)
+# 'expected' is what the sim is configured to publish; where it differs from the car on purpose,
+# the real value is printed next to it so the difference stays visible.
+TOPICS = [
+    ("/clock", "rosgraph_msgs/msg/Clock", 60.0, None, "every physics step (60 Hz)"),
+    ("/scan", "sensor_msgs/msg/LaserScan", 40.0, 40.0, "urg_node, bag 2026-10-15: 39.94 Hz"),
+    ("/odom", "nav_msgs/msg/Odometry", 50.0, 50.0, "vesc_to_odom, bag: 50.0 Hz"),
+    ("/sensors/imu/raw", "sensor_msgs/msg/Imu", 50.0, 50.0, "vesc_driver 20 ms poll"),
+    ("/camera/image_raw", "sensor_msgs/msg/Image", None, 30.0, "ZED wrapper 30 Hz configured, ~13.7 measured"),
+    ("/camera/camera_info", "sensor_msgs/msg/CameraInfo", None, 30.0, "with the image"),
+    ("/zed2/zed_node/depth/depth_registered", "sensor_msgs/msg/Image", None, 30.0,
+     "ZED wrapper 30 Hz configured, ~17 measured"),
+    ("/zed2/zed_node/depth/camera_info", "sensor_msgs/msg/CameraInfo", None, 30.0, "with the depth image"),
+]
+# Topics produced by the stack itself; their rate says whether the stack is keeping up.
+STACK_TOPICS = [
+    ("/odometry/filtered", "nav_msgs/msg/Odometry", 50.0, "robot_localization EKF"),
+    ("/ackermann_drive", "ackermann_msgs/msg/AckermannDriveStamped", None, "the mux output = the control loop"),
+]
+TF_CHAINS = [
+    ("odom", "base_link"), ("base_link", "laser"), ("base_link", "imu"),
+    ("base_link", "zed2_camera_link"), ("base_link", "zed2_left_camera_optical_frame"),
+]
+TF_OPTIONAL = [("map", "odom")]          # slam_toolbox may still be starting
+
+
+# ---------------------------------------------------------------------------- pure helpers
+def within(measured: float, expected: float, tolerance: float) -> bool:
+    """Is `measured` within `tolerance` (fraction) of `expected`?"""
+    if expected is None or expected <= 0:
+        return True
+    return abs(measured - expected) <= tolerance * expected
+
+
+def verdict(ok: bool) -> str:
+    return "ok  " if ok else "FAIL"
+
+
+def rate_of(stamps: list[float]) -> float:
+    """Messages per second from their arrival times (0.0 for fewer than two)."""
+    if len(stamps) < 2:
+        return 0.0
+    span = stamps[-1] - stamps[0]
+    return (len(stamps) - 1) / span if span > 0 else 0.0
+
+
+def percentile(values: list[float], q: float) -> float:
+    if not values:
+        return float("nan")
+    s = sorted(values)
+    k = min(len(s) - 1, max(0, int(round(q * (len(s) - 1)))))
+    return s[k]
+
+
+def self_test() -> int:
+    """Check the pure logic without ROS (this is what CI and a laptop can run)."""
+    assert within(40.0, 40.0, 0.1)
+    assert within(36.1, 40.0, 0.1)
+    assert not within(35.9, 40.0, 0.1)
+    assert not within(44.1, 40.0, 0.1)
+    assert within(123.0, None, 0.1)
+    assert rate_of([]) == 0.0
+    assert rate_of([1.0]) == 0.0
+    assert abs(rate_of([0.0, 0.5, 1.0]) - 2.0) < 1e-9
+    assert abs(rate_of([0.0, 1.0]) - 1.0) < 1e-9
+    assert math.isnan(percentile([], 0.5))
+    assert percentile([3.0, 1.0, 2.0], 0.5) == 2.0
+    assert percentile([1.0, 2.0, 3.0, 4.0], 0.95) == 4.0
+    assert verdict(True).strip() == "ok" and verdict(False) == "FAIL"
+    print("hil_check self-test: ok")
+    return 0
+
+
+# ---------------------------------------------------------------------------- the ROS part
+def run(args) -> int:  # noqa: C901 - one linear check sequence, read top to bottom
+    import rclpy
+    from ackermann_msgs.msg import AckermannDriveStamped
+    from rclpy.node import Node
+    from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
+    from rclpy.time import Time
+    from rosgraph_msgs.msg import Clock
+    from tf2_ros import Buffer, TransformListener
+
+    sensor_qos = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10,
+                            reliability=ReliabilityPolicy.RELIABLE,
+                            durability=DurabilityPolicy.VOLATILE)
+    failures: list[str] = []
+
+    rclpy.init()
+    # use_sim_time from the start: every age below is sim-clock minus sim-clock, and a node that
+    # started on wall time would report the whole wall/sim offset as "latency".
+    node = Node("hil_check",
+                parameter_overrides=[rclpy.parameter.Parameter("use_sim_time", value=True)])
+    log = node.get_logger()
+    print(f"hil_check: domain {os.environ.get('ROS_DOMAIN_ID', '<unset>')}, "
+          f"rmw {os.environ.get('RMW_IMPLEMENTATION', '<default>')}, "
+          f"discovery server {os.environ.get('ROS_DISCOVERY_SERVER', '<none>')}, "
+          f"profile {os.environ.get('FASTRTPS_DEFAULT_PROFILES_FILE', '<none>')}")
+
+    # --- 1. /clock ---------------------------------------------------------------------
+    clock_t: list[tuple[float, float]] = []      # (wall, sim)
+    node.create_subscription(Clock, "/clock",
+                             lambda m: clock_t.append((time.time(),
+                                                       m.clock.sec + m.clock.nanosec * 1e-9)),
+                             QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10,
+                                        reliability=ReliabilityPolicy.RELIABLE))
+    print(f"\n1. /clock (waiting up to {args.clock_wait:.0f} s)")
+    deadline = time.time() + args.clock_wait
+    while time.time() < deadline and len(clock_t) < 2:
+        rclpy.spin_once(node, timeout_sec=0.2)
+    if len(clock_t) < 2:
+        print("   FAIL no /clock: the sim is not reachable. Same ROS_DOMAIN_ID on both sides? "
+              "Same Discovery Server? Is Isaac running?")
+        failures.append("/clock")
+        if not args.keep_going:
+            rclpy.shutdown()
+            return 1
+    else:
+        t_end = time.time() + args.seconds
+        while time.time() < t_end:
+            rclpy.spin_once(node, timeout_sec=0.1)
+        wall = clock_t[-1][0] - clock_t[0][0]
+        sim = clock_t[-1][1] - clock_t[0][1]
+        rtf = sim / wall if wall > 0 else 0.0
+        hz = rate_of([c[0] for c in clock_t])
+        ok = sim > 0 and abs(rtf - 1.0) <= args.rtf_tolerance
+        print(f"   {verdict(ok)} sim time advanced {sim:.2f} s in {wall:.2f} s wall: RTF {rtf:.3f} "
+              f"(tolerance {args.rtf_tolerance:.2f}), /clock at {hz:.1f} Hz")
+        if not ok:
+            failures.append(f"/clock RTF {rtf:.3f}")
+
+    # --- 2/3/4. topics, rates, stamp age -----------------------------------------------
+    counts: dict[str, list[float]] = {}
+    ages: dict[str, list[float]] = {}
+    cam_rate = args.camera_rate
+
+    def subscribe(topic: str, type_name: str) -> bool:
+        from rosidl_runtime_py.utilities import get_message
+        try:
+            msg_type = get_message(type_name)
+        except (ImportError, ValueError) as exc:
+            print(f"   cannot resolve {type_name}: {exc}")
+            return False
+        counts[topic] = []
+        ages[topic] = []
+
+        def cb(msg, topic=topic):
+            counts[topic].append(time.time())
+            stamp = getattr(getattr(msg, "header", None), "stamp", None)
+            if stamp is not None:
+                now = node.get_clock().now()
+                age = (now - Time.from_msg(stamp)).nanoseconds * 1e-9
+                ages[topic].append(age)
+        node.create_subscription(msg_type, topic, cb, sensor_qos)
+        return True
+
+    checklist = [(t, ty, exp if exp is not None else (cam_rate if "camera" in t or "depth" in t else None),
+                  real, src) for t, ty, exp, real, src in TOPICS if t != "/clock"]
+    for topic, type_name, _exp, _real, _src in checklist:
+        subscribe(topic, type_name)
+    for topic, type_name, _exp, _src in STACK_TOPICS:
+        subscribe(topic, type_name)
+
+    print(f"\n2. publishers (graph) and 3./4. rates and stamp age over {args.seconds:.0f} s")
+    t_end = time.time() + args.seconds
+    while time.time() < t_end:
+        rclpy.spin_once(node, timeout_sec=0.05)
+
+    print(f"   {'topic':44s} {'pub':>3s} {'Hz':>7s} {'want':>7s} {'real':>6s} {'age p50':>8s} {'p95':>7s}")
+    for topic, _type_name, expected, real, src in checklist:
+        pubs = len(node.get_publishers_info_by_topic(topic))
+        hz = rate_of(counts.get(topic, []))
+        age50 = percentile(ages.get(topic, []), 0.5)
+        age95 = percentile(ages.get(topic, []), 0.95)
+        ok = pubs > 0 and hz > 0 and within(hz, expected, args.tolerance)
+        print(f"   {verdict(ok)} {topic:40s} {pubs:3d} {hz:7.2f} "
+              f"{(expected if expected else float('nan')):7.2f} {(real if real else float('nan')):6.1f} "
+              f"{age50 * 1000:7.1f}ms {age95 * 1000:6.1f}ms")
+        if not ok:
+            failures.append(f"{topic} ({pubs} pub, {hz:.2f} Hz, want {expected})")
+        if real is not None and expected is not None and abs(real - expected) > 0.01:
+            print(f"        note: the real car publishes {real:.1f} Hz here ({src}); "
+                  f"the sim is set to {expected:.1f} Hz on purpose (link budget)")
+    print("\n   the stack's own topics (rate = is it keeping up)")
+    for topic, _type_name, expected, src in STACK_TOPICS:
+        pubs = len(node.get_publishers_info_by_topic(topic))
+        hz = rate_of(counts.get(topic, []))
+        ok = pubs > 0 and (expected is None or within(hz, expected, args.tolerance))
+        print(f"   {verdict(ok)} {topic:40s} {pubs:3d} {hz:7.2f} "
+              f"{(expected if expected else float('nan')):7.2f}   ({src})")
+        if not ok:
+            failures.append(f"{topic} ({pubs} pub, {hz:.2f} Hz)")
+
+    # --- 5. TF -------------------------------------------------------------------------
+    print("\n5. TF tree")
+    buf = Buffer()
+    TransformListener(buf, node)
+    t_end = time.time() + args.tf_wait
+    while time.time() < t_end:
+        rclpy.spin_once(node, timeout_sec=0.05)
+    for parent, child in TF_CHAINS + TF_OPTIONAL:
+        optional = (parent, child) in TF_OPTIONAL
+        try:
+            ok = buf.can_transform(parent, child, Time())
+        except Exception as exc:                                   # noqa: BLE001
+            ok, exc_text = False, str(exc)
+        else:
+            exc_text = ""
+        mark = "ok  " if ok else ("warn" if optional else "FAIL")
+        print(f"   {mark} {parent} -> {child}{'  (optional)' if optional else ''}"
+              f"{'  ' + exc_text if exc_text else ''}")
+        if not ok and not optional:
+            failures.append(f"TF {parent}->{child}")
+
+    # --- 6. drive ----------------------------------------------------------------------
+    if args.no_drive:
+        print("\n6. drive test skipped (--no-drive)")
+    else:
+        print(f"\n6. drive test: {args.drive_speed:.2f} m/s for {args.drive_seconds:.1f} s")
+        poses: list[tuple[float, float, float]] = []
+        from nav_msgs.msg import Odometry
+
+        def on_gt(msg):
+            p = msg.pose.pose.position
+            poses.append((time.time(), p.x, p.y))
+        gt_topic = "/sim/ground_truth/odom"
+        have_gt = len(node.get_publishers_info_by_topic(gt_topic)) > 0
+        node.create_subscription(Odometry, gt_topic if have_gt else "/odom", on_gt, sensor_qos)
+        cmd_qos = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=1,
+                             reliability=ReliabilityPolicy.RELIABLE)
+        pub = node.create_publisher(AckermannDriveStamped, "/ackermann_drive", cmd_qos)
+        for _ in range(20):
+            rclpy.spin_once(node, timeout_sec=0.05)
+        start = poses[-1][1:] if poses else None
+        t_end = time.time() + args.drive_seconds
+        sent = 0
+        while time.time() < t_end:
+            msg = AckermannDriveStamped()
+            msg.header.stamp = node.get_clock().now().to_msg()
+            msg.header.frame_id = "base_link"
+            msg.drive.speed = float(args.drive_speed)
+            msg.drive.steering_angle = 0.0
+            pub.publish(msg)
+            sent += 1
+            rclpy.spin_once(node, timeout_sec=0.02)
+        for _ in range(30):                     # zero, and keep sending it: the sim has a watchdog
+            msg = AckermannDriveStamped()
+            msg.header.stamp = node.get_clock().now().to_msg()
+            msg.header.frame_id = "base_link"
+            pub.publish(msg)
+            rclpy.spin_once(node, timeout_sec=0.05)
+        end = poses[-1][1:] if poses else None
+        if start is None or end is None:
+            print(f"   FAIL no pose feedback on {gt_topic if have_gt else '/odom'}: cannot tell "
+                  "whether the car moved")
+            failures.append("drive test (no pose)")
+        else:
+            moved = math.dist(start, end)
+            ok = moved >= args.drive_min_move
+            print(f"   {verdict(ok)} the car moved {moved:.3f} m "
+                  f"(at least {args.drive_min_move:.3f} m expected) on "
+                  f"{gt_topic if have_gt else '/odom'}, {sent} commands sent")
+            if not ok:
+                failures.append(f"drive test (moved {moved:.3f} m)")
+
+    # --- 7. control loop ----------------------------------------------------------------
+    print("\n7. control loop")
+    cmd_t = counts.get("/ackermann_drive", [])
+    cmd_hz = rate_of(cmd_t)
+    cmd_age = ages.get("/ackermann_drive", [])
+    scan_age = ages.get("/scan", [])
+    print(f"   /ackermann_drive {cmd_hz:6.2f} Hz, command age p50 {percentile(cmd_age, 0.5) * 1000:6.1f} ms, "
+          f"p95 {percentile(cmd_age, 0.95) * 1000:6.1f} ms")
+    print(f"   /scan age        p50 {percentile(scan_age, 0.5) * 1000:6.1f} ms, "
+          f"p95 {percentile(scan_age, 0.95) * 1000:6.1f} ms  "
+          "(sim stamp -> arrival here: the link's one-way delay plus the sim's own queueing)")
+    for name in ("/camera/image_raw", "/zed2/zed_node/depth/depth_registered"):
+        a = ages.get(name, [])
+        if a:
+            print(f"   {name:40s} age p50 {percentile(a, 0.5) * 1000:6.1f} ms, "
+                  f"p95 {percentile(a, 0.95) * 1000:6.1f} ms")
+
+    print("\n" + "=" * 78)
+    if failures:
+        print(f"hil_check: {len(failures)} problem(s)")
+        for f in failures:
+            print(f"  - {f}")
+    else:
+        print("hil_check: everything checked passed")
+    log.debug("done")
+    node.destroy_node()
+    rclpy.shutdown()
+    return 1 if failures else 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--seconds", type=float, default=10.0, help="measuring window [s] (default 10)")
+    ap.add_argument("--tolerance", type=float, default=0.10, help="allowed rate error (default 0.10 = 10 %%)")
+    ap.add_argument("--camera-rate", type=float, default=10.0,
+                    help="expected camera/depth rate [Hz]: sim.stereo.rate of hil.yaml (default 10)")
+    ap.add_argument("--rtf-tolerance", type=float, default=0.15, help="allowed |RTF - 1| (default 0.15)")
+    ap.add_argument("--clock-wait", type=float, default=30.0, help="how long to wait for /clock [s]")
+    ap.add_argument("--tf-wait", type=float, default=5.0, help="how long to collect TF [s]")
+    ap.add_argument("--drive-speed", type=float, default=0.3, help="test command speed [m/s]")
+    ap.add_argument("--drive-seconds", type=float, default=2.0, help="how long to drive [s]")
+    ap.add_argument("--drive-min-move", type=float, default=0.05, help="movement that counts as moved [m]")
+    ap.add_argument("--no-drive", action="store_true", help="skip the drive test (stack is driving)")
+    ap.add_argument("--keep-going", action="store_true", help="carry on even without /clock")
+    ap.add_argument("--self-test", action="store_true", help="run the pure logic only, no ROS")
+    args = ap.parse_args()
+    if args.self_test:
+        return self_test()
+    return run(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

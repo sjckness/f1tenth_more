@@ -1,0 +1,74 @@
+# hil.yaml - THE ONE machine-specific file of the HIL setup.
+#
+# Everything that depends on which machines you have in front of you lives here: addresses, paths,
+# image and container names, the sim's camera budget. Nothing else in the repository hardcodes
+# them. Read by scripts/sim/sim_isaac_hil (workstation), scripts/sim/hil_orin (Orin) and
+# scripts/sim/hil_check (in the Orin container) through scripts/sim/hil_config.py.
+#
+# Copy this file to hil.local.yaml to keep your own values out of git: every script prefers
+# config/hil.local.yaml when it exists (it is in .gitignore).
+
+link:
+  # Static addresses on the workstation <-> Orin link (direct Ethernet cable or a switch).
+  # 10.42.60.0/24 is unused in this repository on purpose: 10.42.0.x is the linus <-> Thor cable,
+  # 10.42.50.x is the car's comms hotspot (f1tenth_comms/config/comms.yaml:38).
+  workstation_ip: 10.42.60.1
+  orin_ip: 10.42.60.2
+  prefix: 24
+  # Interface names, only used by the `ip addr` lines setup.md prints for you to run with sudo.
+  # Leave empty to have the scripts name the interface on the route instead.
+  workstation_iface: ''
+  orin_iface: ''
+  # Expected link speed [Mbit/s]; hil_check warns when the camera budget needs more than 60 % of it.
+  speed_mbit: 1000
+  # Fast DDS socket buffers [MB] on both sides (config/sim/dds/hil.xml.in). A 0.92 MB image is
+  # fragmented into ~15 datagrams that must all arrive; the default 64 kB buffer drops them in
+  # bursts. The OS maximum must be at least this big: sysctl net.core.rmem_max (setup.md, sudo).
+  socket_buffer_mb: 16
+  # EXPERIMENTAL, off: make every writer asynchronous and shape it with a flow controller, so a
+  # big sample does not block Isaac's physics loop while it is fragmented. Turn on only if the
+  # images arrive in bursts or the RTF collapses, and say so in the run notes - it adds a thread
+  # hop to EVERY topic, /clock and /ackermann_drive included.
+  async_writer: false
+  flow_mbit: 800                # ceiling of that flow controller [Mbit/s], async_writer only
+
+ros:
+  # MUST match on both sides. 44 is free here: 0 is the car, 42 the Gazebo/Isaac two-machine sim,
+  # 77/87/91 the test harnesses. The scripts refuse to start if the two sides disagree.
+  domain_id: 44
+  rmw: rmw_fastrtps_cpp         # Fast DDS. NOT Zenoh: output/zenoh/recon.md 3.3 (Isaac 5.1 cannot)
+  # Discovery Server: unicast, so nothing needs multicast. 'orin' keeps it on the stack host, as on
+  # the car (the supervisor starts it itself, so the sim side adds no process to the Orin);
+  # 'workstation' moves it to the sim host instead.
+  discovery_server_host: orin
+  discovery_server_port: 11812  # not 11811: the car's production server may be up on the Orin
+
+sim:
+  # Workstation side.
+  isaac_dir: sim/isaac          # relative to the repository root
+  image: f1tenth_isaac:5.1.0    # sim/isaac/docker/build.sh builds this
+  container: f1t_isaac_hil      # not f1t_isaac: a local Gazebo/Isaac run may hold that name
+  world: office                 # office | room6x6 | corridor | office_nvidia | base_room | hospital
+  layout: corridor              # office: corridor | door | open_space | people
+  gui: false                    # headless by default (the GUI costs ~4 % of the RTF margin)
+  # Camera budget. The stack is never touched, so the link load is reduced HERE.
+  # Fast DDS sends one unicast copy per remote subscriber: /camera/image_raw has 2 readers and the
+  # depth image 3, so 640x360x4 B at r Hz costs about 0.92 MB * 5 * r on the wire
+  # (output/zenoh/recon.md 2.1-2.2: 15 Hz measured ~71 MB/s = ~570 Mbit/s).
+  stereo:
+    width: 640                  # keep 640x360: it is what the car publishes and what K matches
+    height: 360
+    rate: 10.0                  # Hz. 15 = the sim's own default; 10 = ~46 MB/s on the wire
+    right_camera: false         # nothing in the stack subscribes to it; off saves render time
+  extra_set: []                 # extra `--set file.key=value` overrides for sim/main.py
+
+orin:
+  # Stack side. ssh is used by sim_isaac_hil's preflight (domain/RMW/clock checks) and by setup.md.
+  ssh: fabiocar@10.42.60.2
+  repo: /home/fabiocar/dev_ws/f1tenth_more     # a checkout of THIS branch on the Orin (for scripts)
+  container: f1tenth_car                       # docker/orin/compose.yaml (service car)
+  image: ''                                    # empty: take it from ~/.config/f1tenth/car_image
+  stack_args: ''                               # extra `k:=v` arguments for supervisor_bringup
+  # The container must run with host networking (the Orin has no docker bridge at all: its kernel
+  # cannot load bridge.ko, see CLAUDE.md "Orin Docker"). The scripts check this and refuse.
+  require_host_network: true
