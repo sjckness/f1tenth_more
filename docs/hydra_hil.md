@@ -69,10 +69,14 @@ Nothing new beyond what `~/isaac_ws` already has:
   model is semantic_inference's own MobileNetV2 export. Check that it is the one 8/11 used.
 
 ```bash
-# once, after the sudo steps at the end of this file (~25 min with 32 jobs)
-scripts/hydra/build_hydra_ws.sh --models
-source scripts/hydra/hydra_env.sh       # ROS + ~/hydra_ws + this workspace + spark_dsg
-colcon build --symlink-install --packages-select f1tenth_hydra f1tenth_logger
+# once, after the sudo steps at the end of this file
+scripts/hydra/build_hydra_ws.sh --models     # --check first lists what is missing
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install --packages-select f1tenth_hydra f1tenth_logger f1tenth_params
+source scripts/hydra/hydra_env.sh            # ROS + ~/hydra_ws + this workspace + spark_dsg
+
+# smoke test: Hydra runs, seg_source:=gt + isaac_gt on a synthetic ZED/GT feed -> non-empty graph
+python3 -m pytest src/f1tenth_hydra/test/test_hydra_smoke.py -v -s
 ```
 
 ### Flags
@@ -246,4 +250,111 @@ Open a saved graph:
 scripts/hydra/open_graph.sh ~/f1tenth_sim_archive/complete/<run_id>        # dsg_final
 scripts/hydra/open_graph.sh <run>/scene_graph/dsg_t00120.sparkdsg --summary
 scripts/hydra/open_graph.sh ~/.hydra/f1tenth/<profile>_<stamp>             # Hydra's own output
+```
+
+## 7. Keyboard teleop (`keyboard:=true`)
+
+`tools/isaac_keyboard/isaac_keyboard.py` is one self-contained module. **Inside the Isaac
+process** it reads the workstation keyboard with `carb.input` while the Isaac window has focus.
+It publishes `ackermann_msgs/AckermannDriveStamped` on `/teleop`, the ackermann_mux
+`joystick` lane (priority 100, timeout 0.2 s). The Orin's mux receives it over the link. The
+BT's `safety_stop` lane (200) still wins. If `carb.input` has no keyboard (headless Isaac) it
+falls back to evdev. evdev reads the keyboard **whatever window has focus**, and the module logs
+this loudly.
+
+Keys: W/Up forward, S/Down reverse, A/Left and D/Right steer (full lock while held), E/PgUp
+faster, Q/PgDn slower (0.4 to 1.0 m/s in 0.1 steps), Space stop (latched until every drive key
+is released).
+
+Safety (unit-tested, `tools/isaac_keyboard/test_isaac_keyboard.py`):
+- Dead-man: the command is zero unless the latest input sample, no older than 0.3 s, holds a
+  drive key. Releasing a key stops the car on the next tick. Input that stops arriving stops it
+  within 0.3 s, and an Isaac process that stops publishing hits the mux timeout (0.2 s).
+- When idle it keeps publishing zero, so the teleop lane holds the car instead of handing it back
+  to the MPC. To let autonomy drive, use `keyboard:=false`, or `hold_when_idle: false` in the
+  config below.
+- Speed is 0 or at least 0.4 m/s, never in between. Steering is at most +0.319 / -0.309 rad
+  (stack_params `mpc_steering_angle_max/min_rad`, the servo envelope).
+
+### The Isaac-side hook (hil-isaac / `~/isaac_ws`, not in this branch)
+
+`sim_isaac.sh isaac ... keyboard:=true` passes `--set ros_interface.keyboard.enabled=true`.
+Isaac refuses unknown keys, so these 2 additions must be in place first:
+
+`config/ros_interface.yaml`:
+```yaml
+keyboard:
+  enabled: false
+  # this repo, as the compose mounts it (/workspaces/f1tenth_more is ~/dev_ws/f1tenth_more, ro);
+  # with the sim in the repo (hil-isaac) point it at that checkout's tools/isaac_keyboard
+  module: /workspaces/f1tenth_more/tools/isaac_keyboard/isaac_keyboard.py
+  params: {topic: /teleop, max_speed: 1.0, hold_when_idle: true}
+```
+`sim/main.py`, after `ros = RosBridge(...)` and inside the loop after `ros.spin_once()`:
+```python
+    kb = None
+    if cfg.ros.get("keyboard", {}).get("enabled"):
+        import importlib.util
+        _spec = importlib.util.spec_from_file_location("isaac_keyboard", cfg.ros["keyboard"]["module"])
+        _kbm = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(_kbm)
+        kb = _kbm.IsaacKeyboardTeleop(ros.node, _kbm.TeleopParams.from_dict(cfg.ros["keyboard"].get("params")), log=log.info)
+    ...
+        while app.is_running() and not stop["flag"]:
+            ros.spin_once()
+            if kb: kb.step()          # wall-clock dead-man and rate, independent of the RTF
+    ...
+    if kb: kb.close()                 # in the finally/teardown
+```
+It needs the GUI (`--gui`) for carb.input. For the evdev fallback inside the container, add
+`devices: [/dev/input:/dev/input]`, group `input`, and
+`/isaac-sim/python.sh -m pip install evdev`.
+
+Standalone, without the hook, on any host with the stack's ROS env (evdev, see sudo steps):
+`scripts/sim/sim_isaac.sh run --net eth python3 tools/isaac_keyboard/isaac_keyboard.py`.
+
+## Tests
+
+| test | what | runs without Hydra |
+|---|---|---|
+| `src/f1tenth_hydra/test/test_hydra_smoke.py` | Hydra runs with seg_source:=gt + isaac_gt on a synthetic ZED 2i + GT feed (`hydra_synthetic_rgbd`: ray-cast room, boxes, plant, loop path) and publishes a graph with PLACES and objects/places nodes within 150 s. Also builds the command line for every profile x seg x pose | the command-line half only (the graph half is skipped) |
+| `tools/isaac_keyboard/test_isaac_keyboard.py` | dead-man, stop latch, speed 0 or >= 0.4, steering limits | yes |
+| `tools/hydra_cost/test_hydra_cost.py` | the sampler runs, writes CSV + summary, catches a busy process | yes |
+
+## Not verified yet
+
+Written and checked on linus (RTX 5050, no Hydra, no GTSAM). Not run on the workstation:
+
+- **Hydra itself.** Nothing here has run the real Hydra, so the smoke test's graph half has not
+  run. The launch composition was checked against a fake Hydra prefix: node command lines,
+  remaps, the included semantic_inference and visualizer launch files. Hydra config keys are
+  copied from upstream configs (habitat, uhumans2, zed2i) and checked against the source, not
+  against a running parser.
+- **TensorRT MobileNetV2 on the 4090.** The engine is built at the first run.
+- **Jetson aarch64 build** (jetson_min): only the profile and the steps above.
+- **`pose_source:=stack_tf`.** The TF lookups against the stack's EKF + camera TF over the link,
+  and the `odom -> hydra_map` anchor.
+- **hil-isaac integration.** The keyboard hook in `sim/main.py` + `ros_interface.yaml`, carb.input
+  in Isaac 5.1 (API names from Kit's carb.input), and the GT semantics at the HIL frame rate
+  (Isaac RTF with the semantic annotator on).
+- Open3D window of `hydra_dsg_viewer`. The matplotlib path, `--summary`, the live topic path
+  (against a Python DSG publisher), `open_graph.sh`, the logger's saver and `hydra_cost` were
+  run on linus with the pinned spark_dsg built from source.
+
+## sudo steps (run once, last)
+
+On the workstation (Ubuntu 24.04, ROS 2 Jazzy):
+
+```bash
+sudo apt install python3-vcstool python3-rosdep python3-colcon-common-extensions python3-pip
+sudo rosdep init 2>/dev/null; rosdep update
+# Hydra dependencies (GTSAM, PCL, glog, zmq, nanoflann, ...), after build_hydra_ws.sh has
+# imported the sources into ~/hydra_ws/src (it stops after the import if they are missing):
+rosdep install --from-paths ~/hydra_ws/src --ignore-src -r -y        # asks for sudo itself
+# TensorRT + nvcc for seg_source:=mobilenet (CUDA repo; match the cudaXX.Y of libnvinfer-dev):
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+sudo dpkg -i cuda-keyring_1.1-1_all.deb && sudo apt update
+apt-cache policy libnvinfer-dev                                       # note +cudaXX.Y
+sudo apt install libnvinfer-dev libnvonnxparsers-dev libnvinfer-plugin-dev cuda-nvcc-XX-Y
+# keyboard: evdev fallback / standalone keyboard node only (log out and in afterwards)
+sudo usermod -aG input "$USER"
 ```

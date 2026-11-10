@@ -57,7 +57,11 @@ log "importing pinned sources ($REPOS) into $WS/src"
 vcs import --workers 1 --force src < "$REPOS"   # --workers 1: GitHub resets parallel clones
 vcs export --exact src > "$WS/hydra_jazzy.lock.repos"
 log "rosdep check (installing needs sudo: docs/hydra_hil.md)"
-rosdep check --from-paths src --ignore-src -r || log "rosdep reports missing system deps (see above)"
+if ! rosdep check --from-paths src --ignore-src -r; then
+  log "missing system dependencies: run (sudo)  rosdep install --from-paths $WS/src --ignore-src -r -y"
+  log "then run this script again (the sources are in place; nothing was built)"
+  exit 1
+fi
 
 log "colcon build ($JOBS jobs)"
 MAKEFLAGS="-j$JOBS" colcon build --continue-on-error --parallel-workers "$(( JOBS > 4 ? 4 : JOBS ))" \

@@ -42,6 +42,11 @@
 #   hydra_cost:=true          also run tools/hydra_cost (1 Hz cost CSV + summary.md)
 #   HYDRA_WS                  Hydra workspace sourced before this one (default ~/hydra_ws)
 #
+# Keyboard teleop (isaac/all; default off): keyboard:=true -> --set ros_interface.keyboard.enabled=true.
+#   The keys are read INSIDE Isaac (carb.input, the Isaac window focused) and published on the
+#   ackermann_mux teleop lane; needs the Isaac-side hook (tools/isaac_keyboard, docs/hydra_hil.md).
+#   Standalone instead: python3 tools/isaac_keyboard/isaac_keyboard.py (evdev).
+#
 # shell/run: the stack's ROS environment (domain, RMW, the rendered Fast DDS profile, the
 # Discovery Server, the workspace) as a Discovery Server SUPER CLIENT, so `ros2 topic list`
 # and `echo` see the whole graph. Both restart the ros2 daemon of this domain first (a daemon
@@ -97,6 +102,7 @@ esac
 NET=local; DOMAIN="${ROS_DOMAIN_ID:-42}"; SCENE=base_room; LAYOUT=""; GUI=false; CLEAN=false; DRY=false
 LAUNCH_ARGS=(); RUN_CMD=()
 HYDRA=false; HYDRA_PROFILE=workstation_full; HYDRA_SEG=""; HYDRA_POSE=isaac_gt; HYDRA_COST=false
+KEYBOARD=false
 while [ $# -gt 0 ]; do
   if [ "$CMD" = run ] && [ ${#RUN_CMD[@]} -eq 0 ]; then
     case "$1" in
@@ -122,6 +128,7 @@ while [ $# -gt 0 ]; do
     seg_source:=*) HYDRA_SEG="${1#*:=}"; shift ;;
     pose_source:=*) HYDRA_POSE="${1#*:=}"; shift ;;
     hydra_cost:=*) HYDRA_COST="${1#*:=}"; shift ;;
+    keyboard:=*) KEYBOARD="${1#*:=}"; shift ;;
     *:=*) LAUNCH_ARGS+=("$1"); shift ;;
     *) die "unknown option '$1' (--help)" ;;
   esac
@@ -129,6 +136,8 @@ done
 case "$NET" in local|eth) ;; *) die "--net must be local or eth, got '$NET'" ;; esac
 case "$HYDRA" in true|True|1) HYDRA=true ;; false|False|0) HYDRA=false ;;
   *) die "hydra:= must be true or false, got '$HYDRA'" ;; esac
+case "$KEYBOARD" in true|True|1) KEYBOARD=true ;; false|False|0) KEYBOARD=false ;;
+  *) die "keyboard:= must be true or false, got '$KEYBOARD'" ;; esac
 HYDRA_PROFILE_FILE="$REPO/src/f1tenth_hydra/config/profiles/$HYDRA_PROFILE.yaml"
 if $HYDRA; then
   [ -f "$HYDRA_PROFILE_FILE" ] || die "hydra_profile:=$HYDRA_PROFILE: no $HYDRA_PROFILE_FILE"
@@ -318,6 +327,8 @@ isaac_cmd() {  # fills ISAAC_ENV and ISAAC_ARGS
   [ -n "$LAYOUT" ] && ISAAC_ARGS+=(--set "scene.layout=$LAYOUT")
   # Hydra seg_source:=gt reads Isaac's GT classes (mono8, aligned to the left RGB).
   [ "$HYDRA_SEG" = gt ] && ISAAC_ARGS+=(--set sensors.stereo.semantic.enabled=true)
+  # Keyboard teleop in the Isaac process (key added to ros_interface.yaml by the hook).
+  $KEYBOARD && ISAAC_ARGS+=(--set ros_interface.keyboard.enabled=true)
   $GUI && ISAAC_ARGS+=(--gui)
   return 0
 }
