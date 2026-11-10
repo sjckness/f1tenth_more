@@ -1,0 +1,76 @@
+# ZED 2i contract for Hydra: what the REAL car publishes, and therefore what the Isaac sim must
+# publish under the same names. Hydra reads ONLY the topics below; it never talks to the ZED
+# wrapper or to Isaac directly.
+#
+# Sources (real car, branch jazzy-doors 698faa14):
+#   R1 src/f1tenth_perception/config/zed2_perception.yaml   (wrapper overrides)
+#   R2 src/f1tenth_perception/launch/camera.launch.py       (zed2i model, camera_name zed2, remaps)
+#   R3 src/f1tenth_bringup/launch/sim_camera_tf.launch.py   (deployed mount, bag 2026-10-15T15-18-27)
+#   R4 bag 2026-10-15T15-18-27 /camera/camera_info          (intrinsics, as copied into
+#      ~/isaac_ws/config/sensors.yaml stereo.fx..cy)
+# Sim (Isaac, ~/isaac_ws branch f1tenth, NOT in this branch): config/sensors.yaml `stereo`,
+# config/ros_interface.yaml `topics`/`frames`/`qos`, plus the overrides scripts/sim/sim_isaac.sh
+# passes (`--set car_spec.sensors.zed.lens_center_xyz=...`, pitch). The real-vs-sim table is in
+# docs/hydra_hil.md.
+
+camera:
+  model: zed2i                 # R2 camera_model (the camera IS a 2i, S/N 36866199)
+  name: zed2                   # R2 camera_name: every topic/frame keeps the zed2 prefix
+  width: 640                   # R1 pub_downscale_factor 2.0 of HD720 grab; R4 640x360
+  height: 360
+  rate_hz: 30.0                # R1 grab_frame_rate / pub_frame_rate (the car DELIVERS ~13.7 Hz, R4)
+  intrinsics:                  # R4, rectified left camera
+    fx: 262.42822
+    fy: 262.42822
+    cx: 318.74170
+    cy: 179.29431
+    distortion_model: rational_polynomial
+    D: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  hfov_deg: 101.25             # derived: 2 atan(320 / fx)
+  vfov_deg: 68.89              # derived: 2 atan(180 / fy)
+  baseline_m: 0.12             # ZED 2i nominal; bag tf center->left/right +-0.06
+  rgb_encoding: bgra8          # ZED wrapper; Hydra and semantic_inference convert to rgb8 (cv_bridge)
+  depth:
+    mode: PERFORMANCE          # R1 depth.depth_mode
+    min_m: 0.3                 # R1 depth.min_depth
+    max_m: 10.0                # R1 depth.max_depth
+    encoding: 32FC1            # metres (openni_depth_mode false)
+    too_close: -.inf           # ZED convention
+    too_far: .inf
+    stabilization: 0           # R1 depth.depth_stabilization
+
+topics:
+  rgb: /camera/image_raw                         # R2 remap of zed2/zed_node/rgb/color/rect/image (v5)
+  rgb_info: /camera/camera_info
+  depth: /zed2/zed_node/depth/depth_registered   # aligned to the left (rgb) camera
+  depth_info: /zed2/zed_node/depth/camera_info
+  # sim only (no counterpart on the car):
+  semantic_gt: /sim/ground_truth/left/semantic   # mono8 class ids, aligned to rgb (same render product)
+  gt_odom: /sim/ground_truth/odom                # nav_msgs/Odometry, map_sim -> base_link
+
+qos:                           # ZED wrapper and Isaac both offer RELIABLE; Hydra subscribes reliable
+  reliability: reliable
+  history_depth: 5
+
+frames:
+  base: base_link
+  camera_link: zed2_camera_link
+  camera_center: zed2_camera_center
+  left: zed2_left_camera_frame
+  # The optical frame name differs by wrapper version; Hydra takes it from the camera_info
+  # header, so neither is hard-coded in the launch:
+  left_optical_v4: zed2_left_camera_optical_frame    # humble-v4.2.5 (campaign car) and Isaac
+  left_optical_v5: zed2_left_camera_frame_optical    # v5.4.1 (Jazzy car)
+
+# base_link -> zed2_camera_link as DEPLOYED on the car (R3). Isaac renders the camera here too:
+# sim_isaac.sh sets lens_center_xyz=[0.2293615, 0, 0.2196267] and pitch -0.03635, which is this
+# mount's lens midpoint (checked: f1tenth_hydra.camera.lens_midpoint()).
+mount:
+  xyz: [0.2399, 0.0, 0.205]
+  quat_xyzw: [0.0, -0.01817399939, 0.0, 0.99983483923]   # pitch -2.083 deg (optical axis up)
+
+# ZED 2i URDF chain (wrapper urdf; R3 _ZED_URDF)
+chain:
+  link_to_center_xyz: [0.0, 0.0, 0.015]
+  center_to_left_xyz: [-0.01, 0.06, 0.0]
+  left_to_optical_rpy: [-1.5707963267948966, 0.0, -1.5707963267948966]

@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_hydra</name>
+  <version>0.0.1</version>
+  <description>Hydra (MIT-SPARK) 3D scene graph for the F1TENTH stack: the launch (hydra.launch.py,
+  profiles, seg_source gt or mobilenet, pose_source isaac_gt or stack_tf), its configs, the
+  RViz config and a small Python scene graph viewer. Hydra itself is NOT a dependency: it lives
+  in its own workspace (~/hydra_ws, see docs/hydra_hil.md) and is found at launch time, so this
+  workspace builds and runs unchanged without it.</description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_python</buildtool_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <test_depend>python3-pytest</test_depend>
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
