@@ -4,7 +4,9 @@
 llm.launch.py starts this next to llama-server (start_server:=true). It waits
 for the server's /health to answer 200 (503 while the model loads, connection
 refused before the port is open), then sends ONE /completion with the v2
-planner system prompt and a dummy command, n_predict 1. That request pays the
+planner system prompt -- THE SAME RENDERING the planner will send, both
+switches resolved the same way (see planner_prompt) -- and a dummy command,
+n_predict 1. That request pays the
 first-request cost (model pages, GPU warm-up: up to 58 s observed on a freshly
 booted Thor) and leaves the prompt prefix in the server's slot cache, so the
 operator's first `ros2 run llm llm_planner_node "..."` gets the same ~2 s
@@ -22,7 +24,11 @@ import argparse
 import sys
 import time
 
-from llm.plan_translate import intent_prompt_filename, load_intent_prompt
+from llm.plan_translate import (
+    doors_in_prompt,
+    intent_prompt_filename,
+    load_intent_prompt,
+)
 
 import requests
 
@@ -67,13 +73,42 @@ def warm_up(base_url: str, system_prompt: str, timeout_s: float) -> dict:
     return timings
 
 
-def go_to_enabled() -> bool:
-    """stack_params go_to_enabled: picks the same prompt file as the planner."""
+def _flag(name: str) -> bool:
+    """Read a stack_params boolean; True when the params package is unreachable."""
     try:
         from f1tenth_params.param_defaults import get_value
-        return bool(get_value('go_to_enabled'))
+        return bool(get_value(name))
     except Exception:  # noqa: BLE001 - no params package: the default prompt
         return True
+
+
+def go_to_enabled() -> bool:
+    """stack_params go_to_enabled: picks the same prompt FILE as the planner."""
+    return _flag('go_to_enabled')
+
+
+def enter_door_enabled() -> bool:
+    """stack_params enter_door_enabled: picks the same door SECTION as the planner."""
+    return _flag('enter_door_enabled')
+
+
+def planner_prompt() -> tuple:
+    """Return (prompt_file, doors_enabled, rendered prompt) -- the planner's own.
+
+    THE WHOLE POINT OF THIS FUNCTION is that the warm-up request and the
+    operator's first real request must carry the BYTE-IDENTICAL prefix.
+    llama-server caches a prompt prefix per slot, so a warm-up that renders
+    the door section while the planner renders the refusal one (or the other
+    way round) pays the full prompt_ms twice and the warm-up has bought
+    nothing. So both sides resolve the two switches through the same two
+    functions: intent_prompt_filename(go_to) for the file and
+    doors_in_prompt(go_to, doors) for the section -- see
+    llm_planner_node.__init__, which does exactly this.
+    """
+    go_to = go_to_enabled()
+    doors = doors_in_prompt(go_to, enter_door_enabled())
+    prompt_file = intent_prompt_filename(go_to)
+    return prompt_file, doors, load_intent_prompt(prompt_file, doors_enabled=doors)
 
 
 def main(argv=None) -> int:
@@ -89,12 +124,13 @@ def main(argv=None) -> int:
         base = base[:-len('/completion')]
     try:
         ready = wait_healthy(base, a.max_wait)
-        prompt_file = intent_prompt_filename(go_to_enabled())
-        t = warm_up(base, load_intent_prompt(prompt_file), a.timeout)
+        prompt_file, doors, prompt = planner_prompt()
+        t = warm_up(base, prompt, a.timeout)
     except (TimeoutError, requests.exceptions.RequestException) as exc:
         _log(f'FAILED: {exc}')
         return 1
-    _log(f'ready after {ready:.1f} s; warm-up completion ({prompt_file}) {t["wall_s"]:.2f} s, '
+    _log(f'ready after {ready:.1f} s; warm-up completion ({prompt_file}, '
+         f'porte {"on" if doors else "off"}) {t["wall_s"]:.2f} s, '
          f'prompt_n={t.get("prompt_n")} prompt_ms={t.get("prompt_ms")} cache_n={t.get("cache_n")}')
     return 0
 
