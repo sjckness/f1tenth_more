@@ -87,6 +87,14 @@ def generate_launch_description():
     profile_la = DeclareLaunchArgument(
         'mission_logger_profile', default_value=str(profile_default),
         description=profile_desc)
+    scene_graph_default, scene_graph_desc = get_default('mission_logger_log_scene_graph')
+    scene_graph_la = DeclareLaunchArgument(
+        'mission_logger_log_scene_graph', default_value=str(scene_graph_default),
+        description=scene_graph_desc)
+    sg_period_default, sg_period_desc = get_default('mission_logger_scene_graph_period_sec')
+    sg_period_la = DeclareLaunchArgument(
+        'mission_logger_scene_graph_period_sec', default_value=str(sg_period_default),
+        description=sg_period_desc)
     logger_on = LaunchConfiguration('enable_mission_logger')
     depth_on = LaunchConfiguration('mission_logger_record_depth')
     profile = LaunchConfiguration('mission_logger_profile')
@@ -133,6 +141,10 @@ def generate_launch_description():
             'profile': profile,
             'record_annotated_image': ParameterValue(
                 LaunchConfiguration('mission_logger_record_annotated_image'), value_type=bool),
+            'log_scene_graph': ParameterValue(
+                LaunchConfiguration('mission_logger_log_scene_graph'), value_type=bool),
+            'scene_graph_period_sec': ParameterValue(
+                LaunchConfiguration('mission_logger_scene_graph_period_sec'), value_type=float),
         }],
     )
 
@@ -154,6 +166,8 @@ def generate_launch_description():
         annotated_la,
         depth_la,
         profile_la,
+        scene_graph_la,
+        sg_period_la,
         depth_throttle,
         image_throttle,
         mission_logger_node,

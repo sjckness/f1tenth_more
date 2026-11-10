@@ -220,7 +220,12 @@ def main(argv=None):
     names = load_label_names(a.labelspace)
 
     if a.file:
-        G = dsg.DynamicSceneGraph.load(os.path.expanduser(a.file))
+        path = os.path.expanduser(a.file)
+        if path.endswith('.bin'):        # raw DsgUpdate payload (logger without spark_dsg)
+            with open(path, 'rb') as f:
+                G = dsg.DynamicSceneGraph.from_binary(f.read())
+        else:
+            G = dsg.DynamicSceneGraph.load(path)
         print(format_summary(graph_summary(G)))
         if a.summary:
             return 0

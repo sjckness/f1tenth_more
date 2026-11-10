@@ -219,3 +219,31 @@ It samples at 1 Hz and writes one long CSV row per metric
 
 Output: `~/.ros/hydra_cost/<stamp>/samples.csv` + `summary.md` (rewritten every 60 s and at exit).
 `~/.ros/hydra_cost/latest` points to the newest run.
+
+## 6. Logger: scene graphs in the run folder
+
+`f1tenth_logger`'s mission logger takes the parameter `log_scene_graph`, default **false**. The
+logger itself stays off by default (`enable_mission_logger`). When both are on, each mission run
+folder gets:
+
+```
+<run>/scene_graph/dsg_t00010.sparkdsg, dsg_t00020.sparkdsg, ...   every scene_graph_period_sec (10 s)
+<run>/scene_graph/dsg_final.sparkdsg                              at mission end
+<run>/scene_graph/hydra_cost/{samples.csv,summary.md}             if hydra_cost runs on this host
+```
+
+Launch arguments (`mission_logger.launch.py`, defaults in `stack_params.yaml`):
+`mission_logger_log_scene_graph:=true`, `mission_logger_scene_graph_period_sec:=10.0`. Under
+the supervisor in sim, add them to `config/sim/isaac.yaml` ->
+`component_supervisor_node.sim_component_args.diagnostics`. The logger needs the Hydra
+workspace sourced (hydra_msgs, spark_dsg). Without the spark_dsg bindings it writes the raw
+graph bytes (`dsg_*.bin`) instead. With nothing Hydra-related sourced it logs one error and
+records the run as usual.
+
+Open a saved graph:
+
+```bash
+scripts/hydra/open_graph.sh ~/f1tenth_sim_archive/complete/<run_id>        # dsg_final
+scripts/hydra/open_graph.sh <run>/scene_graph/dsg_t00120.sparkdsg --summary
+scripts/hydra/open_graph.sh ~/.hydra/f1tenth/<profile>_<stamp>             # Hydra's own output
+```
