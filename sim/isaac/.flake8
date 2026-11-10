@@ -1,0 +1,22 @@
+# Lint settings for sim/isaac. This directory is NOT an ament package (it is the Isaac Sim side,
+# run by Isaac's own Python 3.11 inside the container), so the ament_flake8 tests do not cover it:
+#   python3 -m flake8 sim/isaac
+# Most of sim/ and tools/ is vendored verbatim from ~/isaac_ws (branch f1tenth, 4d2de1e) and is
+# kept close to its source so it can still be diffed against it; the ignore list below is what
+# that code needs, not a style choice for new files. In order:
+#   D      docstring plugin, not used in this repository
+#   Q000   quote style
+#   I1xx   import-order plugin
+#   A003   builtin shadowing as a class attribute
+#   E402   module-level import after the SimulationApp start, which Isaac REQUIRES
+#   C408   dict() call instead of a literal (vendored)
+#   E127   continuation-line indent (vendored)
+[flake8]
+max-line-length = 130
+extend-ignore = D,Q000,I100,I101,I201,I202,A003,E402,C408,E127
+per-file-ignores =
+    tools/drive_nan_check.py:E501
+    tools/find_pose.py:E501
+    tools/ros_checks.py:F401,E128
+    sim/sensors.py:F401
+    tools/probe_point.py:E302,E305

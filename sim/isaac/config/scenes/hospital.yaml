@@ -1,0 +1,27 @@
+# Optional: NVIDIA Hospital (long corridors). Load + VRAM/RTF only, no tuning (task Phase 8 optional).
+# Pose from tools/find_pose.py (output/hospital_poses.json): floor + ceiling meshes, wall 2.5 m ahead.
+name: hospital
+type: usd_environment
+environment:
+  usd: /Isaac/Environments/Hospital/hospital.usd
+  add_colliders: true
+  collider_patterns: ["*floor*", "*carpet*"]
+  labels:
+    floor: ["*floor*"]
+    wall: ["*wall*"]
+lighting:
+  extra_dome_intensity: 300.0
+  shadows: false
+person:
+  enabled: true
+  usd: /Isaac/People/Characters/M_Medical_01/M_Medical_01.usd
+  position: [-15.2, 7.8, 0.0]
+  face_car: true
+  asset_yaw_offset_deg: 90.0
+  yaw_deg: 0.0
+  collider: {radius: 0.175, height: 1.75}
+car:
+  start: {x: -17.0, y: 7.0, yaw_deg: 0.0}
+semantics: {unlabeled: 0, floor: 1, wall: 2, person: 3, car: 4}
+expected:
+  wall_ahead_range_from_base: 2.53

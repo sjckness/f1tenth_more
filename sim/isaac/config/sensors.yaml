@@ -1,0 +1,73 @@
+# Sensor parameters (poses are in car_spec.yaml). Sources as in car_spec.yaml.
+lidar:
+  type: physx_2d            # PhysX raycast lidar (collision based, hits glass colliders), NOT RTX
+  model: Hokuyo UST-10LX    # repo:f1tenth_bringup/config/sensors.yaml:1-44
+  angle_min: -2.356194      # rad, bag 2026-10-15T15-18-27 /scan
+  angle_max: 2.356194       # rad, bag
+  angle_increment: 0.0043633231  # rad (0.25 deg), bag -> 1081 beams
+  range_min: 0.02           # m, bag
+  range_max: 30.0           # m, bag (driver value; UST-10LX is rated 10 m)
+  rate: 40.0                # Hz, bag: 39.94 Hz header stamps
+  time_increment: 1.736e-05 # s, bag
+  scan_time: 0.025          # s, bag
+  physx_max_range: 30.0     # m, raycast length
+  noise:
+    enabled: false          # Gaussian range noise, off for the first tests
+    stddev: 0.01            # m
+  no_return_value: .inf     # REP-117: no hit -> +inf
+
+stereo:
+  width: 640                # repo:f1tenth_perception/config/zed2_perception.yaml:15-17 (HD720 / 2)
+  height: 360
+  rate: 15.0                # Hz (task prompt; real pub 30, bag camera_info 13.7 Hz)
+  # Target intrinsics: real left camera_info from bag 2026-10-15T15-18-27 (/camera/camera_info), 640x360
+  fx: 262.42822
+  fy: 262.42822
+  cx: 318.74170
+  cy: 179.29431
+  distortion_model: rational_polynomial   # bag: D all zeros (rectified)
+  horizontal_aperture_mm: 20.955          # Isaac default; focal length is derived from fx
+  clipping_near: 0.05       # m, render clip (depth output applies depth_min/max below)
+  clipping_far: 20.0        # m
+  depth_min: 0.3            # m, ZED wrapper zed2i.yaml min_depth (humble-v4.2.5)
+  depth_max: 10.0           # m, ZED wrapper zed2i.yaml max_depth
+  depth_too_close_value: -.inf   # ZED convention
+  depth_too_far_value: .inf      # ZED convention
+  image_encoding: bgra8     # real ZED wrapper publishes bgra8; perception converts with cv_bridge 'bgr8'
+  depth_encoding: 32FC1     # common_stereo.yaml:69 openni_depth_mode false -> metres
+  right_camera: true        # render right camera (set false to save VRAM)
+  semantic:
+    enabled: false          # /sim/ground_truth/left/semantic (mono8 class ids, see scenes)
+  depth_noise:              # noise.py, disabled by default
+    enabled: false
+    floor_nan_beyond: 1.5   # m
+    floor_nan_probability: 0.6
+    k_quadratic: 0.002      # sigma = k * z^2 [m]
+    publish_confidence: false
+    seed: 0
+
+imu:
+  rate: 50.0                # Hz, vesc_driver polls IMU every 20 ms (vesc_driver.cpp:121-147)
+  # physics_sensor = isaacsim.sensors.physics IMUSensor; it returns NaN in office.usd, so non-finite readings
+  # fall back automatically to rigid_body (chassis velocity finite difference). rigid_body forces the fallback.
+  source: physics_sensor
+  noise:
+    enabled: true
+    gyro_stddev: 0.002      # rad/s, small default (assumed)
+    accel_stddev: 0.02      # m/s^2 (assumed)
+  # NOTE real VESC IMU: gyro z rad/s, gyro x/y deg/s, accel in g (vesc.yaml:107-188). Sim publishes SI.
+
+odometry:
+  rate: 50.0                # Hz, /odom from vesc_to_odom (bag 50.0 Hz)
+  noise:
+    enabled: true
+    speed_scale_error: 0.02 # +2 % speed scale
+    yaw_rate_bias: 0.0      # rad/s
+  covariance:
+    pose_xy: 0.01
+    pose_yaw: 0.05
+    twist_vx: 0.01
+    twist_wz: 0.05
+
+ground_truth:
+  rate: 50.0                # Hz, /sim/ground_truth/odom and person pose

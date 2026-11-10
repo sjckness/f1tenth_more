@@ -1,0 +1,55 @@
+# NVIDIA Office environment (FALLBACK world: no download needed, pulled from the NVIDIA asset
+# server). The main HIL office world is scenes/office.yaml, which references the downloaded pack.
+# Referenced, not copied. Poses chosen with tools/find_pose.py
+# (output/office_poses.json): office floor mesh below (not the outdoor GroundPlane), ceiling mesh above,
+# clearance >= 2.9 m around, flat wall (SM_Wall_3m_doorElevator17, elevator lobby) 2.9 m ahead, heading -x.
+name: office_nvidia
+type: usd_environment
+environment:
+  usd: /Isaac/Environments/Office/office.usd
+  add_colliders: true          # 140 non-instanced meshes (mostly floors) ship WITHOUT colliders; instanced ones have them
+  collider_patterns: ["*floor*", "*carpet*"]
+  # Static vertical structure without a collider gets one (scene_builder.VERTICAL_CATEGORIES, simple shapes only,
+  # degenerate/huge meshes skipped). Audit 2026-10-16: 0 candidates in office.usd - every wall/door/glass/column/
+  # partition/furniture mesh is instanced with the asset's own triangle collider (output/sim_next/office_colliders_*.json)
+  vertical_colliders:
+    enabled: true
+    approximation: {wall: boundingCube, partition: boundingCube, glass: boundingCube, column: convexHull,
+                    door: convexHull, furniture: convexHull}
+    max_size_m: 40.0
+    min_height_m: 0.3
+  audit_radius: 15.0           # m around the car start: tools/office_colliders.py, tools/lidar_passthrough.py
+  labels:                      # class -> prim-name patterns (fnmatch, lower case); the asset has no labels at all
+    floor: ["*floor*", "*carpet*"]
+    wall: ["*wall*"]
+lighting:
+  extra_dome_intensity: 300.0  # on top of the environment's own lights
+  # Headless RaytracedLighting (no indirect diffuse) leaves the office interior almost black: local fill
+  # lights around the start area (ceiling height ~2.6 m).
+  sphere_lights:
+    - {position: [-12.0, -3.0, 2.4], intensity: 30000.0, radius: 0.15}
+    - {position: [-14.0, -3.5, 2.4], intensity: 30000.0, radius: 0.15}
+    - {position: [-13.0, -1.5, 2.4], intensity: 30000.0, radius: 0.15}
+    - {position: [-13.0, -5.0, 2.4], intensity: 30000.0, radius: 0.15}
+    - {position: [-11.0, -3.5, 2.0], intensity: 40000.0, radius: 0.15}   # behind the car: lights the person's front
+    # 2026-10-16 (sim_next Part 4): along the 10 m check route (-12,-3) -> (-12,-10.6) -> (-9,-11), whose images
+    # were underexposed past 2 m (mean 10-17/255, 70-92 % of pixels < 20; output/sim_next/office_route_*.png)
+    - {position: [-12.0, -5.5, 2.4], intensity: 30000.0, radius: 0.15}
+    - {position: [-12.0, -8.0, 2.4], intensity: 30000.0, radius: 0.15}
+    - {position: [-11.5, -10.5, 2.4], intensity: 30000.0, radius: 0.15}
+    - {position: [-9.5, -11.2, 2.4], intensity: 30000.0, radius: 0.15}
+    - {position: [-7.5, -11.2, 2.4], intensity: 30000.0, radius: 0.15}
+  shadows: false
+person:
+  enabled: true
+  usd: /Isaac/People/Characters/M_Medical_01/M_Medical_01.usd
+  position: [-13.8, -3.8, 0.0]   # 1.8 m ahead, 0.8 m left of the car
+  face_car: true
+  asset_yaw_offset_deg: 90.0
+  yaw_deg: 0.0
+  collider: {radius: 0.175, height: 1.75}
+car:
+  start: {x: -12.0, y: -3.0, z: 0.01, yaw_deg: 180.0}   # z: carpet path top (tools/probe_point.py)
+semantics: {unlabeled: 0, floor: 1, wall: 2, person: 3, car: 4}
+expected:
+  wall_ahead_range_from_base: 2.9   # m, double-sided PhysX raycast at z=0.19 from base_link along the heading (find_pose.py)

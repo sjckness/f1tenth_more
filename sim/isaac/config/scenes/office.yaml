@@ -1,0 +1,98 @@
+# office: the MAIN HIL world - the husarion office, the SAME Gazebo world the stack's Gazebo sim
+# runs (src/f1tenth_sim/worlds/husarion_office_2x.sdf, the 2x-scaled copy of
+# src/husarion_gz_worlds/worlds/husarion_office.sdf, Apache-2.0, submodule pinned at 87271ef).
+#
+# The SDF is the single source of truth. tools/sdf_to_usd.py converts it (meshes through Isaac's
+# asset converter, world structure authored from the SDF) into usd/generated/office/office.usd,
+# which usd/office_hil.usda references. Isaac Sim 5.1 has no SDF importer - see that script's
+# header for what it does and why. Regenerate after any change to the SDF so Gazebo and Isaac
+# never drift apart.
+#
+# MEASURED FROM THE SDF (tools/sdf_to_usd.py --plan, tools/pick_spawn_poses.py, 2026-11-10):
+#   99 models, 157 visual + 148 collision geometries, 47 unique meshes, 210 k triangles
+#   extent 28.5 x 27.1 x 2.6 m, floor at z = 0, walls 2.5 m
+#   every structural model (Surfaces, Door, Glass_wall_1/2) has collision geometry
+#   573 m2 of drivable floor at the lidar plane (z 0.05..0.35)
+# Light enough for an RTX 5050 at 210 k triangles; --light (sdf_to_usd.py) drops the VISUAL
+# meshes of the furniture and keeps every collider, if the textures turn out to be the problem.
+name: office
+type: usd_environment
+environment:
+  usd: usd/office_hil.usda       # repo-relative, resolved next to this sim directory
+  # The SDF already carries 148 collision geometries and sdf_to_usd.py authors them as colliders.
+  # Adding more here would give the lidar a SECOND copy of the world (the visual meshes).
+  add_colliders: false
+  collider_patterns: []
+  vertical_colliders: {enabled: false, approximation: {}}
+  audit_radius: 15.0             # tools/office_colliders.py / tools/lidar_passthrough.py ring
+  hide_patterns: []              # GPU budget: e.g. ['*laptop*', '*tv*'] (prim-name patterns)
+  labels:                        # prim-name patterns (fnmatch, lower case) -> semantic class
+    floor: ["floor_*"]           # Surfaces/floor_1..floor_14
+    wall: ["wall_*"]             # Surfaces/wall_1..wall_2 (one mesh each, whole building)
+    glass: ["glass_wall*"]       # Glass_wall_1, Glass_wall_2 (box geometry)
+    door: ["*door*"]             # OpenRobotics/Door (leaf CLOSED in the SDF, see below)
+lighting:
+  # The SDF has one directional sun and relies on Gazebo's 0.8 ambient. Headless
+  # RaytracedLighting has no indirect diffuse, so the interior needs fill lights: a dome plus one
+  # sphere light over each start pose and along the corridor run.
+  extra_dome_intensity: 400.0
+  shadows: false
+  sphere_lights:
+    - {position: [16.8, 0.0, 2.4], intensity: 30000.0, radius: 0.15}     # corridor start
+    - {position: [16.8, -4.0, 2.4], intensity: 30000.0, radius: 0.15}
+    - {position: [16.8, -8.0, 2.4], intensity: 30000.0, radius: 0.15}
+    - {position: [16.8, -12.0, 2.4], intensity: 30000.0, radius: 0.15}
+    - {position: [15.4, -11.6, 2.4], intensity: 30000.0, radius: 0.15}   # open space
+    - {position: [10.0, -19.4, 2.4], intensity: 30000.0, radius: 0.15}   # door approach
+    - {position: [8.0, -19.4, 2.4], intensity: 25000.0, radius: 0.15}    # through the doorway
+person:
+  enabled: false                 # a standing extra; the world itself has no people at all
+  usd: /Isaac/People/Characters/M_Medical_01/M_Medical_01.usd
+  position: [16.8, -6.0, 0.0]
+  face_car: true
+  asset_yaw_offset_deg: 90.0
+  yaw_deg: 0.0
+  pose: arms_down
+  arm_abduction_deg: 4.0
+  collider: {radius: 0.175, height: 1.75}
+people:
+  # WALKING characters (sim/people.py), OFF by default. The SDF has NO <actor> and no people, so
+  # there is nothing to map: these are added by us. Paths were checked against the SDF occupancy
+  # grid (tools/pick_spawn_poses.py); the minimum clearance along each is in the comment.
+  enabled: false
+  usd: /Isaac/People/Characters/F_Business_02/F_Business_02.usd
+  pose: arms_down
+  asset_yaw_offset_deg: 90.0
+  speed: 1.1
+  collider: {radius: 0.175, height: 1.75}
+  characters:
+    - {path: [[17.0, -2.0], [17.0, -12.0]], speed: 1.1, phase: 0.0}    # corridor, min 0.80 m
+    - {path: [[17.0, -12.0], [17.0, -2.0]], speed: 0.9, phase: 0.3}    # the other way, min 0.80 m
+    - {path: [[14.0, -11.5], [16.5, -11.5]], speed: 0.9, phase: 0.5}   # open space, min 1.66 m
+car:
+  start: {x: 16.814, y: 0.946, z: 0.02, yaw_deg: -90.0}   # = the `corridor` layout
+layout: corridor
+presets:
+  # COMPUTED FROM THE SDF, not chosen by eye: tools/pick_spawn_poses.py projects every collision
+  # geometry onto the lidar plane (per triangle: the office's walls and floors are one mesh each)
+  # and reads the poses off that grid. Re-run it after regenerating the world.
+  corridor:        # long corridor, 24.85 m clear ahead, 1.25 m clear to each side
+    car: {start: {x: 16.814, y: 0.946, z: 0.02, yaw_deg: -90.0}}
+  door:            # 2.0 m in front of a 1.25 m DOORWAY at (8.064, -19.404), 6 m free beyond it,
+                   # clearance 1.48 m at the start, 0.65 m minimum on the way in
+    car: {start: {x: 10.064, y: -19.404, z: 0.02, yaw_deg: 180.0}}
+  open_space:      # the largest free circle on the floor: 2.80 m clear in every direction
+    car: {start: {x: 15.364, y: -11.554, z: 0.02, yaw_deg: 0.0}}
+  people:          # corridor start + the three walking characters
+    car: {start: {x: 16.814, y: 0.946, z: 0.02, yaw_deg: -90.0}}
+    people: {enabled: true}
+# NOT A DOORWAY: the world's one `Door` model is a CLOSED leaf (x 10.03..10.27, y -7.07..-6.02)
+# and a flight of stairs stands 0.6 m in front of it (Stairs collision box x 10.72..10.93,
+# y -7.41..-6.41, z 0.17..0.33). The `door` preset above uses a real opening in the wall instead,
+# which is also what the door detector is written for (two jambs and a gap). To drive at the
+# modelled door, regenerate without it: tools/sdf_to_usd.py --convert --drop-visual door is not
+# enough (collision stays); remove the model from a COPY of the SDF.
+semantics: {unlabeled: 0, floor: 1, wall: 2, person: 3, car: 4, glass: 7, door: 8}
+expected:
+  # tools/find_pose.py raycasts these on the workstation; fill in per layout after the first run.
+  wall_ahead_range_from_base: 0.0

@@ -1,0 +1,85 @@
+# Base scene = the campaign room: closed room, interior 0..size_x, 0..size_y (room corner at the world origin).
+# Run layout = a named preset below (car start, person, plant, obstacle), merged over the defaults; choose one
+# with --set scene.layout=<name> (sim_isaac.sh isaac --layout <name>); any --set scene.* override wins over it.
+# Task spec: 6 x 6 m, walls 2.5 m x 0.1 m. Gazebo reference empty_room.sdf is 9.9 x 9.9 m with 1 m walls
+# (f1tenth_sim/worlds/empty_room.sdf:69-110) -> see scenes/gazebo_empty_room.yaml for that variant.
+name: base_room
+type: procedural_room
+room:
+  size_x: 6.0
+  size_y: 6.0
+  wall_height: 2.5
+  wall_thickness: 0.1
+  ceiling: false
+floor:
+  material: matte_grey          # matte_grey | glossy_grey (materials defined below)
+materials:
+  matte_grey: {color: [0.45, 0.45, 0.45], roughness: 0.9, metallic: 0.0}
+  glossy_grey: {color: [0.45, 0.45, 0.45], roughness: 0.15, metallic: 0.0}
+  wall_white: {color: [0.85, 0.85, 0.82], roughness: 0.8, metallic: 0.0}
+lighting:
+  dome_intensity: 600.0
+  distant_intensity: 1500.0
+  distant_angle_deg: [-45.0, 30.0]   # [pitch, yaw] of the distant light
+  shadows: false
+person:
+  enabled: true
+  usd: /Isaac/People/Characters/M_Medical_01/M_Medical_01.usd   # static, no animation
+  position: [3.0, 3.0, 0.0]
+  face_car: true
+  asset_yaw_offset_deg: 90.0     # character mesh faces its local -Y: +90 deg makes it face 'yaw' (checked on the rendered image: shoe direction)
+  yaw_deg: 0.0                  # used when face_car is false
+  pose: arms_down               # arms_down: static standing pose authored on the skeleton (sim/person_pose.py); asset: the shipped T-pose
+  arm_abduction_deg: 4.0        # upper arms this far from vertical: footprint 0.58 x 0.42 m (tools/person_extent.py; 8 deg -> 0.65 m)
+  collider: {radius: 0.175, height: 1.75}   # invisible capsule collider (lidar/physics); fallback visual too
+car:
+  start: {x: 1.0, y: 1.5, yaw_deg: 0.0}    # base_link pose in map_sim
+plant:                          # static potted plant (lidar: triangle-mesh collider; label = the YOLO/COCO class)
+  enabled: false
+  usd: /Isaac/Environments/Office/Props/SM_Plant02.usd   # 0.94 x 1.01 x 1.55 m as shipped
+  scale: 0.55                   # -> 0.52 x 0.55 x 0.85 m (campaign plant tracks 0.35-0.45 m wide; task 0.4-0.6 x 0.8-1.2)
+  position: [3.0, 1.0]
+  yaw_deg: 0.0
+  label: potted plant           # COCO name used by yolo26s-seg.pt and the go_to target enum (object_classes.py)
+obstacle:                       # static box for obstacle runs (default off)
+  enabled: false
+  size: [0.5, 1.0, 0.8]         # m, x y z in its own frame (yaw 0: x = along the car heading): Gazebo box_1.0, 1.0 m across the path, 0.5 deep, 0.8 high (jazzy:src/f1tenth_sim/models/box_1.0)
+  position: [4.2, 2.5]
+  yaw_deg: 0.0
+  color: [0.55, 0.42, 0.28]     # cardboard
+  label: box
+layout: campaign
+presets:
+  # ASSUMED layouts: no document gives the real room's measurements (output/sim_next/decisions.md S9). Numbers
+  # are relative to the car start, from the campaign logs; the room stays 6 x 6 m (task spec).
+  campaign:                     # one layout for every LLM command type (go ahead, wall, person, plant, turn left)
+    car: {start: {x: 1.2, y: 2.5, yaw_deg: 0.0}}   # wall 4.5 m ahead of the lidar (M02 R009 4.55 m, R011 4.48 m)
+    person: {position: [5.4, 4.7, 0.0]}            # 4.2 ahead, 2.2 left (M04 2026-09-24: 4.4-4.8 ahead, 2.2-2.8 left)
+    plant: {enabled: true, position: [3.8, 1.2]}   # 2.6 ahead, 1.3 RIGHT (M03: 2.0-3.2 ahead, 1.1-1.5 left; mirrored so
+                                                   # the left turn at the wall has free space)
+    obstacle: {enabled: false}
+  obstacle:                     # campaign + a 1.0 m box 3.0 m ahead on the path (campaign_scenario.py: obstacle 3.0 m ahead)
+    car: {start: {x: 1.2, y: 2.5, yaw_deg: 0.0}}
+    person: {position: [5.4, 4.7, 0.0]}
+    plant: {enabled: true, position: [3.8, 1.2]}
+    obstacle: {enabled: true, position: [4.45, 2.5]}   # near face 3.0 m ahead of base_link at the start
+  gazebo_6x6:                   # the Gazebo test_room_6x6 scenario 3 (jazzy:src/f1tenth_sim/README.md:53-95), shifted +3,+3
+    car: {start: {x: 0.5, y: 3.0, yaw_deg: 0.0}}
+    person: {position: [5.0, 3.0, 0.0]}
+    plant: {enabled: true, position: [3.0, 3.0]}
+    obstacle: {enabled: false}
+  e2e_legacy:                   # the layout of the jazzy-port e2e test (tools/e2e_test.sh, 2026-10-16)
+    car: {start: {x: 1.0, y: 1.5, yaw_deg: 0.0}}
+    person: {position: [3.0, 3.0, 0.0]}
+    plant: {enabled: false}
+    obstacle: {enabled: false}
+semantics:                      # class -> id published on /sim/ground_truth/left/semantic (mono8)
+  unlabeled: 0
+  floor: 1
+  wall: 2
+  person: 3
+  car: 4
+  potted plant: 5
+  box: 6
+expected:                       # known distances for the geometry checks (from the room above)
+  wall_ahead_x: 6.0             # inner face of the +x wall

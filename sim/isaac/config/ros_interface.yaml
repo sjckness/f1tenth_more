@@ -1,0 +1,60 @@
+# ROS 2 interface of the sim. Names match the real car stack (see output/phase1_spec_review.md).
+ros:
+  domain_id: 42
+  rmw: rmw_fastrtps_cpp
+  node_name: isaac_f1tenth_sim
+  use_sim_clock_stamps: true
+
+publish_static_tf: true     # true for standalone tests; FALSE when the real stack runs (its RSP/static publishers own these)
+publish_odom_tf: false      # real car: EKF (robot_localization) owns odom->base_link, vesc_to_odom publish_tf=false
+
+frames:
+  map_sim: map_sim
+  odom: odom
+  base_link: base_link
+  laser: laser
+  imu: imu
+  zed_link: zed2_camera_link
+  zed_center: zed2_camera_center
+  zed_left: zed2_left_camera_frame
+  zed_left_optical: zed2_left_camera_optical_frame
+  zed_right: zed2_right_camera_frame
+  zed_right_optical: zed2_right_camera_optical_frame
+
+topics:
+  clock: /clock
+  command: /ackermann_drive            # mux output = ackermann_to_vesc input (control/launch/ackermann_mux.launch.py:29, vesc.launch.py:339)
+  scan: /scan
+  odom: /odom
+  imu: /sensors/imu/raw                # EKF imu0 input (bringup/config/ekf.yaml); vesc_driver publishes it
+  left_image: /zed2/zed_node/left/image_rect_color
+  left_info: /zed2/zed_node/left/camera_info
+  right_image: /zed2/zed_node/right/image_rect_color
+  right_info: /zed2/zed_node/right/camera_info
+  depth: /zed2/zed_node/depth/depth_registered
+  depth_info: /zed2/zed_node/depth/camera_info
+  confidence: /zed2/zed_node/confidence/confidence_map
+  # Real car: camera.launch.py SetRemap of ZED rgb/image_rect_color + rgb/camera_info -> /camera/* (yolo input)
+  camera_image: /camera/image_raw
+  camera_info: /camera/camera_info
+  gt_odom: /sim/ground_truth/odom
+  gt_person: /sim/ground_truth/person_pose
+  gt_front_range: /sim/ground_truth/front_range   # sensor_msgs/Range: free distance ahead of the front bumper (raycast, laser height; inf = nothing within 30 m)
+  gt_objects: /sim/ground_truth/objects   # vision_msgs/Detection3DArray in map_sim: person, plant, obstacle, walls
+  gt_start_pose: /sim/ground_truth/start_pose   # geometry_msgs/PoseStamped in map_sim, latched: base_link pose /sim/reset returns the car to (scene car.start)
+  gt_semantic: /sim/ground_truth/left/semantic
+  reset_service: /sim/reset
+  tf: /tf
+  tf_static: /tf_static
+
+qos:
+  # Task asked SensorData (best effort). CONFLICT: the stack's image/depth subscribers (yolo, detection_3d,
+  # front_clearance) are RELIABLE and a best-effort publisher never matches a reliable subscriber.
+  # Real urg_node and ZED wrapper offer RELIABLE -> reliable depth 5 (matches both kinds of subscribers).
+  sensor: {reliability: reliable, depth: 5}
+  command: {reliability: reliable, depth: 1}
+  clock: {reliability: reliable, depth: 10}
+  tf_static: {reliability: reliable, durability: transient_local, depth: 10}
+  tf: {reliability: reliable, depth: 100}
+  odom: {reliability: reliable, depth: 10}          # reliable pub matches both reliable and best-effort subs
+  objects: {reliability: reliable, durability: transient_local, depth: 1}   # static scene: late joiners get it

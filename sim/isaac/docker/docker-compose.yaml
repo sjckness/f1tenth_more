@@ -1,0 +1,54 @@
+# Isaac Sim 5.1 container for the F1Tenth HIL sim (workstation side).
+#
+# Differences from the ~/isaac_ws devcontainer this came from: every host path is an environment
+# variable set by ../launch.sh (so the simulation runs from a plain `git clone` of this repo,
+# wherever it sits), and the image name is a variable too (config/hil.yaml -> isaac.image).
+# Never builds and never pulls: the base image is ~20 GB, see docker/build.sh.
+services:
+  isaac-sim:
+    image: ${F1T_ISAAC_IMAGE:-f1tenth_isaac:5.1.0}
+    pull_policy: never
+    runtime: nvidia
+    network_mode: host        # the sim is a DDS participant on the HIL link; also the Orin rule
+    ipc: host
+    entrypoint: ["/bin/bash"]
+    command: ["-c", "sleep infinity"]
+    environment:
+      - ACCEPT_EULA=Y
+      - PRIVACY_CONSENT=Y
+      - DISPLAY=${DISPLAY:-}
+      - OMNI_KIT_ALLOW_ROOT=1
+      # ROS 2 bridge: the image ships Isaac's internal Humble AND Jazzy libs; launch.sh picks one.
+      # The car stack is Jazzy, on the Thor and in the Orin container: jazzy.
+      - ROS_DISTRO=${ISAAC_ROS_DISTRO:-jazzy}
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - LD_LIBRARY_PATH=/isaac-sim/exts/isaacsim.ros2.bridge/${ISAAC_ROS_DISTRO:-jazzy}/lib
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-44}
+      - FASTRTPS_DEFAULT_PROFILES_FILE=/dds/${ISAAC_DDS_FILE:-fastdds_udp.xml}
+      # pass-through discovery settings (empty = unset; launch.sh drops the empty ones)
+      - ROS_DISCOVERY_SERVER=${ROS_DISCOVERY_SERVER:-}
+      - ROS_AUTOMATIC_DISCOVERY_RANGE=${ROS_AUTOMATIC_DISCOVERY_RANGE:-}
+      - ROS_STATIC_PEERS=${ROS_STATIC_PEERS:-}
+      - PYTHONPATH=
+      - SIM_DEBUG_CAR=${SIM_DEBUG_CAR:-}
+      - PYTHONDONTWRITEBYTECODE=1        # no root-owned __pycache__ in the bind-mounted repo
+    volumes:
+      - ${HOME}/.Xauthority:/root/.Xauthority:ro
+      # Persistent caches: the asset and shader caches survive restarts (a cold start is minutes).
+      - ${HOME}/.cache/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw
+      - ${HOME}/.cache/isaac-sim/cache/ov:/root/.cache/ov:rw
+      - ${HOME}/.cache/isaac-sim/cache/pip:/root/.cache/pip:rw
+      - ${HOME}/.cache/isaac-sim/cache/glcache:/root/.cache/nvidia/GLCache:rw
+      - ${HOME}/.cache/isaac-sim/cache/computecache:/root/.nv/ComputeCache:rw
+      - ${HOME}/.cache/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw
+      - ${HOME}/.cache/isaac-sim/data:/root/.local/share/ov/data:rw
+      - ${HOME}/.cache/isaac-sim/documents:/root/Documents:rw
+      # This sim directory (sim/isaac of the car repo): code, config, scenes, the office wrapper.
+      - ${F1T_ISAAC_DIR:?F1T_ISAAC_DIR is set by launch.sh}:/home/isaac_ws:rw
+      # Fast DDS profile directory (launch.sh --dds-profile), read only.
+      - ${ISAAC_DDS_DIR:-${F1T_ISAAC_DIR}/config}:/dds:ro
+      # The car repo itself, read only (car spec / params / reference while debugging).
+      - ${F1T_REPO:?F1T_REPO is set by launch.sh}:/workspaces/f1tenth_more:ro
+    working_dir: /home/isaac_ws
+    stdin_open: true
+    tty: true
