@@ -1,0 +1,31 @@
+{
+  "mission_id": "enter_door_right_then_straight",
+  "schema_version": "6.1",
+  "description": "Enter the STRONG door on the car's RIGHT, then drive 2 m straight on to come out the other side. TWO MOVES BECAUSE 'entered' MEANS STANDING IN THE OPENING: enter_door's arrival test is the midpoint between the jambs with the car pointing through (DoorSpec, WHAT \"ENTERED\" MEANS), deliberately not the far side of the wall, so a command that asks to go THROUGH a doorway and on into the room needs this second move. The second move is a plain open-ended drive holding the heading it starts with -- which, after the first move, is the door's own crossing direction -- for 2 m measured from where the first move ended.",
+  "moves": [
+    {
+      "id": "move_0_enter_door_right",
+      "enter_door": {
+        "type": "enter_door",
+        "door": "right",
+        "xy_tol": 0.15,
+        "yaw_tol_deg": 10,
+        "acquire_timeout_sec": 5.0,
+        "approach_dist_m": 0.8
+      },
+      "stop_condition": {
+        "type": "door_entered"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "move_1_straight_through",
+      "drive": { "mode": "straight", "speed": 0.5 },
+      "stop_condition": { "type": "distance_reached", "distance": 2.0 },
+      "timeout_sec": 30,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}

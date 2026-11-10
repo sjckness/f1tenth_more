@@ -184,18 +184,18 @@ authoritative "is the turn done" signal for the mission, though -- that's
 this move's own `orientation_delta` stop_condition, tracked independently
 against live `/odom` yaw by `CheckStopCondition`.
 
-## `enter_door` fields (schema_version 6.0)
+## `enter_door` fields (schema_version 6.0, side selectors 6.1)
 
-Drive to a door the **semantic-layer door detector** has confirmed and stop in
-it, facing the way through.
+Drive to a door the **door detector** has confirmed and stop in it, facing the
+way through.
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `type` | `"enter_door"` | no | Accepted (and checked) so a mission written in the `{"type": "enter_door", ...}` form loads; the move key is what selects the step. |
-| `door` | `"nearest"` \| `"door_<id>"` | no, default `"nearest"` | `"nearest"` picks the confirmed door nearest the car **at the moment the move starts** and then holds it for the whole move. `"door_<id>"` names one outright -- the same string as the TF frame the detector broadcasts and Foxglove shows. A named door that is not confirmed is `door_not_found`; it never falls back to another door. |
+| `door` | `"nearest"` \| `"left"` \| `"right"` \| `"door_<id>"` | no, default `"nearest"` | `"nearest"` picks the strong door nearest the car **at the moment the move starts** and then holds it for the whole move. `"left"`/`"right"` (schema_version 6.1) pick the nearest strong door inside that side's **bearing sector** off the car's nose at that same moment -- 15 to 135 degrees, `DOOR_SIDE_MIN_DEG`/`DOOR_SIDE_MAX_DEG` in `behaviours/enter_door.py`; a door the car is pointing at is on neither side (that is what `"nearest"` is for) and neither is one it has already driven past. `"door_<id>"` names one outright -- the same string as the TF frame the detector broadcasts and Foxglove shows. A selector that matches nothing is `door_not_found`; it never falls back to another door. |
 | `xy_tol` | float > 0 | no, default `0.15` | [m] from the door frame's origin, i.e. the midpoint between the two jambs. |
 | `yaw_tol_deg` | float > 0, <= 180 | no, default `10.0` | [deg] from the door frame's x axis. |
-| `acquire_timeout_sec` | float > 0 | no, default `5.0` | No confirmed door matching `door` within this -> the move fails `door_not_found` and the mission aborts. |
+| `acquire_timeout_sec` | float > 0 | no, default `5.0` | No strong door matching `door` within this -> the move fails `door_not_found` (or `no_strong_door` when a merely confirmed one matches) and the mission aborts. For a side selector, a car with no global pose yet has not matched anything either -- the side cannot be computed without a heading. |
 | `approach_dist_m` | float > 0 | no, default `0.8` | How far back along the door's own x axis the APPROACH pre-point sits -- see below. |
 
 An `enter_door` step **requires** `stop_condition.type == "door_entered"` and
@@ -239,7 +239,11 @@ the `enter_door` goal are identical whichever one is selected. The defaults
 give a normal stack the `freespace` one. And global localization either way,
 because the door poses and the arrival test are both in the map frame.
 `mission/preflight.py` checks the node `door_source` names, plus localization,
-and names them. Example: `missions/enter_nearest_door.json`.
+and names them. Examples: `missions/enter_nearest_door.json`,
+`missions/enter_door_left.json` / `enter_door_right.json` (the side
+selectors), and `missions/enter_door_right_then_straight.json` -- the
+two-move shape a command that asks to go *through* a doorway needs, because
+`door_entered` fires with the car standing *in* the opening.
 
 ## `drive` fields (schema_version 3.0)
 
