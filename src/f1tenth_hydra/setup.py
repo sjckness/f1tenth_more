@@ -36,6 +36,8 @@ setup(
         'test': ['pytest'],
     },
     entry_points={
-        'console_scripts': [],
+        'console_scripts': [
+            'hydra_synthetic_rgbd = f1tenth_hydra.synthetic_rgbd:main',
+        ],
     },
 )

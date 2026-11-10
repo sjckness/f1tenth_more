@@ -44,3 +44,56 @@ Nothing new beyond what `~/isaac_ws` already has:
   maps class names to Hydra labels. Office labels only `floor` and `wall` today. Adding patterns to
   `environment.labels` in `office.yaml` (door, chair, table, ...) gives Hydra objects in GT
   mode. Every name in that list already has a Hydra label.
+
+## 2. Hydra
+
+### Version and how it is built
+
+- **Version.** Hydra-ROS `main` 8f3b7e3 (2026-01-12) and Hydra `main` 2e58a35 (2026-01-14),
+  plus their 9 dependencies. The heads of the branches in Hydra-ROS's `install/ros2.yaml`
+  were read on 2026-11-10 and pinned by SHA in
+  `src/f1tenth_hydra/config/hydra/hydra_jazzy.repos`.
+- **Jazzy support.** Upstream tests Ubuntu 24.04 + Jazzy and Iron. The README still calls the
+  ROS 2 port "in active development". Jazzy is the newest distro they name.
+- **Dependencies.** GTSAM (`ros-jazzy-gtsam`), PCL, OpenCV, glog/gflags, zmq and nanoflann come
+  from rosdep. TensorRT + CUDA are needed only for `seg_source:=mobilenet` (semantic_inference).
+  The spark_dsg Python bindings are built from the same pinned source with pip `--target`.
+- **Native vs Docker.** Native on the workstation, in its own workspace `~/hydra_ws`, outside this
+  repo. Reasons: the stack and RViz are native Jazzy, a Docker Hydra would only add a DDS
+  boundary, and upstream's `docker/` targets their own datasets. The f1tenth workspace builds and
+  runs without Hydra. `f1tenth_hydra` finds Hydra at launch time.
+- **Segmentation.** semantic_inference's closed-set node with **MobileNetV2-dilated C1 deepsup
+  (ADE20K)**, `ade20k-mobilenetv2dilated-c1_deepsup.onnx`. The TensorRT engine is built from the
+  ONNX on the first run, on the GPU that runs it. Labels are grouped to `ade20k_mp3d`, the same
+  label space the GT map uses. I found no record of the 8/11 investigation on this machine, so the
+  model is semantic_inference's own MobileNetV2 export. Check that it is the one 8/11 used.
+
+```bash
+# once, after the sudo steps at the end of this file (~25 min with 32 jobs)
+scripts/hydra/build_hydra_ws.sh --models
+source scripts/hydra/hydra_env.sh       # ROS + ~/hydra_ws + this workspace + spark_dsg
+colcon build --symlink-install --packages-select f1tenth_hydra f1tenth_logger
+```
+
+### Flags
+
+`hydra.launch.py` (package `f1tenth_hydra`) is never part of `supervisor_bringup`.
+`scripts/sim/sim_isaac.sh` starts it only with `hydra:=true`, on the host it is given to.
+
+| flag | values | default |
+|---|---|---|
+| `hydra:=` (sim_isaac.sh) | true / false | false |
+| `hydra_profile:=` | workstation_full / jetson_min | workstation_full |
+| `seg_source:=` | gt (Isaac GT ids, label map) / mobilenet (TensorRT) | the profile's |
+| `pose_source:=` | isaac_gt (`/sim/ground_truth/odom` -> TF `map_sim -> hydra_gt_base_link` + deployed mount) / stack_tf (the stack's `odom -> base_link` and camera TF) | isaac_gt |
+
+Frames: Hydra's map frame is `hydra_map`, never `map`. With `stack_tf` Hydra does not publish
+TF, so the stack's `odom` keeps one parent. With `isaac_gt` it publishes `hydra_map -> map_sim`,
+a separate tree. Loop closures run only with `stack_tf`, because GT pose cannot drift.
+
+Topics: `/hydra/backend/dsg` (graph, hydra_msgs/DsgUpdate), `/hydra/backend/dsg_mesh` (mesh),
+`/hydra/status` (JSON heartbeat). With mobilenet also `/hydra_seg/semantic*/image_raw`. On exit
+(SIGINT) Hydra writes the graph, the timing data and the logs to `~/.hydra/f1tenth/<profile>_<stamp>/`.
+
+Print the exact Hydra command line without Hydra installed:
+`python3 -m f1tenth_hydra.hydra_args --profile workstation_full --seg-source gt`.

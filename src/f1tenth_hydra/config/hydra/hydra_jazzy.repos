@@ -1,0 +1,49 @@
+# Hydra for ROS 2 Jazzy, pinned. Source list = Hydra-ROS install/ros2.yaml (main 8f3b7e3),
+# every repository at the head of the branch that file names, read on 2026-11-10.
+# Upstream tests Ubuntu 24.04 + Jazzy ("ROS2 version ... in active development").
+# Bump all of them together and rebuild; never mix with a ros2.yaml checkout.
+repositories:
+  hydra_ros:            # main
+    type: git
+    url: https://github.com/MIT-SPARK/Hydra-ROS.git
+    version: 8f3b7e369e2bda49d24eba889a5bd0dfc5903a62
+  hydra:                # main
+    type: git
+    url: https://github.com/MIT-SPARK/Hydra.git
+    version: 2e58a35baea629eee8838409771876acff015daf
+  config_utilities:     # main
+    type: git
+    url: https://github.com/MIT-SPARK/config_utilities.git
+    version: 1df5f6b5444f8823232cfdb1cef69c2bd41ada96
+  ianvs:                # main
+    type: git
+    url: https://github.com/MIT-SPARK/Ianvs.git
+    version: c204dec59fe04ebbc015bcbd8660b2659eb25265
+  kimera_pgmo:          # ros2
+    type: git
+    url: https://github.com/MIT-SPARK/Kimera-PGMO.git
+    version: 382b1f3530f4df69347309687d6887ed2905446c
+  kimera_rpgo:          # develop
+    type: git
+    url: https://github.com/MIT-SPARK/Kimera-RPGO.git
+    version: 222ad5e863daa26419b3341ad62e44fb307cba14
+  pose_graph_tools:     # ros2
+    type: git
+    url: https://github.com/MIT-SPARK/pose_graph_tools.git
+    version: 965dfe864487be9040195c598fd89718563c348c
+  semantic_inference:   # main (closed-set TensorRT segmentation: MobileNetV2 ADE20K)
+    type: git
+    url: https://github.com/MIT-SPARK/semantic_inference.git
+    version: 14b7eaf71c892843ba042d611fe84b6c81182570
+  spark_dsg:            # main
+    type: git
+    url: https://github.com/MIT-SPARK/Spark-DSG.git
+    version: 3c40997e4ae739c56ed3cdd6ef5e882d403d8b64
+  spatial_hash:         # main
+    type: git
+    url: https://github.com/MIT-SPARK/Spatial-Hash.git
+    version: 8045892f34978d78870d806a50f8e5aefdbe52fc
+  teaser_plusplus:      # master
+    type: git
+    url: https://github.com/MIT-SPARK/TEASER-plusplus.git
+    version: 52a9c52ee7d4c838c5e8a75458c33178be5bfb70

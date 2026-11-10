@@ -32,6 +32,15 @@
 # Any other argument of 'stack'/'all' is passed to supervisor_bringup.launch.py (k:=v), e.g.
 # enable_intelligence:=true (llama-server = the 'intelligence' component, as on the car).
 #
+# Hydra scene graph (docs/hydra_hil.md; all off by default, never passed to the stack):
+#   hydra:=true               run f1tenth_hydra/hydra.launch.py on THIS host once /clock is up
+#                             (isaac: the workstation; stack: the Orin with jetson_min; all: here)
+#   hydra_profile:=NAME       workstation_full (default) | jetson_min
+#   seg_source:=gt|mobilenet  default: the profile's. gt also turns Isaac's GT semantics on
+#                             (isaac/all: --set sensors.stereo.semantic.enabled=true)
+#   pose_source:=isaac_gt|stack_tf   default isaac_gt
+#   HYDRA_WS                  Hydra workspace sourced before this one (default ~/hydra_ws)
+#
 # shell/run: the stack's ROS environment (domain, RMW, the rendered Fast DDS profile, the
 # Discovery Server, the workspace) as a Discovery Server SUPER CLIENT, so `ros2 topic list`
 # and `echo` see the whole graph. Both restart the ros2 daemon of this domain first (a daemon
@@ -86,6 +95,7 @@ case "$CMD" in
 esac
 NET=local; DOMAIN="${ROS_DOMAIN_ID:-42}"; SCENE=base_room; LAYOUT=""; GUI=false; CLEAN=false; DRY=false
 LAUNCH_ARGS=(); RUN_CMD=()
+HYDRA=false; HYDRA_PROFILE=workstation_full; HYDRA_SEG=""; HYDRA_POSE=isaac_gt
 while [ $# -gt 0 ]; do
   if [ "$CMD" = run ] && [ ${#RUN_CMD[@]} -eq 0 ]; then
     case "$1" in
@@ -106,11 +116,24 @@ while [ $# -gt 0 ]; do
     --clean) CLEAN=true; shift ;;
     --dry-run) DRY=true; shift ;;
     -h|--help) usage; exit 0 ;;
+    hydra:=*) HYDRA="${1#*:=}"; shift ;;
+    hydra_profile:=*) HYDRA_PROFILE="${1#*:=}"; shift ;;
+    seg_source:=*) HYDRA_SEG="${1#*:=}"; shift ;;
+    pose_source:=*) HYDRA_POSE="${1#*:=}"; shift ;;
     *:=*) LAUNCH_ARGS+=("$1"); shift ;;
     *) die "unknown option '$1' (--help)" ;;
   esac
 done
 case "$NET" in local|eth) ;; *) die "--net must be local or eth, got '$NET'" ;; esac
+case "$HYDRA" in true|True|1) HYDRA=true ;; false|False|0) HYDRA=false ;;
+  *) die "hydra:= must be true or false, got '$HYDRA'" ;; esac
+HYDRA_PROFILE_FILE="$REPO/src/f1tenth_hydra/config/profiles/$HYDRA_PROFILE.yaml"
+if $HYDRA; then
+  [ -f "$HYDRA_PROFILE_FILE" ] || die "hydra_profile:=$HYDRA_PROFILE: no $HYDRA_PROFILE_FILE"
+  [ -n "$HYDRA_SEG" ] || HYDRA_SEG="$(sed -n 's/^default_seg_source: *\([a-z_]*\).*/\1/p' "$HYDRA_PROFILE_FILE")"
+  case "$HYDRA_SEG" in gt|mobilenet) ;; *) die "seg_source:= must be gt or mobilenet, got '$HYDRA_SEG'" ;; esac
+  case "$HYDRA_POSE" in isaac_gt|stack_tf) ;; *) die "pose_source:= must be isaac_gt or stack_tf, got '$HYDRA_POSE'" ;; esac
+fi
 [ "$CMD" = run ] && [ ${#RUN_CMD[@]} -eq 0 ] && die "run: no command given (e.g. run ros2 topic list)"
 case "$DOMAIN" in ''|*[!0-9]*) die "--domain must be a number, got '$DOMAIN'" ;; esac
 if [ "$NET" = eth ]; then
@@ -155,6 +178,15 @@ ros_env() {
   export F1TENTH_DISCOVERY_SERVER="$DS"
   # shellcheck disable=SC1091
   source "$REPO/scripts/env/jazzy.sh"
+  if $HYDRA; then
+    local hws="${HYDRA_WS:-$HOME/hydra_ws}"
+    [ -f "$hws/install/local_setup.bash" ] \
+      || die "hydra:=true but no $hws/install (scripts/hydra/build_hydra_ws.sh; docs/hydra_hil.md)"
+    # shellcheck disable=SC1091
+    source "$hws/install/local_setup.bash"
+    [ -d "$hws/install/spark_dsg_python" ] && export PYTHONPATH="$hws/install/spark_dsg_python:$PYTHONPATH"
+    log "sourced Hydra workspace $hws"
+  fi
   set -e
   export RMW_IMPLEMENTATION=rmw_fastrtps_cpp ROS_DISCOVERY_SERVER="$DS"
   unset ROS_AUTOMATIC_DISCOVERY_RANGE ROS_LOCALHOST_ONLY ROS_STATIC_PEERS
@@ -166,7 +198,7 @@ ros_env() {
   export FASTRTPS_DEFAULT_PROFILES_FILE
 }
 
-DS_PID=""; ISAAC_STARTED=false; STACK_PID=""
+DS_PID=""; ISAAC_STARTED=false; STACK_PID=""; HYDRA_PID=""
 descendants() {  # <pid> -> all descendant pids, deepest first
   local c
   for c in $(pgrep -P "$1"); do descendants "$c"; echo "$c"; done
@@ -175,6 +207,13 @@ cleanup() {
   local rc=$?
   trap - EXIT
   trap '' INT TERM   # a second Ctrl+C or the caller's SIGTERM must not cut the shutdown short
+  if [ -n "$HYDRA_PID" ] && kill -0 "$HYDRA_PID" 2>/dev/null; then
+    # SIGINT first: Hydra writes its graph, timing and logs to log_dir on a clean shutdown.
+    log "stopping Hydra (SIGINT to its launch, up to 30 s)"
+    kill -INT "$HYDRA_PID" 2>/dev/null || true
+    for _ in $(seq 1 60); do kill -0 "$HYDRA_PID" 2>/dev/null || break; sleep 0.5; done
+    kill -0 "$HYDRA_PID" 2>/dev/null && kill -TERM "$HYDRA_PID" 2>/dev/null || true
+  fi
   if [ -n "$STACK_PID" ] && kill -0 "$STACK_PID" 2>/dev/null; then
     # SIGINT = Ctrl+C for ros2 launch: it stops the supervisor, which stops its components.
     log "stopping the stack (SIGINT to the launch, up to 30 s)"
@@ -275,8 +314,25 @@ isaac_cmd() {  # fills ISAAC_ENV and ISAAC_ARGS
     # EKF fuses only vyaw, weighted by this variance, which Isaac publishes as stddev^2.
     --set sensors.imu.noise.gyro_stddev=0.0013217)
   [ -n "$LAYOUT" ] && ISAAC_ARGS+=(--set "scene.layout=$LAYOUT")
+  # Hydra seg_source:=gt reads Isaac's GT classes (mono8, aligned to the left RGB).
+  [ "$HYDRA_SEG" = gt ] && ISAAC_ARGS+=(--set sensors.stereo.semantic.enabled=true)
   $GUI && ISAAC_ARGS+=(--gui)
   return 0
+}
+
+# ---- hydra (hydra:=true) --------------------------------------------------------------------
+start_hydra() {  # in the background, after /clock; ros_env must have run
+  $HYDRA || return 0
+  local scene_file="${ISAAC_WS}/config/scenes/${SCENE}.yaml"
+  HYDRA_ARGS=(ros2 launch f1tenth_hydra hydra.launch.py hydra_profile:="$HYDRA_PROFILE"
+    seg_source:="$HYDRA_SEG" pose_source:="$HYDRA_POSE" use_sim_time:=true)
+  # GT class ids come from the scene file when this host has it (the Isaac host).
+  [ "$HYDRA_SEG" = gt ] && [ -f "$scene_file" ] && HYDRA_ARGS+=(scene_semantics:="$scene_file")
+  echo "== Hydra (profile $HYDRA_PROFILE, seg $HYDRA_SEG, pose $HYDRA_POSE) =="
+  echo "cmd: ${HYDRA_ARGS[*]}"
+  $DRY && return 0
+  env --default-signal=INT "${HYDRA_ARGS[@]}" &
+  HYDRA_PID=$!
 }
 
 run_isaac() {  # until Isaac exits or Ctrl+C (cleanup() stops the container)
@@ -285,12 +341,20 @@ run_isaac() {  # until Isaac exits or Ctrl+C (cleanup() stops the container)
   echo "== Isaac Sim (scene $SCENE, net $NET, domain $DOMAIN, Discovery Server $DS) =="
   echo "env: ${ISAAC_ENV[*]}"
   echo "cmd: ${ISAAC_ARGS[*]}"
-  $DRY && { echo "(dry run)"; return 0; }
+  $DRY && { start_hydra; echo "(dry run)"; return 0; }
   ISAAC_STARTED=true
   # In the background + wait, so a signal reaches cleanup() at once (bash runs traps only
   # after a foreground child returns).
   env "${ISAAC_ENV[@]}" "${ISAAC_ARGS[@]}" < /dev/null &
-  wait $! || true
+  local isaac_pid=$!
+  if $HYDRA; then   # Hydra on the sim host (workstation_full): needs Isaac's /clock
+    ros_env
+    # net=eth: the Discovery Server is the stack host's; local: idempotent, reuses a live one.
+    [ "$NET" = local ] && ensure_discovery_server
+    wait_for_clock 300
+    start_hydra
+  fi
+  wait "$isaac_pid" || true
 }
 
 # ---- stack -------------------------------------------------------------------------------
@@ -334,11 +398,12 @@ run_stack() {  # <clock wait seconds>
   wait_for_clock "$1"
   stack_cmd
   echo "cmd: ${STACK_ARGS[*]}"
-  $DRY && { echo "(dry run)"; return 0; }
+  $DRY && { start_hydra; echo "(dry run)"; return 0; }
   # A background job of a script starts with SIGINT ignored (bash, no job control), and
   # ros2 launch then ignores the SIGINT cleanup() sends: restore the default first.
   env --default-signal=INT "${STACK_ARGS[@]}" &
   STACK_PID=$!
+  start_hydra   # hydra:=true: next to the stack (jetson_min on the Orin, or 'all' on one host)
   wait "$STACK_PID" || true
 }
 
