@@ -1,22 +1,29 @@
 #!/usr/bin/env bash
-# build_hydra_ws.sh -- Hydra (MIT-SPARK) for ROS 2 Jazzy in its own workspace, pinned.
+# build_hydra_ws.sh -- Hydra (MIT-SPARK) for ROS 2 Jazzy, built from the pinned submodules.
 #
 # Usage: scripts/hydra/build_hydra_ws.sh [--ws DIR] [--jobs N] [--models] [--check]
-#   --ws DIR   workspace (default ~/hydra_ws)
+#   --ws DIR   build/install space (default ~/hydra_ws); the SOURCES are in this repo
 #   --jobs N   parallel build jobs (default: nproc; Hydra needs ~2 GB RAM per job)
 #   --models   also download the MobileNetV2 ADE20K ONNX model to ~/.semantic_inference
-#   --check    only report what is missing (no clone, no build)
+#   --check    only report what is missing (no build)
+#
+# The sources are the submodules in third_party/hydra_ros/, pinned to the SHAs in
+# src/f1tenth_hydra/config/hydra/hydra_jazzy.repos (still the single source of truth for the
+# version; scripts/hydra/check_hydra_pins.py fails if the two diverge). Nothing is cloned here:
+#   git submodule update --init third_party/hydra_ros
 #
 # Never uses sudo. The apt/rosdep/TensorRT steps that need it are printed and listed LAST in
 # docs/hydra_hil.md ("sudo steps"). Run them once, then this script.
 #
-# The workspace is separate from the f1tenth workspace on purpose: the stack builds and runs
-# without Hydra. To run: source ~/hydra_ws/install/setup.bash, THEN the f1tenth workspace.
+# third_party/ carries COLCON_IGNORE, so the stack's own `colcon build` never builds Hydra or
+# GTSAM; this script builds it on purpose with --base-paths, into its own build/install space.
+# To run: source ~/hydra_ws/install/setup.bash, THEN the f1tenth workspace.
 if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 set -eo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 REPOS="$REPO/src/f1tenth_hydra/config/hydra/hydra_jazzy.repos"
+SRC="$REPO/third_party/hydra_ros"
 WS="$HOME/hydra_ws"; JOBS="$(nproc)"; MODELS=false; CHECK=false
 MOBILENET_URL='https://www.dropbox.com/scl/fi/dlcizojblgaq8dnhd94o4/ade20k-mobilenetv2dilated-c1_deepsup.onnx?rlkey=5m7tv9x8bt0gsg1q77tert9ic&st=ixu66280&dl=1'
 while [ $# -gt 0 ]; do
@@ -35,36 +42,51 @@ set +u
 # shellcheck disable=SC1091
 source /opt/ros/jazzy/setup.bash || { echo "ROS 2 Jazzy not found in /opt/ros/jazzy" >&2; exit 1; }
 missing=()
-for c in vcs colcon rosdep; do command -v "$c" >/dev/null || missing+=("$c"); done
+for c in colcon rosdep; do command -v "$c" >/dev/null || missing+=("$c"); done
 dpkg -s ros-jazzy-gtsam >/dev/null 2>&1 || missing+=("ros-jazzy-gtsam (rosdep installs it)")
 dpkg -s libnvinfer-dev >/dev/null 2>&1 || log "TensorRT (libnvinfer-dev) not installed: seg_source:=mobilenet will not work (gt still does)"
 command -v nvcc >/dev/null || [ -x /usr/local/cuda/bin/nvcc ] || log "nvcc not found: semantic_inference builds without CUDA/TensorRT"
+
+# the pinned sources: submodules, checked out, at the SHAs the .repos names
+uninit=()
+while read -r name; do
+  [ -e "$SRC/$name/.git" ] || uninit+=("$name")
+done < <(git -C "$REPO" config -f .gitmodules --get-regexp 'submodule\..*\.path' \
+         | awk '$2 ~ /^third_party\/hydra_ros\//{ n = split($2, p, "/"); print p[n] }')
+if [ ${#uninit[@]} -gt 0 ]; then
+  log "submodules not initialized: ${uninit[*]}"
+  log "run:  git -C $REPO submodule update --init third_party/hydra_ros"
+  missing+=("third_party/hydra_ros submodules")
+elif ! "$HERE/check_hydra_pins.py" --quiet; then
+  log "the submodules do not match $REPOS (see above)"
+  missing+=("hydra pins")
+fi
+
 if [ ${#missing[@]} -gt 0 ]; then
   log "missing: ${missing[*]} -- run the sudo steps in docs/hydra_hil.md first"
   $CHECK && exit 1
-  case " ${missing[*]} " in *" vcs "*|*" colcon "*) exit 1 ;; esac
+  case " ${missing[*]} " in *" colcon "*|*"submodules"*|*"hydra pins"*) exit 1 ;; esac
 fi
 $CHECK && { log "prerequisites present"; exit 0; }
 
-mkdir -p "$WS/src"
+mkdir -p "$WS"
 cd "$WS"
 [ -f colcon_defaults.yaml ] || cat > colcon_defaults.yaml <<'YAML'
 build:
   symlink-install: true
   cmake-args: [-DCMAKE_BUILD_TYPE=Release]
 YAML
-log "importing pinned sources ($REPOS) into $WS/src"
-vcs import --workers 1 --force src < "$REPOS"   # --workers 1: GitHub resets parallel clones
-vcs export --exact src > "$WS/hydra_jazzy.lock.repos"
+log "sources: $SRC (submodules, pinned by $REPOS)"
 log "rosdep check (installing needs sudo: docs/hydra_hil.md)"
-if ! rosdep check --from-paths src --ignore-src -r; then
-  log "missing system dependencies: run (sudo)  rosdep install --from-paths $WS/src --ignore-src -r -y"
+if ! rosdep check --from-paths "$SRC" --ignore-src -r; then
+  log "missing system dependencies: run (sudo)  rosdep install --from-paths $SRC --ignore-src -r -y"
   log "then run this script again (the sources are in place; nothing was built)"
   exit 1
 fi
 
-log "colcon build ($JOBS jobs)"
-MAKEFLAGS="-j$JOBS" colcon build --continue-on-error --parallel-workers "$(( JOBS > 4 ? 4 : JOBS ))" \
+log "colcon build ($JOBS jobs) in $WS"
+MAKEFLAGS="-j$JOBS" colcon build --base-paths "$SRC" \
+  --continue-on-error --parallel-workers "$(( JOBS > 4 ? 4 : JOBS ))" \
   --packages-up-to hydra_ros hydra_visualizer semantic_inference_ros spark_dsg
 log "built: $(ls "$WS/install" | tr '\n' ' ')"
 
@@ -73,7 +95,7 @@ log "built: $(ls "$WS/install" | tr '\n' ' ')"
 # --target: no system site-packages are touched (PEP 668); sim_isaac.sh / hydra_env.sh put it
 # on PYTHONPATH. Measured ~90 s on linus.
 log "spark_dsg python bindings -> $WS/install/spark_dsg_python"
-python3 -m pip install --quiet --no-deps --upgrade --target "$WS/install/spark_dsg_python" "$WS/src/spark_dsg"
+python3 -m pip install --quiet --no-deps --upgrade --target "$WS/install/spark_dsg_python" "$SRC/spark_dsg"
 
 if $MODELS; then
   mkdir -p "$HOME/.semantic_inference"

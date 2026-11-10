@@ -14,3 +14,36 @@
 [submodule "zed-ros2-interfaces"]
 	path = src/f1tenth_external/zed-ros2-interfaces
 	url = https://github.com/stereolabs/zed-ros2-interfaces.git
+[submodule "hydra_ros"]
+	path = third_party/hydra_ros/hydra_ros
+	url = https://github.com/MIT-SPARK/Hydra-ROS.git
+[submodule "hydra"]
+	path = third_party/hydra_ros/hydra
+	url = https://github.com/MIT-SPARK/Hydra.git
+[submodule "config_utilities"]
+	path = third_party/hydra_ros/config_utilities
+	url = https://github.com/MIT-SPARK/config_utilities.git
+[submodule "ianvs"]
+	path = third_party/hydra_ros/ianvs
+	url = https://github.com/MIT-SPARK/Ianvs.git
+[submodule "kimera_pgmo"]
+	path = third_party/hydra_ros/kimera_pgmo
+	url = https://github.com/MIT-SPARK/Kimera-PGMO.git
+[submodule "kimera_rpgo"]
+	path = third_party/hydra_ros/kimera_rpgo
+	url = https://github.com/MIT-SPARK/Kimera-RPGO.git
+[submodule "pose_graph_tools"]
+	path = third_party/hydra_ros/pose_graph_tools
+	url = https://github.com/MIT-SPARK/pose_graph_tools.git
+[submodule "semantic_inference"]
+	path = third_party/hydra_ros/semantic_inference
+	url = https://github.com/MIT-SPARK/semantic_inference.git
+[submodule "spark_dsg"]
+	path = third_party/hydra_ros/spark_dsg
+	url = https://github.com/MIT-SPARK/Spark-DSG.git
+[submodule "spatial_hash"]
+	path = third_party/hydra_ros/spatial_hash
+	url = https://github.com/MIT-SPARK/Spatial-Hash.git
+[submodule "teaser_plusplus"]
+	path = third_party/hydra_ros/teaser_plusplus
+	url = https://github.com/MIT-SPARK/TEASER-plusplus.git

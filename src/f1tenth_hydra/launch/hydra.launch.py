@@ -72,7 +72,8 @@ def _setup(context):
     hydra_share, hydra_ros_share = _share('hydra'), _share('hydra_ros')
     if not hydra_share or not hydra_ros_share:
         return [LogInfo(msg='hydra.launch.py: packages hydra / hydra_ros not found. Build '
-                            '~/hydra_ws (scripts/hydra/build_hydra_ws.sh) and source '
+                            '~/hydra_ws (git submodule update --init third_party/hydra_ros, '
+                            'then scripts/hydra/build_hydra_ws.sh) and source '
                             '~/hydra_ws/install/setup.bash BEFORE this workspace.'),
                 Shutdown(reason='Hydra not installed')]
 

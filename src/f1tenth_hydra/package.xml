@@ -5,8 +5,9 @@
   <version>0.0.1</version>
   <description>Hydra (MIT-SPARK) 3D scene graph for the F1TENTH stack: the launch (hydra.launch.py,
   profiles, seg_source gt or mobilenet, pose_source isaac_gt or stack_tf), its configs, the
-  RViz config and a small Python scene graph viewer. Hydra itself is NOT a dependency: it lives
-  in its own workspace (~/hydra_ws, see docs/hydra_hil.md) and is found at launch time, so this
+  RViz config and a small Python scene graph viewer. Hydra itself is NOT a dependency: its sources
+  are pinned submodules in third_party/hydra_ros (ignored by this workspace's colcon build), built
+  into their own workspace (~/hydra_ws, see docs/hydra_hil.md) and found at launch time, so this
   workspace builds and runs unchanged without it.</description>
   <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
   <license>MIT</license>

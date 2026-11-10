@@ -53,13 +53,24 @@ Nothing new beyond what `~/isaac_ws` already has:
   plus their 9 dependencies. The heads of the branches in Hydra-ROS's `install/ros2.yaml`
   were read on 2026-11-10 and pinned by SHA in
   `src/f1tenth_hydra/config/hydra/hydra_jazzy.repos`.
+- **Sources: submodules in this repo.** The 11 repositories are separate git submodules under
+  `third_party/hydra_ros/`, each at the commit the `.repos` names (`third_party/hydra_ros/README.md`).
+  The `.repos` file stays the single source of truth for the version;
+  `scripts/hydra/check_hydra_pins.py` fails if a submodule SHA or URL diverges from it, and
+  `build_hydra_ws.sh` runs that check before building. Nothing is cloned at build time.
+  `third_party/` carries a `COLCON_IGNORE`, so the stack's own `colcon build` never builds Hydra
+  or GTSAM, and a clone **without** `--recurse-submodules` builds and runs the stack unchanged --
+  only Hydra itself is missing. Get them with
+  `git submodule update --init third_party/hydra_ros` (non-recursive on purpose: `semantic_inference`
+  has a nested `Mask2Former` submodule that the closed-set path does not need).
 - **Jazzy support.** Upstream tests Ubuntu 24.04 + Jazzy and Iron. The README still calls the
   ROS 2 port "in active development". Jazzy is the newest distro they name.
 - **Dependencies.** GTSAM (`ros-jazzy-gtsam`), PCL, OpenCV, glog/gflags, zmq and nanoflann come
   from rosdep. TensorRT + CUDA are needed only for `seg_source:=mobilenet` (semantic_inference).
   The spark_dsg Python bindings are built from the same pinned source with pip `--target`.
-- **Native vs Docker.** Native on the workstation, in its own workspace `~/hydra_ws`, outside this
-  repo. Reasons: the stack and RViz are native Jazzy, a Docker Hydra would only add a DDS
+- **Native vs Docker.** Native on the workstation. The sources are in this repo (above), the
+  build and install space is its own workspace, `~/hydra_ws` (`--ws DIR`), outside the repo so
+  that the stack's `install/` never mixes with Hydra's. Reasons: the stack and RViz are native Jazzy, a Docker Hydra would only add a DDS
   boundary, and upstream's `docker/` targets their own datasets. The f1tenth workspace builds and
   runs without Hydra. `f1tenth_hydra` finds Hydra at launch time.
 - **Segmentation.** semantic_inference's closed-set node with **MobileNetV2-dilated C1 deepsup
@@ -70,6 +81,8 @@ Nothing new beyond what `~/isaac_ws` already has:
 
 ```bash
 # once, after the sudo steps at the end of this file
+git submodule update --init third_party/hydra_ros   # the pinned Hydra sources (about 81 MB)
+scripts/hydra/check_hydra_pins.py            # submodule SHAs == hydra_jazzy.repos
 scripts/hydra/build_hydra_ws.sh --models     # --check first lists what is missing
 source /opt/ros/jazzy/setup.bash
 colcon build --symlink-install --packages-select f1tenth_hydra f1tenth_logger f1tenth_params
@@ -151,22 +164,38 @@ Jazzy snapshot 2026-09-11, CUDA 12.9, TensorRT 10.3) has what semantic_inference
 
 1. Derive a Hydra image from the car image, on the Orin. Use host networking for both the build
    and the run (CLAUDE.md "Orin Docker"). The apt packages must come from the image's own Jazzy
-   snapshot (CLAUDE.md "Rebuild policy"):
+   snapshot (CLAUDE.md "Rebuild policy"). The sources are **copied from the submodules**, so the
+   image gets exactly the pinned commits and the build needs no network of its own:
    ```dockerfile
    FROM f1tenth:jazzy-orin-<sha>
    USER root
-   RUN apt-get update && apt-get install -y ros-jazzy-gtsam python3-vcstool \
+   RUN apt-get update && apt-get install -y ros-jazzy-gtsam \
        libgoogle-glog-dev libgflags-dev libzmq3-dev nanoflann-dev && rm -rf /var/lib/apt/lists/*
-   COPY hydra_jazzy.repos /opt/hydra_ws/
-   RUN mkdir -p /opt/hydra_ws/src && cd /opt/hydra_ws && vcs import --workers 1 src < hydra_jazzy.repos \
-    && . /opt/ros/jazzy/setup.sh && rosdep install --from-paths src --ignore-src -r -y \
-    && MAKEFLAGS=-j6 colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=Release \
+   COPY third_party/hydra_ros /opt/hydra_src
+   RUN . /opt/ros/jazzy/setup.sh && rosdep install --from-paths /opt/hydra_src --ignore-src -r -y \
+    && mkdir -p /opt/hydra_ws && cd /opt/hydra_ws \
+    && MAKEFLAGS=-j6 colcon build --base-paths /opt/hydra_src --merge-install \
+         --cmake-args -DCMAKE_BUILD_TYPE=Release \
          --packages-up-to hydra_ros semantic_inference_ros \
-    && python3 -m pip install --no-deps --target /opt/hydra_ws/install/spark_dsg_python src/spark_dsg
+    && python3 -m pip install --break-system-packages --no-deps \
+         --target /opt/hydra_ws/install/spark_dsg_python /opt/hydra_src/spark_dsg
    ```
-   `docker build --network=host -t f1tenth:hydra-orin-<sha> .`, with `hydra_jazzy.repos` copied
-   next to the Dockerfile. Plan for about 2 GB of RAM per make job. The Orin has 16 GB shared with
-   the GPU, so keep `-j6` or lower.
+   `docker build --network=host -t f1tenth:hydra-orin-<sha> .` from the repo root (the build
+   context must contain `third_party/hydra_ros`, so run `git submodule update --init
+   third_party/hydra_ros` on the Orin first, or send the sources in a bundle the way
+   `docker/orin/build.sh` does). `COPY` drops the submodules' `.git` files, which is what we
+   want in an image; the version is the one recorded in the commit being built. Plan for about
+   2 GB of RAM per make job. The Orin has 16 GB shared with the GPU, so keep `-j6` or lower.
+
+   **aarch64 notes.** Nothing here is x86-only, but none of it has been compiled for aarch64 yet:
+   - GTSAM comes from `ros-jazzy-gtsam`, which exists for arm64 in the Jazzy snapshot the image
+     uses; `teaser_plusplus` and `spatial_hash` are header-heavy CMake packages and are the
+     likeliest to need a flag (`-DBUILD_TEASER_FPFH=OFF` is already off by default).
+   - `semantic_inference` needs TensorRT 10.3 + CUDA 12.9 from the image, not from pip.
+   - Build on the Orin itself (native), not with qemu: the build is CPU-bound and qemu is
+     roughly 10x slower.
+   - The submodules are the same commits on both architectures, so the x86 workstation and the
+     Orin run the same Hydra version (binaries differ, see CLAUDE.md on aarch64 parity).
 2. Model and engine: copy `ade20k-mobilenetv2dilated-c1_deepsup.onnx` to `~/.semantic_inference`
    and bind-mount it. The TensorRT engine is built on the Orin at the first run (minutes on
    the Orin), then cached next to the ONNX.
@@ -319,6 +348,7 @@ Standalone, without the hook, on any host with the stack's ROS env (evdev, see s
 | `src/f1tenth_hydra/test/test_hydra_smoke.py` | Hydra runs with seg_source:=gt + isaac_gt on a synthetic ZED 2i + GT feed (`hydra_synthetic_rgbd`: ray-cast room, boxes, plant, loop path) and publishes a graph with PLACES and objects/places nodes within 150 s. Also builds the command line for every profile x seg x pose | the command-line half only (the graph half is skipped) |
 | `tools/isaac_keyboard/test_isaac_keyboard.py` | dead-man, stop latch, speed 0 or >= 0.4, steering limits | yes |
 | `tools/hydra_cost/test_hydra_cost.py` | the sampler runs, writes CSV + summary, catches a busy process | yes |
+| `scripts/hydra/check_hydra_pins.py` | the `third_party/hydra_ros` submodules are the commits and URLs `hydra_jazzy.repos` names (also run by `build_hydra_ws.sh`) | yes, and without the submodules initialized |
 
 ## Not verified yet
 
@@ -345,11 +375,12 @@ Written and checked on linus (RTX 5050, no Hydra, no GTSAM). Not run on the work
 On the workstation (Ubuntu 24.04, ROS 2 Jazzy):
 
 ```bash
-sudo apt install python3-vcstool python3-rosdep python3-colcon-common-extensions python3-pip
+sudo apt install python3-rosdep python3-colcon-common-extensions python3-pip
 sudo rosdep init 2>/dev/null; rosdep update
-# Hydra dependencies (GTSAM, PCL, glog, zmq, nanoflann, ...), after build_hydra_ws.sh has
-# imported the sources into ~/hydra_ws/src (it stops after the import if they are missing):
-rosdep install --from-paths ~/hydra_ws/src --ignore-src -r -y        # asks for sudo itself
+# Hydra dependencies (GTSAM, PCL, glog, zmq, nanoflann, ...), from the pinned submodules
+# (git submodule update --init third_party/hydra_ros first; build_hydra_ws.sh stops and prints
+# this command when anything is missing):
+rosdep install --from-paths third_party/hydra_ros --ignore-src -r -y   # asks for sudo itself
 # TensorRT + nvcc for seg_source:=mobilenet (CUDA repo; match the cudaXX.Y of libnvinfer-dev):
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 sudo dpkg -i cuda-keyring_1.1-1_all.deb && sudo apt update
