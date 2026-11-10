@@ -163,6 +163,25 @@
                 "maximum": 20.0
               }
             }
+          },
+          {
+            "description": "Drive to a doorway the stack's door detector holds CONFIRMED and STRONG and stop standing in it, pointing the way through. plan_translate.translate() emits it as an enter_door move (mission schema 6.0, side selectors 6.1) when the planner's enter_door_enabled is true, and refuses it as before the move existed when false. `side` is OPTIONAL: absent means the door NEAREST the car (the mission's \"nearest\" selector), \"left\"/\"right\" mean the nearest door inside that side's bearing sector off the car's nose at the moment the move starts (f1tenth_behavior's enter_door.py, DOOR_SIDE_MIN_DEG..DOOR_SIDE_MAX_DEG = 15..135 deg). THAT IS ALSO WHY A SIDE IS EXPRESSIBLE AND AN ORDINAL IS NOT: a side is a question about the pose the car is in now, which the behaviour can answer from one DoorArray, while \"the second door on the right\" is a question about doorways the car has not driven past yet -- they are not in the detector's list at all, so the move would fail door_not_found most of the time. An ordinal, a colour or \"the other one\" belongs in `unsupported`, exactly as it does for a go_to target. NO `guard` AND NO `thresh` FIELD, deliberately: the stop condition is door_entered, which the mode implies, and it is not a distance -- it is \"within xy_tol of the midpoint between the jambs AND within yaw_tol_deg of the crossing direction\" (mission_config.DoorSpec). Both tolerances are config, like speed and the timeouts, so the model has nothing to author here but the side. ENTERED IS NOT THROUGH: the move ends with the car standing IN the opening, so a command that asks to go through a doorway and on into the room is TWO phases, this one and a following \"straight\" (missions/enter_door_right_then_straight.json is that shape).",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "const": "enter_door"
+              },
+              "side": {
+                "enum": [
+                  "left",
+                  "right"
+                ]
+              }
+            }
           }
         ]
       }

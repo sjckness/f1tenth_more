@@ -1,7 +1,8 @@
 # llm
 
 Natural-language mission planning: an Italian command in, a validated
-`schema_version` 3.0 mission out (5.0 when the plan has a go_to phase).
+`schema_version` 3.0 mission out -- 5.0 when the plan has a go_to phase, 6.1
+when it has an enter_door one.
 
 ```
 comando (IT)
@@ -69,12 +70,19 @@ cannot drift.
 | `speed_go_to` | 0.4 | `missions/go_to_person.json`'s speed |
 | `go_to_acquire_timeout_sec` | 5.0 | `missions/go_to_person.json` |
 | `go_to_lost_grace_sec` | 1.5 | `missions/go_to_person.json` |
+| `door_xy_tol_m` | 0.15 | `missions/enter_nearest_door.json` |
+| `door_yaw_tol_deg` | 10.0 | `missions/enter_nearest_door.json` |
+| `door_acquire_timeout_sec` | 5.0 | `missions/enter_nearest_door.json` |
+| `door_approach_dist_m` | 0.8 | `missions/enter_nearest_door.json` |
 
 `timeout_sec = clamp(ceil(expected_s * timeout_factor + timeout_floor), 1, 300)`,
 where `expected_s` is `thresh / speed_straight` for the `distance` guard,
 `open_guard_max_distance / speed_straight` for `wall` and `front_object`, and
 `radians(turn_magnitude_deg) / nominal_yaw_rate` for a turn, and
-`open_guard_max_distance / speed_go_to` for go_to.
+`open_guard_max_distance / speed_go_to` for go_to, and
+`open_guard_max_distance / speed_straight` for enter_door (open in the same
+way -- the doorway's distance is not known when the mission is written -- and
+sized at `speed_straight` because `DoorSpec` carries no speed of its own).
 `open_guard_max_distance` exists because `wall` and `front_object` have no
 bounded travel: if the wall is never seen the move must still end. The
 generated missions before this work carried **no timeout at all**.
@@ -142,6 +150,12 @@ and as the first validation gate.
   `distance`'s per-guard range is *identical* to the blanket range, so a bad
   `distance` thresh is caught by the schema and raises `IntentSchemaError`,
   not `IntentRangeError`.
+- **An `enter_door` phase carries no `guard` and no `thresh`**, and that is a
+  rule the schema *can* express, so it does: `additionalProperties: false` and
+  a `side` enum. The arrival test is two tolerances in config, not a distance
+  the model may author, and an ordinal ("la seconda porta") has no field to go
+  in -- the branch's own `description` says why, because the model reads the
+  schema too.
 - Structured-output keyword support was **not** measured against llama-server
   in this pass; nothing here has been run against a live model. `minimum`,
   `maximum` and `enum` are all re-checked by the validator regardless, so a
@@ -158,6 +172,9 @@ caller surfaces it:
 | `thresh` outside the per-guard range | `IntentRangeError(guard, value, range)` |
 | empty `plan` | `EmptyPlanError` |
 | output fails the loader | `TranslatorOutputError` (a translator bug; carries the document) |
+| a `go_to` phase with `go_to_enabled=false` | `UnsupportedIntentModeError` (an `IntentSchemaError`, so it is retry text) |
+| an `enter_door` phase with `enter_door_enabled=false` | `UnsupportedIntentDoorError` (likewise) |
+| a prompt file with no, or a repeated, `{{PORTE}}` | `IntentPromptError` (a packaging/editing mistake; stops node construction) |
 
 `unsupported` non-empty is **not** a failure: the mission translates normally
 and the result carries `requires_confirmation = True`. Such a mission **must
@@ -199,6 +216,55 @@ named individuals, and selections ("the second chair"). The live evals
 (`docs/analysis/2026-09-17_go_to_live_eval.md`) show qwen2.5-3b does **not**
 reliably refuse selections: "vai dalla persona a sinistra" was planned as
 go_to the nearest person.
+
+## enter_door and `enter_door_enabled`
+
+`enter_door_enabled` in `stack_params.yaml` (default **true**, read once at
+startup, overridable per run like `go_to_enabled`) switches the door phase:
+
+| | `true` | `false` |
+|---|---|---|
+| prompt | `{{PORTE}}` renders `prompts/planner_prompt_porte.it.txt` (the phase, the sides, and seven worked examples) | it renders `planner_prompt_porte_off.it.txt`: every door goes to `unsupported`, as before the move existed |
+| an enter_door phase | an `enter_door` move, stop `door_entered`, schema **6.1** | `UnsupportedIntentDoorError`, fed back as retry text |
+| refusal banner | adds the door example to the "Supportato" line | unchanged |
+
+**Doors need the go_to prompt.** `planner_system_prompt.v2.no_go_to.it.txt`
+predates the door step and carries no substitution point, so
+`go_to_enabled=false` forces doors off (`plan_translate.doors_in_prompt`,
+logged as a warning when it has to). One value drives both the prompt and the
+translator, so they cannot disagree about what the model was taught --
+which is the whole reason `go_to` got two prompt files instead of one with a
+late correction. The alternative, four whole prompts for the 2x2, was rejected:
+three copies drift the moment anything unrelated to doors changes in the fourth.
+
+A door phase is `{"mode":"enter_door"[,"side":"left"|"right"]}` -- the only
+thing the model authors is **which door**:
+
+- `side` absent: the mission's `"nearest"` selector;
+- `side` present: that same word, passed through to `enter_door.door`.
+
+Everything else in the move is `mission_translator_door_*` config
+(`xy_tol` 0.15 m, `yaw_tol_deg` 10, `acquire_timeout_sec` 5 s,
+`approach_dist_m` 0.8 m -- the values `missions/enter_nearest_door.json` runs
+with). `DoorSpec` has no speed field, so there is no door speed to inject. The
+mission_id hash covers the resolved door body, so a changed tolerance yields a
+new file rather than a refused overwrite.
+
+**A side is a bearing sector, not a property of the door**: the nearest strong
+door 15-135 degrees off the car's nose on that side, measured when the move
+resolves the door, and a doorway the car is pointing at or has already driven
+past is on neither side (`f1tenth_behavior/behaviours/enter_door.py`,
+`DOOR_SIDE_MIN_DEG`). Whether a door is *found* is the detector's business
+(`door_source` and its enable flag); this flag only decides whether the
+planner may author the move.
+
+**`door_entered` is standing in the doorway, not through it.** So "attraversa
+la porta a sinistra e avanza due metri" is TWO phases, and the prompt says so
+in those words -- `missions/enter_door_right_then_straight.json` is the same
+shape hand-written. An ordinal ("la seconda porta a destra"), a colour, a
+closed door and "apri la porta" all stay in `unsupported`: the detector holds
+the doors the car has driven past, not a sequence it can count, and there is
+nothing on the car that opens anything.
 
 ## Selecting a path
 

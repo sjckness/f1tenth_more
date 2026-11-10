@@ -1,0 +1,74 @@
+{
+  "command": "vai dritto, al muro gira a destra ed entra nella porta a sinistra",
+  "intent": {
+    "plan": [
+      {
+        "mode": "straight",
+        "guard": "wall",
+        "thresh": 3.0
+      },
+      {
+        "mode": "turn",
+        "dir": "right"
+      },
+      {
+        "mode": "enter_door",
+        "side": "left"
+      }
+    ],
+    "unsupported": []
+  },
+  "requires_confirmation": false,
+  "mission": {
+    "mission_id": "llm_d75128a6e280",
+    "schema_version": "6.1",
+    "moves": [
+      {
+        "id": "move_0_straight",
+        "drive": {
+          "mode": "straight",
+          "speed": 0.5
+        },
+        "stop_condition": {
+          "type": "front_clearance",
+          "distance": 3.0,
+          "debounce_ticks": 3
+        },
+        "timeout_sec": 65,
+        "on_timeout": "abort"
+      },
+      {
+        "id": "move_1_turn",
+        "drive": {
+          "mode": "wall_turn",
+          "turn_sign": -1.0,
+          "turn_mag_deg": 90.0,
+          "speed": 0.5
+        },
+        "stop_condition": {
+          "type": "orientation_delta",
+          "value": 90.0
+        },
+        "timeout_sec": 27,
+        "on_timeout": "abort"
+      },
+      {
+        "id": "move_2_enter_door",
+        "enter_door": {
+          "type": "enter_door",
+          "door": "left",
+          "xy_tol": 0.15,
+          "yaw_tol_deg": 10.0,
+          "acquire_timeout_sec": 5.0,
+          "approach_dist_m": 0.8
+        },
+        "stop_condition": {
+          "type": "door_entered"
+        },
+        "timeout_sec": 65,
+        "on_timeout": "abort",
+        "terminal": true
+      }
+    ]
+  }
+}

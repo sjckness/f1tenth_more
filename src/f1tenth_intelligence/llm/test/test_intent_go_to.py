@@ -385,10 +385,11 @@ class _Logger:
 class _Stub:
     """The attributes _plan_v2 and process_command touch on self."""
 
-    def __init__(self, go_to_enabled):
+    def __init__(self, go_to_enabled, enter_door_enabled=False):
         self._system_prompt = 'unused: the LLM call is patched'
         self._logger = _Logger()
         self._go_to_enabled = go_to_enabled
+        self._enter_door_enabled = enter_door_enabled
         self._planner_path = 'v2'
         self.opts = SimpleNamespace(dry_run=True, confirm=False)
         self.written = None
@@ -419,7 +420,8 @@ class _Stub:
         return '/nonexistent/unused.json'
 
 
-def _run_plan_v2(monkeypatch, capsys, response, command, go_to_enabled):
+def _run_plan_v2(monkeypatch, capsys, response, command, go_to_enabled,
+                 enter_door_enabled=False):
     from llm import llm_planner_node
     from llm.llm_planner_node import LLMPlannerNode
 
@@ -430,7 +432,7 @@ def _run_plan_v2(monkeypatch, capsys, response, command, go_to_enabled):
         return response
 
     monkeypatch.setattr(llm_planner_node, 'get_intent_from_llm', fake)
-    stub = _Stub(go_to_enabled)
+    stub = _Stub(go_to_enabled, enter_door_enabled)
     result = LLMPlannerNode._plan_v2(stub, command)
     return result, calls, stub._logger, capsys.readouterr().out
 
@@ -551,10 +553,19 @@ class TestPromptWithGoTo:
         assert f'{italian} -> "{coco}"' in prompt
 
     def test_it_names_the_three_unsupported_kinds(self, prompt):
-        assert '"vai dalla porta"' in prompt           # not a class
+        # "porta" used to be the not-a-class witness here. It is not one any
+        # more -- a door is an enter_door phase, not a go_to target, and the
+        # PORTE section says so -- so the witness is the rest of that list.
+        assert 'finestra, scala, cancello' in prompt   # not a class
         assert '"vai da Marco"' in prompt              # an individual
         assert '"la seconda sedia"' in prompt          # a selection
         assert "PIU' VICINO" in prompt
+
+    def test_a_door_is_never_taught_as_a_go_to_target(self, prompt):
+        """The one overlap between the two sections, stated in both."""
+        assert 'Nemmeno una porta e\' un "go_to"' in prompt
+        assert 'Una porta non e\' mai "go_to"' in prompt
+        assert '"target":"porta"' not in prompt.replace(' ', '')
 
     def test_front_object_stays_the_generic_guard(self, prompt):
         assert 'NON usare "front_object" per una cosa nominata' in prompt
@@ -570,15 +581,21 @@ class TestPromptWithGoTo:
             {'mode': 'go_to', 'target': 'bottle'}, {'mode': 'turn', 'dir': 'right'}]
         assert examples['fermati a dieci centimetri dalla persona']['plan'] == [
             {'mode': 'go_to', 'target': 'person', 'thresh': 0.1}]
-        assert examples['vai dalla porta'] == _intent(unsupported=['vai dalla porta'])
         assert examples['vai da Marco'] == _intent(unsupported=['vai da Marco'])
+        # "vai dalla porta" was a refusal example here until doors became a
+        # phase; it now plans one, and test_intent_doors.py owns it.
+        assert examples['vai dalla porta']['plan'] == [{'mode': 'enter_door'}]
 
 
-@pytest.mark.parametrize('prompt_file', [INTENT_PROMPT_FILENAME, INTENT_PROMPT_NO_GO_TO_FILENAME])
-def test_no_prompt_example_pairs_a_named_object_with_front_object(prompt_file):
+# doors_enabled pairs with the file: the prompt without go_to predates the door
+# step and has no door section to render (plan_translate.doors_in_prompt).
+@pytest.mark.parametrize('prompt_file, doors', [(INTENT_PROMPT_FILENAME, True),
+                                                (INTENT_PROMPT_FILENAME, False),
+                                                (INTENT_PROMPT_NO_GO_TO_FILENAME, False)])
+def test_no_prompt_example_pairs_a_named_object_with_front_object(prompt_file, doors):
     """Examples are the model's strongest signal; this pairing is the forbidden one."""
     named = ['sedia', 'bottiglia', 'tavolo', 'persona', 'chair', 'bottle']
-    for command, intent in intent_prompt_examples(prompt_file):
+    for command, intent in intent_prompt_examples(prompt_file, doors_enabled=doors):
         if any(p.get('guard') == 'front_object' for p in intent['plan']):
             assert not any(word in command.lower() for word in named), command
 
@@ -588,7 +605,7 @@ class TestPromptWithoutGoTo:
 
     @pytest.fixture(scope='class')
     def prompt(self):
-        return load_intent_prompt(INTENT_PROMPT_NO_GO_TO_FILENAME)
+        return load_intent_prompt(INTENT_PROMPT_NO_GO_TO_FILENAME, doors_enabled=False)
 
     def test_it_never_advertises_go_to(self, prompt):
         assert 'go_to' not in prompt
@@ -614,7 +631,8 @@ class TestPromptWithoutGoTo:
         assert 'se il comando nomina una cosa specifica' in prompt
 
     def test_its_refusal_examples_preserve_the_operator_wording(self):
-        refusals = [(c, i) for c, i in intent_prompt_examples(INTENT_PROMPT_NO_GO_TO_FILENAME)
+        refusals = [(c, i) for c, i in intent_prompt_examples(
+                        INTENT_PROMPT_NO_GO_TO_FILENAME, doors_enabled=False)
                     if i['unsupported'] and 'bottiglia' in c]
         assert refusals
         for command, intent in refusals:

@@ -42,9 +42,10 @@ class _StubLogger:
 class _StubNode:
     """Just enough of LLMPlannerNode for the unbound methods under test."""
 
-    def __init__(self, prompt='PROMPT', go_to_enabled=True):
+    def __init__(self, prompt='PROMPT', go_to_enabled=True, enter_door_enabled=False):
         self._system_prompt = prompt
         self._go_to_enabled = go_to_enabled
+        self._enter_door_enabled = enter_door_enabled
         self._logger = _StubLogger()
         #: Every _note_llm_* call, in order.
         self.llm_timing = []

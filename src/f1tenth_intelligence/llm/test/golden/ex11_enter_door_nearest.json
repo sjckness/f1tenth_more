@@ -1,0 +1,35 @@
+{
+  "command": "vai dalla porta",
+  "intent": {
+    "plan": [
+      {
+        "mode": "enter_door"
+      }
+    ],
+    "unsupported": []
+  },
+  "requires_confirmation": false,
+  "mission": {
+    "mission_id": "llm_ccd9d220c2f0",
+    "schema_version": "6.1",
+    "moves": [
+      {
+        "id": "move_0_enter_door",
+        "enter_door": {
+          "type": "enter_door",
+          "door": "nearest",
+          "xy_tol": 0.15,
+          "yaw_tol_deg": 10.0,
+          "acquire_timeout_sec": 5.0,
+          "approach_dist_m": 0.8
+        },
+        "stop_condition": {
+          "type": "door_entered"
+        },
+        "timeout_sec": 65,
+        "on_timeout": "abort",
+        "terminal": true
+      }
+    ]
+  }
+}

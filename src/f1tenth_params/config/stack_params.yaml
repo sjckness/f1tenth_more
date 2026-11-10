@@ -3387,6 +3387,22 @@ mission_translator_go_to_acquire_timeout_sec:
 mission_translator_go_to_lost_grace_sec:
   default: 1.5
   description: "go_to_object.lost_grace_sec [s] for a go_to intent phase: how long a lost target is driven toward its last point at reduced speed before the move fails target_lost. Same value as missions/go_to_person.json."
+mission_translator_door_xy_tol_m:
+  default: 0.15
+  # the value missions/enter_nearest_door.json runs with
+  description: "enter_door.xy_tol [m] for an enter_door intent phase: how close to the midpoint between the jambs counts as being IN the doorway. Not an independent guess -- the value missions/enter_nearest_door.json, where the move was specified, runs with. The model never authors it: a tolerance it could widen is a tolerance that stops meaning 'standing in the doorway' (a 0.90 m opening and a 0.57 m car)."
+mission_translator_door_yaw_tol_deg:
+  default: 10.0
+  # the value missions/enter_nearest_door.json runs with
+  description: "enter_door.yaw_tol [deg] for an enter_door intent phase: how close to the door's crossing direction the car must be pointing to count as entered. Same source as mission_translator_door_xy_tol_m. The heading is the point of this move -- it is measured by the behaviour and not by mpc_corr, whose goal arrival is position-only -- so this is the half of the arrival test the car cannot fake by stopping in the right place sideways."
+mission_translator_door_acquire_timeout_sec:
+  default: 5.0
+  # the value missions/enter_nearest_door.json runs with
+  description: "enter_door.acquire_timeout_sec [s] for an enter_door intent phase: how long the behaviour looks for a STRONG door matching the selector before the move fails door_not_found (or no_strong_door, when a merely confirmed one matches). For a side selector a car with no global pose yet has matched nothing either, since a side cannot be computed without a heading."
+mission_translator_door_approach_dist_m:
+  default: 0.8
+  # the value missions/enter_nearest_door.json runs with
+  description: "enter_door.approach_dist_m [m] for an enter_door intent phase: how far back along the door's own axis the APPROACH pre-point sits, so the car lines up square to the opening before it reaches the jambs. A little over one car length. Skipped when the car is already in the doorway (enter_door.py, APPROACH_SKIP_X_M)."
 mission_translator_turn_magnitude_deg:
   default: 90.0
   description: "Magnitude [deg] of every turn the translator emits, written into BOTH drive.turn_mag_deg and stop_condition.value from one variable. The behaviour tree honours any value -- condition_eval's orientation_delta ends the move on abs(turn_accum_deg) >= abs(value), nothing clamps it to 90 -- so this is a real choice. It stays 90 because 90 is the only magnitude the stack has been run at, and the MPC side of a larger turn is unverified."
@@ -3427,6 +3443,30 @@ mission_translator_post_turn_uses_straight:
 go_to_enabled:
   default: true
   description: "llm_planner_node (planner_path v2): true lets the LLM plan go_to phases, translated to go_to_object moves; false restores the refusal and banner of the planner without go_to. Read at node start."
+
+# ============================================================
+# enter_door_enabled -- llm/llm_planner_node.py (planner_path v2)
+# ============================================================
+# The go_to_enabled twin, for the door phase. true: the prompt renders its
+# PORTE section (prompts/planner_prompt_porte.it.txt, substituted into the
+# go_to prompt) and an enter_door phase becomes an enter_door move, mission
+# schema 6.1. false: the prompt renders the section that sends every door
+# request to "unsupported" (planner_prompt_porte_off.it.txt) and the
+# translator refuses one with UnsupportedIntentDoorError.
+#
+# IT DOES NOT MAKE DOORS EXIST. Whether a doorway is FOUND is the detector's
+# business -- door_source and that detector's own enable flag -- and a mission
+# whose door is never found fails door_not_found and aborts. This flag only
+# says whether the planner may author the move at all.
+#
+# DOORS NEED THE go_to PROMPT: go_to_enabled=false forces this off, because
+# the prompt without go_to predates the door step and carries no substitution
+# point (plan_translate.doors_in_prompt). The node logs a warning when it has
+# to do that. Read once at node start; a ROS parameter of the same name
+# overrides it for one run.
+enter_door_enabled:
+  default: true
+  description: "llm_planner_node (planner_path v2): true lets the LLM plan enter_door phases (the nearest open doorway, or the one on the car's left or right), translated to enter_door moves at mission schema 6.1; false sends every door request to 'unsupported' in both the prompt and the translator. Does NOT enable door detection itself (see door_source); forced false when go_to_enabled is false. Read at node start."
 
 # ============================================================
 # llm_load_confirm_timeout_s -- llm/llm_planner_node.py

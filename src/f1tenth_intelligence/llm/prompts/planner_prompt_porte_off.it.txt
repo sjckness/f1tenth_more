@@ -1,0 +1,12 @@
+PORTE - NON SUPPORTATE:
+Il robot non sa entrare in una porta: non esiste nessuna fase che lo faccia.
+"vai dalla porta", "entra nella porta a destra", "attraversa la porta" vanno
+in "unsupported" con il testo originale. Il muro davanti resta guard "wall",
+mai una porta, e "porta" non e' tra le CLASSI: non e' nemmeno un "go_to".
+Lo stesso vale per finestra, scala e cancello.
+
+comando: "vai dalla porta"
+risposta: {"plan":[],"unsupported":["vai dalla porta"]}
+
+comando: "entra nella porta a destra"
+risposta: {"plan":[],"unsupported":["entra nella porta a destra"]}

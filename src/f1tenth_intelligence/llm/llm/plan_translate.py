@@ -150,6 +150,15 @@ MISSION_SCHEMA_VERSION = '3.0'
 # byte.
 OBJECT_MISSION_SCHEMA_VERSION = '5.0'
 
+# The version stamped when the plan carries an enter_door phase: the
+# enter_door step exists from mission schema 6.0 and its SIDE selectors from
+# 6.1 (mission_config.DOOR_SIDES), and this module emits a side whenever the
+# model sends one, so 6.1 is the version every door mission it writes needs.
+# Stamped for a door plan whether or not a side is in it: the alternative is
+# two door versions chosen per plan, which buys a mission that declares 6.0
+# nothing it does not already get from 6.1.
+DOOR_MISSION_SCHEMA_VERSION = '6.1'
+
 # Consecutive satisfied ticks a "wall"-guarded phase needs before it advances.
 # f110_autonomy used wall_count_needed = 3 against a raw, unfiltered depth
 # value that could dip below the threshold for a single frame on noise alone.
@@ -440,6 +449,25 @@ GUARD_THRESH_RANGE = {
 WALL_THRESH_DEFAULT_M = 2.0
 WALL_THRESH_BEFORE_TURN_M = 3.0
 
+# The mission-side spelling of enter_door's `door` selector, for the two
+# values this module can emit: the nearest door, and a side.
+#
+# DUPLICATED, NOT IMPORTED, like preflight.py's DOOR_SOURCE_NODES and for the
+# same reason this module imports mission_config lazily inside
+# _validate_output: it keeps its "imports in isolation, no ament index
+# required" property, which a bare unit test depends on, and mission_config
+# lives in another package. The duplication is pinned by a test that imports
+# both and asserts the strings are identical -- the same discipline
+# TranslatorConfig's defaults are held to against stack_params.yaml -- and the
+# intent schema's own `side` enum is held to the same list.
+#
+# The intent and the mission spell a side with the SAME two words, so there is
+# no mapping table here; TURN_SIGN below exists because "left" and +1.0 are
+# different vocabularies, and a table of two identical pairs would only be a
+# place for them to drift apart.
+MISSION_DOOR_NEAREST = 'nearest'
+MISSION_DOOR_SIDES = ('left', 'right')
+
 # left/right -> drive.turn_sign.
 #
 # NOT A GUESS: mission_config._parse_drive_spec states the convention
@@ -478,6 +506,22 @@ class UnsupportedIntentModeError(IntentSchemaError):
     means the model ignored the system prompt, which is a prompt-quality
     signal worth counting. A request the model correctly routed to
     "unsupported" never arrives here.
+    """
+
+
+class UnsupportedIntentDoorError(IntentSchemaError):
+    """The model authored enter_door while the planner runs with enter_door_enabled=False.
+
+    The door twin of UnsupportedIntentModeError, and it exists for the same
+    two reasons: without it the phase falls through to the straight branch and
+    dies on phase['guard'] with a bare KeyError, which _plan_v2 does not
+    catch; and as an IntentSchemaError it is fed back to the model as retry
+    text, so the request ends up in `unsupported` where the operator sees it.
+
+    Reaching this means the model was taught doors and the translator refuses
+    them, which should not happen -- the prompt renders its door section only
+    when they are enabled (plan_translate.load_intent_prompt) -- so it is also
+    a prompt-wiring signal worth counting separately.
     """
 
 
@@ -551,6 +595,18 @@ class TranslatorConfig:
     speed_go_to: float = 0.5  # 0.4 until 2026-10-13: 0.5 for every move
     go_to_acquire_timeout_sec: float = 5.0
     go_to_lost_grace_sec: float = 1.5
+
+    # An enter_door phase's enter_door fields. The values
+    # missions/enter_nearest_door.json runs with, which is where the move was
+    # specified -- not an independent guess, and not something the model may
+    # author: a tolerance the model could widen is a tolerance that stops
+    # meaning "standing in the doorway". There is no door SPEED here because
+    # DoorSpec has no speed field: the move publishes a goal pose and the
+    # controller drives at its own default.
+    door_xy_tol_m: float = 0.15
+    door_yaw_tol_deg: float = 10.0
+    door_acquire_timeout_sec: float = 5.0
+    door_approach_dist_m: float = 0.8
 
     # The magnitude every emitted turn carries. See translate()'s own note on
     # D2: the behaviour tree honours whatever value it is given, so this is a
@@ -666,16 +722,24 @@ def _expected_seconds(phase: dict, cfg: TranslatorConfig) -> float:
         front_object  open_guard_max_distance / speed_straight
         turn          radians(turn_magnitude_deg) / nominal_yaw_rate
         go_to         open_guard_max_distance / speed_go_to
+        enter_door    open_guard_max_distance / speed_straight
 
     The two open guards have no bounded travel, which is the whole reason
     open_guard_max_distance exists: a wall that is never seen must still end
     the move. go_to is open in the same way -- the object's distance is not
-    known when the mission is written.
+    known when the mission is written -- and so is enter_door: the doorway's
+    distance is not known either, and the move spends part of its time lining
+    up on the approach axis rather than closing on it. enter_door is sized at
+    speed_straight and not speed_go_to because DoorSpec carries no speed at
+    all: the move publishes a goal pose and the controller drives at its own
+    default, which speed_straight is this config's spelling of.
     """
     if phase['mode'] == 'turn':
         return math.radians(cfg.turn_magnitude_deg) / cfg.nominal_yaw_rate
     if phase['mode'] == 'go_to':
         return cfg.open_guard_max_distance / cfg.speed_go_to
+    if phase['mode'] == 'enter_door':
+        return cfg.open_guard_max_distance / cfg.speed_straight
     guard = phase['guard']
     if guard == 'distance':
         return float(phase['thresh']) / cfg.speed_straight
@@ -779,8 +843,47 @@ def _go_to_object_move(i, phase, cfg, prov, gap_limits_for, notes):
     return body
 
 
+def _enter_door_move(i, phase, cfg, prov):
+    """Build the enter_door body of an enter_door phase (mission schema 6.1).
+
+    The intent contributes exactly one thing, WHICH DOOR:
+
+        side absent    "nearest"                    CONST
+        side present   that same word               INTENT
+
+    and the four tolerances are CONFIG. There is nothing else to decide: the
+    stop condition is implied by the mode, and a phase that carried a
+    distance would be authoring the arrival test (see intent_v1.json's own
+    note on why there is no thresh here).
+    """
+    at = f'moves[{i}]'
+    side = phase.get('side')
+    if side is None:
+        door = MISSION_DOOR_NEAREST
+        prov[f'{at}.enter_door.door'] = (
+            CONST, f'{MISSION_DOOR_NEAREST!r} -- plan[{i}] carries no side')
+    else:
+        door = side
+        prov[f'{at}.enter_door.door'] = (INTENT, f'plan[{i}].side')
+    body = {
+        'type': 'enter_door',
+        'door': door,
+        'xy_tol': cfg.door_xy_tol_m,
+        'yaw_tol_deg': cfg.door_yaw_tol_deg,
+        'acquire_timeout_sec': cfg.door_acquire_timeout_sec,
+        'approach_dist_m': cfg.door_approach_dist_m,
+    }
+    prov[f'{at}.enter_door.type'] = (
+        CONST, '"enter_door" -- the step name, carried in the body as the move was specified')
+    prov[f'{at}.enter_door.xy_tol'] = (CONFIG, 'door_xy_tol_m')
+    prov[f'{at}.enter_door.yaw_tol_deg'] = (CONFIG, 'door_yaw_tol_deg')
+    prov[f'{at}.enter_door.acquire_timeout_sec'] = (CONFIG, 'door_acquire_timeout_sec')
+    prov[f'{at}.enter_door.approach_dist_m'] = (CONFIG, 'door_approach_dist_m')
+    return body
+
+
 def _intent_move(i, phase, cfg, prev_turn_sign, prov, *, go_to_enabled=True,
-                 gap_limits_for=None, notes=None):
+                 enter_door_enabled=True, gap_limits_for=None, notes=None):
     """One intent phase -> one mission move, recording provenance for every leaf.
 
     prev_turn_sign is the turn_sign of the most recent turn phase, or None,
@@ -812,6 +915,16 @@ def _intent_move(i, phase, cfg, prev_turn_sign, prov, *, go_to_enabled=True,
             'piu\' vicina, non a quella nominata. '
             'Rimetti la richiesta in "unsupported".')
 
+    # The door twin of the gate above, refused in the same place and in the
+    # same shape -- see UnsupportedIntentDoorError for why it is not left to
+    # fall through.
+    if mode == 'enter_door' and not enter_door_enabled:
+        raise UnsupportedIntentDoorError(
+            f'fase {i}: "enter_door" non e\' eseguibile da questo robot. '
+            'Non sostituirlo con "wall": quello si ferma davanti al muro, '
+            'non nella porta. '
+            'Rimetti la richiesta in "unsupported".')
+
     move = {'id': f'move_{i}_{mode}'}
     prov[f'{at}.id'] = (DERIVED, 'f"move_{index}_{intent mode}"')
 
@@ -824,6 +937,13 @@ def _intent_move(i, phase, cfg, prev_turn_sign, prov, *, go_to_enabled=True,
         move['stop_condition'] = {'type': 'object_reached'}
         prov[f'{at}.stop_condition.type'] = (
             CONST, 'object_reached -- the only stop condition a go_to_object step takes')
+    elif mode == 'enter_door':
+        # Never falls through to the straight branch either: the mode carries
+        # no guard, so that branch would die on phase['guard'].
+        move['enter_door'] = _enter_door_move(i, phase, cfg, prov)
+        move['stop_condition'] = {'type': 'door_entered'}
+        prov[f'{at}.stop_condition.type'] = (
+            CONST, 'door_entered -- the only stop condition an enter_door step takes')
     elif mode == 'turn':
         turn_sign = TURN_SIGN[phase['dir']]
         mag = _round_deg(cfg.turn_magnitude_deg)
@@ -947,14 +1067,20 @@ def _default_wall_thresh(intent):
 
 
 def translate(intent, *, config=None, explain=False, go_to_enabled=True,
-              gap_limits_for=None) -> TranslationResult:
+              enter_door_enabled=True, gap_limits_for=None) -> TranslationResult:
     """Translate an intent_v1 document into a validated mission.
 
-    Schema "3.0", or "5.0" when the plan carries a go_to phase, which becomes
-    a go_to_object move (see _go_to_object_move). go_to_enabled=False refuses
-    go_to with UnsupportedIntentModeError instead, as before go_to_object
-    existed. gap_limits_for(target_class) -> object_geometry.GapLimits, used
-    for go_to and handed to the loader's own check; None reads stack_params.
+    Schema "3.0"; "5.0" when the plan carries a go_to phase, which becomes a
+    go_to_object move (see _go_to_object_move); "6.1" when it carries an
+    enter_door phase, which becomes an enter_door move (_enter_door_move).
+    A plan with both is "6.1": the versions are cumulative, 6.x includes the
+    go_to_object step, and the number says which loader can read the document
+    -- not which steps are in it. go_to_enabled=False refuses go_to with
+    UnsupportedIntentModeError, as before go_to_object existed, and
+    enter_door_enabled=False refuses enter_door with
+    UnsupportedIntentDoorError the same way. gap_limits_for(target_class) ->
+    object_geometry.GapLimits, used for go_to and handed to the loader's own
+    check; None reads stack_params.
 
     Emits nothing that is not INTENT, CONFIG, DERIVED or CONST -- see this
     section's header comment. Never returns a partial or patched mission: on
@@ -999,6 +1125,7 @@ def translate(intent, *, config=None, explain=False, go_to_enabled=True,
     for i, phase in enumerate(plan):
         moves.append(_intent_move(i, phase, cfg, prev_turn_sign, prov,
                                   go_to_enabled=go_to_enabled,
+                                  enter_door_enabled=enter_door_enabled,
                                   gap_limits_for=gap_limits_for, notes=notes))
         if phase['mode'] == 'turn':
             prev_turn_sign = TURN_SIGN[phase['dir']]
@@ -1012,6 +1139,7 @@ def translate(intent, *, config=None, explain=False, go_to_enabled=True,
     prov[f'moves[{len(moves) - 1}].terminal'] = (DERIVED, 'True on the last move only')
 
     has_go_to = any(phase['mode'] == 'go_to' for phase in plan)
+    has_door = any(phase['mode'] == 'enter_door' for phase in plan)
     id_source = _canonical_json(intent)
     if has_go_to:
         # A go_to move's gap_m comes from stack_params as well as the intent
@@ -1020,10 +1148,21 @@ def translate(intent, *, config=None, explain=False, go_to_enabled=True,
         # llm_planner_node._write_mission_file refuses to overwrite.
         id_source += _canonical_json(
             [m['go_to_object']['gap_m'] for m in moves if 'go_to_object' in m])
+    if has_door:
+        # Same reason: every field of an enter_door body except the selector
+        # is config, so two runs of the same words under different
+        # mission_translator_door_* values are different missions and must not
+        # share an id.
+        id_source += _canonical_json([m['enter_door'] for m in moves if 'enter_door' in m])
     mission_id = '{}_{}'.format(
         cfg.mission_id_prefix,
         hashlib.sha1(id_source.encode('utf-8')).hexdigest()[:12])
-    schema_version = OBJECT_MISSION_SCHEMA_VERSION if has_go_to else MISSION_SCHEMA_VERSION
+    if has_door:
+        schema_version = DOOR_MISSION_SCHEMA_VERSION
+    elif has_go_to:
+        schema_version = OBJECT_MISSION_SCHEMA_VERSION
+    else:
+        schema_version = MISSION_SCHEMA_VERSION
     mission = {
         'mission_id': mission_id,
         'schema_version': schema_version,
@@ -1039,7 +1178,9 @@ def translate(intent, *, config=None, explain=False, go_to_enabled=True,
                  '[+ canonical_json(go_to gap_m list) when go_to is present])[:12]}"')
     prov['schema_version'] = (
         CONST,
-        f'{schema_version} -- {OBJECT_MISSION_SCHEMA_VERSION} when a go_to phase is present')
+        f'{schema_version} -- {DOOR_MISSION_SCHEMA_VERSION} when an enter_door phase is '
+        f'present, else {OBJECT_MISSION_SCHEMA_VERSION} when a go_to phase is, '
+        f'else {MISSION_SCHEMA_VERSION}')
 
     _validate_output(mission, gap_limits_for=gap_limits_for)
 
@@ -1065,10 +1206,60 @@ INTENT_PROMPT_FILENAME = 'planner_system_prompt.v2.it.txt'
 # off restores the model's behaviour and not only the translator's refusal.
 INTENT_PROMPT_NO_GO_TO_FILENAME = 'planner_system_prompt.v2.no_go_to.it.txt'
 
+# THE DOOR SECTION IS SUBSTITUTED, NOT APPENDED, and this is the line it
+# replaces in INTENT_PROMPT_FILENAME.
+#
+# WHY NOT A FOURTH PROMPT FILE. go_to_enabled already chooses between two
+# whole prompts, because a model taught a mode the translator then refuses
+# spends every attempt being told no (see INTENT_PROMPT_NO_GO_TO_FILENAME).
+# Doors need the same honesty and would make that 2x2: four copies of a
+# 150-line prompt, three of which drift the moment anything unrelated to
+# doors changes in the fourth. So the prompt has ONE substitution point and
+# the two door renderings are two short files. The base prompt mentions doors
+# only to point at the section, which is true in both renderings; everything
+# that differs lives in the fragments.
+#
+# WHY AT THE END OF THE FILE. The section is self-contained -- the phase, the
+# rules and its own worked examples -- so it reads as one block wherever it
+# sits, and last is where the small model attends best. intent_prompt_examples()
+# parses line by line, so the fragment's examples are picked up and held to the
+# schema by the same test as the base prompt's.
+INTENT_PROMPT_DOORS_MARKER = '{{PORTE}}'
+
+#: The two renderings of INTENT_PROMPT_DOORS_MARKER: doors are a supported
+#: phase, or doors go to "unsupported" as they did before enter_door existed.
+INTENT_PROMPT_DOORS_FILENAME = 'planner_prompt_porte.it.txt'
+INTENT_PROMPT_NO_DOORS_FILENAME = 'planner_prompt_porte_off.it.txt'
+
+
+class IntentPromptError(RuntimeError):
+    """The prompt files on disk cannot be assembled into a prompt.
+
+    A PACKAGING OR EDITING MISTAKE, never anything a command can cause: the
+    marker is missing from a prompt that needs one, or present more than
+    once. Raised rather than papered over so it stops the node being
+    constructed -- the same treatment a missing prompt file gets -- instead
+    of silently sending a model a prompt with a `{{PORTE}}` line in it.
+    """
+
 
 def intent_prompt_filename(go_to_enabled: bool) -> str:
     """Return the prompt file the v2 planner sends for this go_to_enabled value."""
     return INTENT_PROMPT_FILENAME if go_to_enabled else INTENT_PROMPT_NO_GO_TO_FILENAME
+
+
+def doors_in_prompt(go_to_enabled: bool, enter_door_enabled: bool) -> bool:
+    """Return whether the door section can be rendered for these two switches.
+
+    Doors are taught ONLY by the go_to prompt. INTENT_PROMPT_NO_GO_TO_FILENAME
+    is the prompt as it was before any of this existed and carries no
+    substitution point; a stack old enough to want it has no enter_door move
+    either, since the door step landed long after go_to_object. The node
+    passes this same value to translate() as enter_door_enabled, so the prompt
+    and the translator can never disagree about whether doors are on -- which
+    is the failure the two go_to prompts exist to prevent.
+    """
+    return bool(enter_door_enabled) and bool(go_to_enabled)
 
 
 def _prompt_path(filename: str) -> pathlib.Path:
@@ -1081,19 +1272,43 @@ def _prompt_path(filename: str) -> pathlib.Path:
     return pathlib.Path(get_package_share_directory('llm')) / 'prompts' / filename
 
 
-def load_intent_prompt(filename: str = INTENT_PROMPT_FILENAME) -> str:
-    """Return the system prompt that teaches the intent vocabulary.
-
-    NOT yet wired into llm_planner_node: that node still runs the legacy
-    normalize_plan/validate_plan/phases_to_mission path against
-    SYSTEM_PROMPT. Switching it over is a separate change -- see
-    llm/README.md, "Wiring this in".
-    """
+def _read_prompt(filename: str) -> str:
     with open(_prompt_path(filename), encoding='utf-8') as fh:
         return fh.read()
 
 
-def intent_prompt_examples(filename: str = INTENT_PROMPT_FILENAME):
+def load_intent_prompt(filename: str = INTENT_PROMPT_FILENAME, *,
+                       doors_enabled: bool = True) -> str:
+    """Return the system prompt that teaches the intent vocabulary.
+
+    `doors_enabled` picks which door section is substituted for
+    INTENT_PROMPT_DOORS_MARKER. It defaults to True because doors are on in a
+    normal stack; a caller that has switched them off must say so, and
+    doors_in_prompt() is what the node computes it from.
+
+    A prompt WITHOUT the marker (the no-go_to one) is returned unchanged and
+    may only be asked for with doors_enabled False -- see doors_in_prompt().
+    """
+    text = _read_prompt(filename)
+    count = text.count(INTENT_PROMPT_DOORS_MARKER)
+    if count == 0:
+        if doors_enabled:
+            raise IntentPromptError(
+                f'prompts/{filename} has no {INTENT_PROMPT_DOORS_MARKER} line, so it '
+                'cannot teach doors; ask for it with doors_enabled=False (see '
+                'doors_in_prompt())')
+        return text
+    if count != 1:
+        raise IntentPromptError(
+            f'prompts/{filename} carries {INTENT_PROMPT_DOORS_MARKER} {count} times; '
+            'expected exactly one substitution point')
+    fragment = _read_prompt(INTENT_PROMPT_DOORS_FILENAME if doors_enabled
+                            else INTENT_PROMPT_NO_DOORS_FILENAME)
+    return text.replace(INTENT_PROMPT_DOORS_MARKER, fragment.strip('\n'), 1)
+
+
+def intent_prompt_examples(filename: str = INTENT_PROMPT_FILENAME, *,
+                           doors_enabled: bool = True):
     """Extract the worked examples from the prompt, as (command, intent) pairs.
 
     The prompt's examples are the model's strongest signal, and a wrong one
@@ -1108,7 +1323,7 @@ def intent_prompt_examples(filename: str = INTENT_PROMPT_FILENAME):
     """
     pairs = []
     pending = None
-    for line in load_intent_prompt(filename).splitlines():
+    for line in load_intent_prompt(filename, doors_enabled=doors_enabled).splitlines():
         stripped = line.strip()
         if stripped.startswith('comando: '):
             stripped = stripped[len('comando: '):]

@@ -138,7 +138,10 @@ from llm.plan_translate import (
     IntentSchemaError,
     PlanTranslationError,
     TranslatorOutputError,
+    IntentPromptError,
+    UnsupportedIntentDoorError,
     UnsupportedIntentModeError,
+    doors_in_prompt,
     intent_prompt_filename,
     load_intent_prompt,
     phases_to_mission,
@@ -715,17 +718,32 @@ SUPPORTED_HINT_GO_TO = SUPPORTED_HINT_NO_GO_TO + (
     '\nSupportato anche: andare verso l\'oggetto PIU\' VICINO di una classe '
     'riconosciuta (persona, sedia, bottiglia...), non una persona per nome ne\' '
     'un esemplare scelto. Esempio: "vai dalla persona".')
+# Added only when doors are on, and it names the two things an operator who
+# has just been refused is most likely to have asked for: a door chosen by
+# ORDINAL, and going THROUGH one.
+SUPPORTED_HINT_DOORS = (
+    "\nSupportato anche: entrare in una porta aperta, la piu' vicina o quella "
+    'di un lato (non la seconda, non la rossa, non una porta chiusa). Esempio: '
+    '"entra nella porta a destra". Per uscire dall\'altra parte aggiungi quanto '
+    'avanzare: "attraversa la porta a destra e avanza due metri".')
 
 
-def supported_hint(go_to_enabled: bool) -> str:
+def supported_hint(go_to_enabled: bool, enter_door_enabled: bool = False) -> str:
     """Return the "what IS supported" line printed under a refusal."""
-    return SUPPORTED_HINT_GO_TO if go_to_enabled else SUPPORTED_HINT_NO_GO_TO
+    hint = SUPPORTED_HINT_GO_TO if go_to_enabled else SUPPORTED_HINT_NO_GO_TO
+    return hint + SUPPORTED_HINT_DOORS if enter_door_enabled else hint
 
 
 def go_to_enabled_default() -> bool:
     """stack_params.yaml's go_to_enabled, imported lazily (ament index)."""
     from f1tenth_params.param_defaults import get_value
     return bool(get_value('go_to_enabled'))
+
+
+def enter_door_enabled_default() -> bool:
+    """stack_params.yaml's enter_door_enabled, imported lazily (ament index)."""
+    from f1tenth_params.param_defaults import get_value
+    return bool(get_value('enter_door_enabled'))
 
 
 def load_confirm_timeout_default() -> float:
@@ -896,6 +914,10 @@ class LLMPlannerNode(Node):
         self.declare_parameter('test_plan_result_topic', '/test/plan_result')
         # go_to_enabled: stack_params.yaml's value, overridable per run.
         self.declare_parameter('go_to_enabled', go_to_enabled_default())
+        # enter_door_enabled: the same, for the door phase. Whether a door is
+        # FOUND is the detector's business (door_source and its enable flag);
+        # this only says whether the planner may author an enter_door move.
+        self.declare_parameter('enter_door_enabled', enter_door_enabled_default())
         # llm_load_confirm_timeout_s: the CEILING on the wait for load_mission's
         # confirmation, not a delay (see _deliver_mission). Same source.
         self.declare_parameter(
@@ -930,15 +952,31 @@ class LLMPlannerNode(Node):
         # false il modello riceve il prompt di prima, che non conosce go_to,
         # invece di imparare go_to e vederselo rifiutare a ogni tentativo.
         self._go_to_enabled = bool(self.get_parameter('go_to_enabled').value)
+        # enter_door_enabled is resolved the same way and for the same reason,
+        # with one extra rule: doors are taught only by the go_to prompt, so
+        # go_to off takes doors off with it (doors_in_prompt). The value below
+        # is the ONE truth used for both the prompt and the translator -- they
+        # cannot disagree about whether the model was taught doors.
+        self._enter_door_enabled = doors_in_prompt(
+            self._go_to_enabled, bool(self.get_parameter('enter_door_enabled').value))
+        if (bool(self.get_parameter('enter_door_enabled').value)
+                and not self._enter_door_enabled):
+            self.get_logger().warn(
+                'enter_door_enabled=true ma go_to_enabled=false: le porte '
+                'restano disattivate (il prompt senza go_to non le insegna).')
         prompt_file = intent_prompt_filename(self._go_to_enabled)
         if self._planner_path == 'v2':
             try:
-                self._system_prompt = load_intent_prompt(prompt_file)
+                self._system_prompt = load_intent_prompt(
+                    prompt_file, doors_enabled=self._enter_door_enabled)
             except OSError as e:
                 raise RuntimeError(
                     f'planner_path=v2 ma il prompt non e\' leggibile: {e}. '
                     f'Atteso prompts/{prompt_file} nel sorgente o '
                     'nella share directory installata del pacchetto llm.') from e
+            except IntentPromptError as e:
+                raise RuntimeError(
+                    f"planner_path=v2 ma il prompt non e' componibile: {e}") from e
         else:
             self._system_prompt = SYSTEM_PROMPT
 
@@ -948,7 +986,8 @@ class LLMPlannerNode(Node):
         self.get_logger().info(
             f'planner_path={self._planner_path} -- prompt {prompt_desc}, '
             f'validazione {spec["validation"]}, traduttore {spec["translator"]}, '
-            f'go_to_enabled={self._go_to_enabled}')
+            f'go_to_enabled={self._go_to_enabled}, '
+            f'enter_door_enabled={self._enter_door_enabled}')
 
         # Readiness + warm-up check (pass readiness/warm-up, vedi modulo
         # docstring) -- PRIMA di qualsiasi altra cosa in questo __init__,
@@ -1282,8 +1321,9 @@ class LLMPlannerNode(Node):
             self._note_llm_received()
 
             try:
-                result = translate(intent, go_to_enabled=self._go_to_enabled)
-            except UnsupportedIntentModeError as e:
+                result = translate(intent, go_to_enabled=self._go_to_enabled,
+                                   enter_door_enabled=self._enter_door_enabled)
+            except (UnsupportedIntentModeError, UnsupportedIntentDoorError) as e:
                 # B3: separable from an ordinary schema rejection on purpose.
                 # Getting here means the model authored a mode the prompt
                 # never taught it -- a prompt-compliance failure, not a
@@ -1337,7 +1377,7 @@ class LLMPlannerNode(Node):
                           'e non e\' un errore del planner:')
                     for item in items:
                         print(f'  - {item}')
-                    print(supported_hint(self._go_to_enabled))
+                    print(supported_hint(self._go_to_enabled, self._enter_door_enabled))
                     self.get_logger().error(
                         'richiesta non supportata; nessuna missione emessa.')
                     return None

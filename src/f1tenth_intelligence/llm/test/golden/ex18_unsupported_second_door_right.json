@@ -1,9 +1,9 @@
 {
-  "command": "vai dalla porta",
+  "command": "prendi la seconda porta a destra",
   "intent": {
     "plan": [],
     "unsupported": [
-      "vai dalla porta"
+      "prendi la seconda porta a destra"
     ]
   },
   "raises": "EmptyPlanError"
