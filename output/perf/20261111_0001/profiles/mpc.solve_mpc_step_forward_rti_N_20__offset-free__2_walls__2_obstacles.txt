@@ -1,0 +1,20 @@
+# mpc.solve_mpc_step[forward rti N=20, offset-free, 2 walls, 2 obstacles]
+# cProfile over 50 calls, top 10 by cumulative time (seconds are totals over those calls)
+         656450 function calls (656150 primitive calls) in 0.784 seconds
+
+   Ordered by: cumulative time
+   List reduced from 230 to 10 due to restriction <10>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       50    0.002    0.000    0.782    0.016 mpc_solver.py:891(_solve_rti)
+       50    0.029    0.001    0.691    0.014 interface.py:403(solve)
+       50    0.127    0.003    0.661    0.013 interface.py:399(warm_start)
+     2000    0.018    0.000    0.101    0.000 arraypad.py:533(pad)
+       50    0.000    0.000    0.095    0.002 interface.py:143(__init__)
+      350    0.000    0.000    0.094    0.000 __init__.py:73(import_module)
+      200    0.000    0.000    0.094    0.000 interface.py:28(algebra_available)
+       50    0.000    0.000    0.094    0.002 interface.py:44(default_algebra)
+      350    0.000    0.000    0.094    0.000 <frozen importlib._bootstrap>:1375(_gcd_import)
+      350    0.001    0.000    0.093    0.000 <frozen importlib._bootstrap>:1349(_find_and_load)
+
+

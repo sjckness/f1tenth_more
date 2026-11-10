@@ -1,0 +1,20 @@
+# walls.MultiWallTracker.step+update_roles+published
+# cProfile over 50 calls, top 10 by cumulative time (seconds are totals over those calls)
+         270498 function calls in 0.296 seconds
+
+   Ordered by: cumulative time
+   List reduced from 190 to 10 due to restriction <10>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       50    0.000    0.000    0.295    0.006 bench_micro.py:758(run)
+       50    0.001    0.000    0.295    0.006 bench_micro.py:729(track)
+       50    0.006    0.000    0.235    0.005 multi_wall_tracker.py:1787(step)
+     1095    0.006    0.000    0.065    0.000 multi_wall_tracker.py:1534(_gate)
+     1169    0.003    0.000    0.051    0.000 multi_wall_tracker.py:756(segment_in_base_link)
+      216    0.004    0.000    0.047    0.000 multi_wall_tracker.py:1625(_update)
+      466    0.002    0.000    0.045    0.000 multi_wall_tracker.py:1331(_extent_gap)
+      932    0.001    0.000    0.034    0.000 multi_wall_tracker.py:1342(_gap_between)
+      267    0.014    0.000    0.032    0.000 multi_wall_tracker.py:1361(_open_length)
+      219    0.002    0.000    0.031    0.000 multi_wall_tracker.py:1591(_refresh_extent)
+
+

@@ -1,0 +1,20 @@
+# camera.scene_mask.wall_points+wall_fusion.column_ranges+column_extent
+# cProfile over 50 calls, top 10 by cumulative time (seconds are totals over those calls)
+         4350 function calls in 0.723 seconds
+
+   Ordered by: cumulative time
+   List reduced from 46 to 10 due to restriction <10>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       50    0.036    0.001    0.722    0.014 bench_micro.py:912(run)
+       50    0.027    0.001    0.304    0.006 wall_fusion.py:112(column_ranges)
+       50    0.002    0.000    0.288    0.006 scene_mask.py:173(wall_points)
+       50    0.192    0.004    0.242    0.005 ground_plane.py:62(back_project)
+       50    0.000    0.000    0.210    0.004 fromnumeric.py:865(sort)
+       50    0.208    0.004    0.208    0.004 {method 'sort' of 'numpy.ndarray' objects}
+      100    0.081    0.001    0.117    0.001 wall_fusion.py:104(_usable)
+       50    0.001    0.000    0.094    0.002 wall_fusion.py:151(column_extent)
+      200    0.001    0.000    0.051    0.000 fromnumeric.py:53(_wrapfunc)
+       50    0.045    0.001    0.046    0.001 shape_base.py:372(stack)
+
+

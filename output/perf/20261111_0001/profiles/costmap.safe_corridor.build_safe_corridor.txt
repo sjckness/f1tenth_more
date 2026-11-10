@@ -1,0 +1,20 @@
+# costmap.safe_corridor.build_safe_corridor
+# cProfile over 50 calls, top 10 by cumulative time (seconds are totals over those calls)
+         66958 function calls (66858 primitive calls) in 0.830 seconds
+
+   Ordered by: cumulative time
+   List reduced from 111 to 10 due to restriction <10>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       50    0.001    0.000    0.829    0.017 bench_micro.py:1259(run)
+       50    0.004    0.000    0.819    0.016 safe_corridor.py:722(build_safe_corridor)
+       50    0.460    0.009    0.777    0.016 safe_corridor.py:320(inflate_polytope)
+     1202    0.001    0.000    0.239    0.000 einsumfunc.py:1009(einsum)
+     1202    0.238    0.000    0.238    0.000 {built-in method numpy.core._multiarray_umath.c_einsum}
+     1202    0.018    0.000    0.043    0.000 safe_corridor.py:172(_leading_covered)
+       50    0.017    0.000    0.030    0.001 safe_corridor.py:190(classify_local_cells)
+     3656    0.002    0.000    0.029    0.000 fromnumeric.py:53(_wrapfunc)
+     1202    0.002    0.000    0.025    0.000 fromnumeric.py:1236(argmin)
+     1202    0.021    0.000    0.021    0.000 {method 'argmin' of 'numpy.ndarray' objects}
+
+
