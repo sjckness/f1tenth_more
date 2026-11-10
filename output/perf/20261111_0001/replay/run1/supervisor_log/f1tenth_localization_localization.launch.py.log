@@ -1,0 +1,64 @@
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-11-11-00-36-14-054280-linus-1322251
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [1322539]
+[INFO] [taskset-2]: process started with pid [1322540]
+[INFO] [slam_pose_relay_node-3]: process started with pid [1322541]
+[INFO] [robot_state_publisher-4]: process started with pid [1322544]
+[INFO] [joint_state_publisher-5]: process started with pid [1322545]
+[INFO] [static_transform_publisher-6]: process started with pid [1322546]
+[static_transform_publisher-6] [WARN] [1794353776.293632820] []: Old-style arguments are deprecated; see --help for new-style arguments
+[robot_state_publisher-4] [INFO] [1794353776.415013247] [robot_state_publisher]: Robot initialized
+[taskset-1] [INFO] [1794353776.424300549] [ekf_filter_node]: Waiting for clock to start...
+[static_transform_publisher-6] [INFO] [1794353776.425152526] [static_baselink_to_laser]: Spinning until stopped - publishing transform
+[static_transform_publisher-6] translation: ('0.305000', '0.000000', '0.190000')
+[static_transform_publisher-6] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-6] from 'base_link' to 'laser'
+[taskset-2] [INFO] [1794353776.435025735] [ekf_global.ekf_global_filter_node]: Waiting for clock to start...
+[joint_state_publisher-5] [INFO] [1794353778.690456117] [joint_state_publisher]: Waiting for robot_description to be published on the robot_description topic...
+[slam_pose_relay_node-3] [INFO] [1794353779.711814971] [slam_pose_relay_node]: slam_pose_relay_node started: "/slam/pose" -> "/slam/pose_calibrated", covariance stamped with var_x=0.100000 var_y=0.100000 var_yaw=0.050000
+[joint_state_publisher-5] [INFO] [1794353779.901684092] [joint_state_publisher]: Got description, configuring robot
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[robot_state_publisher-4] [INFO] [1794353899.128331553] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[taskset-1] [INFO] [1794353899.128344600] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[taskset-2] [INFO] [1794353899.128347152] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[static_transform_publisher-6] [INFO] [1794353899.129706163] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [static_transform_publisher-6]: sending signal 'SIGINT' to process[static_transform_publisher-6]
+[INFO] [joint_state_publisher-5]: sending signal 'SIGINT' to process[joint_state_publisher-5]
+[INFO] [robot_state_publisher-4]: sending signal 'SIGINT' to process[robot_state_publisher-4]
+[INFO] [slam_pose_relay_node-3]: sending signal 'SIGINT' to process[slam_pose_relay_node-3]
+[INFO] [taskset-2]: sending signal 'SIGINT' to process[taskset-2]
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[robot_state_publisher-4] [INFO] [1794353899.144591370] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[slam_pose_relay_node-3] Traceback (most recent call last):
+[slam_pose_relay_node-3]   File "/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node", line 33, in <module>
+[slam_pose_relay_node-3]     sys.exit(load_entry_point('f1tenth-localization', 'console_scripts', 'slam_pose_relay_node')())
+[slam_pose_relay_node-3]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[slam_pose_relay_node-3]   File "/home/andreas/dev_ws/f1tenth_more-perf/build/f1tenth_localization/f1tenth_localization/slam_pose_relay_node.py", line 98, in main
+[slam_pose_relay_node-3]     node.destroy_node()
+[slam_pose_relay_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1962, in destroy_node
+[slam_pose_relay_node-3]     self.destroy_service(self._services[0])
+[slam_pose_relay_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1886, in destroy_service
+[slam_pose_relay_node-3]     service.destroy()
+[slam_pose_relay_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/service.py", line 123, in destroy
+[slam_pose_relay_node-3]     self.__service.destroy_when_not_in_use()
+[slam_pose_relay_node-3] KeyboardInterrupt
+[ERROR] [taskset-2]: process has died [pid 1322540, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_global_filter_node -r __ns:=/ekf_global -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml --params-file /tmp/launch_params_u9exawy_'].
+[joint_state_publisher-5] Traceback (most recent call last):
+[joint_state_publisher-5]   File "/opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher", line 33, in <module>
+[joint_state_publisher-5]     sys.exit(load_entry_point('joint-state-publisher==2.4.3', 'console_scripts', 'joint_state_publisher')())
+[joint_state_publisher-5]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[joint_state_publisher-5]   File "/opt/ros/jazzy/lib/python3.12/site-packages/joint_state_publisher/joint_state_publisher.py", line 571, in main
+[joint_state_publisher-5]     jsp.destroy_node()
+[joint_state_publisher-5]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[joint_state_publisher-5]     self.destroy_publisher(self._publishers[0])
+[joint_state_publisher-5]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[joint_state_publisher-5]     publisher.destroy()
+[joint_state_publisher-5]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[joint_state_publisher-5]     self.__publisher.destroy_when_not_in_use()
+[joint_state_publisher-5] KeyboardInterrupt
+[INFO] [robot_state_publisher-4]: process has finished cleanly [pid 1322544]
+[static_transform_publisher-6] [INFO] [1794353899.839679393] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [taskset-1]: process has finished cleanly [pid 1322539]
+[ERROR] [slam_pose_relay_node-3]: process has died [pid 1322541, exit code -2, cmd '/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __node:=slam_pose_relay_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+[INFO] [static_transform_publisher-6]: process has finished cleanly [pid 1322546]
+[ERROR] [joint_state_publisher-5]: process has died [pid 1322545, exit code -2, cmd '/opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /tmp/launch_params_k3ukie1n'].

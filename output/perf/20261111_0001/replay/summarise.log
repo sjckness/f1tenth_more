@@ -1,0 +1,3 @@
+wrote /home/andreas/dev_ws/f1tenth_more-perf/output/perf/20261111_0001/replay/nodes.csv, topics.csv, summary.json for runs ['run1', 'run2']
+run1 solve {'n': 493, 'p50_ms': 0.0, 'p95_ms': 0.0, 'max_ms': 0.0, 'success_frac': 1.0, 'solver': 'rti', 'n_boundary': 1.0, 'n_obstacles': 0.0} host {'loadavg': [25.78076171875, 12.291015625, 13.57958984375], 'mem_available_mb': 3515.215872, 'swap_used_mb': 7330.541568, 'cpu_count': 8}
+run2 solve {'n': 460, 'p50_ms': 0.0, 'p95_ms': 0.0, 'max_ms': 0.0, 'success_frac': 1.0, 'solver': 'rti', 'n_boundary': 1.0, 'n_obstacles': 0.0} host {'loadavg': [14.4482421875, 12.1962890625, 13.3369140625], 'mem_available_mb': 3615.420416, 'swap_used_mb': 7427.05152, 'cpu_count': 8}

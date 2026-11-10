@@ -1,0 +1,18 @@
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-11-11-00-36-14-329831-linus-1322254
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [static_transform_publisher-1]: process started with pid [1322316]
+[INFO] [robot_state_publisher-2]: process started with pid [1322317]
+[robot_state_publisher-2] [INFO] [1794353774.770364333] [zed2.zed2_state_publisher]: Robot initialized
+[static_transform_publisher-1] [INFO] [1794353774.798365032] [static_baselink_to_zed2]: Spinning until stopped - publishing transform
+[static_transform_publisher-1] translation: ('0.239900', '0.000000', '0.205000')
+[static_transform_publisher-1] rotation: ('0.000000', '-0.018174', '0.000000', '0.999835')
+[static_transform_publisher-1] from 'base_link' to 'zed2_camera_link'
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [robot_state_publisher-2]: sending signal 'SIGINT' to process[robot_state_publisher-2]
+[INFO] [static_transform_publisher-1]: sending signal 'SIGINT' to process[static_transform_publisher-1]
+[static_transform_publisher-1] [INFO] [1794353899.130142405] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[robot_state_publisher-2] [INFO] [1794353899.130379260] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[static_transform_publisher-1] [INFO] [1794353899.165589895] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[robot_state_publisher-2] [INFO] [1794353899.171866591] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [robot_state_publisher-2]: process has finished cleanly [pid 1322317]
+[INFO] [static_transform_publisher-1]: process has finished cleanly [pid 1322316]

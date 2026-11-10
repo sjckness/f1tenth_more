@@ -1,0 +1,101 @@
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-11-11-00-36-14-669133-linus-1322261
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [semantic_layer_node-1]: process started with pid [1322457]
+[INFO] [costmap_renderer_node-2]: process started with pid [1322470]
+[INFO] [costmap_boundary_node-3]: process started with pid [1322475]
+[INFO] [freespace_door_node-4]: process started with pid [1322476]
+[costmap_renderer_node-2] [INFO] [1794353779.610346016] [costmap_renderer_node]: costmap_renderer_node started
+[freespace_door_node-4] [INFO] [1794353780.467779852] [freespace_door_node]: freespace doors on (scan jumps): driven by /scan at up to 10.0 Hz, openings 0.60-1.50 m, confirmed on two hits 1.00 m apart or 0 from one pose, cross-checked against /slam/map when one is available
+[costmap_boundary_node-3] [INFO] [1794353780.491552641] [costmap_boundary_node]: costmap_boundary_node started -- map_topic=/slam/map pose_topic=/ekf_global/odometry/filtered extraction_rate_hz=10.0 (periodic-publish pass: publishes every tick from whatever is currently cached, regardless of how recently either input last updated -- fail-safe empty/withheld only if a message of that kind has never arrived at all yet. See module docstring for why gating on upstream recency was removed.)
+[semantic_layer_node-1] [INFO] [1794353782.362700768] [semantic_layer_node]: semantic_layer_node started
+[freespace_door_node-4] [INFO] [1794353836.952660832] [freespace_door_node]: freespace doors: waiting for /scan and /ekf_global/odometry/filtered
+[costmap_boundary_node-3] [WARN] [1794353837.044916928] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[costmap_boundary_node-3] [INFO] [1794353838.146110429] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353840.250885447] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353842.358643816] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353844.441607587] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353846.444130071] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353848.445412307] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353850.547100596] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353852.648522860] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353854.743480561] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353856.749275819] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353858.762999976] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353860.845371865] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353862.846989609] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353864.847291345] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353866.943973013] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353868.958977236] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353871.040421709] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353873.050319822] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353875.142451470] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353877.168531500] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353879.259849644] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353881.338487886] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353883.350202411] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353885.446530833] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353887.476465967] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353889.548389616] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353891.642414039] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[costmap_boundary_node-3] [INFO] [1794353893.643873397] [costmap_boundary_node]: n_constraints=3 front_clearance=0.13m
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [freespace_door_node-4]: sending signal 'SIGINT' to process[freespace_door_node-4]
+[INFO] [costmap_boundary_node-3]: sending signal 'SIGINT' to process[costmap_boundary_node-3]
+[INFO] [costmap_renderer_node-2]: sending signal 'SIGINT' to process[costmap_renderer_node-2]
+[INFO] [semantic_layer_node-1]: sending signal 'SIGINT' to process[semantic_layer_node-1]
+[costmap_boundary_node-3] Traceback (most recent call last):
+[costmap_boundary_node-3]   File "/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_boundary_node", line 33, in <module>
+[costmap_boundary_node-3]     sys.exit(load_entry_point('f1tenth-costmap', 'console_scripts', 'costmap_boundary_node')())
+[costmap_boundary_node-3]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[costmap_boundary_node-3]   File "/home/andreas/dev_ws/f1tenth_more-perf/build/f1tenth_costmap/f1tenth_costmap/costmap_boundary_node.py", line 946, in main
+[costmap_boundary_node-3]     node.destroy_node()
+[costmap_boundary_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[costmap_boundary_node-3]     self.destroy_publisher(self._publishers[0])
+[costmap_boundary_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[costmap_boundary_node-3]     publisher.destroy()
+[costmap_boundary_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[costmap_boundary_node-3]     self.__publisher.destroy_when_not_in_use()
+[costmap_boundary_node-3] KeyboardInterrupt
+[costmap_renderer_node-2] Traceback (most recent call last):
+[costmap_renderer_node-2]   File "/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_renderer_node", line 33, in <module>
+[costmap_renderer_node-2]     sys.exit(load_entry_point('f1tenth-costmap', 'console_scripts', 'costmap_renderer_node')())
+[costmap_renderer_node-2]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[costmap_renderer_node-2]   File "/home/andreas/dev_ws/f1tenth_more-perf/build/f1tenth_costmap/f1tenth_costmap/costmap_renderer_node.py", line 125, in main
+[costmap_renderer_node-2]     node.destroy_node()
+[costmap_renderer_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[costmap_renderer_node-2]     self.destroy_publisher(self._publishers[0])
+[costmap_renderer_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[costmap_renderer_node-2]     publisher.destroy()
+[costmap_renderer_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[costmap_renderer_node-2]     self.__publisher.destroy_when_not_in_use()
+[costmap_renderer_node-2] KeyboardInterrupt
+[freespace_door_node-4] Traceback (most recent call last):
+[freespace_door_node-4]   File "/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_costmap/lib/f1tenth_costmap/freespace_door_node", line 33, in <module>
+[freespace_door_node-4]     sys.exit(load_entry_point('f1tenth-costmap', 'console_scripts', 'freespace_door_node')())
+[freespace_door_node-4]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[freespace_door_node-4]   File "/home/andreas/dev_ws/f1tenth_more-perf/build/f1tenth_costmap/f1tenth_costmap/freespace_door_node.py", line 602, in main
+[freespace_door_node-4]     node.destroy_node()
+[freespace_door_node-4]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[freespace_door_node-4]     self.destroy_publisher(self._publishers[0])
+[freespace_door_node-4]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[freespace_door_node-4]     publisher.destroy()
+[freespace_door_node-4]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[freespace_door_node-4]     self.__publisher.destroy_when_not_in_use()
+[freespace_door_node-4] KeyboardInterrupt
+[semantic_layer_node-1] Traceback (most recent call last):
+[semantic_layer_node-1]   File "/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_costmap/lib/f1tenth_costmap/semantic_layer_node", line 33, in <module>
+[semantic_layer_node-1]     sys.exit(load_entry_point('f1tenth-costmap', 'console_scripts', 'semantic_layer_node')())
+[semantic_layer_node-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[semantic_layer_node-1]   File "/home/andreas/dev_ws/f1tenth_more-perf/build/f1tenth_costmap/f1tenth_costmap/semantic_layer_node.py", line 1634, in main
+[semantic_layer_node-1]     node.destroy_node()
+[semantic_layer_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[semantic_layer_node-1]     self.destroy_publisher(self._publishers[0])
+[semantic_layer_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[semantic_layer_node-1]     publisher.destroy()
+[semantic_layer_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[semantic_layer_node-1]     self.__publisher.destroy_when_not_in_use()
+[semantic_layer_node-1] KeyboardInterrupt
+[ERROR] [costmap_boundary_node-3]: process has died [pid 1322475, exit code -2, cmd '/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_boundary_node --ros-args -r __node:=costmap_boundary_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /tmp/launch_params_x7c0nx_s'].
+[ERROR] [costmap_renderer_node-2]: process has died [pid 1322470, exit code -2, cmd '/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_renderer_node --ros-args -r __node:=costmap_renderer_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /tmp/launch_params_tshw4mfs'].
+[ERROR] [freespace_door_node-4]: process has died [pid 1322476, exit code -2, cmd '/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_costmap/lib/f1tenth_costmap/freespace_door_node --ros-args -r __node:=freespace_door_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /tmp/launch_params_z1fwagvd'].
+[ERROR] [semantic_layer_node-1]: process has died [pid 1322457, exit code -2, cmd '/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_costmap/lib/f1tenth_costmap/semantic_layer_node --ros-args -r __node:=semantic_layer_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /tmp/launch_params_m_ea5x4i'].

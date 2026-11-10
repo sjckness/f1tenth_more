@@ -1,0 +1,13 @@
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-11-11-00-38-36-555886-linus-1325430
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [static_transform_publisher-1]: process started with pid [1325601]
+[static_transform_publisher-1] [WARN] [1794353917.246010931] []: Old-style arguments are deprecated; see --help for new-style arguments
+[static_transform_publisher-1] [INFO] [1794353917.275158369] [static_baselink_to_imu]: Spinning until stopped - publishing transform
+[static_transform_publisher-1] translation: ('0.000000', '0.000000', '0.000000')
+[static_transform_publisher-1] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-1] from 'base_link' to 'imu'
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[static_transform_publisher-1] [INFO] [1794354040.850428912] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [static_transform_publisher-1]: sending signal 'SIGINT' to process[static_transform_publisher-1]
+[static_transform_publisher-1] [INFO] [1794354043.891099519] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [static_transform_publisher-1]: process has finished cleanly [pid 1325601]

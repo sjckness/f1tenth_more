@@ -1,0 +1,3 @@
+[INFO] [1794353976.881547901] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-01-54_mission-llm_38d747d91edf/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1794353976.881758460] [rosbag2_player]: Set rate to 1
+[INFO] [1794353976.891636295] [rosbag2_player]: Playback until timestamp: 1792764213245273639

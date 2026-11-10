@@ -1,0 +1,47 @@
+kind,node,n_proc,run1_cpu_mean,run1_cpu_p95,run1_rss_mean_mb,run1_rss_max_mb,run2_cpu_mean,run2_cpu_p95,run2_rss_mean_mb,run2_rss_max_mb,cpu_mean_all,run_diff_pct,small_gains_measurable
+system,ALL_CPUS_BUSY,1,706.28,732.03,0.0,0.0,703.99,739.31,0.0,0.0,705.14,0.3,yes
+system,OTHER_PROCESSES,1,271.04,315.89,0.0,0.0,272.53,331.92,0.0,0.0,271.78,0.5,yes
+stack,mpc_corr,1,70.17,79.59,133.7,134.5,68.44,81.71,133.2,134.2,69.3,2.5,yes
+stack,front_clearance_node,1,39.76,47.99,193.7,194.7,40.69,47.95,193.2,194.0,40.23,2.3,yes
+probe,probe,1,37.5,41.98,96.0,98.0,37.42,41.92,95.9,98.0,37.46,0.2,yes
+stack,yolo_detector_node,1,32.07,40.02,1696.1,1696.8,33.03,43.91,1697.2,1698.0,32.55,3.0,yes
+stack,lidar_front_wall_node,1,28.13,31.99,132.2,133.4,27.46,32.11,132.2,133.5,27.8,2.4,yes
+stack,behavior_executor_node,1,23.0,32.02,129.6,130.0,22.92,32.01,129.9,130.4,22.96,0.3,yes
+stack,freespace_door_node,1,22.58,26.0,111.5,112.1,22.29,26.01,111.4,112.3,22.43,1.3,yes
+stack,viz_relay_container,1,17.09,20.0,85.4,85.5,14.73,18.0,85.1,85.2,15.91,14.9,no (>5% between runs)
+harness,replay_feeder.py,1,16.15,19.33,121.5,121.5,15.79,19.97,122.3,122.3,15.97,2.3,yes
+stack,semantic_layer_node,1,16.0,18.06,125.0,125.1,16.04,18.08,125.4,127.4,16.02,0.2,yes
+stack,detection_3d_node,1,14.58,18.0,174.6,176.0,14.61,18.03,174.6,175.7,14.6,0.3,yes
+stack,hard_stop_node,1,14.35,16.04,88.3,88.4,14.21,16.05,87.6,87.7,14.28,1.0,yes
+stack,reset_manager,1,11.35,18.01,88.6,88.7,11.44,18.0,87.6,87.7,11.39,0.8,yes
+stack,costmap_boundary_node,1,10.06,12.01,96.5,96.6,9.84,12.05,96.3,96.6,9.95,2.1,yes
+stack,obstacle_clearance_node,1,7.4,10.0,89.1,89.2,7.36,9.98,88.9,89.0,7.38,0.6,yes
+stack,foxglove_bridge,1,6.75,9.67,92.9,93.1,7.17,10.01,92.2,92.3,6.96,6.1,no (>5% between runs)
+stack,launch:sim_component.launch.py,16,6.52,10.0,905.1,905.1,6.29,10.0,904.7,904.7,6.4,3.6,yes
+stack,image_raw_viz_throttle,1,5.69,8.01,50.8,52.5,5.79,8.03,49.7,51.3,5.74,1.7,yes
+harness,ros2,1,5.73,8.0,127.8,128.6,5.71,8.0,127.1,128.8,5.72,0.3,yes
+stack,costmap_renderer_node,1,4.17,6.0,87.4,87.5,4.13,6.01,87.5,87.6,4.15,0.9,yes
+stack,obstacle_projector_node,1,4.04,6.0,93.4,93.5,4.06,6.0,93.5,93.7,4.05,0.5,yes
+stack,ekf_filter_node,1,4.04,6.0,52.7,52.8,4.0,6.01,51.5,51.6,4.02,1.0,yes
+stack,diagnostics_server_node,1,3.98,6.0,89.4,89.5,4.0,6.0,88.8,88.9,3.99,0.5,yes
+stack,joint_state_publisher,1,3.86,6.0,86.2,86.3,3.77,5.99,85.9,86.0,3.82,2.5,yes
+stack,viz_jpeg_node,1,3.83,6.0,114.1,114.1,3.77,6.0,113.9,114.1,3.8,1.5,yes
+stack,ackermann_mux,1,3.36,5.61,42.9,42.9,3.38,5.99,42.1,42.2,3.37,0.6,yes
+stack,system_observer_node,1,3.31,4.04,87.3,87.3,3.31,4.02,86.7,86.9,3.31,0.0,yes
+stack,twist_to_ackermann_node,1,3.25,4.02,84.4,84.4,3.23,4.02,83.8,84.0,3.24,0.6,yes
+stack,slam_pose_relay_node,1,3.23,4.01,84.1,84.2,3.17,4.02,83.7,83.9,3.2,1.8,yes
+stack,ekf_global_filter_node,1,2.96,5.7,52.1,52.2,2.94,4.02,51.0,51.1,2.95,0.6,yes
+stack,slam_toolbox,1,2.88,4.02,81.1,81.3,2.9,4.01,80.5,80.7,2.89,0.7,yes
+stack,image_annotated_viz_throttle,1,1.56,4.0,50.2,50.3,1.67,3.98,49.5,49.6,1.61,7.2,no (>5% between runs)
+stack,map_server,1,1.1,2.04,70.5,70.5,1.1,2.01,70.3,70.4,1.1,0.1,yes
+stack,lifecycle_manager_map,1,1.1,3.69,48.2,48.3,1.08,2.01,47.6,47.7,1.09,1.8,yes
+stack,robot_state_publisher,1,0.92,2.01,45.2,45.3,0.94,2.02,44.9,45.1,0.93,2.0,yes
+stack,zed2_state_publisher,1,0.65,2.0,45.7,45.7,0.65,2.01,44.9,45.0,0.65,0.0,yes
+stack,static_baselink_to_laser,1,0.6,2.01,42.2,42.3,0.64,2.01,41.8,42.0,0.62,6.3,no (>5% between runs)
+stack,static_baselink_to_imu,1,0.63,2.0,42.0,42.1,0.63,2.01,41.7,41.9,0.63,0.0,yes
+stack,static_baselink_to_zed2,1,0.63,2.0,42.3,42.4,0.63,2.01,41.6,41.7,0.63,0.1,yes
+stack,fast-discovery-server,1,0.21,2.0,26.1,26.1,0.17,2.0,26.0,26.0,0.19,20.1,no (>5% between runs)
+stack,component_supervisor_node,1,0.04,0.0,86.8,86.8,0.04,0.0,86.8,86.8,0.04,0.7,yes
+stack,launch:supervisor_bringup.launch.py,1,0.0,0.0,51.6,51.6,0.0,0.0,51.5,51.5,0.0,,
+stack,sh,1,0.0,0.0,2.0,2.0,0.0,0.0,2.0,2.0,0.0,,
+stack,fastdds.py,1,0.0,0.0,14.6,14.6,0.0,0.0,14.7,14.7,0.0,,

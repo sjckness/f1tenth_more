@@ -1,20 +1,20 @@
 # doors.freespace_doors[scan_profile+occupancy_window+candidates]
 # cProfile over 50 calls, top 10 by cumulative time (seconds are totals over those calls)
-         100666 function calls in 0.500 seconds
+         100666 function calls in 0.525 seconds
 
    Ordered by: cumulative time
    List reduced from 150 to 10 due to restriction <10>
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-       50    0.001    0.000    0.499    0.010 bench_micro.py:1371(run)
-       50    0.007    0.000    0.403    0.008 freespace_doors.py:412(occupancy_window)
-      300    0.003    0.000    0.390    0.001 _morphology.py:216(_binary_erosion)
-      300    0.378    0.001    0.378    0.001 {built-in method scipy.ndimage._nd_image.binary_erosion}
-      150    0.001    0.000    0.265    0.002 _morphology.py:391(binary_dilation)
-      100    0.000    0.000    0.262    0.003 _morphology.py:648(binary_closing)
-       50    0.000    0.000    0.130    0.003 _morphology.py:524(binary_opening)
-      150    0.000    0.000    0.127    0.001 _morphology.py:293(binary_erosion)
-       50    0.001    0.000    0.076    0.002 freespace_doors.py:887(scan_candidates)
-      100    0.000    0.000    0.061    0.001 freespace_doors.py:832(check_grid)
+       50    0.001    0.000    0.524    0.010 bench_micro.py:1372(run)
+       50    0.007    0.000    0.422    0.008 freespace_doors.py:412(occupancy_window)
+      300    0.004    0.000    0.409    0.001 _morphology.py:216(_binary_erosion)
+      300    0.396    0.001    0.396    0.001 {built-in method scipy.ndimage._nd_image.binary_erosion}
+      150    0.001    0.000    0.276    0.002 _morphology.py:391(binary_dilation)
+      100    0.000    0.000    0.274    0.003 _morphology.py:648(binary_closing)
+       50    0.000    0.000    0.137    0.003 _morphology.py:524(binary_opening)
+      150    0.000    0.000    0.134    0.001 _morphology.py:293(binary_erosion)
+       50    0.001    0.000    0.082    0.002 freespace_doors.py:887(scan_candidates)
+      100    0.000    0.000    0.065    0.001 freespace_doors.py:832(check_grid)
 
 

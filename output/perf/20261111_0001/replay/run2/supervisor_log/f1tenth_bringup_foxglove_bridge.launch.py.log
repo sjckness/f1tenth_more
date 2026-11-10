@@ -1,0 +1,58 @@
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-11-11-00-38-35-556560-linus-1325428
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [1325492]
+[INFO] [throttle-2]: process started with pid [1325493]
+[INFO] [throttle-3]: process started with pid [1325494]
+[taskset-1] [INFO] [1794353916.581424575] [foxglove_bridge]: Starting foxglove_bridge (jazzy, 3.5.0@)
+[taskset-1] [2026-11-10T23:38:36Z INFO  foxglove::websocket::server] Started server on 0.0.0.0:8765
+[taskset-1] [INFO] [1794353916.584740441] [foxglove_bridge]: Server listening on port 8765
+[taskset-1] [INFO] [1794353916.591642030] [foxglove_bridge]: Advertising new channel 2 for topic "/rosout"
+[taskset-1] [INFO] [1794353916.593604075] [foxglove_bridge]: Advertising new channel 3 for topic "/parameter_events"
+[taskset-1] [INFO] [1794353917.606686565] [foxglove_bridge]: Advertising new channel 4 for topic "/tf_static"
+[taskset-1] [INFO] [1794353918.171801323] [foxglove_bridge]: Advertising new channel 5 for topic "/tf"
+[taskset-1] [INFO] [1794353919.350500608] [foxglove_bridge]: Advertising new channel 6 for topic "/robot_description"
+[taskset-1] [INFO] [1794353919.355412316] [foxglove_bridge]: Advertising new channel 7 for topic "/joint_states"
+[taskset-1] [INFO] [1794353920.293806521] [foxglove_bridge]: Advertising new channel 8 for topic "/slam/map_metadata"
+[taskset-1] [INFO] [1794353920.309146334] [foxglove_bridge]: Advertising new channel 9 for topic "/slam/map"
+[taskset-1] [INFO] [1794353921.658344924] [foxglove_bridge]: Advertising new channel 10 for topic "/costmap/semantic_markers"
+[taskset-1] [INFO] [1794353922.342738155] [foxglove_bridge]: Advertising new channel 11 for topic "/viz/slam/pose"
+[taskset-1] [INFO] [1794353922.344758039] [foxglove_bridge]: Advertising new channel 12 for topic "/viz/costmap/visualization/compressed"
+[taskset-1] [INFO] [1794353922.347022919] [foxglove_bridge]: Advertising new channel 13 for topic "/viz/camera/image_annotated/compressed"
+[taskset-1] [INFO] [1794353922.347048780] [foxglove_bridge]: Advertising new channel 14 for topic "/map"
+[taskset-1] [INFO] [1794353922.941569056] [foxglove_bridge]: Advertising new channel 15 for topic "/calibration/in_progress"
+[taskset-1] [INFO] [1794353924.053264608] [foxglove_bridge]: Advertising new channel 16 for topic "/viz/slam/pose_calibrated"
+[taskset-1] [INFO] [1794353924.053322022] [foxglove_bridge]: Advertising new channel 17 for topic "/viz/semantic_objects"
+[taskset-1] [INFO] [1794353924.053334551] [foxglove_bridge]: Advertising new channel 18 for topic "/viz/doors_semantic"
+[taskset-1] [INFO] [1794353924.053347434] [foxglove_bridge]: Advertising new channel 19 for topic "/viz/doors_freespace_debug"
+[taskset-1] [INFO] [1794353924.818786226] [foxglove_bridge]: Advertising new channel 20 for topic "/mission/status"
+[taskset-1] [INFO] [1794353924.819013339] [foxglove_bridge]: Advertising new channel 21 for topic "/mission/move_outcome"
+[taskset-1] [INFO] [1794353924.819029410] [foxglove_bridge]: Advertising new channel 22 for topic "/safety/event"
+[taskset-1] [INFO] [1794353925.354708808] [foxglove_bridge]: Advertising new channel 23 for topic "/viz/walls"
+[taskset-1] [INFO] [1794353925.355146743] [foxglove_bridge]: Advertising new channel 24 for topic "/viz/perception/obstacles_2d"
+[taskset-1] [INFO] [1794353925.355705430] [foxglove_bridge]: Advertising new channel 25 for topic "/viz/perception/lidar_front_wall_virtual"
+[taskset-1] [INFO] [1794353925.357085486] [foxglove_bridge]: Advertising new channel 26 for topic "/viz/perception/front_distance"
+[taskset-1] [INFO] [1794353925.357153810] [foxglove_bridge]: Advertising new channel 27 for topic "/viz/mpc/corridor_markers"
+[taskset-1] [INFO] [1794353925.359563063] [foxglove_bridge]: Advertising new channel 28 for topic "/viz/drive"
+[taskset-1] [INFO] [1794353925.359598977] [foxglove_bridge]: Advertising new channel 29 for topic "/viz/perception/front_clearance"
+[taskset-1] [INFO] [1794353925.359798966] [foxglove_bridge]: Advertising new channel 30 for topic "/viz/diagnostics/system_status"
+[taskset-1] [INFO] [1794353925.359814474] [foxglove_bridge]: Advertising new channel 31 for topic "/viz/costmap/front_clearance"
+[taskset-1] [INFO] [1794353925.359824027] [foxglove_bridge]: Advertising new channel 32 for topic "/viz/bt/tree_visualization"
+[taskset-1] [INFO] [1794353925.359840943] [foxglove_bridge]: Advertising new channel 33 for topic "/perception/walls/markers"
+[taskset-1] [INFO] [1794353978.078664326] [foxglove_bridge]: Advertising new channel 34 for topic "/viz/scan"
+[taskset-1] [INFO] [1794353982.480734593] [foxglove_bridge]: Advertising new channel 35 for topic "/viz/ekf_global/odometry/filtered"
+[taskset-1] [INFO] [1794354037.430476252] [foxglove_bridge]: Removing channel 34 for topic "/viz/scan" (sensor_msgs/msg/LaserScan)
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[throttle-2] [INFO] [1794354040.842487632] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[throttle-3] [INFO] [1794354040.842496854] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [throttle-3]: sending signal 'SIGINT' to process[throttle-3]
+[INFO] [throttle-2]: sending signal 'SIGINT' to process[throttle-2]
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[taskset-1] [INFO] [1794354040.849061206] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[taskset-1] [INFO] [1794354040.852527165] [foxglove_bridge]: Shutting down foxglove_bridge
+[ERROR] [throttle-3]: process has died [pid 1325494, exit code -2, cmd '/home/andreas/dev_ws/jc_deps_ws/install/topic_tools/lib/topic_tools/throttle messages /camera/image_annotated 5.0 /camera/image_annotated/viz --ros-args -r __node:=image_annotated_viz_throttle -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml'].
+[ERROR] [throttle-2]: process has died [pid 1325493, exit code -2, cmd '/home/andreas/dev_ws/jc_deps_ws/install/topic_tools/lib/topic_tools/throttle messages /camera/image_raw 5.0 /camera/image_raw/viz --ros-args -r __node:=image_raw_viz_throttle -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml'].
+[taskset-1] [2026-11-10T23:40:41Z INFO  foxglove::websocket::server] Shutting down
+[taskset-1] [2026-11-10T23:40:41Z INFO  foxglove::websocket::server] Shutdown complete
+[taskset-1] [INFO] [1794354041.364354991] [foxglove_bridge]: Shutdown complete
+[taskset-1] [INFO] [1794354042.925491930] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [taskset-1]: process has finished cleanly [pid 1325492]

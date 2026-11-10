@@ -1,0 +1,40 @@
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-11-11-00-38-36-601000-linus-1325434
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [1325692]
+[taskset-1] [INFO] [1794353923.875390569] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall; door detection OFF
+[taskset-1] [INFO] [1794353982.070648134] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[taskset-1] [WARN] [1794353982.088685691] [lidar_front_wall_node]: wall tracker: no /odometry/filtered pose at the scan stamp; skipped
+[taskset-1] [WARN] [1794353982.096527734] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1794353982.246589735] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1794353982.600791592] [lidar_front_wall_node]: 1 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 267 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[taskset-1] [WARN] [1794353987.628885886] [lidar_front_wall_node]: 1 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 335 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[taskset-1] [WARN] [1794353992.418463553] [lidar_front_wall_node]: stereo columns +0.681 s from the scan (limit 0.600 s): this cycle is LiDAR only
+[taskset-1] [WARN] [1794353992.724392571] [lidar_front_wall_node]: 1 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 349 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[taskset-1] [WARN] [1794353997.789425812] [lidar_front_wall_node]: 1 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 266 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[taskset-1] [WARN] [1794354000.618642132] [lidar_front_wall_node]: class mask and depth carry different stamps: the rectangle verification is skipped this cycle
+[taskset-1] [WARN] [1794354002.840527187] [lidar_front_wall_node]: 1 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 367 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[taskset-1] [WARN] [1794354006.253500548] [lidar_front_wall_node]: class mask and depth carry different stamps: the rectangle verification is skipped this cycle
+[taskset-1] [WARN] [1794354007.888482756] [lidar_front_wall_node]: 1 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 265 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[taskset-1] [INFO] [1794354012.318865533] [lidar_front_wall_node]: wall tracker: 299 scans, per-scan ms p50 11.60 p95 25.50 max 35.37
+[taskset-1] [WARN] [1794354012.928654671] [lidar_front_wall_node]: 1 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 274 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[taskset-1] [WARN] [1794354013.629834551] [lidar_front_wall_node]: class mask and depth carry different stamps: the rectangle verification is skipped this cycle
+[taskset-1] [WARN] [1794354017.991168189] [lidar_front_wall_node]: 1 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 268 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[taskset-1] [WARN] [1794354023.002251243] [lidar_front_wall_node]: 1 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 286 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[taskset-1] [WARN] [1794354028.041491828] [lidar_front_wall_node]: 1 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 279 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[taskset-1] [WARN] [1794354033.102850203] [lidar_front_wall_node]: 1 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 295 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[taskset-1] Traceback (most recent call last):
+[taskset-1]   File "/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node", line 33, in <module>
+[taskset-1]     sys.exit(load_entry_point('f1tenth-perception', 'console_scripts', 'lidar_front_wall_node')())
+[taskset-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-1]   File "/home/andreas/dev_ws/f1tenth_more-perf/build/f1tenth_perception/f1tenth_perception/lidar_front_wall_node.py", line 2329, in main
+[taskset-1]     node.destroy_node()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[taskset-1]     self.destroy_publisher(self._publishers[0])
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[taskset-1]     publisher.destroy()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[taskset-1]     self.__publisher.destroy_when_not_in_use()
+[taskset-1] KeyboardInterrupt
+[ERROR] [taskset-1]: process has died [pid 1325692, exit code -2, cmd 'taskset -c 5 /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node --ros-args -r __node:=lidar_front_wall_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /tmp/launch_params_qjse91lt'].

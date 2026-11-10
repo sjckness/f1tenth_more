@@ -1,0 +1,93 @@
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-11-11-00-38-36-651512-linus-1325433
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [1325638]
+[INFO] [taskset-2]: process started with pid [1325639]
+[INFO] [taskset-3]: process started with pid [1325640]
+[INFO] [front_clearance_node-4]: process started with pid [1325642]
+[front_clearance_node-4] [INFO] [1794353922.898272927] [front_clearance_node]: front_clearance_node up: depth "/zed2/zed_node/depth/depth_registered", detections "/camera/detections", masks "/camera/detection_masks", obstacles "/perception/obstacles_2d" -> /perception/front_distance, front_wall, front_clearance, front_blocked; distances from base_front, 0.405 m ahead of base_link
+[taskset-3] [INFO] [1794353922.946494730] [obstacle_projector_node]: obstacle_projector_node up: "/camera/detections_3d" -> "/perception/obstacles_2d" in frame "base_link", z-band=[-0.1, 2.0], radius_source=footprint, class_margin_m={'person': 0.5}
+[taskset-2] [INFO] [1794353923.074253462] [detection_3d_node]: detection_3d_node up: syncing "/camera/detections" + "/zed2/zed_node/depth/depth_registered" + "/camera/detection_masks" (slop=0.1s), intrinsics from "/zed2/zed_node/depth/camera_info", publishing 3D detections on "/camera/detections_3d" and markers on "/camera/detection_markers" in frame "zed2_left_camera_frame", confidence_threshold=0.3, use_mask_depth=True
+[taskset-1] [INFO] [1794353925.617521983] [yolo_detector_node]: cpu_threads=2: torch intra-op 2, inter-op 2, cv2 2
+[taskset-1] [INFO] [1794353925.894252525] [yolo_detector_node]: Loaded YOLO model "/home/andreas/dev_ws/f1tenth_more-perf/src/f1tenth_perception/models/yolo26s-seg.pt" on device="cuda" task="segment" (80 classes)
+[taskset-1] [INFO] [1794353925.895206659] [yolo_detector_node]: CUDA primary context: sched flags 4 (4 = blocking sync), active True
+[taskset-1] [INFO] [1794353926.530593072] [yolo_detector_node]: gpu_pipeline ON: backend pt, imgsz (640, 640), letterbox auto True, stride 32, fp16 False
+[taskset-1] [INFO] [1794353926.900927875] [yolo_detector_node]: yolo_detector_node up: subscribing "/camera/image_raw", publishing detections "/camera/detections" and annotated "/camera/image_annotated", masks "/camera/detection_masks" (task=segment)
+[taskset-2] [WARN] [1794353982.056063383] [detection_3d_node]: YIELD | no /camera/detections received in the last 10s -- upstream detector down?
+[front_clearance_node-4] [WARN] [1794353982.065292906] [front_clearance_node]: scene mask STALE (never_ticked): last tick None s ago, last depth frame None s ago on "/zed2/zed_node/depth/depth_registered", limit 1.00 s. Every consumer of /perception/stereo_columns is reading a profile that old.
+[front_clearance_node-4] [INFO] [1794353982.447572159] [front_clearance_node]: base_link <- laser: x=0.305 y=0.000 yaw=0.0 deg
+[front_clearance_node-4] [INFO] [1794353982.490507942] [front_clearance_node]: inferred floor: LUT rebuilt for 640x360, laser at x=0.305 yaw=0.0 deg, 1081 beams, r_max 3.00 m: 79087 of 230400 pixels can be inferred
+[front_clearance_node-4] [INFO] [1794353982.549455178] [front_clearance_node]: base_link <- zed2_left_camera_optical_frame: x=0.229 y=0.060 yaw=-90.0 deg
+[front_clearance_node-4] [INFO] [1794353982.552143288] [front_clearance_node]: front_wall None -> False (bg_pixels=48035, front_distance=0.79 m)
+[front_clearance_node-4] [INFO] [1794353982.552567285] [front_clearance_node]: front_blocked None -> False (front_clearance=0.79 m)
+[front_clearance_node-4] [INFO] [1794353982.568679566] [front_clearance_node]: front_wall False -> True (bg_pixels=48035, front_distance=0.79 m)
+[front_clearance_node-4] [INFO] [1794353982.759682536] [front_clearance_node]: scene mask alive again: tick 0.32 s ago
+[taskset-2] [INFO] [1794353983.758466244] [detection_3d_node]: YIELD | det2d_in=10 depth_in=43 mask_in=10 -> synced=10 (100%) published=10 (100%) | rarest input=det2d n=10 (ceiling 100% of det2d) | frame drops: sync=0 no_camera_info=0 cv_bridge=0 tf2=0 | detection drops: low_conf=0 bad_depth=0 mask_fallback=0 scene_other=0 scene_fallback=0 published=0 (slop=0.1s queue=15 use_mask_depth=True)
+[taskset-2] [INFO] [1794353993.760077582] [detection_3d_node]: YIELD | det2d_in=89 depth_in=295 mask_in=89 -> synced=72 (81%) published=72 (81%) | rarest input=det2d n=89 (ceiling 100% of det2d) | frame drops: sync=17 no_camera_info=0 cv_bridge=0 tf2=0 | detection drops: low_conf=0 bad_depth=0 mask_fallback=0 scene_other=0 scene_fallback=0 published=0 (slop=0.1s queue=15 use_mask_depth=True)
+[taskset-2] [INFO] [1794354003.756682205] [detection_3d_node]: YIELD | det2d_in=85 depth_in=290 mask_in=85 -> synced=83 (98%) published=83 (98%) | rarest input=det2d n=85 (ceiling 100% of det2d) | frame drops: sync=2 no_camera_info=0 cv_bridge=0 tf2=0 | detection drops: low_conf=0 bad_depth=0 mask_fallback=0 scene_other=0 scene_fallback=0 published=0 (slop=0.1s queue=15 use_mask_depth=True)
+[taskset-2] [INFO] [1794354013.755622136] [detection_3d_node]: YIELD | det2d_in=90 depth_in=294 mask_in=90 -> synced=81 (90%) published=81 (90%) | rarest input=det2d n=90 (ceiling 100% of det2d) | frame drops: sync=9 no_camera_info=0 cv_bridge=0 tf2=0 | detection drops: low_conf=0 bad_depth=0 mask_fallback=0 scene_other=0 scene_fallback=0 published=0 (slop=0.1s queue=15 use_mask_depth=True)
+[taskset-2] [INFO] [1794354023.755171158] [detection_3d_node]: YIELD | det2d_in=88 depth_in=292 mask_in=86 -> synced=74 (84%) published=74 (84%) | rarest input=mask n=86 (ceiling 98% of det2d) | frame drops: sync=14 no_camera_info=0 cv_bridge=0 tf2=0 | detection drops: low_conf=0 bad_depth=0 mask_fallback=0 scene_other=0 scene_fallback=0 published=0 (slop=0.1s queue=15 use_mask_depth=True)
+[taskset-2] [INFO] [1794354033.756482239] [detection_3d_node]: YIELD | det2d_in=97 depth_in=292 mask_in=97 -> synced=85 (88%) published=85 (88%) | rarest input=det2d n=97 (ceiling 100% of det2d) | frame drops: sync=12 no_camera_info=0 cv_bridge=0 tf2=0 | detection drops: low_conf=0 bad_depth=0 mask_fallback=0 scene_other=0 scene_fallback=0 published=0 (slop=0.1s queue=15 use_mask_depth=True)
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [front_clearance_node-4]: sending signal 'SIGINT' to process[front_clearance_node-4]
+[INFO] [taskset-3]: sending signal 'SIGINT' to process[taskset-3]
+[INFO] [taskset-2]: sending signal 'SIGINT' to process[taskset-2]
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[front_clearance_node-4] Traceback (most recent call last):
+[taskset-1] Traceback (most recent call last):
+[taskset-1]   File "/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node", line 33, in <module>
+[taskset-1]     sys.exit(load_entry_point('f1tenth-perception', 'console_scripts', 'yolo_detector_node')())
+[taskset-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-1]   File "/home/andreas/dev_ws/f1tenth_more-perf/build/f1tenth_perception/f1tenth_perception/yolo_detector_node.py", line 1851, in main
+[front_clearance_node-4]   File "/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node", line 33, in <module>
+[taskset-1]     node.destroy_node()
+[taskset-1]   File "/home/andreas/dev_ws/f1tenth_more-perf/build/f1tenth_perception/f1tenth_perception/yolo_detector_node.py", line 1364, in destroy_node
+[taskset-1]     return super().destroy_node()
+[taskset-1]            ^^^^^^^^^^^^^^^^^^^^^^
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[taskset-1]     self.destroy_publisher(self._publishers[0])
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[taskset-1]     publisher.destroy()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[taskset-1]     self.__publisher.destroy_when_not_in_use()
+[taskset-1] KeyboardInterrupt
+[front_clearance_node-4]     sys.exit(load_entry_point('f1tenth-perception', 'console_scripts', 'front_clearance_node')())
+[front_clearance_node-4]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[front_clearance_node-4]   File "/home/andreas/dev_ws/f1tenth_more-perf/build/f1tenth_perception/f1tenth_perception/front_clearance_node.py", line 2137, in main
+[front_clearance_node-4]     node.destroy_node()
+[front_clearance_node-4]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[front_clearance_node-4]     self.destroy_publisher(self._publishers[0])
+[front_clearance_node-4]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[front_clearance_node-4]     publisher.destroy()
+[front_clearance_node-4]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[front_clearance_node-4]     self.__publisher.destroy_when_not_in_use()
+[front_clearance_node-4] KeyboardInterrupt
+[taskset-3] Traceback (most recent call last):
+[taskset-3]   File "/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_perception/lib/f1tenth_perception/obstacle_projector_node", line 33, in <module>
+[taskset-2] Traceback (most recent call last):
+[taskset-2]   File "/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_perception/lib/f1tenth_perception/detection_3d_node", line 33, in <module>
+[taskset-3]     sys.exit(load_entry_point('f1tenth-perception', 'console_scripts', 'obstacle_projector_node')())
+[taskset-3]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-3]   File "/home/andreas/dev_ws/f1tenth_more-perf/build/f1tenth_perception/f1tenth_perception/obstacle_projector_node.py", line 334, in main
+[taskset-3]     node.destroy_node()
+[taskset-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1958, in destroy_node
+[taskset-3]     self.destroy_subscription(self._subscriptions[0])
+[taskset-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1854, in destroy_subscription
+[taskset-3]     subscription.destroy()
+[taskset-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/subscription.py", line 101, in destroy
+[taskset-3]     self.handle.destroy_when_not_in_use()
+[taskset-3] KeyboardInterrupt
+[taskset-2]     sys.exit(load_entry_point('f1tenth-perception', 'console_scripts', 'detection_3d_node')())
+[taskset-2]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-2]   File "/home/andreas/dev_ws/f1tenth_more-perf/build/f1tenth_perception/f1tenth_perception/detection_3d_node.py", line 913, in main
+[taskset-2]     node.destroy_node()
+[taskset-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[taskset-2]     self.destroy_publisher(self._publishers[0])
+[taskset-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[taskset-2]     publisher.destroy()
+[taskset-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[taskset-2]     self.__publisher.destroy_when_not_in_use()
+[taskset-2] KeyboardInterrupt
+[ERROR] [taskset-3]: process has died [pid 1325640, exit code -2, cmd 'taskset -c 6,7 /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_perception/lib/f1tenth_perception/obstacle_projector_node --ros-args -r __node:=obstacle_projector_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /tmp/launch_params_x7y8uagh'].
+[ERROR] [taskset-2]: process has died [pid 1325639, exit code -2, cmd 'taskset -c 6,7 /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_perception/lib/f1tenth_perception/detection_3d_node --ros-args -r __node:=detection_3d_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /tmp/launch_params_bfjs9psa'].
+[ERROR] [front_clearance_node-4]: process has died [pid 1325642, exit code -2, cmd '/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearance_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /tmp/launch_params_jm18ykrx'].
+[ERROR] [taskset-1]: process has died [pid 1325638, exit code -2, cmd 'taskset -c 4,5 /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /tmp/launch_params_lw9l5hex'].

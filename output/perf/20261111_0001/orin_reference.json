@@ -1,0 +1,98 @@
+{
+ "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-01-54_mission-llm_38d747d91edf/bag",
+ "duration_s": 119.9,
+ "stages_ms": {
+  "/perception/virtual_wall/debug:tracker_ms": {
+   "n": 1063,
+   "p50": 26.086,
+   "p95": 40.081,
+   "max": 71.255
+  },
+  "/perception/virtual_wall/debug:rect_ms": {
+   "n": 1020,
+   "p50": 1.337,
+   "p95": 9.488,
+   "max": 23.623
+  },
+  "/perception/scene_labels/stats:ms": {
+   "n": 414,
+   "p50": 41.28,
+   "p95": 63.22,
+   "max": 96.16
+  },
+  "/perception/scene_labels_debug:ms": {
+   "n": 416,
+   "p50": 8.2,
+   "p95": 14.945,
+   "max": 29.33
+  },
+  "/mpc/solver_status:solve_dt_sec": {
+   "n": 1192,
+   "p50": 25.349,
+   "p95": 35.947,
+   "max": 69.776
+  }
+ },
+ "rates_hz": {
+  "/ackermann_drive": 114.28,
+  "/behavior/tree_status": 9.97,
+  "/camera/camera_info": 29.28,
+  "/camera/debug_image/clean/compressed": 4.86,
+  "/camera/debug_image/compressed": 4.87,
+  "/camera/detection_markers": 9.65,
+  "/camera/detection_masks": 9.71,
+  "/camera/detections": 9.71,
+  "/camera/detections_3d": 9.67,
+  "/commands/motor/speed": 114.3,
+  "/costmap/boundaries": 9.94,
+  "/costmap/front_clearance": 9.99,
+  "/costmap/semantic_markers": 9.67,
+  "/costmap/semantic_objects": 9.99,
+  "/costmap/semantic_tracks": 9.67,
+  "/costmap/wall_cells": 4.99,
+  "/diagnostics": 10.89,
+  "/diagnostics/system_status": 1.0,
+  "/drive": 9.97,
+  "/ekf_global/odometry/filtered": 19.95,
+  "/mission/status": 0.02,
+  "/mpc/corridor_markers": 0.93,
+  "/mpc/hold": 0.01,
+  "/mpc/reverse_status": 9.94,
+  "/mpc/solver_status": 9.94,
+  "/mpc/speed_channel": 9.96,
+  "/mpc/stop_target": 0.01,
+  "/odom": 49.7,
+  "/odometry/filtered": 19.88,
+  "/perception/debug/front_wall": 9.48,
+  "/perception/obstacles_2d": 9.68,
+  "/perception/scene_labels": 3.45,
+  "/perception/scene_labels/health": 1.99,
+  "/perception/scene_labels/stats": 3.45,
+  "/perception/scene_labels_debug": 3.47,
+  "/perception/stereo_columns": 3.45,
+  "/perception/stereo_wall": 3.46,
+  "/perception/unclassified_obstacles": 3.45,
+  "/perception/virtual_wall": 8.87,
+  "/perception/virtual_wall/debug": 8.87,
+  "/perception/wall_observations": 8.84,
+  "/perception/wall_planes": 8.65,
+  "/perception/wall_points": 3.47,
+  "/perception/walls": 8.83,
+  "/perception/walls/markers": 8.87,
+  "/safety_stop": 119.69,
+  "/scan": 39.89,
+  "/sensors/core": 49.9,
+  "/slam/map": 0.21,
+  "/tf": 49.82,
+  "/tf_static": 0.04,
+  "/zed2/zed_node/depth/camera_info": 29.35,
+  "/zed2/zed_node/depth/depth_registered_5hz": 4.51
+ },
+ "mpc": {
+  "solver": [
+   "rti"
+  ],
+  "ticks": 1192,
+  "ticks_with_a_solve": 1192
+ }
+}

@@ -1502,15 +1502,24 @@ def profile_case(case, path):
 
 
 def osqp_phases(warmup, iters):
-    """Split the forward solve into Python assembly, osqp setup and osqp solve."""
+    """
+    Split the forward solve into Python assembly and the three OSQP calls.
+
+    Timed directly around osqp.OSQP(), setup() and solve() through a thin proxy
+    class, not read from cProfile: OSQP's methods are pybind11 callables, which
+    cProfile does not see as C calls, so the profile's cumulative column around
+    them is not usable.
+    """
     import numpy as np
     from mpc_controller import mpc_solver
     real = mpc_solver.osqp
-    acc = {'setup': 0, 'solve': 0}
+    acc = {'init': 0, 'setup': 0, 'solve': 0}
 
     class Timed:
         def __init__(self, *a, **k):
+            t0 = time.perf_counter_ns()
             self._p = real.OSQP(*a, **k)
+            acc['init'] += time.perf_counter_ns() - t0
 
         def setup(self, *a, **k):
             t0 = time.perf_counter_ns()
@@ -1532,21 +1541,21 @@ def osqp_phases(warmup, iters):
     proxy.OSQP = Timed
     case = MpcSolveForward()
     case.setup()
-    rows = {'total': [], 'setup': [], 'solve': [], 'python': []}
+    rows = {'total': [], 'init': [], 'setup': [], 'solve': [], 'python': []}
     iters_osqp = []
     mpc_solver.osqp = proxy
     try:
         for i in range(warmup + iters):
             case.prepare(i)
-            acc['setup'] = acc['solve'] = 0
+            acc['init'] = acc['setup'] = acc['solve'] = 0
             t0 = time.perf_counter_ns()
             _u, info = case.run(i)
             total = time.perf_counter_ns() - t0
             if i >= warmup:
                 rows['total'].append(total)
-                rows['setup'].append(acc['setup'])
-                rows['solve'].append(acc['solve'])
-                rows['python'].append(total - acc['setup'] - acc['solve'])
+                for key in ('init', 'setup', 'solve'):
+                    rows[key].append(acc[key])
+                rows['python'].append(total - acc['init'] - acc['setup'] - acc['solve'])
                 iters_osqp.append(float(info.get('iterations', np.nan)))
     finally:
         mpc_solver.osqp = real
@@ -1703,9 +1712,11 @@ def main(argv=None):
     if any(isinstance(c, MpcSolveForward) for c in cases):
         phases, fc = osqp_phases(args.warmup, args.iters)
         osqp_iterations = phases.pop('osqp_iterations')
-        for key, label in (('python', 'Python: linearisation, dense P/q/A assembly, rollout, cost'),
-                           ('setup', 'osqp.OSQP().setup(): csc conversion inside, KKT factorisation'),
-                           ('solve', 'osqp solve() incl. polish')):
+        for key, label in (('python', 'Python: linearisation, dense P/q/A assembly, dense->csc, '
+                                      'rollout, cost'),
+                           ('init', 'osqp.OSQP(): a new solver object every tick'),
+                           ('setup', 'OSQP.setup(): KKT factorisation from scratch'),
+                           ('solve', 'OSQP.solve() incl. polish')):
             st = phases[key]
             rows.append({'function': f'mpc.solve_mpc_step/phase[{key}]', 'file_line': fc.where(),
                          **{k: round(v, 4) for k, v in st.items()}, 'alloc_peak_kb': '',

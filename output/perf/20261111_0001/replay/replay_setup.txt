@@ -1,0 +1,6 @@
+bag: /home/andreas/f1tenth_archive/mission_row/2026-10-23T14-01-54_mission-llm_38d747d91edf/bag
+repo: /home/andreas/dev_ws/f1tenth_more-perf @ e5484a70 (perf/baseline)
+domain 77, discovery server 127.0.0.1:11911, profile /home/andreas/dev_ws/f1tenth_more-perf/src/f1tenth_bringup/config/sim/dds/local.xml
+runs 2 (warm-up first: false), play 60s from 15s, settle 60s, camera 30 Hz, clock 50 Hz, goal 8 m
+launch: ros2 launch f1tenth_bringup supervisor_bringup.launch.py sim:=isaac use_sim_time:=true enable_mission_logger:=false enable_intelligence:=false discovery_server_address:=127.0.0.1 discovery_server_port:=11911 fastdds_profile:=/home/andreas/dev_ws/f1tenth_more-perf/src/f1tenth_bringup/config/sim/dds/local.xml sim_overlay_extra:=/home/andreas/dev_ws/f1tenth_more-perf/src/f1tenth_bringup/config/sim/hosts/linus.yaml
+play: ros2 bag play /home/andreas/f1tenth_archive/mission_row/2026-10-23T14-01-54_mission-llm_38d747d91edf/bag --clock 50 --start-offset 15 --playback-duration 60 --disable-keyboard-controls --topics /scan /odom /camera/camera_info /zed2/zed_node/depth/camera_info /camera/debug_image/clean/compressed /zed2/zed_node/depth/depth_registered_5hz --remap /camera/debug_image/clean/compressed:=/perf/image_clean/compressed /zed2/zed_node/depth/depth_registered_5hz:=/perf/depth_in

@@ -1,0 +1,27 @@
+{
+ "model": "yolo26s-seg.pt",
+ "device": "cuda",
+ "gpu": "NVIDIA GeForce RTX 5050",
+ "torch": "2.8.0+cu128",
+ "frame": "640x360",
+ "predict_total_ms": {
+  "p50": 11.62,
+  "p95": 14.62,
+  "max": 17.12
+ },
+ "preprocess_ms": {
+  "p50": 0.88,
+  "p95": 1.83,
+  "max": 2.08
+ },
+ "inference_ms": {
+  "p50": 10.16,
+  "p95": 12.14,
+  "max": 13.47
+ },
+ "postprocess_ms": {
+  "p50": 0.2,
+  "p95": 1.18,
+  "max": 3.52
+ }
+}

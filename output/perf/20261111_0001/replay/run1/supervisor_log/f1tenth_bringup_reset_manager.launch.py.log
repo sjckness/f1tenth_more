@@ -1,0 +1,20 @@
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-11-11-00-36-14-425392-linus-1322253
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [reset_manager-1]: process started with pid [1322365]
+[reset_manager-1] [INFO] [1794353776.977272865] [reset_manager]: [reset_all] ready on /reset_all: stop=True wheel_odom=True(service:/sim/reset) ekf_local=True slam=True(slam) ekf_global=True nav2=False hooks=[]; never restarts ['intelligence']
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [reset_manager-1]: sending signal 'SIGINT' to process[reset_manager-1]
+[reset_manager-1] Traceback (most recent call last):
+[reset_manager-1]   File "/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/lib/f1tenth_bringup/reset_manager", line 33, in <module>
+[reset_manager-1]     sys.exit(load_entry_point('f1tenth-bringup', 'console_scripts', 'reset_manager')())
+[reset_manager-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[reset_manager-1]   File "/home/andreas/dev_ws/f1tenth_more-perf/build/f1tenth_bringup/f1tenth_bringup/reset_manager_node.py", line 517, in main
+[reset_manager-1]     node.destroy_node()
+[reset_manager-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[reset_manager-1]     self.destroy_publisher(self._publishers[0])
+[reset_manager-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[reset_manager-1]     publisher.destroy()
+[reset_manager-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[reset_manager-1]     self.__publisher.destroy_when_not_in_use()
+[reset_manager-1] KeyboardInterrupt
+[ERROR] [reset_manager-1]: process has died [pid 1322365, exit code -2, cmd '/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/lib/f1tenth_bringup/reset_manager --ros-args -r __node:=reset_manager -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/reset_manager.yaml --params-file /tmp/launch_params_b07uodc4 --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml'].

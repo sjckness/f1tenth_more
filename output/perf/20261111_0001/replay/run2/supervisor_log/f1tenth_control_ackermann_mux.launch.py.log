@@ -1,0 +1,86 @@
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-11-11-00-38-36-363835-linus-1325437
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [ackermann_mux-1]: process started with pid [1325644]
+[INFO] [hard_stop_node-2]: process started with pid [1325645]
+[ackermann_mux-1] [INFO] [1794353917.907842230] [ackermann_mux]: Topic handler 'topics.calibration' subscribed to topic 'calibration_drive': timeout = 0.200000s , priority = 50.
+[ackermann_mux-1] [INFO] [1794353917.912367973] [ackermann_mux]: Topic handler 'topics.joystick' subscribed to topic 'teleop': timeout = 0.200000s , priority = 100.
+[ackermann_mux-1] [INFO] [1794353917.912689691] [ackermann_mux]: Topic handler 'topics.navigation' subscribed to topic 'drive': timeout = 0.200000s , priority = 10.
+[ackermann_mux-1] [INFO] [1794353917.914194489] [ackermann_mux]: Topic handler 'topics.safety_stop' subscribed to topic 'safety_stop': timeout = 0.200000s , priority = 200.
+[hard_stop_node-2] [INFO] [1794353921.805565499] [hard_stop_node]: HARD STOP enabled: range <= 0.200 m from the laser at x=0.305 (bumper 0.405), debounce 2 scans, clear hold 0.50 s, self-mask x[-0.120,+0.425] y[-0.156,+0.156], stop -> /safety_stop as base_link/hard_stop, reverse allowed past an obstacle ahead
+[hard_stop_node-2] [WARN] [1794353981.956211869] [hard_stop_node]: HARD STOP pending (1/2): 123 return(s) within 0.20 m, nearest 0.185 m at -48.5 deg (base_link +0.428,-0.139)
+[hard_stop_node-2] [WARN] [1794353981.986857581] [hard_stop_node]: HARD STOP ENGAGED (2/2): 124 return(s) within 0.20 m, nearest 0.182 m at -44.5 deg (base_link +0.435,-0.128) [trigger #1]
+[hard_stop_node-2] [INFO] [1794353982.055040966] [hard_stop_node]: hard stop RELEASED on the clear hold with no further scans (trigger #1)
+[hard_stop_node-2] [WARN] [1794353982.066123693] [hard_stop_node]: HARD STOP ENGAGED (5/2): 124 return(s) within 0.20 m, nearest 0.184 m at -47.0 deg (base_link +0.430,-0.135) [trigger #2]
+[hard_stop_node-2] [WARN] [1794353982.966517131] [hard_stop_node]: HARD STOP ENGAGED (41/2): 130 return(s) within 0.20 m, nearest 0.186 m at -47.8 deg (base_link +0.430,-0.138)
+[hard_stop_node-2] [WARN] [1794353984.001975490] [hard_stop_node]: HARD STOP ENGAGED (82/2): 123 return(s) within 0.20 m, nearest 0.186 m at -46.0 deg (base_link +0.434,-0.134)
+[hard_stop_node-2] [WARN] [1794353985.026871089] [hard_stop_node]: HARD STOP ENGAGED (123/2): 131 return(s) within 0.20 m, nearest 0.183 m at -48.8 deg (base_link +0.426,-0.138)
+[hard_stop_node-2] [WARN] [1794353986.044482349] [hard_stop_node]: HARD STOP ENGAGED (164/2): 123 return(s) within 0.20 m, nearest 0.186 m at -46.0 deg (base_link +0.434,-0.134)
+[hard_stop_node-2] [WARN] [1794353987.057489982] [hard_stop_node]: HARD STOP ENGAGED (204/2): 132 return(s) within 0.20 m, nearest 0.185 m at -45.3 deg (base_link +0.435,-0.131)
+[hard_stop_node-2] [WARN] [1794353988.066558576] [hard_stop_node]: HARD STOP ENGAGED (244/2): 117 return(s) within 0.20 m, nearest 0.186 m at -46.0 deg (base_link +0.434,-0.134)
+[hard_stop_node-2] [WARN] [1794353989.074829506] [hard_stop_node]: HARD STOP ENGAGED (285/2): 129 return(s) within 0.20 m, nearest 0.186 m at -44.0 deg (base_link +0.439,-0.129)
+[hard_stop_node-2] [WARN] [1794353990.083906974] [hard_stop_node]: HARD STOP ENGAGED (325/2): 127 return(s) within 0.20 m, nearest 0.184 m at -46.3 deg (base_link +0.432,-0.133)
+[hard_stop_node-2] [WARN] [1794353991.087763124] [hard_stop_node]: HARD STOP ENGAGED (365/2): 123 return(s) within 0.20 m, nearest 0.184 m at -47.3 deg (base_link +0.430,-0.135)
+[hard_stop_node-2] [WARN] [1794353992.121867541] [hard_stop_node]: HARD STOP ENGAGED (406/2): 131 return(s) within 0.20 m, nearest 0.185 m at -47.0 deg (base_link +0.431,-0.135)
+[hard_stop_node-2] [WARN] [1794353993.147577220] [hard_stop_node]: HARD STOP ENGAGED (447/2): 118 return(s) within 0.20 m, nearest 0.185 m at -49.0 deg (base_link +0.426,-0.140)
+[hard_stop_node-2] [WARN] [1794353994.148798879] [hard_stop_node]: HARD STOP ENGAGED (486/2): 113 return(s) within 0.20 m, nearest 0.181 m at -47.3 deg (base_link +0.428,-0.133)
+[hard_stop_node-2] [WARN] [1794353995.150544351] [hard_stop_node]: HARD STOP ENGAGED (526/2): 120 return(s) within 0.20 m, nearest 0.186 m at -44.3 deg (base_link +0.438,-0.130)
+[hard_stop_node-2] [WARN] [1794353996.183545833] [hard_stop_node]: HARD STOP ENGAGED (567/2): 119 return(s) within 0.20 m, nearest 0.185 m at -48.8 deg (base_link +0.427,-0.139)
+[hard_stop_node-2] [WARN] [1794353997.199472358] [hard_stop_node]: HARD STOP ENGAGED (608/2): 120 return(s) within 0.20 m, nearest 0.180 m at -47.5 deg (base_link +0.427,-0.133)
+[hard_stop_node-2] [WARN] [1794353998.205533533] [hard_stop_node]: HARD STOP ENGAGED (648/2): 125 return(s) within 0.20 m, nearest 0.181 m at -40.3 deg (base_link +0.443,-0.117)
+[hard_stop_node-2] [WARN] [1794353999.209984131] [hard_stop_node]: HARD STOP ENGAGED (688/2): 122 return(s) within 0.20 m, nearest 0.181 m at -41.0 deg (base_link +0.442,-0.119)
+[hard_stop_node-2] [WARN] [1794354000.210630569] [hard_stop_node]: HARD STOP ENGAGED (728/2): 136 return(s) within 0.20 m, nearest 0.185 m at -47.0 deg (base_link +0.431,-0.135)
+[hard_stop_node-2] [WARN] [1794354001.240574683] [hard_stop_node]: HARD STOP ENGAGED (769/2): 120 return(s) within 0.20 m, nearest 0.185 m at -47.8 deg (base_link +0.429,-0.137)
+[hard_stop_node-2] [WARN] [1794354002.263828392] [hard_stop_node]: HARD STOP ENGAGED (810/2): 125 return(s) within 0.20 m, nearest 0.184 m at -46.3 deg (base_link +0.432,-0.133)
+[hard_stop_node-2] [WARN] [1794354003.267338267] [hard_stop_node]: HARD STOP ENGAGED (850/2): 120 return(s) within 0.20 m, nearest 0.186 m at -48.5 deg (base_link +0.428,-0.139)
+[hard_stop_node-2] [WARN] [1794354004.288657336] [hard_stop_node]: HARD STOP ENGAGED (891/2): 126 return(s) within 0.20 m, nearest 0.178 m at -44.5 deg (base_link +0.432,-0.125)
+[hard_stop_node-2] [WARN] [1794354005.305962891] [hard_stop_node]: HARD STOP ENGAGED (931/2): 121 return(s) within 0.20 m, nearest 0.185 m at -49.5 deg (base_link +0.425,-0.141)
+[hard_stop_node-2] [WARN] [1794354006.325494093] [hard_stop_node]: HARD STOP ENGAGED (972/2): 113 return(s) within 0.20 m, nearest 0.181 m at -43.5 deg (base_link +0.436,-0.125)
+[hard_stop_node-2] [WARN] [1794354007.349149746] [hard_stop_node]: HARD STOP ENGAGED (1013/2): 107 return(s) within 0.20 m, nearest 0.185 m at -49.3 deg (base_link +0.426,-0.140)
+[hard_stop_node-2] [WARN] [1794354008.349547755] [hard_stop_node]: HARD STOP ENGAGED (1053/2): 116 return(s) within 0.20 m, nearest 0.187 m at -59.0 deg (base_link +0.401,-0.160)
+[hard_stop_node-2] [WARN] [1794354009.360804260] [hard_stop_node]: HARD STOP ENGAGED (1093/2): 124 return(s) within 0.20 m, nearest 0.183 m at -44.0 deg (base_link +0.437,-0.127)
+[hard_stop_node-2] [WARN] [1794354010.379151538] [hard_stop_node]: HARD STOP ENGAGED (1134/2): 121 return(s) within 0.20 m, nearest 0.183 m at -47.3 deg (base_link +0.429,-0.134)
+[hard_stop_node-2] [WARN] [1794354011.405435067] [hard_stop_node]: HARD STOP ENGAGED (1175/2): 124 return(s) within 0.20 m, nearest 0.186 m at -47.5 deg (base_link +0.431,-0.137)
+[hard_stop_node-2] [WARN] [1794354012.406235246] [hard_stop_node]: HARD STOP ENGAGED (1215/2): 131 return(s) within 0.20 m, nearest 0.185 m at -49.3 deg (base_link +0.426,-0.140)
+[hard_stop_node-2] [WARN] [1794354013.408834499] [hard_stop_node]: HARD STOP ENGAGED (1255/2): 125 return(s) within 0.20 m, nearest 0.186 m at -49.5 deg (base_link +0.426,-0.141)
+[hard_stop_node-2] [WARN] [1794354014.414752605] [hard_stop_node]: HARD STOP ENGAGED (1295/2): 128 return(s) within 0.20 m, nearest 0.185 m at -48.0 deg (base_link +0.429,-0.137)
+[hard_stop_node-2] [WARN] [1794354015.446789100] [hard_stop_node]: HARD STOP ENGAGED (1336/2): 115 return(s) within 0.20 m, nearest 0.185 m at -46.0 deg (base_link +0.434,-0.133)
+[hard_stop_node-2] [WARN] [1794354016.466671944] [hard_stop_node]: HARD STOP ENGAGED (1377/2): 134 return(s) within 0.20 m, nearest 0.179 m at -47.8 deg (base_link +0.425,-0.132)
+[hard_stop_node-2] [WARN] [1794354017.476130493] [hard_stop_node]: HARD STOP ENGAGED (1417/2): 129 return(s) within 0.20 m, nearest 0.184 m at -49.3 deg (base_link +0.425,-0.139)
+[hard_stop_node-2] [WARN] [1794354018.512369794] [hard_stop_node]: HARD STOP ENGAGED (1458/2): 118 return(s) within 0.20 m, nearest 0.187 m at -42.5 deg (base_link +0.443,-0.126)
+[hard_stop_node-2] [WARN] [1794354019.524992511] [hard_stop_node]: HARD STOP ENGAGED (1499/2): 133 return(s) within 0.20 m, nearest 0.183 m at -47.5 deg (base_link +0.429,-0.135)
+[hard_stop_node-2] [WARN] [1794354020.537250006] [hard_stop_node]: HARD STOP ENGAGED (1539/2): 109 return(s) within 0.20 m, nearest 0.186 m at -43.8 deg (base_link +0.439,-0.129)
+[hard_stop_node-2] [WARN] [1794354021.538635021] [hard_stop_node]: HARD STOP ENGAGED (1579/2): 124 return(s) within 0.20 m, nearest 0.187 m at -49.0 deg (base_link +0.428,-0.141)
+[hard_stop_node-2] [WARN] [1794354022.576322686] [hard_stop_node]: HARD STOP ENGAGED (1620/2): 128 return(s) within 0.20 m, nearest 0.185 m at -47.3 deg (base_link +0.431,-0.136)
+[hard_stop_node-2] [WARN] [1794354023.594014878] [hard_stop_node]: HARD STOP ENGAGED (1661/2): 131 return(s) within 0.20 m, nearest 0.185 m at -43.5 deg (base_link +0.439,-0.127)
+[hard_stop_node-2] [WARN] [1794354024.597292556] [hard_stop_node]: HARD STOP ENGAGED (1701/2): 123 return(s) within 0.20 m, nearest 0.185 m at -46.5 deg (base_link +0.432,-0.134)
+[hard_stop_node-2] [WARN] [1794354025.598876701] [hard_stop_node]: HARD STOP ENGAGED (1741/2): 125 return(s) within 0.20 m, nearest 0.184 m at -44.0 deg (base_link +0.437,-0.128)
+[hard_stop_node-2] [WARN] [1794354026.606537185] [hard_stop_node]: HARD STOP ENGAGED (1781/2): 126 return(s) within 0.20 m, nearest 0.186 m at -46.3 deg (base_link +0.434,-0.134)
+[hard_stop_node-2] [WARN] [1794354027.608363369] [hard_stop_node]: HARD STOP ENGAGED (1821/2): 138 return(s) within 0.20 m, nearest 0.186 m at -48.3 deg (base_link +0.429,-0.139)
+[hard_stop_node-2] [WARN] [1794354028.633110015] [hard_stop_node]: HARD STOP ENGAGED (1862/2): 126 return(s) within 0.20 m, nearest 0.184 m at -48.0 deg (base_link +0.428,-0.137)
+[hard_stop_node-2] [WARN] [1794354029.653528357] [hard_stop_node]: HARD STOP ENGAGED (1902/2): 122 return(s) within 0.20 m, nearest 0.185 m at -48.8 deg (base_link +0.427,-0.139)
+[hard_stop_node-2] [WARN] [1794354030.680919304] [hard_stop_node]: HARD STOP ENGAGED (1943/2): 120 return(s) within 0.20 m, nearest 0.186 m at -43.5 deg (base_link +0.440,-0.128)
+[hard_stop_node-2] [WARN] [1794354031.697616568] [hard_stop_node]: HARD STOP ENGAGED (1984/2): 121 return(s) within 0.20 m, nearest 0.185 m at -45.5 deg (base_link +0.435,-0.132)
+[hard_stop_node-2] [WARN] [1794354032.699348808] [hard_stop_node]: HARD STOP ENGAGED (2024/2): 121 return(s) within 0.20 m, nearest 0.186 m at -46.0 deg (base_link +0.434,-0.134)
+[hard_stop_node-2] [WARN] [1794354033.708153374] [hard_stop_node]: HARD STOP ENGAGED (2064/2): 138 return(s) within 0.20 m, nearest 0.185 m at -48.8 deg (base_link +0.427,-0.139)
+[hard_stop_node-2] [WARN] [1794354034.731519539] [hard_stop_node]: HARD STOP ENGAGED (2105/2): 110 return(s) within 0.20 m, nearest 0.185 m at -47.3 deg (base_link +0.431,-0.136)
+[hard_stop_node-2] [WARN] [1794354035.758890493] [hard_stop_node]: HARD STOP ENGAGED (2146/2): 129 return(s) within 0.20 m, nearest 0.185 m at -47.3 deg (base_link +0.431,-0.136)
+[hard_stop_node-2] [WARN] [1794354036.761838124] [hard_stop_node]: HARD STOP ENGAGED (2186/2): 131 return(s) within 0.20 m, nearest 0.185 m at -42.3 deg (base_link +0.442,-0.124)
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[ackermann_mux-1] [INFO] [1794354040.846008735] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [hard_stop_node-2]: sending signal 'SIGINT' to process[hard_stop_node-2]
+[INFO] [ackermann_mux-1]: sending signal 'SIGINT' to process[ackermann_mux-1]
+[ERROR] [ackermann_mux-1]: process has died [pid 1325644, exit code -2, cmd '/home/andreas/dev_ws/f1tenth_more-perf/install/ackermann_mux/lib/ackermann_mux/ackermann_mux --ros-args -r __node:=ackermann_mux -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/mux.yaml -r ackermann_cmd:=ackermann_drive'].
+[hard_stop_node-2] Traceback (most recent call last):
+[hard_stop_node-2]   File "/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_control/lib/f1tenth_control/hard_stop_node", line 33, in <module>
+[hard_stop_node-2]     sys.exit(load_entry_point('f1tenth-control', 'console_scripts', 'hard_stop_node')())
+[hard_stop_node-2]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[hard_stop_node-2]   File "/home/andreas/dev_ws/f1tenth_more-perf/build/f1tenth_control/f1tenth_control/hard_stop_node.py", line 275, in main
+[hard_stop_node-2]     node.destroy_node()
+[hard_stop_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[hard_stop_node-2]     self.destroy_publisher(self._publishers[0])
+[hard_stop_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[hard_stop_node-2]     publisher.destroy()
+[hard_stop_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[hard_stop_node-2]     self.__publisher.destroy_when_not_in_use()
+[hard_stop_node-2] KeyboardInterrupt
+[ERROR] [hard_stop_node-2]: process has died [pid 1325645, exit code -2, cmd '/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_control/lib/f1tenth_control/hard_stop_node --ros-args -r __node:=hard_stop_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /tmp/launch_params_7d1h68w1'].

@@ -1,0 +1,2 @@
+[INFO] [1794353990.095751601] [perf_replay_feeder]: published /mpc/goal_distance 8.0 m (#1)
+feeder: 1645 image frames published, 1 goal(s) sent, solver_status seen: True

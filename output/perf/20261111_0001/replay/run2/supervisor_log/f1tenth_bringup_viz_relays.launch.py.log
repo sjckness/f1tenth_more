@@ -1,0 +1,76 @@
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-11-11-00-38-36-210837-linus-1325429
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [1325713]
+[INFO] [taskset-2]: process started with pid [1325716]
+[taskset-1] [INFO] [1794353920.386334923] [viz_relay_container]: Load Library: /home/andreas/dev_ws/jc_deps_ws/install/topic_tools/lib/libthrottle_node.so
+[taskset-1] [INFO] [1794353920.388930898] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353920.389228432] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_scan' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353920.575129464] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353920.576265890] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_sensors_core' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353920.831970952] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353920.832407962] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_camera_image_annotated' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353921.014114947] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353921.014564553] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_costmap_visualization' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353921.208456964] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353921.209074475] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_bt_tree_visualization' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353921.383471562] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353921.383506997] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_ekf_global_odometry_filtered' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353921.696320194] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353921.697084041] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-2] [INFO] [1794353922.171360106] [viz_jpeg_node]: JPEG q75: /viz_internal/camera/image_annotated -> /viz/camera/image_annotated/compressed, /viz_internal/costmap/visualization -> /viz/costmap/visualization/compressed
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_slam_pose' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353922.691234705] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353922.691729362] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_slam_pose_calibrated' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353922.933237459] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353922.933317134] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_perception_d_wall' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353923.085127970] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353923.085182779] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_perception_front_clearance' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353923.160425945] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353923.160494604] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_perception_front_distance' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353923.213654938] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353923.213852913] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_perception_lidar_front_wall_virtual' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353923.297677701] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353923.297717514] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_perception_obstacles_2d' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353923.431756646] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353923.431799306] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_costmap_front_clearance' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353923.499483223] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353923.499524577] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_drive' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353923.607383510] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353923.607429059] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_mpc_corridor_markers' in container '/viz_relay_container'
+[taskset-1] [INFO] [1794353923.933977304] [viz_relay_container]: Found class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[taskset-1] [INFO] [1794353923.934173019] [viz_relay_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<topic_tools::ThrottleNode>
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/viz_throttle_diagnostics_system_status' in container '/viz_relay_container'
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-2]: sending signal 'SIGINT' to process[taskset-2]
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[taskset-1] [INFO] [1794354040.842478545] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[taskset-2] Traceback (most recent call last):
+[taskset-2]   File "/home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/lib/f1tenth_bringup/viz_jpeg_node", line 33, in <module>
+[taskset-2]     sys.exit(load_entry_point('f1tenth-bringup', 'console_scripts', 'viz_jpeg_node')())
+[taskset-2]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-2]   File "/home/andreas/dev_ws/f1tenth_more-perf/build/f1tenth_bringup/f1tenth_bringup/viz_jpeg_node.py", line 123, in main
+[taskset-2]     node.destroy_node()
+[taskset-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1962, in destroy_node
+[taskset-2]     self.destroy_service(self._services[0])
+[taskset-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1886, in destroy_service
+[taskset-2]     service.destroy()
+[taskset-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/service.py", line 123, in destroy
+[taskset-2]     self.__service.destroy_when_not_in_use()
+[taskset-2] KeyboardInterrupt
+[ERROR] [taskset-2]: process has died [pid 1325716, exit code -2, cmd 'taskset -c 3 /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/lib/f1tenth_bringup/viz_jpeg_node --ros-args -r __node:=viz_jpeg_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more-perf/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /tmp/launch_params_qp_pe14g'].
+[taskset-1] [INFO] [1794354044.434920469] [rclcpp]: signal_handler(SIGINT/SIGTERM)
