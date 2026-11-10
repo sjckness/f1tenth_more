@@ -46,9 +46,19 @@ class _StubNode:
         self._system_prompt = prompt
         self._go_to_enabled = go_to_enabled
         self._logger = _StubLogger()
+        #: Every _note_llm_* call, in order.
+        self.llm_timing = []
 
     def get_logger(self):
         return self._logger
+
+    # See _Stub in test_intent_go_to.py -- the same two hooks, missing here
+    # for the same reason.
+    def _note_llm_sent(self):
+        self.llm_timing.append('sent')
+
+    def _note_llm_received(self):
+        self.llm_timing.append('received')
 
 
 # ---------------------------------------------------------------------------

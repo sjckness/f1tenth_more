@@ -392,9 +392,23 @@ class _Stub:
         self._planner_path = 'v2'
         self.opts = SimpleNamespace(dry_run=True, confirm=False)
         self.written = None
+        #: Every _note_llm_* call, in order. See the two methods below.
+        self.llm_timing = []
 
     def get_logger(self):
         return self._logger
+
+    # The node's two LLM-timing hooks, called around every attempt in
+    # _plan_v2. THEY WERE MISSING FROM THIS STUB (added to the node after it
+    # was written), and every test here that drives _plan_v2 was dying on
+    # AttributeError instead of running -- green nowhere, but silent in a
+    # suite that already had failures. Recorded rather than ignored so the
+    # pairing can be asserted.
+    def _note_llm_sent(self):
+        self.llm_timing.append('sent')
+
+    def _note_llm_received(self):
+        self.llm_timing.append('received')
 
     def _plan_v2(self, command_text):
         from llm.llm_planner_node import LLMPlannerNode
