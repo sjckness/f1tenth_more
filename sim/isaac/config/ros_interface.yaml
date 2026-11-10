@@ -58,3 +58,22 @@ qos:
   tf: {reliability: reliable, depth: 100}
   odom: {reliability: reliable, depth: 10}          # reliable pub matches both reliable and best-effort subs
   objects: {reliability: reliable, durability: transient_local, depth: 1}   # static scene: late joiners get it
+
+# Keyboard teleop INSIDE the Isaac process (tools/isaac_keyboard/isaac_keyboard.py of this repo).
+# OFF by default: with enabled=false nothing is imported, no publisher is created and the sim
+# behaves exactly as before. Turn it on with
+#   scripts/sim/sim_isaac_hil sim --gui --keyboard         (= --set ros_interface.keyboard.enabled=true)
+# It publishes AckermannDriveStamped on `topic`, the ackermann_mux joystick lane (priority 100,
+# timeout 0.2 s); the behaviour tree's safety_stop lane still wins. carb.input needs the Isaac
+# window to have focus (--gui); headless it falls back to evdev, which reads the keyboard whatever
+# window has focus and needs /dev/input in the container (docker/docker-compose.yaml).
+# `hold_when_idle: true` keeps publishing zero while no key is held, so the teleop lane HOLDS the
+# car instead of handing it back to the MPC; set it false to let autonomy drive between keypresses.
+# See docs/hydra_hil.md section 7 for the keys and the safety properties.
+keyboard:
+  enabled: false
+  # Absolute path inside the Isaac container (the compose mounts this repo read-only at
+  # /workspaces/f1tenth_more). If it is missing (a host run, or a different mount point),
+  # main.py falls back to this checkout's own tools/isaac_keyboard/isaac_keyboard.py.
+  module: /workspaces/f1tenth_more/tools/isaac_keyboard/isaac_keyboard.py
+  params: {topic: /teleop, max_speed: 1.0, hold_when_idle: true}

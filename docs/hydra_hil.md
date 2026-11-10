@@ -3,15 +3,18 @@
 Hydra (MIT-SPARK) builds a 3D scene graph from the simulated ZED 2i. Everything here is behind
 flags: with no flags the stack, Isaac and the logger behave exactly as before.
 
-Branch `hydra-hil`, base `jazzy-doors` 698faa14.
+Branch `hil-hydra-integration`: `hil-isaac` (the Isaac sim in this repo, `sim/isaac`, and the
+workstation <-> Orin HIL link) merged with `hydra-hil` (Hydra, base `jazzy-doors` 698faa14).
+Both feature sets are whole and every Hydra thing is behind a flag that is off by default.
 
 ## 1. Camera: the ZED 2i contract
 
 Hydra reads only the topics in `src/f1tenth_hydra/config/camera_zed2i.yaml`. That file is the
-contract, copied from the real car's config. The Isaac sim (`~/isaac_ws`, not in this branch)
-already publishes it under the same names.
+contract, copied from the real car's config. Both Isaac entry points publish it under the same
+names: `sim/isaac` in this repo (`scripts/sim/sim_isaac_hil`) and the `~/isaac_ws` checkout the
+linus + Thor path uses (`scripts/sim/sim_isaac.sh`).
 
-| | Real car (ZED 2i, wrapper) | Isaac sim (`~/isaac_ws` + `sim_isaac.sh`) |
+| | Real car (ZED 2i, wrapper) | Isaac sim (`sim/isaac` / `~/isaac_ws`) |
 |---|---|---|
 | Model / name | zed2i, camera_name `zed2` | stereo pair "ZED2-like", same names |
 | Resolution | 640x360 (HD720 grab, `pub_downscale_factor` 2) | 640x360 |
@@ -33,9 +36,9 @@ Two differences are deliberate and stay. The rate is 15 Hz in the sim, against t
 delivered (30 configured). The optical frame name differs by wrapper version; Hydra takes it from
 the `camera_info` header, so neither name is hard-coded.
 
-### What the Isaac side must publish (hil-isaac)
+### What the Isaac side must publish
 
-Nothing new beyond what `~/isaac_ws` already has:
+Nothing new beyond what `sim/isaac` (and the `~/isaac_ws` checkout) already has:
 
 - the topics above, under these names;
 - GT semantics: `--set sensors.stereo.semantic.enabled=true`. `sim_isaac.sh` adds it when
@@ -305,38 +308,34 @@ Safety (unit-tested, `tools/isaac_keyboard/test_isaac_keyboard.py`):
 - Speed is 0 or at least 0.4 m/s, never in between. Steering is at most +0.319 / -0.309 rad
   (stack_params `mpc_steering_angle_max/min_rad`, the servo envelope).
 
-### The Isaac-side hook (hil-isaac / `~/isaac_ws`, not in this branch)
+### The Isaac-side hook (in this repo: `sim/isaac/`)
 
-`sim_isaac.sh isaac ... keyboard:=true` passes `--set ros_interface.keyboard.enabled=true`.
-Isaac refuses unknown keys, so these 2 additions must be in place first:
+The sim is part of this repository (`sim/isaac`), so the hook is in it:
 
-`config/ros_interface.yaml`:
-```yaml
-keyboard:
-  enabled: false
-  # this repo, as the compose mounts it (/workspaces/f1tenth_more is ~/dev_ws/f1tenth_more, ro);
-  # with the sim in the repo (hil-isaac) point it at that checkout's tools/isaac_keyboard
-  module: /workspaces/f1tenth_more/tools/isaac_keyboard/isaac_keyboard.py
-  params: {topic: /teleop, max_speed: 1.0, hold_when_idle: true}
+- `sim/isaac/config/ros_interface.yaml` has a `keyboard:` block, `enabled: false`. Isaac refuses
+  an override of a key that does not exist, so this block is what makes
+  `--set ros_interface.keyboard.enabled=true` legal.
+- `sim/isaac/sim/main.py`: `_keyboard_teleop(cfg, ros.node)` next to the `RosBridge`,
+  `kb.step()` in the loop right after `ros.spin_once()` (wall-clock dead-man and rate,
+  independent of the RTF) and `kb.close()` in the teardown. With `enabled: false` nothing is
+  imported and no publisher is created; a keyboard that cannot be set up is logged and skipped,
+  never a reason to stop the sim.
+- The module is loaded **by path**, not imported: `tools/isaac_keyboard/isaac_keyboard.py` is a
+  plain file in this repo, which the compose mounts read-only at `/workspaces/f1tenth_more`
+  (`module:` in the config). Outside the container, or with another mount point, `main.py` falls
+  back to this checkout's own copy.
+
+Switch it on with either entry point:
+
+```bash
+scripts/sim/sim_isaac_hil sim --gui --keyboard        # HIL: workstation Isaac + Orin stack
+scripts/sim/sim_isaac.sh  isaac ... keyboard:=true    # linus + Thor over the cable
 ```
-`sim/main.py`, after `ros = RosBridge(...)` and inside the loop after `ros.spin_once()`:
-```python
-    kb = None
-    if cfg.ros.get("keyboard", {}).get("enabled"):
-        import importlib.util
-        _spec = importlib.util.spec_from_file_location("isaac_keyboard", cfg.ros["keyboard"]["module"])
-        _kbm = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(_kbm)
-        kb = _kbm.IsaacKeyboardTeleop(ros.node, _kbm.TeleopParams.from_dict(cfg.ros["keyboard"].get("params")), log=log.info)
-    ...
-        while app.is_running() and not stop["flag"]:
-            ros.spin_once()
-            if kb: kb.step()          # wall-clock dead-man and rate, independent of the RTF
-    ...
-    if kb: kb.close()                 # in the finally/teardown
-```
-It needs the GUI (`--gui`) for carb.input. For the evdev fallback inside the container, add
-`devices: [/dev/input:/dev/input]`, group `input`, and
-`/isaac-sim/python.sh -m pip install evdev`.
+
+Both pass `--set ros_interface.keyboard.enabled=true`; `--keyboard` warns when it is used without
+`--gui`. It needs the GUI for carb.input. For the evdev fallback inside the container, uncomment
+`devices: [/dev/input:/dev/input]` and `group_add: ["input"]` in
+`sim/isaac/docker/docker-compose.yaml` and run `/isaac-sim/python.sh -m pip install evdev`.
 
 Standalone, without the hook, on any host with the stack's ROS env (evdev, see sudo steps):
 `scripts/sim/sim_isaac.sh run --net eth python3 tools/isaac_keyboard/isaac_keyboard.py`.
@@ -363,8 +362,11 @@ Written and checked on linus (RTX 5050, no Hydra, no GTSAM). Not run on the work
 - **Jetson aarch64 build** (jetson_min): only the profile and the steps above.
 - **`pose_source:=stack_tf`.** The TF lookups against the stack's EKF + camera TF over the link,
   and the `odom -> hydra_map` anchor.
-- **hil-isaac integration.** The keyboard hook in `sim/main.py` + `ros_interface.yaml`, carb.input
-  in Isaac 5.1 (API names from Kit's carb.input), and the GT semantics at the HIL frame rate
+- **hil-isaac integration.** The keyboard hook is in `sim/isaac/sim/main.py` +
+  `config/ros_interface.yaml` on this branch and was exercised without Isaac (off -> nothing
+  imported; on -> the module loads by path and the `/teleop` publisher appears; a broken path is
+  logged and skipped). Not run inside Isaac: carb.input in Isaac 5.1 (API names from Kit's
+  carb.input), the evdev fallback in the container, and the GT semantics at the HIL frame rate
   (Isaac RTF with the semantic annotator on).
 - Open3D window of `hydra_dsg_viewer`. The matplotlib path, `--summary`, the live topic path
   (against a Python DSG publisher), `open_graph.sh`, the logger's saver and `hydra_cost` were

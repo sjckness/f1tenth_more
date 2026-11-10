@@ -87,6 +87,43 @@ def main() -> int:
         app.close()
 
 
+def _keyboard_teleop(cfg, node):
+    """Keyboard teleop inside the Isaac process, or None when it is off (the default).
+
+    ``ros_interface.yaml`` -> ``keyboard.enabled``. The module is loaded by path, not imported:
+    ``tools/isaac_keyboard/isaac_keyboard.py`` is a plain file in the car repo, which the
+    container mounts read-only, and the sim directory is not on its import path. A keyboard that
+    cannot be set up is logged and skipped -- it must never stop the simulation.
+    """
+    kb_cfg = (cfg.ros.get("keyboard") or {})
+    if not kb_cfg.get("enabled"):
+        return None
+    module = kb_cfg.get("module") or ""
+    if not module or not os.path.exists(module):
+        sim_isaac = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # sim/isaac
+        fallback = os.path.join(os.path.dirname(os.path.dirname(sim_isaac)),
+                                "tools", "isaac_keyboard", "isaac_keyboard.py")
+        if module:
+            log.warning("keyboard module %s not found, trying %s", module, fallback)
+        module = fallback
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("isaac_keyboard", module)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"cannot load {module}")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        kb = mod.IsaacKeyboardTeleop(node, mod.TeleopParams.from_dict(kb_cfg.get("params")),
+                                     log=log.info)
+    except Exception as exc:  # noqa: BLE001 - no keyboard is never a reason to stop the sim
+        log.error("keyboard teleop disabled: %s (%s)", exc, module)
+        return None
+    log.warning("keyboard teleop ACTIVE on %s: this lane holds the car while it publishes",
+                kb.p.topic)
+    return kb
+
+
 def run(app, cfg, args, stop) -> int:
     import numpy as np
     import omni.usd
@@ -135,6 +172,7 @@ def run(app, cfg, args, stop) -> int:
 
     sim_t = {"t": 0.0}
     ros = RosBridge(cfg, on_command=lambda v, d: controller.command(v, d, sim_t["t"]), on_reset=resetter)
+    kb = _keyboard_teleop(cfg, ros.node)
     fr, st = cfg.ros["frames"], cfg.sensors["stereo"]
     if cfg.ros["publish_static_tf"]:
         ros.static_tf(0.0, sensors.static_tree)
@@ -170,6 +208,8 @@ def run(app, cfg, args, stop) -> int:
     try:
         while app.is_running() and not stop["flag"]:
             ros.spin_once()
+            if kb is not None:
+                kb.step()        # wall-clock dead-man and rate, independent of the RTF
             controller.step(sim_t["t"], dt)
             camera_frame = (k % render_every == 0)
             # Every render renders ALL render products (both cameras + the GUI viewport), so the GUI viewport
@@ -251,6 +291,8 @@ def run(app, cfg, args, stop) -> int:
             with open(args.stats_file, "w") as fh:
                 json.dump(stats, fh, indent=1, default=str)
         try:
+            if kb is not None:
+                kb.close()
             ros.shutdown()
             world.stop()
         except Exception:  # noqa: BLE001

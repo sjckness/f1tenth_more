@@ -17,6 +17,9 @@
 #                    (default: sim.world in sim/isaac/config/hil.yaml)
 #   --layout NAME    scene layout preset (office: corridor | door | open_space | people)
 #   --gui            open the Isaac GUI (default headless)
+#   --keyboard       keyboard teleop INSIDE Isaac (W/S/A/D, Space; needs --gui for carb.input).
+#                    Off by default. It publishes the /teleop mux lane and HOLDS the car while it
+#                    runs (docs/hydra_hil.md section 7).
 #   --rate HZ        camera rate, overriding sim.stereo.rate (the LINK budget lives here)
 #   --set K=V        extra sim config override, repeatable (see sim/isaac/sim/config.py)
 #   --dry-run        print everything, start nothing
@@ -41,7 +44,7 @@ case "$CMD" in
   -h|--help|help|"") usage; exit 0 ;;
   *) die "unknown subcommand '$CMD' (preflight|world|sim|reset|run|env; --help)" ;;
 esac
-WORLD=""; LAYOUT=""; GUI=""; RATE=""; DRY=false; CHECK_ORIN=false; SETS=(); PASS=()
+WORLD=""; LAYOUT=""; GUI=""; RATE=""; DRY=false; CHECK_ORIN=false; KEYBOARD=false; SETS=(); PASS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --world) WORLD="${2:?--world needs a name}"; shift 2 ;;
@@ -53,6 +56,7 @@ while [ $# -gt 0 ]; do
     --set) SETS+=("${2:?--set needs KEY=VALUE}"); shift 2 ;;
     --set=*) SETS+=("${1#*=}"); shift ;;
     --gui) GUI=true; shift ;;
+    --keyboard) KEYBOARD=true; shift ;;
     --orin) CHECK_ORIN=true; shift ;;
     --dry-run) DRY=true; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -271,6 +275,12 @@ isaac_args() {
     --set "sensors.stereo.height=$HIL_SIM_STEREO_HEIGHT"
     --set "sensors.stereo.right_camera=$HIL_SIM_STEREO_RIGHT_CAMERA")
   [ -n "$LAYOUT" ] && ISAAC_ARGS+=(--set "scene.layout=$LAYOUT")
+  # Keyboard teleop inside the Isaac process (off unless asked). carb.input needs the window to
+  # have focus; headless it falls back to evdev. The teleop lane holds the car while it publishes.
+  if [ "$KEYBOARD" = true ]; then
+    ISAAC_ARGS+=(--set ros_interface.keyboard.enabled=true)
+    [ "$GUI" = true ] || log "--keyboard without --gui: carb.input has no window, Isaac falls back to evdev (needs /dev/input in the container)"
+  fi
   local extra
   for extra in ${HIL_SIM_EXTRA_SET:-}; do ISAAC_ARGS+=(--set "$extra"); done
   local s

@@ -47,8 +47,16 @@ services:
       - ${F1T_ISAAC_DIR:?F1T_ISAAC_DIR is set by launch.sh}:/home/isaac_ws:rw
       # Fast DDS profile directory (launch.sh --dds-profile), read only.
       - ${ISAAC_DDS_DIR:-${F1T_ISAAC_DIR}/config}:/dds:ro
-      # The car repo itself, read only (car spec / params / reference while debugging).
+      # The car repo itself, read only (car spec / params / reference while debugging). The
+      # keyboard teleop module (tools/isaac_keyboard) is loaded from here when it is enabled.
       - ${F1T_REPO:?F1T_REPO is set by launch.sh}:/workspaces/f1tenth_more:ro
+    # Keyboard teleop (ros_interface.keyboard.enabled / sim_isaac_hil --keyboard) uses carb.input
+    # and needs nothing extra when the Isaac window has focus (--gui). For the HEADLESS evdev
+    # fallback, uncomment these two and `/isaac-sim/python.sh -m pip install evdev` in the
+    # container; evdev then reads the keyboard whatever window has focus.
+    # devices:
+    #   - /dev/input:/dev/input
+    # group_add: ["input"]
     working_dir: /home/isaac_ws
     stdin_open: true
     tty: true
