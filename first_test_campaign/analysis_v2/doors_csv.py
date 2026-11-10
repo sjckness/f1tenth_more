@@ -25,6 +25,11 @@ steer_direction_rev_per_m.
   <MISSIONS_DIR>/<plan_id>.json (default src/f1tenth_behavior/missions of this
   repo, --missions-dir). It segments the moves, so exec_ok, viol_fixed_pct and
   lateral_error_max_m (straight moves only, RULES.md §7) are computed.
+* --drop-reset-origin: the local odometry sits at exactly (0, 0) (its reset
+  value) until the first estimate after the start. When that first estimate is
+  not next to (0, 0), RULES.md §4's pose check sees a jump and nulls every
+  pose-based value of the run. With this flag the leading exact-(0, 0) rows of
+  kinematics.csv are left out (in a temp copy; the run folder is never touched).
 * Rep: the R### of the test id. Every other value comes from
   scripts.metrics.compute_run_metrics (RULES.md §6-7), unchanged.
 * A run that fails to load or compute keeps its row (obstacle/Rep only) and is
@@ -37,7 +42,9 @@ import argparse
 import csv
 import json
 import math
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 import yaml
@@ -132,7 +139,33 @@ def mission_plan(run, missions_dir):
     return plan if isinstance(plan, dict) and plan.get("moves") else None
 
 
-def row_for(run_dir, obstacles, missions_dir=DEFAULT_MISSIONS):
+def without_reset_origin(run_dir, tmp_root):
+    """Temp copy of run_dir (symlinks) whose kinematics.csv drops the leading
+    exact-(0, 0) rows. Returns (path, n_dropped); the original when none."""
+    src = Path(run_dir) / "kinematics.csv"
+    with open(src, newline="", encoding="utf-8") as fh:
+        rows = list(csv.reader(fh))
+    if len(rows) < 2:
+        return Path(run_dir), 0
+    head, body = rows[0], rows[1:]
+    ix, iy = head.index("x"), head.index("y")
+    n = 0
+    while n < len(body) and body[n][ix] not in ("", None) and body[n][iy] not in ("", None) \
+            and float(body[n][ix]) == 0.0 and float(body[n][iy]) == 0.0:
+        n += 1
+    if n == 0 or n == len(body):
+        return Path(run_dir), 0
+    dst = Path(tmp_root) / Path(run_dir).parent.name / Path(run_dir).name
+    dst.mkdir(parents=True)
+    for f in Path(run_dir).iterdir():
+        if f.name != "kinematics.csv":
+            os.symlink(f.resolve(), dst / f.name)
+    with open(dst / "kinematics.csv", "w", newline="", encoding="utf-8") as fh:
+        csv.writer(fh).writerows([head] + body[n:])
+    return dst, n
+
+
+def row_for(run_dir, obstacles, missions_dir=DEFAULT_MISSIONS, tmp_root=None):
     test_id = run_dir.name
     obstacle = obstacle_for(test_id, obstacles)
     row = {k: None for k in HEADER}
@@ -140,7 +173,10 @@ def row_for(run_dir, obstacles, missions_dir=DEFAULT_MISSIONS):
     row["Rep"] = parse_test_id(test_id)["repetition"]
     error = None
     try:
-        run = load_run_v2(run_dir)
+        src = run_dir
+        if tmp_root is not None:
+            src, _ = without_reset_origin(run_dir, tmp_root)
+        run = load_run_v2(src)
         plan = mission_plan(run, missions_dir)
         if plan is not None:
             run.plan = plan
@@ -161,6 +197,8 @@ def main(argv=None):
     ap.add_argument("-o", "--output", default=None, help="CSV to write")
     ap.add_argument("--selection", default=None,
                     help="selection.yaml with the obstacle flags")
+    ap.add_argument("--drop-reset-origin", action="store_true",
+                    help="leave out the leading exact-(0, 0) odometry rows before the pose check")
     ap.add_argument("--missions-dir", default=str(DEFAULT_MISSIONS),
                     help="mission JSONs used as the plan of a run with no LLM plan")
     args = ap.parse_args(argv)
@@ -175,11 +213,13 @@ def main(argv=None):
 
     no_obstacle, errors = [], []
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = tempfile.TemporaryDirectory(prefix="doors_csv_") if args.drop_reset_origin else None
     with open(out_path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
         writer.writerow(HEADER)
         for run_dir in runs:
-            row, missing, error = row_for(run_dir, obstacles, args.missions_dir)
+            row, missing, error = row_for(run_dir, obstacles, args.missions_dir,
+                                          tmp.name if tmp else None)
             writer.writerow([_cell(row[k]) for k in HEADER])
             if missing:
                 no_obstacle.append(run_dir.name)
