@@ -1,0 +1,21 @@
+# hydra_profile:=jetson_min -- Hydra on the Orin (Jazzy container), next to the stack; the
+# workstation only views (hydra_viewer.launch.py). Graph only (no mesh topic) at <= 1 Hz,
+# Hydra's stock resolution, 5 m range, MobileNetV2 at ~3 Hz, no visualization sinks.
+# NOT built for aarch64 yet: docs/hydra_hil.md "Orin (jetson_min)".
+name: jetson_min
+hydra_config: hydra/jetson_min.yaml
+default_seg_source: mobilenet
+sensor:
+  min_range_m: 0.3
+  max_range_m: 5.0          # Hydra-ROS zed2i.yaml; the far ZED depth is the noisy part anyway
+  queue_size: 5             # drop, never pile up, when the Orin falls behind
+viz_sinks: false
+visualizer: false
+rviz: false
+lcd_with_stack_tf: false    # LCD (TEASER registration) is the heaviest optional module
+segmentation:
+  model_name: ade20k-mobilenetv2dilated-c1_deepsup
+  labelspace: ade20k_mp3d
+  min_separation_s: 0.33    # ~3 Hz labels: Hydra integrates at the label rate
+glog_level: 0
+glog_verbosity: 0

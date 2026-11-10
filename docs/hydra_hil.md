@@ -97,3 +97,82 @@ Topics: `/hydra/backend/dsg` (graph, hydra_msgs/DsgUpdate), `/hydra/backend/dsg_
 
 Print the exact Hydra command line without Hydra installed:
 `python3 -m f1tenth_hydra.hydra_args --profile workstation_full --seg-source gt`.
+
+## 3. Profiles (`hydra_profile:=`)
+
+YAML only: `src/f1tenth_hydra/config/profiles/<name>.yaml` (what runs) plus
+`config/hydra/<name>.yaml` (Hydra's own parameters; diff the two Hydra files to see every value).
+
+| | workstation_full | jetson_min |
+|---|---|---|
+| Where | Isaac workstation | Orin (Jazzy container); workstation only views |
+| Voxel / truncation | 0.05 m / 0.15 m | 0.10 m / 0.30 m (Hydra stock) |
+| Range | 0.3-10 m (all ZED depth) | 0.3-5 m |
+| Active window | 15 m | 8 m |
+| Layers | mesh, objects, mesh places, GVD places, rooms, buildings, agents | same layers (rooms need GVD places), coarser |
+| Graph topic | <= 2 Hz | <= 1 Hz |
+| Mesh topic | yes (`/hydra/backend/dsg_mesh`, 0.5 Hz) | no |
+| Viz sinks, visualizer, RViz | yes | no |
+| Segmentation | gt (default) or MobileNetV2 every frame | MobileNetV2 (default) at ~3 Hz |
+| Loop closures | with `stack_tf` | off |
+
+### Run commands
+
+The `sim_isaac.sh` options (`--net`, `--scene`, ...) are unchanged.
+
+```bash
+# workstation_full: Isaac + Hydra on the workstation, the stack on the Orin (link)
+scripts/sim/sim_isaac.sh isaac --net eth --scene office --gui hydra:=true          # gt, isaac_gt
+scripts/sim/sim_isaac.sh isaac --net eth --scene office hydra:=true seg_source:=mobilenet
+# on the Orin, as before:
+scripts/sim/sim_isaac.sh stack --net eth
+
+# workstation_full, everything on one host (Isaac, stack, Hydra)
+scripts/sim/sim_isaac.sh all --scene office hydra:=true
+
+# jetson_min: Hydra next to the stack on the Orin, the workstation only views
+scripts/sim/sim_isaac.sh isaac --net eth --scene office seg_source:=gt   # only if Hydra uses gt
+scripts/sim/sim_isaac.sh stack --net eth hydra:=true hydra_profile:=jetson_min   # on the Orin
+scripts/sim/sim_isaac.sh run --net eth ros2 launch f1tenth_hydra hydra_viewer.launch.py  # workstation
+
+# Hydra alone, against whatever publishes the topics (any profile):
+source scripts/hydra/hydra_env.sh
+ros2 launch f1tenth_hydra hydra.launch.py hydra_profile:=workstation_full seg_source:=gt
+```
+
+### Orin (jetson_min): build and run steps (not done yet)
+
+Hydra has **not** been built for aarch64. The Orin's Jazzy image (`docker/orin`, Ubuntu 24.04,
+Jazzy snapshot 2026-09-11, CUDA 12.9, TensorRT 10.3) has what semantic_inference needs. Steps:
+
+1. Derive a Hydra image from the car image, on the Orin. Use host networking for both the build
+   and the run (CLAUDE.md "Orin Docker"). The apt packages must come from the image's own Jazzy
+   snapshot (CLAUDE.md "Rebuild policy"):
+   ```dockerfile
+   FROM f1tenth:jazzy-orin-<sha>
+   USER root
+   RUN apt-get update && apt-get install -y ros-jazzy-gtsam python3-vcstool \
+       libgoogle-glog-dev libgflags-dev libzmq3-dev nanoflann-dev && rm -rf /var/lib/apt/lists/*
+   COPY hydra_jazzy.repos /opt/hydra_ws/
+   RUN mkdir -p /opt/hydra_ws/src && cd /opt/hydra_ws && vcs import --workers 1 src < hydra_jazzy.repos \
+    && . /opt/ros/jazzy/setup.sh && rosdep install --from-paths src --ignore-src -r -y \
+    && MAKEFLAGS=-j6 colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=Release \
+         --packages-up-to hydra_ros semantic_inference_ros \
+    && python3 -m pip install --no-deps --target /opt/hydra_ws/install/spark_dsg_python src/spark_dsg
+   ```
+   `docker build --network=host -t f1tenth:hydra-orin-<sha> .`, with `hydra_jazzy.repos` copied
+   next to the Dockerfile. Plan for about 2 GB of RAM per make job. The Orin has 16 GB shared with
+   the GPU, so keep `-j6` or lower.
+2. Model and engine: copy `ade20k-mobilenetv2dilated-c1_deepsup.onnx` to `~/.semantic_inference`
+   and bind-mount it. The TensorRT engine is built on the Orin at the first run (minutes on
+   the Orin), then cached next to the ONNX.
+3. Run it inside the stack container, or as a sibling `docker run --network host` with the same
+   `ROS_DOMAIN_ID` and Discovery Server:
+   `ros2 launch f1tenth_hydra hydra.launch.py hydra_profile:=jetson_min pose_source:=stack_tf use_sim_time:=false`
+   on the car, or `sim_isaac.sh stack ... hydra:=true hydra_profile:=jetson_min` in HIL.
+   `pose_source:=isaac_gt` only works in HIL, where `/sim/ground_truth/odom` crosses the link.
+4. In HIL with jetson_min, Hydra on the Orin subscribes to the raw RGB, depth (and with gt the
+   labels) from Isaac over the link. RGB and depth are the streams the stack already takes; the
+   labels add about 230 kB per frame. Isaac's RTF already drops when raw images cross the link
+   (`output/sim_next/decisions.md` S19), so measure with `hydra_cost:=true` before judging the
+   graph.
