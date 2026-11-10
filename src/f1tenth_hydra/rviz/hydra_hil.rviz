@@ -1,0 +1,154 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+  - Class: rviz_common/Time
+    Name: Time
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 1
+      Plane Cell Count: 40
+      Color: 120; 120; 124
+      Alpha: 0.4
+      Reference Frame: <Fixed Frame>
+      Value: true
+    # Live backend mesh (kimera_pgmo_msgs/Mesh). workstation_full only: jetson_min has no mesh topic.
+    - Class: kimera_pgmo_rviz/MeshDisplay
+      Name: Mesh (backend)
+      Enabled: true
+      Cull Backfaces: true
+      Enable Lighting: false
+      Toggle Visibility All: true
+      Topic:
+        Depth: 1
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /hydra/backend/dsg_mesh
+      Value: true
+    # Active-window mesh (ReconstructionVisualizer sink, workstation_full viz_sinks).
+    - Class: kimera_pgmo_rviz/MeshDisplay
+      Name: Mesh (active window)
+      Enabled: false
+      Cull Backfaces: true
+      Enable Lighting: false
+      Toggle Visibility All: true
+      Topic:
+        Depth: 1
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /hydra/active_window/mesh
+      Value: false
+    # Scene graph layers drawn by hydra_visualizer from /hydra/backend/dsg (objects, places,
+    # mesh places, rooms, buildings; works with jetson_min).
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Scene graph
+      Enabled: true
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /hydra_visualizer/graph
+      Value: true
+    - Class: rviz_default_plugins/PoseArray
+      Name: Agent poses
+      Enabled: true
+      Color: 255; 25; 0
+      Shape: Arrow (Flat)
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /hydra_visualizer/agent_poses
+      Value: true
+    # GVD / freespace places debug markers (workstation_full viz_sinks).
+    - Class: rviz_default_plugins/MarkerArray
+      Name: GVD places (debug)
+      Enabled: false
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /hydra/frontend/freespace_places/places
+      Value: false
+    - Class: rviz_default_plugins/Image
+      Name: RGB
+      Enabled: true
+      Normalize Range: true
+      Topic:
+        Depth: 1
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /camera/image_raw
+      Value: true
+    # seg_source:=mobilenet: semantic_inference's colored labels.
+    - Class: rviz_default_plugins/Image
+      Name: Semantics (mobilenet)
+      Enabled: true
+      Normalize Range: true
+      Topic:
+        Depth: 1
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /hydra_seg/semantic_overlay/image_raw
+      Value: true
+    # seg_source:=gt: Isaac class ids (mono8, small values: Normalize Range stretches them).
+    - Class: rviz_default_plugins/Image
+      Name: Semantics (Isaac GT ids)
+      Enabled: false
+      Normalize Range: true
+      Topic:
+        Depth: 1
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /sim/ground_truth/left/semantic
+      Value: false
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: false
+      Show Names: true
+      Value: false
+  Enabled: true
+  Global Options:
+    Background Color: 32; 34; 38
+    Fixed Frame: hydra_map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 25
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Pitch: 0.8
+      Yaw: 0.8
+      Target Frame: <Fixed Frame>
+      Value: Orbit (rviz)
+    Saved: ~
+Window Geometry:
+  Height: 1000
+  Width: 1600

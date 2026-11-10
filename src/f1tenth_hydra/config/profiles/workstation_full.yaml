@@ -1,0 +1,20 @@
+# hydra_profile:=workstation_full -- Hydra on the Isaac workstation (RTX 4090, 512 GB):
+# every layer, the mesh, every visualization sink, the visualizer and RViz. No limits.
+# Keys: f1tenth_hydra/hydra_args.py (Profile).
+name: workstation_full
+hydra_config: hydra/workstation_full.yaml   # relative to f1tenth_hydra/config
+default_seg_source: gt                      # seg_source:= overrides
+sensor:
+  min_range_m: 0.3                          # ZED 2i min_depth (camera_zed2i.yaml)
+  max_range_m: 10.0                         # ZED 2i max_depth: integrate everything the camera sees
+  queue_size: 30
+viz_sinks: true             # hydra_ros sinks: mesh segmenter, GVD places, active window (debug topics)
+visualizer: true            # hydra_visualizer (streaming) on /hydra/backend/dsg
+rviz: true
+lcd_with_stack_tf: true     # loop closures only when the pose can drift (pose_source:=stack_tf)
+segmentation:               # seg_source:=mobilenet (semantic_inference closed_set_node)
+  model_name: ade20k-mobilenetv2dilated-c1_deepsup
+  labelspace: ade20k_mp3d
+  min_separation_s: 0.0     # every frame
+glog_level: 0
+glog_verbosity: 0

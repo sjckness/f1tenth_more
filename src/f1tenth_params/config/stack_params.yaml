@@ -2740,6 +2740,15 @@ mission_countdown_sec:
   default: 0.0
   description: "Standstill [s] between start_mission and the first move. 0.0 SINCE 2026-10-21 (down from 15.0): the wait before every run was removed on request -- a start now begins at once. THE PRICE, accepted: mission_logger's recorder starts at LOADED and needs 5-14 s of discovery before its first message (median 8.2 s, first test campaign), and the countdown was what made the bag cover the whole drive, so with 0 the bag of a short mission begins mid-drive or stays empty, and the standstill the jerk numbers were measured against is gone. Set it back per session with `ros2 param set` (read live at every start) when a run's bag has to cover the start. Only ever armed with enable_mission_logger true."
 
+# Consumed by: f1tenth_logger/mission_logger.launch.py, forwarded to
+# mission_logger_node's log_scene_graph / scene_graph_period_sec parameters
+# (f1tenth_logger/scene_graph_saver.py, docs/hydra_hil.md).
+mission_logger_log_scene_graph:
+  default: false
+  description: "Save the Hydra scene graph (/hydra/backend/dsg) into each mission run folder: <run>/scene_graph/dsg_t<s>.sparkdsg every mission_logger_scene_graph_period_sec and dsg_final.sparkdsg at mission end, plus tools/hydra_cost's CSV and summary when it runs on the same host. Needs the Hydra workspace sourced (hydra_msgs, spark_dsg). false: nothing Hydra-related is imported or subscribed. Only acts when the logger itself runs (enable_mission_logger)."
+mission_logger_scene_graph_period_sec:
+  default: 10.0
+  description: "Seconds between scene graph snapshots while a mission records (mission_logger_log_scene_graph). Each snapshot is the full graph (no mesh), typically tens of kB to a few MB."
 # Consumed by: f1tenth_logger/mission_logger.launch.py: starts the 5 Hz depth
 # throttle (topic_tools) and forwards record_depth to mission_logger_node.
 mission_logger_record_depth:

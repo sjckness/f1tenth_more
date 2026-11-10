@@ -901,6 +901,16 @@ class MissionLoggerNode(Node):
         # status change. 0 disables it.
         self.loaded_timeout_sec = float(self.declare_parameter(
             'loaded_timeout_sec', 120.0).value)
+        # Hydra scene graph snapshots into the run folder (scene_graph_saver.py). Off by
+        # default; with it off nothing Hydra-related is imported or subscribed.
+        self._scene_graph = None
+        if bool(self.declare_parameter('log_scene_graph', False).value):
+            from f1tenth_logger.scene_graph_saver import SceneGraphSaver
+            self._scene_graph = SceneGraphSaver(
+                self,
+                str(self.declare_parameter('scene_graph_topic', '/hydra/backend/dsg').value),
+                float(self.declare_parameter('scene_graph_period_sec', 10.0).value),
+                str(self.declare_parameter('hydra_cost_dir', '~/.ros/hydra_cost/latest').value))
 
         self.storage_id = self._resolve_storage_id()
 
@@ -1095,6 +1105,8 @@ class MissionLoggerNode(Node):
         # mid-record still leaves an enumerable record (see module docstring).
         self._write_params_snapshot(run)
         self._write_manifest(run)
+        if self._scene_graph is not None:
+            self._scene_graph.start(run['run_dir'])
         self.get_logger().info(f'recording "{run["run_id"]}" -> {bag_dir}')
 
     def _mark_mission_started(self):
@@ -1152,6 +1164,8 @@ class MissionLoggerNode(Node):
         except Exception as exc:  # noqa: BLE001
             self.get_logger().error(f'error stopping recorder: {exc}')
 
+        if self._scene_graph is not None:
+            self._scene_graph.finish()   # the final graph, still in active/: moves with the run
         run['outcome'] = outcome
         run['end_time'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         # Written while still in active/, so a run whose move fails below is

@@ -1,0 +1,54 @@
+# Isaac GT semantic classes -> Hydra label space (ade20k_mp3d, Hydra config/label_spaces/
+# ade20k_mp3d_label_space.yaml). The same label space as seg_source:=mobilenet (semantic_inference's
+# ade20k_mp3d grouping), so objects, places and rooms behave the same with either source.
+#
+# Isaac publishes /sim/ground_truth/left/semantic as mono8 CLASS IDS, and the id of each class
+# comes from the scene file (`semantics:` in ~/isaac_ws/config/scenes/<scene>.yaml). Keys here are
+# class NAMES; f1tenth_hydra.labels.write_remap() joins the two into Hydra's
+# semantic_label_remap_filepath ({sub_id: isaac id, super_id: hydra label}) at launch time.
+# An Isaac id with no entry here becomes -1 in Hydra (dropped), and the launch logs it.
+#
+# mp3d labels: 0 void (invalid: not integrated), 1 wall, 2 floor, 3 chair, 4 door, 5 table,
+# 7 cabinet, 9 window, 10 sofa, 14 plant, 17 ceiling, 22 tv_monitor, 24 column, 28 lighting,
+# 30 shelving, 33 board_panel, 34 furniture, 35 appliances, 37 objects, 38 misc.
+label_space: ade20k_mp3d
+
+classes:
+  # in every Isaac scene today (base_room, office, hospital, gazebo_empty_room)
+  unlabeled: 38      # misc, NOT void: office furniture has no labels yet, and void would cut it out
+                     # of the TSDF (places would run through desks). misc is integrated, never an object.
+  floor: 2
+  wall: 1
+  person: 0          # void: dynamic, masked out of integration (Hydra treats invalid like dynamic)
+  car: 0             # void: our own body if it ever enters the frame
+  # base_room only
+  potted plant: 14   # plant (object)
+  box: 37            # objects
+  # not labelled by Isaac yet; ready for when the scene files add them (office.yaml environment.labels)
+  door: 4
+  window: 9
+  glass: 9
+  chair: 3
+  table: 5
+  desk: 5
+  cabinet: 7
+  sofa: 10
+  shelf: 30
+  column: 24
+  ceiling: 17
+  monitor: 22
+  lamp: 28
+  whiteboard: 33
+  partition: 1
+  furniture: 34
+
+# Isaac scene semantics (class -> id) used when no scene file is given to the launch
+# (scene_semantics:= ''): the base_room table, a superset of office/hospital/gazebo_empty_room.
+default_isaac_semantics:
+  unlabeled: 0
+  floor: 1
+  wall: 2
+  person: 3
+  car: 4
+  potted plant: 5
+  box: 6
