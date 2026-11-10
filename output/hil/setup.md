@@ -130,7 +130,23 @@ container started without `--network host` silently comes up with only `lo` and 
 **The container tooling itself lives on `main-jazzy-rust`** (`scripts/docker_orin.sh`,
 `docker/orin/compose.yaml`, `~/.local/bin/stack_mode`), not on this branch. `hil_orin up` uses
 `scripts/docker_orin.sh` when it is present and otherwise prints the explicit `docker run` for
-you. Merging this branch with `main-jazzy-rust` removes that gap.
+you. Three ways to close that gap, cheapest first:
+
+1. **Nothing** -- run the `docker run` that `hil_orin up` prints (host network, host IPC,
+   `F1T_AUTOSTART=none`), then `hil_orin stack`. It needs an image pinned in
+   `~/.config/f1tenth/car_image` or `orin.image` in `hil.yaml`. It skips docker_orin.sh's
+   preconditions (group ids, free space, image drift), which a HIL session does not need.
+2. **Two checkouts on the Orin** (recommended): `scripts/docker_orin.sh up` from the
+   `main-jazzy-rust` checkout -- the one the running image was built from -- and `hil_orin stack`
+   / `check` from this branch's checkout. `hil_orin` finds the container by name, so the two
+   never have to be the same tree. Build and run the second checkout from a clean shell
+   (CLAUDE.md, "Thor: a second checkout needs a clean shell": the Orin's profile sources the
+   other checkout's install).
+3. **Merge the container tooling.** Not a cherry-pick of one file: `docker/orin/` differs by 27
+   files (compose.yaml, compose.harness.yaml, the host scripts and their tests) and
+   `docker_orin.sh` checks the native tree against the image's `CAR_SYNC.json`, so it refuses
+   unless the tree it runs from is the one the image was built from. This is the main-jazzy /
+   main-jazzy-rust promotion, not a HIL step.
 
 ## 7. Check it (Orin)
 
