@@ -87,6 +87,15 @@ def _setup(context):
                                   'child_frame': hydra_args.GT_CHILD}],
             remappings=[('/hydra_gt_odom_to_tf/odom', contract['topics']['gt_odom'])],
             output='log'))
+    else:
+        # Hydra publishes no TF here (the stack owns odom's parent), so anchor hydra_map at odom:
+        # the graph shows in RViz under hydra_map, map or odom. Hydra's own loop-closure
+        # correction (map_T_odom) is not shown by this anchor.
+        actions.append(Node(
+            package='tf2_ros', executable='static_transform_publisher',
+            name='hydra_map_anchor', parameters=params,
+            arguments=['--frame-id', 'odom', '--child-frame-id', hydra_args.MAP_FRAME],
+            output='log'))
 
     if seg_source == 'mobilenet':
         si_share = _share('semantic_inference_ros')
@@ -120,7 +129,7 @@ def _setup(context):
     if visualizer:
         viz_share = _share('hydra_visualizer')
         rviz_cfg = lc['rviz_config'] or os.path.join(
-            viz_share, 'rviz', 'streaming_visualizer.rviz')
+            _share('f1tenth_hydra'), 'rviz', 'hydra_hil.rviz')
         actions.append(GroupAction([
             SetRemap(src='/hydra_visualizer/dsg', dst=f'/{hydra_args.HYDRA_NODE}/backend/dsg'),
             IncludeLaunchDescription(
@@ -161,7 +170,7 @@ def generate_launch_description():
                               description="hydra_visualizer ('' = profile)"),
         DeclareLaunchArgument('rviz', default_value='', description="RViz ('' = profile)"),
         DeclareLaunchArgument('rviz_config', default_value='',
-                              description="RViz config ('' = default)"),
+                              description="RViz config ('' = rviz/hydra_hil.rviz)"),
         DeclareLaunchArgument('extra_yaml', default_value='{}',
                               description='extra config_utilities yaml for Hydra (last wins)'),
     ]

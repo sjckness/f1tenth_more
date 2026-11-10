@@ -38,6 +38,7 @@ setup(
     entry_points={
         'console_scripts': [
             'hydra_synthetic_rgbd = f1tenth_hydra.synthetic_rgbd:main',
+            'hydra_dsg_viewer = f1tenth_hydra.dsg_viewer:main',
         ],
     },
 )

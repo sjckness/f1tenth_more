@@ -63,35 +63,33 @@ def graph_summary(G):
 def graph_geometry(G, label_names=None):
     """Nodes and edges as plain data for drawing.
 
-    nodes: [{'id': 'O12', 'layer': 'OBJECTS', 'pos': (x, y, z), 'label': int or None,
-             'text': str}]
-    edges: [((x, y, z), (x, y, z), 'intra' | 'inter', layer name of the source)]
+    nodes: [{'key': int, 'id': 'O(12)', 'layer': 'OBJECTS', 'pos': (x, y, z),
+             'label': int or None, 'text': str}]
+    edges: [(source key, target key, 'intra' | 'inter')], both ends present in nodes
     """
     label_names = label_names or {}
-    nodes, pos, layer_of = [], {}, {}
+    nodes, known = [], set()
     for layer in _layers(G):
         lname = layer_label(layer)
         for n in layer.nodes:
             p = tuple(float(v) for v in n.attributes.position)
             key = int(n.id.value) if hasattr(n.id, 'value') else int(n.id)
-            pos[key], layer_of[key] = p, lname
+            known.add(key)
             label = getattr(n.attributes, 'semantic_label', None)
             label = None if label is None or label >= 2 ** 31 else int(label)
             name = str(getattr(n.attributes, 'name', '') or '')
             text = name or (label_names.get(label, str(label)) if label is not None else '')
-            nodes.append({'id': str(n.id), 'layer': lname, 'pos': p, 'label': label,
-                          'text': text})
+            nodes.append({'key': key, 'id': str(n.id), 'layer': lname, 'pos': p,
+                          'label': label, 'text': text})
     edges = []
     for layer in _layers(G):
-        lname = layer_label(layer)
         for e in layer.edges:
-            if int(e.source) in pos and int(e.target) in pos:
-                edges.append((pos[int(e.source)], pos[int(e.target)], 'intra', lname))
+            if int(e.source) in known and int(e.target) in known:
+                edges.append((int(e.source), int(e.target), 'intra'))
     try:
         for e in G.interlayer_edges:
-            if int(e.source) in pos and int(e.target) in pos:
-                edges.append((pos[int(e.source)], pos[int(e.target)], 'inter',
-                              layer_of[int(e.source)]))
+            if int(e.source) in known and int(e.target) in known:
+                edges.append((int(e.source), int(e.target), 'inter'))
     except Exception:  # noqa: BLE001
         pass
     return nodes, edges

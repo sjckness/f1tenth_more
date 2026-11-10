@@ -176,3 +176,27 @@ Jazzy snapshot 2026-09-11, CUDA 12.9, TensorRT 10.3) has what semantic_inference
    labels add about 230 kB per frame. Isaac's RTF already drops when raw images cross the link
    (`output/sim_next/decisions.md` S19), so measure with `hydra_cost:=true` before judging the
    graph.
+
+## 4. Viewers (workstation)
+
+- **Hydra's own visualizer** (`hydra_visualizer`, part of Hydra-ROS) plus RViz with
+  `src/f1tenth_hydra/rviz/hydra_hil.rviz`. It shows the live backend mesh
+  (`/hydra/backend/dsg_mesh`, workstation_full only), the scene graph layers
+  (`/hydra_visualizer/graph`), agent poses, the RGB image and the semantics. The fixed frame is
+  `hydra_map`. `hydra.launch.py` starts it when the profile says so. On its own (e.g. viewing a
+  jetson_min Hydra on the Orin):
+  `ros2 launch f1tenth_hydra hydra_viewer.launch.py` (`viewer:=rviz|custom|both`).
+- **Custom Python viewer** `hydra_dsg_viewer` (spark_dsg + Open3D, matplotlib fallback). It reads
+  the graph topic only, so it also works with jetson_min, and draws nodes, edges and labels.
+  Layers are lifted by `--z-offset` (3 m). Object colour comes from the semantic label; object,
+  room and building nodes get text labels.
+  ```bash
+  ros2 run f1tenth_hydra hydra_dsg_viewer                     # live /hydra/backend/dsg
+  ros2 run f1tenth_hydra hydra_dsg_viewer --summary           # one graph: layer counts, exit
+  ros2 run f1tenth_hydra hydra_dsg_viewer --file G.sparkdsg   # a saved graph
+  ```
+  Open3D is optional (`pip install --user open3d`); without it the viewer uses matplotlib.
+
+With `pose_source:=stack_tf` Hydra publishes no TF, so `hydra.launch.py` anchors `hydra_map` to
+`odom` with an identity static TF. The graph then shows under `map` too. Hydra's own
+loop-closure correction is not shown by this anchor.
