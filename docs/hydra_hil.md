@@ -107,6 +107,20 @@ python3 -m pytest src/f1tenth_hydra/test/test_hydra_smoke.py -v -s
 | `seg_source:=` | gt (Isaac GT ids, label map) / mobilenet (TensorRT) | the profile's |
 | `pose_source:=` | isaac_gt (`/sim/ground_truth/odom` -> TF `map_sim -> hydra_gt_base_link` + deployed mount) / stack_tf (the stack's `odom -> base_link` and camera TF) | isaac_gt |
 
+**In the HIL setup (`sim_isaac_hil` + `hil_orin`), these flags do not exist yet.** `hydra:=` is a
+flag of `scripts/sim/sim_isaac.sh`, the linus + Thor path. Until `sim_isaac_hil` grows the same
+flag, start Hydra by hand in the HIL environment (`run` gives it the domain, the Discovery Server
+and the rendered DDS profile):
+
+```bash
+scripts/sim/sim_isaac_hil run bash -c \
+  'source scripts/hydra/hydra_env.sh && ros2 launch f1tenth_hydra hydra.launch.py \
+     hydra_profile:=workstation_full seg_source:=gt pose_source:=isaac_gt use_sim_time:=true'
+```
+
+GT semantics need the sim started with `--set sensors.stereo.semantic.enabled=true` (which
+`sim_isaac.sh` adds automatically for `hydra:=true seg_source:=gt`, and `sim_isaac_hil` does not).
+
 Frames: Hydra's map frame is `hydra_map`, never `map`. With `stack_tf` Hydra does not publish
 TF, so the stack's `odom` keeps one parent. With `isaac_gt` it publishes `hydra_map -> map_sim`,
 a separate tree. Loop closures run only with `stack_tf`, because GT pose cannot drift.

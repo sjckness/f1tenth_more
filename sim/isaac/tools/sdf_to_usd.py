@@ -667,6 +667,9 @@ def main() -> int:
     printable = {k: v for k, v in report.items() if k != "meshes_detail"}
     print(json.dumps(printable, indent=1, default=str))
     if args.report:
+        # --plan writes into usd/generated/ too, which only --convert creates (it is gitignored):
+        # a plan that ran fine must not die on the report file.
+        os.makedirs(os.path.dirname(os.path.abspath(args.report)), exist_ok=True)
         with open(args.report, "w") as f:
             json.dump(report, f, indent=1, default=str)
         log.info("report written to %s", args.report)
