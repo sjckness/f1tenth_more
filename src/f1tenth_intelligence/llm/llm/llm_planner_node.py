@@ -628,6 +628,9 @@ def _describe_stop_condition(stop: dict) -> str:
         return f'trascorsi {stop.get("duration_sec")} s'
     if t == 'object_reached':
         return 'oggetto raggiunto alla distanza indicata sopra'
+    if t == 'door_entered':
+        # Dentro il vano, non oltre: e' la cosa che un operatore legge male.
+        return 'fermo NEL vano della porta, girato verso il passaggio'
     return f'{t} {json.dumps({k: v for k, v in stop.items() if k != "type"})}'
 
 
@@ -656,7 +659,18 @@ def describe_mission(mission: dict) -> str:
         drive = move.get('drive', {})
         mode = drive.get('mode')
         target = move.get('go_to_object')
-        if target is not None:
+        door = move.get('enter_door')
+        if door is not None:
+            # Not a drive step either: without this branch a door move
+            # rendered as "vai dritto", which is the same hole the
+            # go_to_object branch below was added to close.
+            lato = {'left': 'a sinistra', 'right': 'a destra'}.get(door['door'])
+            quale = lato if lato else (
+                "piu' vicina" if door['door'] == 'nearest' else f'"{door["door"]}"')
+            azione = (f'entra nella porta {quale} e fermati nel vano '
+                      f'(+-{door["xy_tol"]} m, +-{door["yaw_tol_deg"]} gradi)')
+            drive = {'speed': 0.0}
+        elif target is not None:
             # Not a drive step at all: without this branch it rendered as
             # "vai dritto" with the controller's default speed.
             azione = (f'vai verso "{target["target_class"]}" (il piu\' vicino), '

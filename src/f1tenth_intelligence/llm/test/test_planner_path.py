@@ -202,6 +202,47 @@ def test_the_display_shows_speed_timeout_and_terminal():
     assert 'percorsi 2.0 m' in text
 
 
+@pytest.mark.parametrize('door, text', [
+    ('left', 'entra nella porta a sinistra'),
+    ('right', 'entra nella porta a destra'),
+    ('nearest', "entra nella porta piu' vicina"),
+    ('door_7', 'entra nella porta "door_7"'),
+])
+def test_an_enter_door_move_is_not_rendered_as_a_straight_one(door, text):
+    """An enter_door move used to render as "vai dritto".
+
+    Exactly the hole the go_to_object branch of describe_mission was added to
+    close: the display switches on `drive`, and a move whose goal shape is
+    neither a drive nor a go_to fell through to "vai dritto" at the
+    controller's default speed. The preview is what an operator confirms, so a
+    move it describes wrongly is a move that gets run on a wrong description.
+
+    The mission is written out here rather than translated: the translator has
+    no door phase (the LLM cannot author one), while `missions/
+    enter_nearest_door.json` is a hand-written mission of exactly this shape
+    that an operator can hand to the planner today.
+    """
+    mission = {
+        'mission_id': 'enter_door_display', 'schema_version': '6.0',
+        'moves': [{
+            'id': 'move_0_enter_door',
+            'enter_door': {'type': 'enter_door', 'door': door, 'xy_tol': 0.15,
+                           'yaw_tol_deg': 10.0, 'acquire_timeout_sec': 5.0,
+                           'approach_dist_m': 0.8},
+            'stop_condition': {'type': 'door_entered'},
+            'timeout_sec': 60, 'on_timeout': 'abort', 'terminal': True,
+        }],
+    }
+    rendered = describe_mission(mission)
+    assert text in rendered
+    assert 'vai dritto' not in rendered
+    # The two tolerances are shown, because together they ARE the arrival test.
+    assert '0.15 m' in rendered and '10.0 gradi' in rendered
+    # And the stop condition is spelled out, not dumped as a type name.
+    assert 'fermo NEL vano della porta, girato verso il passaggio' in rendered
+    assert 'door_entered' not in rendered
+
+
 def test_a_post_turn_straight_is_not_rendered_as_a_turn():
     """The exact disagreement that motivated rewriting the display.
 
