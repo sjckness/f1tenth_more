@@ -16,6 +16,7 @@ NOT part of supervisor_bringup: no stack default changes with this file.
   and base_link -> camera TF (EKF drift included; loop closures on if the profile allows).
 - scene_semantics: an Isaac scene yaml whose `semantics:` ids the GT labels use (default: the
   base_room table, which office/hospital share).
+- hydra_cost: true also runs tools/hydra_cost/hydra_cost.py (docs/hydra_hil.md section 5).
 
 Hydra itself comes from its own workspace (~/hydra_ws): source it before this workspace.
 """
@@ -23,8 +24,8 @@ Hydra itself comes from its own workspace (~/hydra_ws): source it before this wo
 import os
 
 from launch import LaunchDescription
-from launch.actions import (DeclareLaunchArgument, GroupAction, IncludeLaunchDescription,
-                            LogInfo, OpaqueFunction, Shutdown)
+from launch.actions import (DeclareLaunchArgument, ExecuteProcess, GroupAction,
+                            IncludeLaunchDescription, LogInfo, OpaqueFunction, Shutdown)
 from launch.launch_description_sources import AnyLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node, PushRosNamespace, SetRemap
@@ -42,13 +43,24 @@ def _share(pkg):
         return None
 
 
+def _hydra_cost_script():
+    """tools/hydra_cost/hydra_cost.py of this repo (symlink install) or of $F1TENTH_REPO."""
+    here = os.path.realpath(__file__)          # src/f1tenth_hydra/launch/ with --symlink-install
+    for root in (os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(here)))),
+                 os.environ.get('F1TENTH_REPO', '')):
+        path = os.path.join(root, 'tools', 'hydra_cost', 'hydra_cost.py')
+        if root and os.path.isfile(path):
+            return path
+    return None
+
+
 def _setup(context):
     from f1tenth_hydra import hydra_args, labels
     from f1tenth_hydra.camera import config_dir, load_camera_contract
 
     lc = {k: LaunchConfiguration(k).perform(context) for k in (
         'hydra_profile', 'seg_source', 'pose_source', 'use_sim_time', 'scene_semantics',
-        'log_dir', 'visualizer', 'rviz', 'rviz_config', 'extra_yaml')}
+        'log_dir', 'visualizer', 'rviz', 'rviz_config', 'extra_yaml', 'hydra_cost')}
     profile = hydra_args.load_profile(lc['hydra_profile'])
     seg_source = lc['seg_source'] or profile['default_seg_source']
     pose_source = lc['pose_source']
@@ -144,6 +156,16 @@ def _setup(context):
                 }.items()),
         ]))
 
+    if _truthy(lc['hydra_cost']):
+        script = _hydra_cost_script()
+        if script:
+            actions.append(ExecuteProcess(
+                cmd=['python3', script, '--hydra-log-dir', log_dir], name='hydra_cost',
+                output='screen', sigterm_timeout='20'))
+        else:
+            actions.append(LogInfo(msg='hydra_cost:=true but tools/hydra_cost/hydra_cost.py not '
+                                       'found: set F1TENTH_REPO to the repo root'))
+
     actions.insert(0, LogInfo(msg=(
         f'hydra: profile {profile["name"]}, seg_source {seg_source}, pose_source {pose_source}, '
         f'frames {out["frames"]}, lcd {out["enable_lcd"]}, visualizer {visualizer} (rviz {rviz}), '
@@ -171,6 +193,9 @@ def generate_launch_description():
         DeclareLaunchArgument('rviz', default_value='', description="RViz ('' = profile)"),
         DeclareLaunchArgument('rviz_config', default_value='',
                               description="RViz config ('' = rviz/hydra_hil.rviz)"),
+        DeclareLaunchArgument('hydra_cost', default_value='false',
+                              description='run tools/hydra_cost (1 Hz CPU/RAM/GPU/topics/graph '
+                                          'CSV + summary.md in ~/.ros/hydra_cost/latest)'),
         DeclareLaunchArgument('extra_yaml', default_value='{}',
                               description='extra config_utilities yaml for Hydra (last wins)'),
     ]

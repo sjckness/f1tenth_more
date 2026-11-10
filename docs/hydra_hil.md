@@ -200,3 +200,22 @@ Jazzy snapshot 2026-09-11, CUDA 12.9, TensorRT 10.3) has what semantic_inference
 With `pose_source:=stack_tf` Hydra publishes no TF, so `hydra.launch.py` anchors `hydra_map` to
 `odom` with an identity static TF. The graph then shows under `map` too. Hydra's own
 loop-closure correction is not shown by this anchor.
+
+## 5. Cost analyzer (`tools/hydra_cost/`)
+
+`hydra_cost:=true` (on `hydra.launch.py` or `sim_isaac.sh`) starts `tools/hydra_cost/hydra_cost.py`
+next to Hydra. It runs alone too: `python3 tools/hydra_cost/hydra_cost.py [--duration S]`.
+It samples at 1 Hz and writes one long CSV row per metric
+(`t_wall, t_rel, kind, entity, metric, value`):
+
+- CPU per process and its top 8 threads (`/proc` thread names), RSS, thread count. Processes
+  matched: Hydra, segmentation, visualizer, RViz, the Isaac sim, the logger.
+- System CPU and RAM. GPU util and VRAM per GPU and VRAM (+ SM % with NVML) per process:
+  `pynvml` (`pip install --user nvidia-ml-py`), else `nvidia-smi`.
+- Rate and kB/s of the camera, depth, labels, graph, mesh and TF topics.
+  `--no-image-topics` when Hydra runs on another host.
+- Graph size per layer (nodes, edges) and graph message size, from `/hydra/backend/dsg`.
+- Hydra's heartbeat (`/hydra/status`). At exit, Hydra's own `timing_stats.csv` from its log dir.
+
+Output: `~/.ros/hydra_cost/<stamp>/samples.csv` + `summary.md` (rewritten every 60 s and at exit).
+`~/.ros/hydra_cost/latest` points to the newest run.

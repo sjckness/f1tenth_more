@@ -39,6 +39,7 @@
 #   seg_source:=gt|mobilenet  default: the profile's. gt also turns Isaac's GT semantics on
 #                             (isaac/all: --set sensors.stereo.semantic.enabled=true)
 #   pose_source:=isaac_gt|stack_tf   default isaac_gt
+#   hydra_cost:=true          also run tools/hydra_cost (1 Hz cost CSV + summary.md)
 #   HYDRA_WS                  Hydra workspace sourced before this one (default ~/hydra_ws)
 #
 # shell/run: the stack's ROS environment (domain, RMW, the rendered Fast DDS profile, the
@@ -95,7 +96,7 @@ case "$CMD" in
 esac
 NET=local; DOMAIN="${ROS_DOMAIN_ID:-42}"; SCENE=base_room; LAYOUT=""; GUI=false; CLEAN=false; DRY=false
 LAUNCH_ARGS=(); RUN_CMD=()
-HYDRA=false; HYDRA_PROFILE=workstation_full; HYDRA_SEG=""; HYDRA_POSE=isaac_gt
+HYDRA=false; HYDRA_PROFILE=workstation_full; HYDRA_SEG=""; HYDRA_POSE=isaac_gt; HYDRA_COST=false
 while [ $# -gt 0 ]; do
   if [ "$CMD" = run ] && [ ${#RUN_CMD[@]} -eq 0 ]; then
     case "$1" in
@@ -120,6 +121,7 @@ while [ $# -gt 0 ]; do
     hydra_profile:=*) HYDRA_PROFILE="${1#*:=}"; shift ;;
     seg_source:=*) HYDRA_SEG="${1#*:=}"; shift ;;
     pose_source:=*) HYDRA_POSE="${1#*:=}"; shift ;;
+    hydra_cost:=*) HYDRA_COST="${1#*:=}"; shift ;;
     *:=*) LAUNCH_ARGS+=("$1"); shift ;;
     *) die "unknown option '$1' (--help)" ;;
   esac
@@ -325,7 +327,7 @@ start_hydra() {  # in the background, after /clock; ros_env must have run
   $HYDRA || return 0
   local scene_file="${ISAAC_WS}/config/scenes/${SCENE}.yaml"
   HYDRA_ARGS=(ros2 launch f1tenth_hydra hydra.launch.py hydra_profile:="$HYDRA_PROFILE"
-    seg_source:="$HYDRA_SEG" pose_source:="$HYDRA_POSE" use_sim_time:=true)
+    seg_source:="$HYDRA_SEG" pose_source:="$HYDRA_POSE" use_sim_time:=true hydra_cost:="$HYDRA_COST")
   # GT class ids come from the scene file when this host has it (the Isaac host).
   [ "$HYDRA_SEG" = gt ] && [ -f "$scene_file" ] && HYDRA_ARGS+=(scene_semantics:="$scene_file")
   echo "== Hydra (profile $HYDRA_PROFILE, seg $HYDRA_SEG, pose $HYDRA_POSE) =="
