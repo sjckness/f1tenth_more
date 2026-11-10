@@ -7,6 +7,7 @@ Usage:
            every <INPUT_DIR>/<mission>/P###-R###-<time>/ folder; OUT default
            <INPUT_DIR>/doors_results.csv)
   single: python3 doors_csv.py <INPUT_DIR>/<mission>/P001-R003-20261110T101500 -o one.csv
+  pick:   python3 doors_csv.py RUN_DIR RUN_DIR ... -o some.csv   (rows in the order given)
 
 Columns, in this order: obstacle, Rep, success, plan_ok, exec_ok, safe, task_ok,
 goal_error_m, lateral_error_max_m, viol_fixed_pct, min_clear_any_m,
@@ -20,6 +21,10 @@ steer_direction_rev_per_m.
   analysis_v2 row format ``- [P001-R003, si|no, ...]`` (yes/no/true/false also
   accepted, a full test id or its P###-R### prefix). No entry: empty, and one
   warning listing every such run.
+* No LLM plan (JSON missions): the mission file itself is the plan,
+  <MISSIONS_DIR>/<plan_id>.json (default src/f1tenth_behavior/missions of this
+  repo, --missions-dir). It segments the moves, so exec_ok, viol_fixed_pct and
+  lateral_error_max_m (straight moves only, RULES.md §7) are computed.
 * Rep: the R### of the test id. Every other value comes from
   scripts.metrics.compute_run_metrics (RULES.md §6-7), unchanged.
 * A run that fails to load or compute keeps its row (obstacle/Rep only) and is
@@ -30,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import math
 import sys
 from pathlib import Path
@@ -44,6 +50,7 @@ from scripts.metrics import compute_run_metrics, kleene_and  # noqa: E402
 from scripts.run_data import load_run_v2, parse_test_id  # noqa: E402
 
 DEFAULT_INPUT = "/scratch/fabiocar/f1tenth_container/archive/doors_campaign"
+DEFAULT_MISSIONS = HERE.parent.parent / "src" / "f1tenth_behavior" / "missions"
 HEADER = [
     "obstacle", "Rep", "success", "plan_ok", "exec_ok", "safe", "task_ok",
     "goal_error_m", "lateral_error_max_m", "viol_fixed_pct", "min_clear_any_m",
@@ -111,7 +118,21 @@ def _cell(value):
     return str(value)
 
 
-def row_for(run_dir, obstacles):
+def mission_plan(run, missions_dir):
+    """The mission JSON a run executed, when it has no LLM plan; else None."""
+    if isinstance(run.plan, dict) and run.plan.get("moves"):
+        return None
+    meta = run.meta or {}
+    plan_id = (meta.get("extra_meta") or {}).get("plan_id") or meta.get("plan_id")
+    path = Path(missions_dir) / f"{plan_id}.json" if plan_id else None
+    if path is None or not path.is_file():
+        return None
+    with open(path, encoding="utf-8") as fh:
+        plan = json.load(fh)
+    return plan if isinstance(plan, dict) and plan.get("moves") else None
+
+
+def row_for(run_dir, obstacles, missions_dir=DEFAULT_MISSIONS):
     test_id = run_dir.name
     obstacle = obstacle_for(test_id, obstacles)
     row = {k: None for k in HEADER}
@@ -119,7 +140,11 @@ def row_for(run_dir, obstacles):
     row["Rep"] = parse_test_id(test_id)["repetition"]
     error = None
     try:
-        m = compute_run_metrics(load_run_v2(run_dir), ostacolo=obstacle, verdicts={})
+        run = load_run_v2(run_dir)
+        plan = mission_plan(run, missions_dir)
+        if plan is not None:
+            run.plan = plan
+        m = compute_run_metrics(run, ostacolo=obstacle, verdicts={})
         for key in HEADER[2:]:
             if key not in MANUAL:
                 row[key] = m.get(key)
@@ -131,15 +156,18 @@ def row_for(run_dir, obstacles):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("input", nargs="?", default=DEFAULT_INPUT,
-                    help="campaign folder (batch) or one run folder")
+    ap.add_argument("input", nargs="*", default=[DEFAULT_INPUT],
+                    help="campaign folder (batch), or one or more run folders")
     ap.add_argument("-o", "--output", default=None, help="CSV to write")
     ap.add_argument("--selection", default=None,
                     help="selection.yaml with the obstacle flags")
+    ap.add_argument("--missions-dir", default=str(DEFAULT_MISSIONS),
+                    help="mission JSONs used as the plan of a run with no LLM plan")
     args = ap.parse_args(argv)
 
-    inp = Path(args.input)
-    runs = find_runs(inp)
+    inputs = [Path(p) for p in args.input]
+    runs = [r for p in inputs for r in find_runs(p)]
+    inp = inputs[0]
     campaign = inp.parent.parent if _is_run_dir(inp) else inp
     selection = Path(args.selection) if args.selection else campaign / "selection.yaml"
     out_path = Path(args.output) if args.output else campaign / "doors_results.csv"
@@ -151,7 +179,7 @@ def main(argv=None):
         writer = csv.writer(fh)
         writer.writerow(HEADER)
         for run_dir in runs:
-            row, missing, error = row_for(run_dir, obstacles)
+            row, missing, error = row_for(run_dir, obstacles, args.missions_dir)
             writer.writerow([_cell(row[k]) for k in HEADER])
             if missing:
                 no_obstacle.append(run_dir.name)
