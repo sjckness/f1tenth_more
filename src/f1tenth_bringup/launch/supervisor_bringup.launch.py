@@ -61,10 +61,12 @@ from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     ExecuteProcess,
+    IncludeLaunchDescription,
     LogInfo,
     OpaqueFunction,
     SetEnvironmentVariable,
 )
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -282,6 +284,46 @@ def generate_launch_description():
                     'an 8-core machine). Only its sim_component_args are used (component launch '
                     'arguments; node parameters belong in sim_overlay). sim:=isaac only.')
 
+    # test_campaign_logger as a dash cam (auto_mode in its config): a plain
+    # launch child of this file, NOT a supervised component, off by default.
+    # Started here only behind this flag (test_test_campaign_isolation.py).
+    enable_tcl_la = DeclareLaunchArgument(
+        'enable_test_campaign_logger', default_value='false',
+        choices=['true', 'false'],
+        description='Also start f1tenth_logger test_campaign_logger.launch.py with '
+                    'test_campaign_logger_root / test_campaign_logger_config.')
+    tcl_root_la = DeclareLaunchArgument(
+        'test_campaign_logger_root', default_value='/home/fabiocar/f1tenth_archive',
+        description='root:= of test_campaign_logger (the campaign is <root>/<campaign>).')
+    tcl_config_la = DeclareLaunchArgument(
+        'test_campaign_logger_config',
+        default_value='/home/fabiocar/f1tenth_archive/doors_campaign/'
+                      'test_campaign_logger.doors.yaml',
+        description='config:= of test_campaign_logger. Missing: a WARNING and the '
+                    'packaged test_campaign_logger.yaml.')
+
+    def _test_campaign_logger(context):
+        if LaunchConfiguration('enable_test_campaign_logger').perform(context) != 'true':
+            return []
+        root = LaunchConfiguration('test_campaign_logger_root').perform(context)
+        config = LaunchConfiguration('test_campaign_logger_config').perform(context)
+        share = get_package_share_directory('f1tenth_logger')
+        actions = []
+        if not os.path.isfile(config):
+            packaged = os.path.join(share, 'config', 'test_campaign_logger.yaml')
+            actions.append(LogInfo(msg=(
+                f'[supervisor_bringup] WARNING: test_campaign_logger config {config} '
+                f'does not exist -- starting it with the packaged defaults {packaged} '
+                f'(auto_mode false: no test opens without a plan_result)')))
+            config = packaged
+        actions.append(LogInfo(msg=(
+            f'[supervisor_bringup] test_campaign_logger: root {root}, config {config}')))
+        actions.append(IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(share, 'launch', 'test_campaign_logger.launch.py')),
+            launch_arguments={'root': root, 'config': config}.items()))
+        return actions
+
     def _supervisor_node(context):
         params = {
             'calibration': LaunchConfiguration('calibration'),
@@ -364,5 +406,9 @@ def generate_launch_description():
         use_sim_time_la,
         sim_overlay_la,
         sim_overlay_extra_la,
+        enable_tcl_la,
+        tcl_root_la,
+        tcl_config_la,
         component_supervisor_node,
+        OpaqueFunction(function=_test_campaign_logger),
     ])

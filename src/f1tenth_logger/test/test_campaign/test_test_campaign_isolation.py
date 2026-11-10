@@ -36,7 +36,11 @@ def _workspace_src():
     return find_root() / "src"
 
 
-def test_no_bringup_starts_it_not_even_behind_a_flag():
+#: the one bringup allowed to start it, behind enable_test_campaign_logger
+FLAGGED_BRINGUP = "supervisor_bringup.launch.py"
+
+
+def test_only_supervisor_bringup_starts_it_behind_a_flag_defaulting_false():
     offenders = []
     for path in _workspace_src().rglob("*"):
         if path.suffix not in (".py", ".yaml", ".xml") or not path.is_file():
@@ -44,6 +48,10 @@ def test_no_bringup_starts_it_not_even_behind_a_flag():
         if "launch" not in path.name and path.name != "components.yaml":
             continue
         if path.resolve() == OWN_LAUNCH.resolve():
+            continue
+        if path.name == FLAGGED_BRINGUP:
+            text = path.read_text(encoding="utf-8", errors="replace")
+            assert ("'enable_test_campaign_logger', default_value='false'" in text), path
             continue
         try:
             text = path.read_text(encoding="utf-8", errors="replace")

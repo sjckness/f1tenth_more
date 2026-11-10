@@ -96,8 +96,11 @@ from pathlib import Path
 import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy
+from rclpy.qos import (
+    DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy)
 from std_msgs.msg import Float32, String
+
+from f1tenth_logger.test_campaign.auto_trigger import LABEL_OUTCOME, AutoTrigger
 
 from f1tenth_logger.test_campaign.robot_logger import (
     DEFAULT_CAMPAIGN, TestLogger, find_root)
@@ -122,6 +125,20 @@ try:
     from ament_index_python.packages import get_package_share_directory
 except ImportError:  # pragma: no cover - not a sourced ROS environment
     get_package_share_directory = None
+
+try:
+    from f1tenth_messages.msg import MissionStatus
+except ImportError:  # pragma: no cover - only auto_mode needs it
+    MissionStatus = None
+
+# Same as mission_logger_node's _MISSION_STATUS_QOS (and loader.py's): the
+# latch only reaches a late subscriber when durability matches on both ends.
+MISSION_STATUS_QOS = QoSProfile(
+    depth=1,
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+    history=HistoryPolicy.KEEP_LAST,
+)
 
 STAMP_SANITY_S = 5.0  # header stamps further than this from the clock are ignored
 NODE_NAME = "test_campaign_logger"
@@ -216,6 +233,11 @@ class TestLoggerNode(Node):
         # after mission_started with nothing from it means it is not running.
         self._clearance_grace_s = float(param("clearance_grace_s", 2.0))
         best_effort = bool(param("best_effort_sensors", True))
+        # auto_mode: mission START opens a test, its end closes it (see
+        # auto_trigger.py). false = the manual path (plan_result/open_test.sh).
+        self._auto_mode = bool(param("auto_mode", False))
+        self._mission_status_topic = param("mission_status_topic", "/mission/status")
+        self._auto = AutoTrigger()
 
         # Open-test state. NOT self._logger: rclpy's Node already owns that
         # attribute and get_logger() returns it, so assigning to it silently
@@ -245,8 +267,18 @@ class TestLoggerNode(Node):
         if best_effort:
             sensor.reliability = ReliabilityPolicy.BEST_EFFORT
 
-        self._subscribe(String, self._plan_topic, self._on_plan_result, reliable)
-        self._subscribe(String, self._event_topic, self._on_mission_event, reliable)
+        if self._auto_mode:
+            # Dash cam (auto_trigger.py): /mission/status alone opens and
+            # closes tests, so plan_result / mission_event are not subscribed
+            # (the lifecycle events are written from the status edges).
+            if MissionStatus is None:
+                raise RuntimeError(
+                    "auto_mode needs f1tenth_messages/MissionStatus, not importable")
+            self._subscribe(MissionStatus, self._mission_status_topic,
+                            self._on_mission_status, MISSION_STATUS_QOS)
+        else:
+            self._subscribe(String, self._plan_topic, self._on_plan_result, reliable)
+            self._subscribe(String, self._event_topic, self._on_mission_event, reliable)
         self._subscribe(String, self._mpc_topic, self._on_mpc, sensor)
         self._subscribe(String, self._corridor_topic, self._on_corridor, reliable)
         self._subscribe(String, self._safety_topic, self._on_safety, reliable)
@@ -292,6 +324,10 @@ class TestLoggerNode(Node):
     def _log_startup(self):
         log = self.get_logger()
         log.info(f"[test_campaign] campaign folder: {self._campaign_dir}")
+        log.info(
+            f"[test_campaign] auto_mode: {self._auto_mode} ("
+            + (f"tests open/close on {self._mission_status_topic}"
+               if self._auto_mode else "tests open on /test/plan_result") + ")")
         if self._params_file is not None:
             log.info(f"[test_campaign] parameters: {self._params_file} (packaged "
                      f"default, loaded because no --params-file was given)")
@@ -773,6 +809,57 @@ class TestLoggerNode(Node):
                 f"[test_campaign] unknown mission event {event!r} -- recorded, "
                 f"but it ends nothing"
             )
+
+    # -- auto_mode: /mission/status as the trigger (auto_trigger.py) --------
+
+    def _on_mission_status(self, msg):
+        self.apply_mission_status(msg.state, msg.json_path, msg.emergency_stop_active)
+
+    def apply_mission_status(self, state, json_path, estop):
+        """One /mission/status message. Public so the offline test can feed it."""
+        test_open = self._test is not None and self._pending_close is None
+        actions = self._auto.decide(state, json_path, estop, test_open)
+        for i, action in enumerate(actions):
+            if action[0] == "close":
+                # a close followed by an open (a start while recording) is
+                # immediate: no post-roll overlapping the next test
+                self._auto_close(action[1], immediate=i + 1 < len(actions))
+            else:
+                self._auto_open(action[1])
+
+    def _auto_close(self, label, immediate=False):
+        if self._test is None:
+            return
+        outcome = LABEL_OUTCOME[label]
+        event = "mission_finished" if outcome == "completed" else "mission_aborted"
+        self._test.log_event(event, t=self._t(), plan_id=self._plan_id,
+                             reason=label, source=self._mission_status_topic)
+        self._test.extra_meta["mission_outcome"] = label
+        self.get_logger().info(
+            f"[test_campaign] auto: {label} -> closing "
+            f"{self._test.mission}/{self._test.test_id} as {outcome}")
+        if immediate:
+            self._close_test(outcome, label)
+        else:
+            self._pending_close = (outcome, label, self._now() + self._post_roll_s)
+
+    def _auto_open(self, mission):
+        if self._test is not None:
+            if self._pending_close is not None:
+                outcome, reason, _ = self._pending_close   # post-roll cut short
+                self._close_test(outcome, reason)
+            else:
+                self._auto_close("INTERRUPTED", immediate=True)
+        if self._open_test(None, mission, mission) is None:
+            return
+        self._lifecycle_seen = True
+        self._mission_started = True
+        self._started_at = self._now()
+        self._test.log_event("mission_started", t=self._t(), plan_id=mission,
+                             source=self._mission_status_topic)
+        self.get_logger().info(
+            f"[test_campaign] auto: START {mission} -> recording "
+            f"{self._test.mission}/{self._test.test_id}")
 
     # -- data --------------------------------------------------------------
 
