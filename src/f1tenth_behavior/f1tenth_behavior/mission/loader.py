@@ -118,6 +118,8 @@ from ament_index_python.packages import get_package_share_directory
 from f1tenth_messages.msg import MissionStatus, MoveOutcome
 from f1tenth_messages.srv import LoadMission
 from f1tenth_params.param_defaults import get_value
+from f1tenth_params.planner_modes import (
+    default_planner_controller_mode, validate_planner_controller_mode)
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from std_msgs.msg import Bool, String
 from std_srvs.srv import Trigger
@@ -199,6 +201,15 @@ class MissionLoader:
         if 'preflight_actuation_node' in getattr(node, '_parameter_overrides', {}):
             self._actuation_node = str(node.declare_parameter(
                 'preflight_actuation_node', DEFAULT_ACTUATION_NODE).value)
+        # Which planner-controller drives the moves (f1tenth_params/planner_modes.py):
+        # the preflight requires THAT node. behavior_bringup.launch.py passes it
+        # (default stack_params.yaml); declared here only when passed, like
+        # preflight_actuation_node, else the stack_params value is used.
+        self._planner_controller_mode = default_planner_controller_mode()
+        if 'planner_controller_mode' in getattr(node, '_parameter_overrides', {}):
+            self._planner_controller_mode = validate_planner_controller_mode(
+                node.declare_parameter(
+                    'planner_controller_mode', self._planner_controller_mode).value)
         self.blackboard = py_trees.blackboard.Client(name='MissionLoader')
         self.blackboard.register_key(key=MISSION_KEY, access=py_trees.common.Access.WRITE)
         setattr(self.blackboard, MISSION_KEY, MissionRuntimeState())
@@ -421,7 +432,9 @@ class MissionLoader:
             # what's missing." Leaves state at LOADED on failure (not
             # consumed/aborted) so the caller can fix the dependency and retry
             # the same /mission/start_mission call.
-            reqs = required_dependencies(state.config, self._actuation_node)
+            reqs = required_dependencies(
+                state.config, self._actuation_node,
+                planner_controller_mode=self._planner_controller_mode)
             failures = check_liveness(
                 reqs,
                 self._node.get_node_names(),

@@ -63,8 +63,11 @@ def declared(nav):
 
 @pytest.fixture(scope='module')
 def includes(nav):
-    _module, ld = nav
-    return [e for e in ld.entities if isinstance(e, IncludeLaunchDescription)]
+    # The drive lane is chosen at launch time (planner_controller_mode, an
+    # OpaqueFunction), so ask for what corridor_mpc -- mpc_corr -- includes.
+    module, _ld = nav
+    return [e for e in module.drive_lane_actions('corridor_mpc')
+            if isinstance(e, IncludeLaunchDescription)]
 
 
 class TestForwarding:
