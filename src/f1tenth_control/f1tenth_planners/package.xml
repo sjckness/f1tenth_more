@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_planners</name>
+  <version>0.0.1</version>
+  <description>The alternative planner-controllers selected by planner_controller_mode: corridor_rrt (mpc_corr's corridor, RRT* in place of the MPC) and p2p_geometric (Dubins point-to-point, no corridor), both tracked by pure pursuit and speaking mpc_corr's goal and feedback topics.</description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>ackermann_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>f1tenth_messages</exec_depend>
+  <!-- stack_params.yaml defaults, corridor_geometry.py and planner_modes.py -->
+  <exec_depend>f1tenth_params</exec_depend>
+  <!-- base_front_x: the bumper the obstacle distances are measured from -->
+  <exec_depend>f1tenth_description</exec_depend>
+  <!-- tf_poll: the polled map to odom lookup for object goals -->
+  <exec_depend>f1tenth_comms</exec_depend>
+  <!-- object_approach, object_guard, drive_limits: the same stop latch,
+       refresh watchdog and speed clamp mpc_corr uses -->
+  <exec_depend>mpc_controller</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
