@@ -32,6 +32,20 @@ stack_params.yaml exactly as before, so adding these changes no default.
 and, through the supervisor, an `args:` entry under `navigation` in
 f1tenth_bringup/config/components.yaml.
 
+PLANNER-CONTROLLER MODE (2026-11-12). With enable_nav2 false, which process
+backs the drive lane is planner_controller_mode (f1tenth_params/planner_modes.py):
+corridor_mpc includes mpc_corr.launch.py exactly as before; corridor_rrt and
+p2p_geometric include f1tenth_planners' planner_controller.launch.py instead.
+Unlike enable_nav2 it IS a launch argument, defaulting to stack_params.yaml, so
+a test session switches it without editing the file:
+
+  ros2 launch f1tenth_navigation navigation.launch.py planner_controller_mode:=corridor_rrt
+
+and through the supervisor, supervisor_bringup.launch.py planner_controller_mode:=...
+(forwarded to this component and to 'behavior', whose preflight must look for
+the matching node). The branch is resolved in an OpaqueFunction because a
+launch argument's value only exists at launch time.
+
 enable_nav2 previously only toggled whether Nav2 came up at all (nothing filled in
 for the "false" case -- see stack_bringup.launch.py's old mpc_bringup, assigned but
 never added to its returned LaunchDescription). It now also decides which process
@@ -52,9 +66,10 @@ import os
 from ament_index_python.packages import get_package_share_directory
 
 from f1tenth_params.param_defaults import get_default, get_value
+from f1tenth_params.planner_modes import validate_planner_controller_mode
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 
@@ -81,6 +96,43 @@ _FORWARDED = (
 )
 
 
+def include(package, launch_file, forward=False, launch_arguments=None):
+    """Include an installed launch file; ``forward`` passes the _FORWARDED keys."""
+    if forward:
+        # Strings on purpose: launch_arguments values are command-line-shaped
+        # text, and mpc_corr.launch.py is what types them (boundary_source
+        # through ParameterValue(value_type=str), the rest through their own
+        # DeclareLaunchArgument). Typing them here as well would be a second
+        # place for the coercion to go wrong.
+        launch_arguments = [(n, LaunchConfiguration(n)) for n in _FORWARDED]
+    return IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(
+            get_package_share_directory(package), 'launch', launch_file)),
+        launch_arguments=launch_arguments,
+    )
+
+
+def drive_lane_actions(mode):
+    """Return what backs the drive lane in ``mode`` (enable_nav2 false), plus the map.
+
+    corridor_mpc: mpc_corr with the forwarded keys, exactly the pre-mode
+    behaviour. corridor_rrt / p2p_geometric: f1tenth_planners' node, told its
+    mode; the mpc_corr keys are accepted (declared below) and reach nothing. An
+    unknown mode raises here, at launch, instead of starting no controller.
+    """
+    mode = validate_planner_controller_mode(mode)
+    if mode == 'corridor_mpc':
+        drive = include('f1tenth_control', 'mpc_corr.launch.py', forward=True)
+    else:
+        drive = include('f1tenth_planners', 'planner_controller.launch.py',
+                        launch_arguments=[('planner_controller_mode', mode)])
+    return [drive, include('f1tenth_navigation', 'map_only.launch.py')]
+
+
+def _drive_lane(context):
+    return drive_lane_actions(LaunchConfiguration('planner_controller_mode').perform(context))
+
+
 def generate_launch_description():
     enable_nav2 = get_value('enable_nav2')
 
@@ -89,30 +141,19 @@ def generate_launch_description():
         default, description = get_default(name)
         declarations.append(DeclareLaunchArgument(
             name, default_value=str(default), description=description))
-
-    def include(package, launch_file, forward=False):
-        return IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(os.path.join(
-                get_package_share_directory(package), 'launch', launch_file)),
-            # Strings on purpose: launch_arguments values are command-line-shaped
-            # text, and mpc_corr.launch.py is what types them (boundary_source
-            # through ParameterValue(value_type=str), the rest through their own
-            # DeclareLaunchArgument). Typing them here as well would be a second
-            # place for the coercion to go wrong.
-            launch_arguments=[(n, LaunchConfiguration(n)) for n in _FORWARDED]
-            if forward else None,
-        )
+    mode_default, mode_description = get_default('planner_controller_mode')
+    declarations.append(DeclareLaunchArgument(
+        'planner_controller_mode', default_value=str(mode_default),
+        description=mode_description))
 
     if enable_nav2:
-        # Nav2 owns the drive lane in this branch, mpc_corr is not launched, and
-        # the forwarded keys reach nothing. Declared anyway (above) so the same
-        # command line is accepted either way rather than erroring on an unknown
-        # argument depending on a stack_params value the caller cannot see.
+        # Nav2 owns the drive lane in this branch, no planner-controller is
+        # launched, and the forwarded keys reach nothing. Declared anyway
+        # (above) so the same command line is accepted either way rather than
+        # erroring on an unknown argument depending on a stack_params value
+        # the caller cannot see.
         actions = [include('f1tenth_navigation', 'nav2.launch.py')]
     else:
-        actions = [
-            include('f1tenth_control', 'mpc_corr.launch.py', forward=True),
-            include('f1tenth_navigation', 'map_only.launch.py'),
-        ]
+        actions = [OpaqueFunction(function=_drive_lane)]
 
     return LaunchDescription(declarations + actions)

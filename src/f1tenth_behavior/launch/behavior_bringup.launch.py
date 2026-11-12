@@ -180,6 +180,14 @@ def generate_launch_description():
     enable_mission_logger_la = DeclareLaunchArgument(
         'enable_mission_logger', default_value=str(enable_mission_logger_default).lower(),
         description=enable_mission_logger_desc)
+    # Which planner-controller drives the moves (f1tenth_params/planner_modes.py):
+    # the mission preflight requires that node. Passed by the supervisor
+    # (apply_planner_controller_mode) and by stack_bringup.launch.py, the same
+    # value navigation.launch.py starts the controller from.
+    planner_mode_default, planner_mode_desc = get_default('planner_controller_mode')
+    planner_controller_mode_la = DeclareLaunchArgument(
+        'planner_controller_mode', default_value=str(planner_mode_default),
+        description=planner_mode_desc)
     # cpu_affinity/nice -- added by the stack-wide CPU-budget investigation
     # (found this node at ~45% CPU / 23 threads, unpinned -- lighter than
     # the perception nodes, but still real). Same "hardcoded default
@@ -260,6 +268,8 @@ def generate_launch_description():
             'enable_mission_logger': ParameterValue(
                 LaunchConfiguration('enable_mission_logger'), value_type=bool),
             'nice': LaunchConfiguration('behavior_nice'),
+            'planner_controller_mode': ParameterValue(
+                LaunchConfiguration('planner_controller_mode'), value_type=str),
             **avoidance_params,
         }],
     )
@@ -283,6 +293,7 @@ def generate_launch_description():
         *avoidance_las,
         mission_file_name_la,
         enable_mission_logger_la,
+        planner_controller_mode_la,
         behavior_cpu_affinity_la, behavior_nice_la,
     ]
 

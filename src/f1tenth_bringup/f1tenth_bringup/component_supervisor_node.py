@@ -289,6 +289,7 @@ import yaml
 
 from f1tenth_messages.srv import ComponentControl, RestartComponent
 from f1tenth_params.param_defaults import get_value
+from f1tenth_params.planner_modes import validate_planner_controller_mode
 
 import rclpy
 from rclpy.node import Node
@@ -451,6 +452,28 @@ def load_sim_component_args(*overlay_paths):
         for comp, args in (section.get('sim_component_args') or {}).items():
             merged.setdefault(comp, {}).update(args or {})
     return merged
+
+
+#: The components whose launch files take planner_controller_mode: navigation
+#: (which node backs the drive lane) and behavior (which node the mission
+#: preflight requires). Found by launch_file, like the logger toggle.
+_PLANNER_MODE_LAUNCH_FILES = ('navigation.launch.py', 'behavior_bringup.launch.py')
+
+
+def apply_planner_controller_mode(registry, mode):
+    """Pure: write planner_controller_mode into the args of the entries that take it.
+
+    Edits ``registry`` in place (the supervisor's freshly parsed copy) and
+    returns it. Both ends get the same value from the same place, so the
+    controller that is started and the one the preflight looks for can never
+    disagree.
+    """
+    mode = validate_planner_controller_mode(mode)
+    for entries in registry.values():
+        for entry in entries:
+            if str(entry.get('launch_file', '')) in _PLANNER_MODE_LAUNCH_FILES:
+                entry.setdefault('args', {})['planner_controller_mode'] = mode
+    return registry
 
 
 def _declare_if_overridden(node, name, default):
@@ -666,6 +689,14 @@ class ComponentSupervisorNode(Node):
         # file's own enable_comms (false).
         self.enable_comms = bool(
             self.declare_parameter('enable_comms', bool(get_value('enable_comms'))).value)
+        # Which planner-controller backs the drive lane (f1tenth_params/
+        # planner_modes.py). The same declared-parameter shape again, so
+        # `supervisor_bringup.launch.py planner_controller_mode:=corridor_rrt`
+        # switches a test session without editing stack_params.yaml. Validated
+        # here so a typo stops the bringup instead of starting no controller.
+        self.planner_controller_mode = validate_planner_controller_mode(
+            self.declare_parameter('planner_controller_mode',
+                                   str(get_value('planner_controller_mode'))).value)
         # Simulation mode (supervisor_bringup.launch.py sim:=isaac, use_sim_time:=true).
         # Declared only when the launch passes them, so the car's supervisor keeps its
         # old parameter set. This node itself stays on wall time: its watchdog must keep
@@ -732,6 +763,10 @@ class ComponentSupervisorNode(Node):
         # After the sim rewrite, on whichever registry is final: the logger
         # toggle is by launch_file, so it applies to the car and to sim alike.
         self._apply_mission_logger_override()
+        apply_planner_controller_mode(self._registry, self.planner_controller_mode)
+        self.get_logger().info(
+            f'[component_supervisor] planner_controller_mode: '
+            f'{self.planner_controller_mode}')
 
         # Some individual launch files within a multi-launch component legitimately
         # do nothing at all when their own feature flag is off -- an empty (or

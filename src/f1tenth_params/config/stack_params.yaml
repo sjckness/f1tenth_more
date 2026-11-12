@@ -111,7 +111,15 @@ use_behavior_tree:
 # unconditionally now, since navigation.launch.py itself branches on this value).
 enable_nav2:
   default: false
-  description: "true: bring up the Nav2 stack (idles with no active goal, puts nothing on the mux by itself). false: navigation.launch.py brings up mpc_corr instead, which does drive the mux. Independent of use_behavior_tree."
+  description: "true: bring up the Nav2 stack (idles with no active goal, puts nothing on the mux by itself). false: navigation.launch.py brings up the planner-controller picked by planner_controller_mode (mpc_corr by default), which does drive the mux. Independent of use_behavior_tree."
+# Consumed by: f1tenth_navigation/navigation.launch.py (which node it starts when
+# enable_nav2 is false), f1tenth_behavior's mission preflight (which node must be
+# up), component_supervisor_node.py and stack_bringup.launch.py (the launch
+# argument planner_controller_mode:=... forwarded to 'navigation' and 'behavior').
+# Values and node names: f1tenth_params/planner_modes.py.
+planner_controller_mode:
+  default: corridor_mpc
+  description: "Which planner + controller turns mission moves into /drive (enable_nav2 false). 'corridor_mpc': mpc_corr, the corridor as the MPC's reference (default, every campaign so far). 'corridor_rrt': the same corridor geometry, RRT* inside it around obstacles and wall tracks, pure pursuit on the path (node corridor_rrt). 'p2p_geometric': no corridor, a Dubins / turn-then-straight path from the car to the target tracked by pure pursuit; obstacles slow and stop the car instead of being planned around (node p2p_geometric). All three take the same goal topics and publish the same feedback, so missions run unchanged. Per run without editing this file: supervisor_bringup.launch.py (or stack_bringup.launch.py) planner_controller_mode:=corridor_rrt."
 
 # ============================================================
 # Hardware
@@ -4339,3 +4347,80 @@ lidar_front_wall_wall_extract_quality_gates:
 enable_comms:
   default: false
   description: "Auto-start the comms component (f1tenth_comms comms.launch.py: Wi-Fi coverage grids and the link to the base on /comms/*). Report only, nothing drives or stops on it. Launch argument of supervisor_bringup.launch.py and stack_bringup.launch.py."
+
+# ============================================================
+# Planner-controller modes corridor_rrt and p2p_geometric (f1tenth_planners)
+# ============================================================
+# Consumed by: f1tenth_planners (corridor_rrt_node.py, p2p_geometric_node.py),
+# read as their ROS parameter defaults. Only used when planner_controller_mode
+# is corridor_rrt or p2p_geometric. Shared limits come from the keys mpc_corr
+# already reads (car_radius, obstacle_safety_margin_m, mpc_wheelbase_m,
+# mpc_steering_angle_min/max_rad, max_forward_speed_mps, min_moving_speed_mps,
+# object_reach_tol_m, object_stop_distance_m, corr_half_width_start_m, ...), so
+# a mode switch changes the planner and the controller and nothing else.
+planner_control_period_s:
+  default: 0.1
+  description: "Control tick [s] of corridor_rrt and p2p_geometric: pure pursuit, arrival checks and /drive. 0.1 matches mpc_corr's ts, so /mpc/object_status arrives at the rate the mission's object_reached expects."
+planner_cruise_speed_mps:
+  default: 0.5
+  description: "Speed reference [m/s] of corridor_rrt and p2p_geometric when the move names none (goal_distance, goal_pose). Same as mpc_corr's vdes. Turn, drive and object moves use their own speed. Clamped by max_forward_speed_mps, floored at min_moving_speed_mps while moving."
+planner_replan_period_s:
+  default: 1.0
+  description: "Seconds between replans of corridor_rrt (corridor + RRT*) and p2p_geometric (Dubins path) while a move runs; also replanned at once when the current path is blocked or the car is off it by more than planner_path_deviation_m. Same cadence as mpc_corr's corridor_update_period."
+planner_path_deviation_m:
+  default: 0.35
+  description: "Cross-track error [m] from the tracked path that forces an immediate replan."
+planner_goal_tolerance_m:
+  default: 0.15
+  description: "goal_pose / turn arrival radius [m] of corridor_rrt and p2p_geometric, as mpc_corr's pose_goal_tolerance. A car that passes the goal within planner_goal_pass_tolerance_m (the goal behind it along the approach) is also arrived, so a near miss does not loop."
+planner_goal_pass_tolerance_m:
+  default: 0.4
+  description: "Pass-by arrival radius [m]: the goal is behind the car along the approach direction and within this distance."
+pp_lookahead_min_m:
+  default: 0.6
+  description: "Pure pursuit: shortest lookahead [m]. Must stay above about half the minimum turning radius (mpc_wheelbase_m / tan(steering bound), ~0.95 m) or the tracker oscillates. Lookahead = clip(pp_lookahead_min_m + pp_lookahead_gain_s * v, min, pp_lookahead_max_m)."
+pp_lookahead_gain_s:
+  default: 0.5
+  description: "Pure pursuit: lookahead growth with speed [s]."
+pp_lookahead_max_m:
+  default: 1.5
+  description: "Pure pursuit: longest lookahead [m]."
+pp_lateral_accel_max_mps2:
+  default: 1.0
+  description: "Pure pursuit speed cap from the commanded curvature: v <= sqrt(this / |kappa|), never below min_moving_speed_mps while moving."
+pp_steering_rate_max_rad_s:
+  default: 2.0
+  description: "Largest change of the published steering angle per second [rad/s] in corridor_rrt and p2p_geometric."
+rrt_max_iterations:
+  default: 1500
+  description: "RRT* iteration cap per plan (corridor_rrt). The planner also stops at rrt_time_budget_s."
+rrt_time_budget_s:
+  default: 0.08
+  description: "Wall-clock budget [s] of one RRT* plan. Runs inside the control tick, so it must stay well under planner_control_period_s. After the first solution the remaining budget is spent rewiring."
+rrt_step_m:
+  default: 0.3
+  description: "RRT* steer step [m]: the longest new edge."
+rrt_goal_bias:
+  default: 0.15
+  description: "Fraction of RRT* samples drawn at the goal itself."
+rrt_rewire_radius_m:
+  default: 0.8
+  description: "RRT* neighbourhood radius [m] for choosing a parent and rewiring."
+rrt_root_cone_deg:
+  default: 50.0
+  description: "Edges leaving the car must point within this angle [deg] of its heading: an Ackermann car cannot start a path sideways."
+rrt_seed:
+  default: -1
+  description: "RNG seed of the RRT*; -1 seeds from the clock. A fixed seed makes a replay plan the same tree."
+rrt_corridor_length_min_m:
+  default: 1.5
+  description: "Shortest corridor [m] corridor_rrt builds for a rolling target (drive moves). Distance and pose moves end their corridor on the goal."
+rrt_corridor_length_drive_m:
+  default: 3.0
+  description: "Corridor length [m] of an open-ended drive move in corridor_rrt, rebuilt from the car at every replan (mpc_corr's corr_L_base)."
+p2p_obstacle_lookahead_m:
+  default: 1.5
+  description: "p2p_geometric: how far along its path [m] it checks for obstacles (circles inflated by car_radius + obstacle_safety_margin_m) and wall tracks. A blocked path inside this distance slows the car linearly to zero at p2p_obstacle_stop_m; it does not plan around (that is what corridor_rrt is for)."
+p2p_obstacle_stop_m:
+  default: 0.5
+  description: "p2p_geometric: path-distance [m] to the first blocked point at which the car stops and waits."

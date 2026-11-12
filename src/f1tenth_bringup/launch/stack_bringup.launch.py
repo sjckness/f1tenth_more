@@ -219,11 +219,22 @@ def generate_launch_description():
     # localization_bringup. The BT supervisor turns Nav2's plans into drive commands
     # via the mux; independent of which process navigation_bringup itself started.
     # ================================================================
+    # planner_controller_mode (f1tenth_params/planner_modes.py): a real launch
+    # argument, default from stack_params.yaml, handed to both ends -- the
+    # navigation include starts that controller, the behaviour's preflight
+    # requires it -- as the supervisor path does (apply_planner_controller_mode).
+    planner_mode_default, planner_mode_desc = get_default('planner_controller_mode')
+    planner_controller_mode_la = DeclareLaunchArgument(
+        'planner_controller_mode', default_value=str(planner_mode_default),
+        description=planner_mode_desc)
+    planner_mode = LaunchConfiguration('planner_controller_mode')
     autonomy_bringup = [
-        include('f1tenth_navigation', 'navigation.launch.py', condition=is_calibration_disabled),
+        include('f1tenth_navigation', 'navigation.launch.py', condition=is_calibration_disabled,
+                planner_controller_mode=planner_mode),
     ]
     if use_behavior_tree:
-        autonomy_bringup.append(include('f1tenth_behavior', 'behavior_bringup.launch.py'))
+        autonomy_bringup.append(include('f1tenth_behavior', 'behavior_bringup.launch.py',
+                                        planner_controller_mode=planner_mode))
     # slam.launch.py self-gates via its own enable_slam param (default false,
     # mirrors enable_foxglove's own pattern -- see that key's own stack_params.yaml
     # comment). Deferred behind is_calibration_disabled same as navigation_bringup
@@ -323,6 +334,7 @@ def generate_launch_description():
         fastdds_profile_env,
         discovery_server,
         enable_comms_la,
+        planner_controller_mode_la,
         vesc_bringup,
         localization_bringup,
         description_bringup,

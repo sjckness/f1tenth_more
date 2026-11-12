@@ -210,3 +210,28 @@ class TestActuationNode:
         reqs = required_dependencies(config, 'isaac_f1tenth_sim')
         failures = check_liveness(reqs, ['mpc_corr'], lambda key: (0.0, 0.0))
         assert len(failures) == 1 and 'isaac_f1tenth_sim' in failures[0]
+
+
+class TestPlannerControllerMode:
+    """planner_controller_mode: the preflight requires the node that drives in that mode."""
+
+    def test_corridor_mpc_is_the_unchanged_mpc_corr_requirement(self):
+        from f1tenth_behavior.mission import preflight
+        config = _mission([_distance_move()])
+        reqs = required_dependencies(config, planner_controller_mode='corridor_mpc')
+        assert preflight._MPC_CORR in reqs
+        assert reqs == required_dependencies(config)
+
+    @pytest.mark.parametrize('mode', ['corridor_rrt', 'p2p_geometric'])
+    def test_the_other_modes_require_their_own_node_instead(self, mode):
+        config = _mission([_distance_move()])
+        reqs = required_dependencies(config, planner_controller_mode=mode)
+        assert mode in _nodes(reqs)
+        assert 'mpc_corr' not in _nodes(reqs)
+        failures = check_liveness(reqs, ['mpc_corr', 'ackermann_to_vesc_node'],
+                                  lambda key: (0.0, 0.0))
+        assert len(failures) == 1 and mode in failures[0]
+
+    def test_an_unknown_mode_is_refused(self):
+        with pytest.raises(ValueError):
+            required_dependencies(_mission([_distance_move()]), planner_controller_mode='x')

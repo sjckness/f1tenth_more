@@ -67,6 +67,7 @@ from launch.actions import (
 )
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -184,6 +185,12 @@ def generate_launch_description():
     enable_comms_la = DeclareLaunchArgument(
         'enable_comms', default_value=str(enable_comms_default).lower(),
         description=enable_comms_desc)
+    # Which planner-controller drives (f1tenth_params/planner_modes.py): the
+    # same treatment, the supervisor forwards it to 'navigation' and 'behavior'.
+    planner_mode_default, planner_mode_desc = get_default('planner_controller_mode')
+    planner_controller_mode_la = DeclareLaunchArgument(
+        'planner_controller_mode', default_value=str(planner_mode_default),
+        description=planner_mode_desc)
 
     components_config, components_config_desc = get_path_default('components_config')
     components_config_la = DeclareLaunchArgument(
@@ -242,6 +249,8 @@ def generate_launch_description():
             'enable_mission_logger': LaunchConfiguration('enable_mission_logger'),
             'enable_intelligence': LaunchConfiguration('enable_intelligence'),
             'enable_comms': LaunchConfiguration('enable_comms'),
+            'planner_controller_mode': ParameterValue(
+                LaunchConfiguration('planner_controller_mode'), value_type=str),
             'components_config': LaunchConfiguration('components_config'),
             'restart_timeout_sec': LaunchConfiguration('restart_timeout_sec'),
             'log_dir': LaunchConfiguration('log_dir'),
@@ -286,6 +295,7 @@ def generate_launch_description():
         enable_mission_logger_la,
         enable_intelligence_la,
         enable_comms_la,
+        planner_controller_mode_la,
         components_config_la,
         restart_timeout_la,
         log_dir_la,
