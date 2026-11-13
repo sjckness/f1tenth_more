@@ -71,6 +71,16 @@ host_net() {   # the container must be on the host network
 }
 link_ip() {
   local route
+  # The usual way this breaks: an address added with `ip addr add` is dropped as soon as
+  # NetworkManager re-activates the profile of that port (cable re-plugged, Hokuyo swapped in),
+  # and the route then silently leaves through the wifi. The fix that survives both is in the profile.
+  local addrs; addrs="$(ip -o -4 addr show)"   # no pipe into grep -q: pipefail + SIGPIPE
+  if [[ "$addrs" != *" inet $HIL_LINK_ORIN_IP/"* ]]; then
+    LINK_ERR="$HIL_LINK_ORIN_IP (link.orin_ip) is on no interface of this host. Once, and it stays:
+     sudo nmcli con mod <profile> +ipv4.addresses $HIL_LINK_ORIN_IP/$HIL_LINK_PREFIX && sudo nmcli device reapply <iface>
+   <profile>/<iface>: the cable's line in  nmcli -t -f NAME,DEVICE con show --active"
+    return 1
+  fi
   route="$(ip -o -4 route get "$HIL_LINK_WORKSTATION_IP" 2>&1)" \
     || { LINK_ERR="no route to the workstation ($HIL_LINK_WORKSTATION_IP): $route"; return 1; }
   case "$route" in
@@ -80,6 +90,17 @@ link_ip() {
   LINK_IFACE="$(sed -n 's/.* dev \([^ ]*\).*/\1/p' <<< "$route")"
   [ -n "$LINK_IP" ] || { LINK_ERR="no source address on the route ($route)"; return 1; }
   return 0
+}
+ws_arp() {   # a fresh ARP reply from the workstation; no root needed (arping would)
+  # A STALE entry proves nothing; sending to it walks it STALE -> DELAY -> PROBE, and only a
+  # reply to that probe makes it REACHABLE again (~5 s, measured on eno1).
+  local i s
+  for i in 1 2 3 4 5 6 7 8; do
+    s="$(ip neigh show "$HIL_LINK_WORKSTATION_IP" dev "$LINK_IFACE" 2>/dev/null)"
+    case "$s" in *REACHABLE*) WS_MAC="$(awk '{print $3}' <<< "$s")"; return 0 ;; esac
+    ping -c1 -W1 "$HIL_LINK_WORKSTATION_IP" >/dev/null 2>&1 || true
+  done
+  return 1
 }
 
 render_profile() {   # the stack side keeps shared memory (one container, one IPC namespace)
@@ -139,8 +160,12 @@ preflight() {
     log "link: $LINK_IP on $LINK_IFACE -> $HIL_LINK_WORKSTATION_IP"
     if ping -c1 -W2 "$HIL_LINK_WORKSTATION_IP" >/dev/null 2>&1; then
       log "the workstation answers on the link"
+    elif ws_arp; then
+      # Windows drops ICMP: its HIL firewall rule lets in only UDP from the Orin, which is all
+      # DDS needs (output/hil/run_windows.md, "Firewall"). ARP is answered below the firewall.
+      log "the workstation is on the link (ARP $WS_MAC on $LINK_IFACE; it drops ping, as Windows does)"
     else
-      log "the workstation does not answer ping"; bad=1
+      log "the workstation does not answer on the link: no ping and no ARP reply on $LINK_IFACE"; bad=1
     fi
   else
     log "LINK: $LINK_ERR"; bad=1
