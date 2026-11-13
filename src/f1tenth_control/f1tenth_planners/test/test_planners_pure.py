@@ -7,7 +7,7 @@ import math
 
 from f1tenth_params.corridor_geometry import corridor_curves_to_pose
 from f1tenth_planners import dubins
-from f1tenth_planners.corridor_rrt_node import build_corridor, plan_in_corridor
+from f1tenth_planners.corridor_rrt_node import build_corridor, plan_in_corridor, retreat_goal
 from f1tenth_planners.geometry import (
     corridor_polygon, nearest_on_path, Obstacles, point_at_arclength, point_segment_distance,
     points_in_polygon, pose_map_to_odom, project_onto_line, segment_segments_distance)
@@ -179,6 +179,45 @@ class TestRrt:
         pts = pts[(np.hypot(pts[:, 0], pts[:, 1]) > 0.3)
                   & (np.hypot(pts[:, 0] - 4.0, pts[:, 1]) > 0.3)]
         assert points_in_polygon(pts[:, 0], pts[:, 1], poly).all()
+
+    # ---- rrt_target_retreat: the goal moves inside the corridor, the corridor does not
+    def test_retreat_goal_picks_the_furthest_free_point_before_the_block(self):
+        pose = (0.0, 0.0, 0.0)
+        target = PlanTarget(4.0, 0.0, 0.0, True)
+        corridor = build_corridor(pose, target, 0.64, R_MIN)
+        # blocks the centreline from x 1.8 out past the target; the car is clear of it
+        obs = Obstacles(circles=[(3.0, 0.0, 1.2)])
+        goal = retreat_goal(corridor, obs, pose, 0.75)
+        assert goal is not None
+        assert 0.75 <= goal[0] < 1.8
+        assert obs.point_free(float(goal[0]), float(goal[1]))
+
+    def test_retreat_goal_is_none_when_only_points_closer_than_the_minimum_are_free(self):
+        pose = (0.0, 0.0, 0.0)
+        target = PlanTarget(4.0, 0.0, 0.0, True)
+        corridor = build_corridor(pose, target, 0.64, R_MIN)
+        # two circles cover the centreline from x 0.4 to past the target, car still clear
+        obs = Obstacles(circles=[(1.0, 0.0, 0.6), (2.5, 0.0, 1.6)])
+        assert retreat_goal(corridor, obs, pose, 0.75) is None
+
+    def test_retreat_goal_is_none_on_a_clear_corridor_only_below_the_minimum(self):
+        pose = (0.0, 0.0, 0.0)
+        target = PlanTarget(4.0, 0.0, 0.0, True)
+        corridor = build_corridor(pose, target, 0.64, R_MIN)
+        # nothing blocks: the far end itself is free, so that is what comes back
+        goal = retreat_goal(corridor, Obstacles(circles=[]), pose, 0.75)
+        assert goal is not None
+        assert goal[0] == pytest.approx(4.0, abs=0.05)
+
+    def test_plan_in_corridor_reaches_an_overridden_goal(self):
+        pose = (0.0, 0.0, 0.0)
+        target = PlanTarget(4.0, 0.0, 0.0, True)
+        corridor = build_corridor(pose, target, 0.64, R_MIN)
+        result, _ = plan_in_corridor(pose, target, Obstacles(circles=[]), corridor,
+                                     RRTConfig(seed=7, time_budget_s=1.0),
+                                     goal=np.array([2.0, 0.0]))
+        assert result.solved
+        assert result.path[-1] == pytest.approx([2.0, 0.0], abs=0.05)
 
 
 # ------------------------------------------------------------ pure pursuit
