@@ -1,0 +1,156 @@
+husarion_office: 99 models, grid (580, 552) at 0.05 m, origin (-1.76, -24.43)
+drivable floor 595.1 m2, 93 furniture models, 25 chairs, 0 people
+
+## objects per room (SDF model names; no object carries a semantic label)
+  room  2 sala SW                bin* x1, cabinet* x2, chair x2, dining table x2, laptop x1, robot* x1
+  room  3 ufficio SE             bin* x1, cabinet* x4, chair x3, dining table x3, laptop x2
+  room  5 bagno NE               bin* x1, sink x1, toilet x1
+  room  6 cucina / sala NE       bin* x3, cabinet* x1, cart* x1, chair x6, dining table x2, refrigerator x1
+  room  8 sala riunioni W        chair x6, dining table x1, tv x1
+  room  9 passaggio W            cabinet* x2
+  room 10 stanza W               bin* x1, cabinet* x3, chair x1, dining table x1
+  room 11 open space centrale    bin* x2, cabinet* x7, chair x6, dining table x6, laptop x5, robot* x2
+  room 12 ufficio E              cabinet* x4, chair x1, dining table x2, laptop x1
+  room 13 ripostiglio N          cart* x2
+
+## the 25 chairs (the only go_to targets this world actually has)
+  DeskChair                (  1.37, -19.48)  h 1.23 m  room  2 sala SW
+  DeskChair_2              (  3.84, -19.50)  h 1.23 m  room  2 sala SW
+  OfficeChairBlack         ( 21.51, -17.95)  h 1.26 m  room  3 ufficio SE
+  OfficeChairBlack_3       ( 21.71, -21.39)  h 1.26 m  room  3 ufficio SE
+  OfficeChairBlack_2       ( 25.10, -17.91)  h 1.26 m  room  3 ufficio SE
+  WoodenChair_4            ( 23.36,  -2.26)  h 0.79 m  room  6 cucina / sala NE
+  WoodenChair_3            ( 23.46,  -3.88)  h 0.79 m  room  6 cucina / sala NE
+  WoodenChair_5            ( 24.26,  -1.36)  h 0.79 m  room  6 cucina / sala NE
+  WoodenChair              ( 24.30,  -4.79)  h 0.79 m  room  6 cucina / sala NE
+  WoodenChair_6            ( 25.48,  -1.36)  h 0.79 m  room  6 cucina / sala NE
+  WoodenChair_2            ( 25.67,  -4.82)  h 0.79 m  room  6 cucina / sala NE
+  ConfOfficeChairBlack3    (  0.67, -16.44)  h 1.26 m  room  8 sala riunioni W
+  ConfOfficeChairBlack4    (  0.67, -15.24)  h 1.26 m  room  8 sala riunioni W
+  ConfOfficeChairBlack6    (  2.38, -14.02)  h 1.26 m  room  8 sala riunioni W
+  ConfOfficeChairBlack5    (  3.85, -14.02)  h 1.26 m  room  8 sala riunioni W
+  ConfOfficeChairBlack1    (  5.29, -16.45)  h 1.26 m  room  8 sala riunioni W
+  ConfOfficeChairBlack2    (  5.29, -15.25)  h 1.26 m  room  8 sala riunioni W
+  DeskChair_9              (  1.67,  -9.21)  h 1.23 m  room 10 stanza W
+  DeskChair_8              (  9.44, -17.04)  h 1.23 m  room 11 open space centrale
+  DeskChair_3              ( 10.44, -22.01)  h 1.23 m  room 11 open space centrale
+  DeskChair_7              ( 11.05, -13.46)  h 1.23 m  room 11 open space centrale
+  DeskChair_5              ( 12.61, -18.38)  h 1.23 m  room 11 open space centrale
+  DeskChair_6              ( 14.80, -16.14)  h 1.23 m  room 11 open space centrale
+  DeskChair_4              ( 15.32, -22.02)  h 1.23 m  room 11 open space centrale
+  OfficeChairBlack_4       ( 21.96, -13.26)  h 1.26 m  room 12 ufficio E
+
+## 23 wall openings (detect band 0.6-1.5 m, nominal 0.7-1.4)
+  ( -0.49, -22.50) w 1.65 m  through y  corridoio SW                               NOT detectable, drivable
+  (  0.36, -23.25) w 1.45 m  through x  corridoio SW <-> sala SW                   detectable/marginal, drivable
+  (  1.16,  -2.75) w 1.35 m  through y  stanza NW <-> stanza W                     detectable, drivable
+  (  3.61,  -9.80) w 2.00 m  through x  passaggio W <-> stanza W                   NOT detectable, drivable
+  (  6.16, -23.25) w 1.45 m  through x  sala SW <-> open space centrale            detectable/marginal, drivable
+  (  6.76,  -9.65) w 1.70 m  through x  passaggio W                                NOT detectable, drivable
+  (  7.46, -22.50) w 1.20 m  through y  open space centrale                        detectable, drivable
+  (  7.46, -18.70) w 1.15 m  through y  open space centrale                        detectable, not drivable
+  (  8.06, -19.45) w 1.30 m  through x  open space centrale                        detectable, drivable
+  (  8.06, -13.10) w 1.45 m  through x  sala riunioni W <-> open space centrale    detectable/marginal, drivable
+  ( 11.41,  -6.55) w 2.45 m  through x  corridoio centrale N                       NOT detectable, not drivable
+  ( 12.51,  -0.10) w 2.05 m  through x  ripostiglio N                              NOT detectable, not drivable
+  ( 12.76,  -6.55) w 2.45 m  through x  corridoio centrale N                       NOT detectable, drivable
+  ( 13.31,  -1.35) w 1.40 m  through y  ripostiglio N <-> stanza N-centro          detectable, drivable
+  ( 14.01,  -0.10) w 2.05 m  through x  ripostiglio N                              NOT detectable, not drivable
+  ( 14.26,  -6.55) w 2.45 m  through x  corridoio centrale N                       NOT detectable, drivable
+  ( 15.26,  -2.55) w 1.35 m  through x  corridoio centrale N <-> stanza N-centro   detectable, drivable
+  ( 16.81,  -8.70) w 2.00 m  through y  corridoio centrale N <-> open space centrale NOT detectable, drivable
+  ( 17.11,  -1.30) w 1.35 m  through y  corridoio centrale N <-> bagno NE          detectable, drivable
+  ( 17.61, -18.85) w 1.55 m  through x  ufficio SE <-> open space centrale         NOT detectable, drivable
+  ( 18.16, -13.40) w 0.60 m  through x  open space centrale <-> ufficio E          detectable/marginal, drivable
+  ( 18.16, -10.45) w 2.45 m  through x  open space centrale <-> ufficio E          NOT detectable, drivable
+  ( 18.71,  -2.50) w 1.40 m  through x  corridoio centrale N <-> cucina / sala NE  detectable, drivable
+
+### M-A  go straight, enter the first door on the left and then approach the chair
+    start (9.33, -15.87) yaw 90 deg  room 11 (open space centrale)
+  straight 2.6 m : nearest obstacle ahead 3.35 m, corridor clear True  => OK
+       pose now (9.33, -13.27) yaw 90
+  enter_door side=left : 2 detectable door(s) visible; picks (8.06,-13.10) at 1.28 m, bearing 82 deg  => OK, that is the intended one
+       (  8.06, -13.10) w1.45  1.28 m  bearing   82 deg  [left sector]
+       ( 18.16, -13.40) w0.60  8.83 m  bearing  -91 deg  [right sector]
+       the move ENDS IN the opening (8.08, -13.07) facing -x, 1.27 m away, not beyond it
+       pose now (8.08, -13.07) yaw 180
+  go_to chair ConfOfficeChairBlack5 @(3.85,-14.02) : range 4.34 m, bearing 12.6 deg (FOV +-50: True), occluder None, approach 3.13 m clear True  => OK
+       pose now (5.02, -13.75) yaw -167
+  LIGHT: waypoint (9.33, -13.27) is 6.2 m from the nearest sphere_light -- add one, or the camera has nothing to detect
+  LIGHT: waypoint (8.08, -13.07) is 6.3 m from the nearest sphere_light -- add one, or the camera has nothing to detect
+  LIGHT: waypoint (5.02, -13.75) is 6.4 m from the nearest sphere_light -- add one, or the camera has nothing to detect
+  == M-A: FEASIBLE
+  -- a person on this path (keep-out 0.99 m + half width 0.186 m = 1.18 m of gap needed to slip past):
+  person at (  9.33, -15.07) on the 90 deg leg: free left 1.00 / right 4.00  -> pass on right (2.82 m spare)
+  person at (  6.78, -13.07) on the 180 deg leg: free left 4.00 / right 0.90  -> pass on left (2.82 m spare)
+  person at (  5.78, -13.07) on the 180 deg leg: free left 4.00 / right 4.00  -> pass on left (2.82 m spare) and right (2.82 m spare)
+
+### M-A2  variant: ... the first door on the RIGHT ... (kitchen NE, 6 chairs)
+    start (17.33, -6.37) yaw 90 deg  room 4 (corridoio centrale N)
+  straight 3.6 m : nearest obstacle ahead 7.40 m, corridor clear True  => OK
+       pose now (17.33, -2.77) yaw 90
+  enter_door side=right : 4 detectable door(s) visible; picks (18.71,-2.50) at 1.41 m, bearing -79 deg  => OK, that is the intended one
+       ( 18.71,  -2.50) w1.40  1.41 m  bearing  -79 deg  [right sector]
+       ( 17.11,  -1.30) w1.35  1.49 m  bearing    9 deg
+       ( 15.26,  -2.55) w1.35  2.08 m  bearing   84 deg  [left sector]
+       ( 13.31,  -1.35) w1.40  4.26 m  bearing   71 deg  [left sector]
+       the move ENDS IN the opening (18.68, -2.52) facing +x, 1.37 m away, not beyond it
+       pose now (18.68, -2.52) yaw 0
+  go_to chair WoodenChair_4 @(23.36,-2.26) : range 4.69 m, bearing 3.2 deg (FOV +-50: True), occluder None, approach 3.49 m clear True  => OK
+       pose now (22.16, -2.33) yaw 3
+  LIGHT: waypoint (22.16, -2.33) is 5.6 m from the nearest sphere_light -- add one, or the camera has nothing to detect
+  == M-A2: FEASIBLE
+  -- a person on this path (keep-out 0.99 m + half width 0.186 m = 1.18 m of gap needed to slip past):
+  person at ( 17.33,  -5.37) on the 90 deg leg: free left 4.00 / right 1.35  -> pass on left (2.82 m spare) and right (0.17 m spare)
+  person at ( 17.33,  -4.37) on the 90 deg leg: free left 1.80 / right 1.35  -> pass on left (0.62 m spare) and right (0.17 m spare)
+  person at ( 20.48,  -2.52) on the 0 deg leg: free left 4.00 / right 4.00  -> pass on left (2.82 m spare) and right (2.82 m spare)
+
+### M-B  go straight at the wall, turn left and then approach the wall
+    start (16.83, -9.87) yaw 180 deg  room 11 (open space centrale)
+  straight -> wall at 3.0 m : wall 7.00 m, nearest obstacle 7.00 m, drive 4.00 m, corridor clear True  => OK
+       pose now (12.83, -9.87) yaw 180
+  turn left 90 deg (R=1.20 m) : swept footprint clear True -> (11.63, -11.07) yaw 270  => OK
+       pose now (11.63, -11.07) yaw 270
+  straight -> wall at 2.0 m : wall 12.55 m, nearest obstacle 12.55 m, drive 10.55 m, corridor clear True  => OK
+       pose now (11.63, -21.62) yaw 270
+  == M-B: FEASIBLE
+  -- a person on this path (keep-out 0.99 m + half width 0.186 m = 1.18 m of gap needed to slip past):
+  person at ( 14.83,  -9.87) on the 180 deg leg: free left 4.00 / right 1.05  -> pass on left (2.82 m spare)
+  person at ( 11.63, -12.57) on the -90 deg leg: free left 4.00 / right 4.00  -> pass on left (2.82 m spare) and right (2.82 m spare)
+  person at ( 11.63, -14.07) on the -90 deg leg: free left 0.45 / right 0.80  -> BLOCKS (neither side reaches 1.18 m)
+  person at ( 11.63, -17.07) on the -90 deg leg: free left 4.00 / right 1.80  -> pass on left (2.82 m spare) and right (0.62 m spare)
+
+### M-C  at the wall turn left, then go to the chair, then go straight 2 meters
+    start (16.83, -9.87) yaw 180 deg  room 11 (open space centrale)
+  straight -> wall at 3.0 m : wall 7.00 m, nearest obstacle 7.00 m, drive 4.00 m, corridor clear True  => OK
+       pose now (12.83, -9.87) yaw 180
+  turn left 90 deg (R=1.20 m) : swept footprint clear True -> (11.63, -11.07) yaw 270  => OK
+       pose now (11.63, -11.07) yaw 270
+  go_to chair DeskChair_7 @(11.05,-13.46) : range 2.46 m, bearing -13.6 deg (FOV +-50: True), occluder None, approach 1.26 m clear True  => OK
+       pose now (11.34, -12.29) yaw -104
+  straight 2.0 m : nearest obstacle ahead 0.40 m, corridor clear False  => FAIL
+  == M-C: NOT feasible as written
+  -- a person on this path (keep-out 0.99 m + half width 0.186 m = 1.18 m of gap needed to slip past):
+  person at ( 14.83,  -9.87) on the 180 deg leg: free left 4.00 / right 1.05  -> pass on left (2.82 m spare)
+
+### M-D  at the wall turn left, then go to the person, then enter the first door on the right
+    start (16.83, -9.87) yaw 180 deg  room 11 (open space centrale)
+    requires a person at (11.63, -13.3) (none in the SDF: add it through scene config)
+  straight -> wall at 3.0 m : wall 7.00 m, nearest obstacle 7.00 m, drive 4.00 m, corridor clear True  => OK
+       pose now (12.83, -9.87) yaw 180
+  turn left 90 deg (R=1.20 m) : swept footprint clear True -> (11.63, -11.07) yaw 270  => OK
+       pose now (11.63, -11.07) yaw 270
+  go_to person  @(11.63,-13.30) : range 2.23 m, bearing 0.0 deg (FOV +-50: True), occluder None, approach 0.52 m clear True  => OK
+       pose now (11.63, -11.59) yaw -90
+  enter_door side=right : 3 detectable door(s) visible; picks (8.06,-13.10) at 3.87 m, bearing -67 deg  => OK, that is the intended one
+       (  8.06, -13.10) w1.45  3.87 m  bearing  -67 deg  [right sector]
+       ( 18.16, -13.40) w0.60  6.77 m  bearing   75 deg  [left sector]
+       (  8.06, -19.45) w1.30  8.63 m  bearing  -24 deg  [right sector]
+       the move ENDS IN the opening (8.08, -13.07) facing -x, 3.84 m away, not beyond it
+       pose now (8.08, -13.07) yaw 180
+  LIGHT: waypoint (8.08, -13.07) is 6.3 m from the nearest sphere_light -- add one, or the camera has nothing to detect
+  == M-D: FEASIBLE
+  -- a person on this path (keep-out 0.99 m + half width 0.186 m = 1.18 m of gap needed to slip past):
+  person at ( 14.83,  -9.87) on the 180 deg leg: free left 4.00 / right 1.05  -> pass on left (2.82 m spare)
+
+wrote map_geo.json and results.json to output/office_missions
