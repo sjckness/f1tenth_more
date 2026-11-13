@@ -305,8 +305,15 @@ def pick_profile(cfg: Cfg, net: str) -> tuple[Path, str | None, str]:
     return render_profile(cfg, cfg.ws_ip), cfg.ds, cfg.ws_ip
 
 
-def cmd_env(cfg: Cfg, a: argparse.Namespace) -> int:
+def pick_profile_for(cfg: Cfg, a: argparse.Namespace) -> tuple[Path, str | None, str]:
+    """pick_profile() plus the --discovery-server override (see its help text)."""
     prof, ds, ip = pick_profile(cfg, a.net)
+    override = getattr(a, "discovery_server", "")
+    return prof, (override or ds), ip
+
+
+def cmd_env(cfg: Cfg, a: argparse.Namespace) -> int:
+    prof, ds, ip = pick_profile_for(cfg, a)
     print(f"config            {hil_config.config_path()}")
     print(f"python            {sys.executable}  (isaacsim {isaac_version()})")
     print(f"ROS_DISTRO        {DISTRO}    bridge: {bridge_dir()}")
@@ -382,7 +389,7 @@ def cmd_world(cfg: Cfg, a: argparse.Namespace, rest: list[str]) -> int:
 
 
 def cmd_sim(cfg: Cfg, a: argparse.Namespace) -> int:
-    prof, ds, ip = pick_profile(cfg, a.net)
+    prof, ds, ip = pick_profile_for(cfg, a)
     env = base_env(cfg, prof, ds)
     cmd = [sys.executable, str(cfg.isaac_dir / "sim" / "main.py"), *sim_args(cfg, a)]
     log(f"net={a.net}  domain={cfg.domain}  distro={DISTRO}  profile={prof}")
@@ -405,7 +412,7 @@ def cmd_sim(cfg: Cfg, a: argparse.Namespace) -> int:
 
 
 def probe(cfg: Cfg, a: argparse.Namespace, args: list[str]) -> int:
-    prof, ds, _ = pick_profile(cfg, a.net)
+    prof, ds, _ = pick_profile_for(cfg, a)
     env = base_env(cfg, prof, ds)
     return subprocess.call([sys.executable, str(HERE / "ros_probe.py"), *args], env=env)
 
@@ -414,6 +421,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=("preflight", "world", "sim", "topics", "hz", "reset", "env"))
     ap.add_argument("--net", choices=("local", "link", "wsl", "wsltcp"), default="local")
+    ap.add_argument("--discovery-server", default="", metavar="ADDR:PORT",
+                    help="override the Discovery Server of --net (wsl/wsltcp have none by "
+                         "default). Needed when the WSL side runs the full stack: "
+                         "supervisor_bringup.launch.py always sets ROS_DISCOVERY_SERVER, so "
+                         "Isaac has to use the same server instead of unicast initial peers.")
     ap.add_argument("--orin", action="store_true")
     ap.add_argument("--world", default="")
     ap.add_argument("--layout", default="")
