@@ -1,0 +1,72 @@
+== ROS env (net eth, domain 44, Discovery Server 172.26.129.85:11811, super client) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/tmp/sim_isaac.iVbWjQ/eth_true.xml
+cmd: /home/andreas/dev_ws/f1tenth_hil/scripts/sim/llm.sh
+[llm 15:01:52] llama-server: http://127.0.0.1:8083 (llm_planner_node.LLAMA_URL)
+[llm 15:01:52] llama-server ready (/health 200)
+[llm 15:01:52] command sent: "go straight 5m then enter the door on the left"
+[INFO] [1794578513.522047309] [llm_planner_node]: planner_path=v2 -- prompt prompts/planner_system_prompt.v2.it.txt, validazione schemas/intent_v1.json, traduttore translate(), go_to_enabled=True, enter_door_enabled=True
+[INFO] [1794578513.836232341] [llm_planner_node]: Server raggiunto e scaldato in 0.3s.
+[INFO] [1794578514.863453510] [llm_planner_node]: LLM Planner (llama-server @ http://127.0.0.1:8083/completion) pronto -- consegna via /mission/load_mission + /mission/start_mission.
+[INFO] [1794578534.298320230] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=IDLE)
+[INFO] [1794578534.300148532] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_1ae1b3cae348', 2 moves -- start_mission subito
+[INFO] [1794578534.301583030] [llm_planner_node]: start_mission OK: started 'llm_1ae1b3cae348'
+
+missione generata in 19.43s (v2), 2 move:
+  0. vai dritto
+       id       move_0_straight
+       velocita 0.5 m/s
+       fino a   percorsi 5.0 m
+       timeout  35 s -> abort
+  1. entra nella porta a sinistra e fermati nel vano (+-0.15 m, +-10.0 gradi)
+       id       move_1_enter_door
+       velocita default del controllore
+       fino a   fermo NEL vano della porta, girato verso il passaggio
+       timeout  65 s -> abort
+       note     TERMINALE
+
+JSON (llm_1ae1b3cae348):
+{
+  "mission_id": "llm_1ae1b3cae348",
+  "schema_version": "6.1",
+  "moves": [
+    {
+      "id": "move_0_straight",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.5
+      },
+      "stop_condition": {
+        "type": "distance_reached",
+        "distance": 5.0
+      },
+      "timeout_sec": 35,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "move_1_enter_door",
+      "enter_door": {
+        "type": "enter_door",
+        "door": "left",
+        "xy_tol": 0.15,
+        "yaw_tol_deg": 10.0,
+        "acquire_timeout_sec": 5.0,
+        "approach_dist_m": 0.8
+      },
+      "stop_condition": {
+        "type": "door_entered"
+      },
+      "timeout_sec": 65,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
+
+scritta in: /home/andreas/dev_ws/f1tenth_hil/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_1ae1b3cae348.json
+
+RESULT {"status": "ok", "stage": "translator", "error_type": null, "error_message": null, "attempts": 1, "rejections": [], "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 5.0}, {\"mode\": \"enter_door\", \"side\": \"left\"}], \"unsupported\": []}", "mission_id": "llm_1ae1b3cae348", "schema_version": "6.1", "n_moves": 2, "plan_seconds": 19.433, "unsupported": [], "notes": [], "mission": {"mission_id": "llm_1ae1b3cae348", "schema_version": "6.1", "moves": [{"id": "move_0_straight", "drive": {"mode": "straight", "speed": 0.5}, "stop_condition": {"type": "distance_reached", "distance": 5.0}, "timeout_sec": 35, "on_timeout": "abort"}, {"id": "move_1_enter_door", "enter_door": {"type": "enter_door", "door": "left", "xy_tol": 0.15, "yaw_tol_deg": 10.0, "acquire_timeout_sec": 5.0, "approach_dist_m": 0.8}, "stop_condition": {"type": "door_entered"}, "timeout_sec": 65, "on_timeout": "abort", "terminal": true}]}, "mission_path": "/home/andreas/dev_ws/f1tenth_hil/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_1ae1b3cae348.json"}
+== llm.sh ==
+command:        "go straight 5m then enter the door on the left"
+mission file:   /home/andreas/dev_ws/f1tenth_hil/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_1ae1b3cae348.json
+planner result: status=ok
+planner exit:   0

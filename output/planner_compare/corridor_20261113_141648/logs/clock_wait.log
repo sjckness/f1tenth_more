@@ -1,0 +1,7 @@
+== ROS env (net eth, domain 44, Discovery Server 172.26.129.85:11811, super client) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/tmp/sim_isaac.i8avca/eth_true.xml
+cmd: timeout 300 ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock
+clock:
+  sec: 30
+  nanosec: 566666667
+---

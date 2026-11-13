@@ -1,0 +1,14 @@
+{
+  "mode": "corridor_mpc",
+  "node": "mpc_corr",
+  "ready_rc": 0,
+  "ready_s": 10,
+  "restart_rc": 1,
+  "llm_rc": 0,
+  "llm_status": "ok",
+  "llm_plan_seconds": 18.723,
+  "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 3.0}], \"unsupported\": []}",
+  "mission_path": "/home/andreas/dev_ws/f1tenth_hil/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_fd5d8fd4f171.json",
+  "llm_error": null,
+  "mission_sha": "86892f5ef777497feba0c3b5e8de326e6b28cffffce78954b61b62057cf19a91"
+}

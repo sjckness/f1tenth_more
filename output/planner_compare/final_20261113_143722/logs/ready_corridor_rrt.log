@@ -1,0 +1,6 @@
+== ROS env (net eth, domain 44, Discovery Server 172.26.129.85:11811, super client) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/tmp/sim_isaac.Od40Uf/eth_true.xml
+cmd: python3 /home/andreas/dev_ws/f1tenth_hil/scripts/sim/planner_compare/pc_record.py ready --node corridor_rrt --timeout 300
+[ready] 0s, waiting for: node corridor_rrt, /mission/status, /odometry/filtered, /sim/ground_truth/odom
+[INFO] [1794577180.105931695] [planner_compare_recorder]: mission state None -> IDLE
+[ready] READY after 4.6s (mission state IDLE)

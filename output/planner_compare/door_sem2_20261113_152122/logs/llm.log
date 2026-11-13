@@ -1,0 +1,107 @@
+== ROS env (net eth, domain 44, Discovery Server 172.26.129.85:11811, super client) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/tmp/sim_isaac.2psWhK/eth_true.xml
+cmd: ros2 launch llm llm.launch.py llama_server_path:=/home/andreas/projects/llm/llama-server-t32 llama_server_cwd:=/home/andreas/projects/llm
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-11-13-15-21-34-615242-DESKTOP-Q3F81S6-85900
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [launch.user]: [llm.launch] model='qwen25_3b_instruct' (auto-selected for this interrogation) (/home/andreas/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf, port=8083) interrogation='planner' (llm_planner_node, not launched by this file -- run it by hand) -- server starting now.
+[INFO] [llama-server-t32-1]: process started with pid [85903]
+[INFO] [ros2-2]: process started with pid [85904]
+[llama-server-t32-1] warning: no usable GPU found, --gpu-layers option will be ignored
+[llama-server-t32-1] warning: one possible reason is that llama.cpp was compiled without GPU support
+[llama-server-t32-1] warning: consult docs/build.md for compilation instructions
+[llama-server-t32-1] 0.00.001.956 I srv  llama_server: initializing ...
+[llama-server-t32-1] 0.00.001.983 I cmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+[llama-server-t32-1] 0.00.002.287 W srv  server_setup: security: no API key is set and CORS allows all origins (see https://github.com/ggml-org/llama.cpp/pull/25655)
+[llama-server-t32-1] 0.00.010.739 I srv    load_model: loading model '/home/andreas/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf'
+[llama-server-t32-1] 0.00.183.287 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+[ros2-2] [llm_warmup] /health -> 503 after 0.1 s
+[llama-server-t32-1] 0.01.261.917 I cmn          init: llama threadpool init, n_threads = 32
+[llama-server-t32-1] 0.01.361.834 I srv    load_model: initializing, n_slots = 4, n_ctx_slot = 32768, kv_unified = 'true'
+[llama-server-t32-1] 0.01.364.974 I srv  server_run_i: model loaded
+[llama-server-t32-1] 0.01.364.998 I srv  server_on_li: listening on http://127.0.0.1:8083
+[ros2-2] [llm_warmup] /health -> 200 after 1.1 s
+[llama-server-t32-1] 0.01.644.521 I slot get_availabl: id  0 | task -1 | selected slot by LRU, n_tokens = 0, t_last = -1
+[llama-server-t32-1] 0.01.644.579 I slot launch_slot_: id  0 | task 0 | processing task, is_child = 0
+[llama-server-t32-1] 0.06.157.165 I slot print_timing: id  0 | task 0 | prompt eval time =    4512.49 ms /  3235 tokens (    1.39 ms per token,   716.90 tokens per second)
+[llama-server-t32-1] 0.06.157.187 I slot print_timing: id  0 | task 0 |        eval time =       0.00 ms /     1 tokens (    0.00 ms per token,     0.00 tokens per second)
+[llama-server-t32-1] 0.06.157.188 I slot print_timing: id  0 | task 0 |       total time =    4512.49 ms /  3236 tokens
+[llama-server-t32-1] 0.06.157.191 I slot print_timing: id  0 | task 0 |    graphs reused =          1
+[llama-server-t32-1] 0.06.157.191 I slot print_timing: id  0 | task 0 |   graph reallocs =          0    /     0        (same size) / (changed size)
+[llama-server-t32-1] 0.06.157.329 I slot      release: id  0 | task 0 | stop processing: n_tokens = 3235, truncated = 0
+[ros2-2] [llm_warmup] ready after 1.1 s; warm-up completion (planner_system_prompt.v2.it.txt, porte on) 4.52 s, prompt_n=3235 prompt_ms=4512.486 cache_n=0
+[INFO] [ros2-2]: process has finished cleanly [pid 85904]
+[llama-server-t32-1] 1.16.019.775 I slot get_availabl: id  1 | task -1 | selected slot by LRU, n_tokens = 0, t_last = -1
+[llama-server-t32-1] 1.16.019.810 I slot launch_slot_: id  1 | task 3 | processing task, is_child = 0
+[llama-server-t32-1] 1.16.332.029 I slot print_timing: id  1 | task 3 | prompt eval time =      28.24 ms /     2 tokens (   14.12 ms per token,    70.83 tokens per second)
+[llama-server-t32-1] 1.16.332.049 I slot print_timing: id  1 | task 3 |        eval time =     186.43 ms /     8 tokens (   26.63 ms per token,    37.55 tokens per second)
+[llama-server-t32-1] 1.16.332.050 I slot print_timing: id  1 | task 3 |       total time =     214.66 ms /    10 tokens
+[llama-server-t32-1] 1.16.332.050 I slot print_timing: id  1 | task 3 |    graphs reused =          7
+[llama-server-t32-1] 1.16.332.051 I slot print_timing: id  1 | task 3 |   graph reallocs =          0    /     0        (same size) / (changed size)
+[llama-server-t32-1] 1.16.332.107 I slot      release: id  1 | task 3 | stop processing: n_tokens = 9, truncated = 0
+[llama-server-t32-1] 1.16.344.552 I slot get_availabl: id  2 | task -1 | selected slot by LRU, n_tokens = 0, t_last = -1
+[llama-server-t32-1] 1.16.364.254 I slot launch_slot_: id  2 | task 12 | processing task, is_child = 0
+[llama-server-t32-1] 1.20.328.184 I slot print_timing: id  2 | task 12 | n_gen =    100, tg =  25.53 t/s, tg_3s =  25.79 t/s
+[llama-server-t32-1] 1.23.350.605 I slot print_timing: id  2 | task 12 | n_gen =    176, tg =  25.36 t/s, tg_3s =  25.15 t/s
+[llama-server-t32-1] 1.26.387.352 I slot print_timing: id  2 | task 12 | n_gen =    253, tg =  25.36 t/s, tg_3s =  25.36 t/s
+[llama-server-t32-1] 1.29.418.931 I slot print_timing: id  2 | task 12 | n_gen =    330, tg =  25.37 t/s, tg_3s =  25.40 t/s
+[llama-server-t32-1] 1.32.433.746 I slot print_timing: id  2 | task 12 | n_gen =    406, tg =  25.34 t/s, tg_3s =  25.21 t/s
+[llama-server-t32-1] 1.36.271.685 I slot print_timing: id  2 | task 12 | n_gen =    481, tg =  25.24 t/s, tg_3s =  24.73 t/s
+[llama-server-t32-1] 1.37.547.178 I slot print_timing: id  2 | task 12 | prompt eval time =      85.99 ms /    16 tokens (    5.37 ms per token,   186.07 tokens per second)
+[llama-server-t32-1] 1.37.547.203 I slot print_timing: id  2 | task 12 |        eval time =   20291.97 ms /   512 tokens (   39.71 ms per token,    25.18 tokens per second)
+[llama-server-t32-1] 1.37.547.204 I slot print_timing: id  2 | task 12 |       total time =   20377.96 ms /   528 tokens
+[llama-server-t32-1] 1.37.547.205 I slot print_timing: id  2 | task 12 |    graphs reused =        515
+[llama-server-t32-1] 1.37.547.205 I slot print_timing: id  2 | task 12 |   graph reallocs =          0    /     0        (same size) / (changed size)
+[llama-server-t32-1] 1.37.547.352 I slot      release: id  2 | task 12 | stop processing: n_tokens = 3753, truncated = 0
+[llama-server-t32-1] 3.21.840.369 I slot get_availabl: id  3 | task -1 | selected slot by LRU, n_tokens = 0, t_last = -1
+[llama-server-t32-1] 3.21.840.406 I slot launch_slot_: id  3 | task 525 | processing task, is_child = 0
+[llama-server-t32-1] 3.22.172.219 I slot print_timing: id  3 | task 525 | prompt eval time =      28.21 ms /     2 tokens (   14.11 ms per token,    70.89 tokens per second)
+[llama-server-t32-1] 3.22.172.240 I slot print_timing: id  3 | task 525 |        eval time =     189.78 ms /     8 tokens (   27.11 ms per token,    36.88 tokens per second)
+[llama-server-t32-1] 3.22.172.241 I slot print_timing: id  3 | task 525 |       total time =     218.00 ms /    10 tokens
+[llama-server-t32-1] 3.22.172.242 I slot print_timing: id  3 | task 525 |    graphs reused =        521
+[llama-server-t32-1] 3.22.172.242 I slot print_timing: id  3 | task 525 |   graph reallocs =          0    /     0        (same size) / (changed size)
+[llama-server-t32-1] 3.22.172.269 I slot      release: id  3 | task 525 | stop processing: n_tokens = 9, truncated = 0
+[llama-server-t32-1] 3.22.523.815 I slot get_availabl: id  0 | task -1 | selected slot by LRU, n_tokens = 0, t_last = 8474394437
+[llama-server-t32-1] 3.22.547.881 I slot launch_slot_: id  0 | task 534 | processing task, is_child = 0
+[llama-server-t32-1] 3.22.548.005 W slot   operator(): id  0 | task 534 | need to evaluate at least 1 token for each active slot (n_past = 3242, task.n_tokens() = 3242)
+[llama-server-t32-1] 3.22.548.020 W slot   operator(): id  0 | task 534 | n_past was set to 3241
+[llama-server-t32-1] 3.26.413.600 I slot print_timing: id  0 | task 534 | n_gen =    100, tg =  25.89 t/s, tg_3s =  26.15 t/s
+[llama-server-t32-1] 3.29.416.864 I slot print_timing: id  0 | task 534 | n_gen =    177, tg =  25.78 t/s, tg_3s =  25.64 t/s
+[llama-server-t32-1] 3.32.442.337 I slot print_timing: id  0 | task 534 | n_gen =    254, tg =  25.68 t/s, tg_3s =  25.45 t/s
+[llama-server-t32-1] 3.35.443.336 I slot print_timing: id  0 | task 534 | n_gen =    331, tg =  25.67 t/s, tg_3s =  25.66 t/s
+[llama-server-t32-1] 3.38.449.327 I slot print_timing: id  0 | task 534 | n_gen =    407, tg =  25.60 t/s, tg_3s =  25.28 t/s
+[llama-server-t32-1] 3.41.467.609 I slot print_timing: id  0 | task 534 | n_gen =    482, tg =  25.48 t/s, tg_3s =  24.85 t/s
+[llama-server-t32-1] 3.42.667.395 I slot print_timing: id  0 | task 534 | prompt eval time =      41.09 ms /     1 tokens (   41.09 ms per token,    24.34 tokens per second)
+[llama-server-t32-1] 3.42.667.419 I slot print_timing: id  0 | task 534 |        eval time =   20078.28 ms /   512 tokens (   39.29 ms per token,    25.45 tokens per second)
+[llama-server-t32-1] 3.42.667.419 I slot print_timing: id  0 | task 534 |       total time =   20119.38 ms /   513 tokens
+[llama-server-t32-1] 3.42.667.420 I slot print_timing: id  0 | task 534 |    graphs reused =       1030
+[llama-server-t32-1] 3.42.667.421 I slot print_timing: id  0 | task 534 |   graph reallocs =          0    /     0        (same size) / (changed size)
+[llama-server-t32-1] 3.42.667.564 I slot      release: id  0 | task 534 | stop processing: n_tokens = 3753, truncated = 0
+[llama-server-t32-1] 5.21.951.128 I slot get_availabl: id  1 | task -1 | selected slot by LRU, n_tokens = 0, t_last = 8543109085
+[llama-server-t32-1] 5.21.951.180 I slot launch_slot_: id  1 | task 1047 | processing task, is_child = 0
+[llama-server-t32-1] 5.22.269.716 I slot print_timing: id  1 | task 1047 | prompt eval time =      25.91 ms /     2 tokens (   12.96 ms per token,    77.18 tokens per second)
+[llama-server-t32-1] 5.22.269.737 I slot print_timing: id  1 | task 1047 |        eval time =     179.05 ms /     8 tokens (   25.58 ms per token,    39.09 tokens per second)
+[llama-server-t32-1] 5.22.269.738 I slot print_timing: id  1 | task 1047 |       total time =     204.97 ms /    10 tokens
+[llama-server-t32-1] 5.22.269.739 I slot print_timing: id  1 | task 1047 |    graphs reused =       1036
+[llama-server-t32-1] 5.22.269.739 I slot print_timing: id  1 | task 1047 |   graph reallocs =          0    /     0        (same size) / (changed size)
+[llama-server-t32-1] 5.22.269.765 I slot      release: id  1 | task 1047 | stop processing: n_tokens = 9, truncated = 0
+[llama-server-t32-1] 5.22.284.796 I slot get_availabl: id  2 | task -1 | selected slot by LRU, n_tokens = 0, t_last = 8563519769
+[llama-server-t32-1] 5.22.307.885 I slot launch_slot_: id  2 | task 1056 | processing task, is_child = 0
+[llama-server-t32-1] 5.22.308.009 W slot   operator(): id  2 | task 1056 | need to evaluate at least 1 token for each active slot (n_past = 3242, task.n_tokens() = 3242)
+[llama-server-t32-1] 5.22.308.023 W slot   operator(): id  2 | task 1056 | n_past was set to 3241
+[llama-server-t32-1] 5.26.214.756 I slot print_timing: id  2 | task 1056 | n_gen =    100, tg =  25.58 t/s, tg_3s =  25.84 t/s
+[llama-server-t32-1] 5.30.005.460 I slot print_timing: id  2 | task 1056 | n_gen =    176, tg =  25.44 t/s, tg_3s =  25.25 t/s
+[llama-server-t32-1] 5.33.048.540 I slot print_timing: id  2 | task 1056 | n_gen =    253, tg =  25.40 t/s, tg_3s =  25.30 t/s
+[llama-server-t32-1] 5.36.065.626 I slot print_timing: id  2 | task 1056 | n_gen =    330, tg =  25.43 t/s, tg_3s =  25.52 t/s
+[llama-server-t32-1] 5.39.093.858 I slot print_timing: id  2 | task 1056 | n_gen =    407, tg =  25.43 t/s, tg_3s =  25.43 t/s
+[llama-server-t32-1] 5.42.100.574 I slot print_timing: id  2 | task 1056 | n_gen =    483, tg =  25.40 t/s, tg_3s =  25.28 t/s
+[llama-server-t32-1] 5.43.240.467 I slot print_timing: id  2 | task 1056 | prompt eval time =      36.76 ms /     1 tokens (   36.76 ms per token,    27.20 tokens per second)
+[llama-server-t32-1] 5.43.240.490 I slot print_timing: id  2 | task 1056 |        eval time =   20114.59 ms /   512 tokens (   39.36 ms per token,    25.40 tokens per second)
+[llama-server-t32-1] 5.43.240.491 I slot print_timing: id  2 | task 1056 |       total time =   20151.35 ms /   513 tokens
+[llama-server-t32-1] 5.43.240.492 I slot print_timing: id  2 | task 1056 |    graphs reused =       1545
+[llama-server-t32-1] 5.43.240.492 I slot print_timing: id  2 | task 1056 |   graph reallocs =          0    /     0        (same size) / (changed size)
+[llama-server-t32-1] 5.43.240.646 I slot      release: id  2 | task 1056 | stop processing: n_tokens = 3753, truncated = 0
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [llama-server-t32-1]: sending signal 'SIGINT' to process[llama-server-t32-1]
+[llama-server-t32-1] 6.16.133.539 I srv    operator(): operator(): cleaning up before exit...
+[llama-server-t32-1] Received second interrupt, terminating immediately.
+[ERROR] [llama-server-t32-1]: process has died [pid 85903, exit code 1, cmd '/home/andreas/projects/llm/llama-server-t32 -m /home/andreas/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf --port 8083 -ngl 999'].

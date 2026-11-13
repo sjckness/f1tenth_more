@@ -1,0 +1,26 @@
+== ROS env (net eth, domain 44, Discovery Server 172.26.129.85:11811, super client) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/tmp/sim_isaac.sEdPcd/eth_true.xml
+cmd: /home/andreas/dev_ws/f1tenth_hil/scripts/sim/restart.sh
+[restart 14:39:47] calling /reset_all ...
+[restart 14:39:51] /reset_all done in 3.5 s: reset done in 3.1 s: stop 0.6s, wheel_odom 0.1s, ekf_local 0.0s, slam 2.3s, ekf_global 0.0s, nav2 skipped, hooks 0.0s
+[restart 14:39:51] settling 5 s ...
+== restart.sh checks ==
+  FAIL  pose          car (+0.969, +1.099, -0.2 deg) vs start (+1.000, +1.100, +0.0 deg) [/sim/ground_truth/start_pose]: 3.1 cm, 0.17 deg (tol 2 cm, 1 deg)
+  OK    speed         ground truth max |v| 0.007 m/s, /odometry/filtered 0.008 m/s (tol 0.05 m/s)
+  OK    mission       state IDLE, emergency_stop false (fail if LOADED/RUNNING/HOLDING or emergency stop)
+  OK    mpc           /drive max |speed| 0.000 m/s over 10 samples; no /mpc/hold seen
+  FAIL  localization  /odometry/filtered (-0.066, +0.002, 0.047 rad) tol 5 cm; /ekf_global/odometry/filtered (-0.047, +0.001, 0.032 rad) tol 15 cm; /slam/pose (-0.018, +0.000, 0.013 rad) tol 15 cm
+== FAIL (2 of 5 checks) ==
+== ROS env (net eth, domain 44, Discovery Server 172.26.129.85:11811, super client) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/tmp/sim_isaac.GNeEwd/eth_true.xml
+cmd: /home/andreas/dev_ws/f1tenth_hil/scripts/sim/restart.sh
+[restart 14:40:13] calling /reset_all ...
+[restart 14:40:19] /reset_all done in 5.8 s: reset done in 5.0 s: stop 0.5s, wheel_odom 0.1s, ekf_local 0.1s, slam 3.4s, ekf_global 0.0s, nav2 skipped, hooks 0.0s
+[restart 14:40:19] settling 5 s ...
+== restart.sh checks ==
+  FAIL  pose          car (+0.962, +1.099, -0.2 deg) vs start (+1.000, +1.100, +0.0 deg) [/sim/ground_truth/start_pose]: 3.8 cm, 0.17 deg (tol 2 cm, 1 deg)
+  OK    speed         ground truth max |v| 0.007 m/s, /odometry/filtered 0.008 m/s (tol 0.05 m/s)
+  OK    mission       state IDLE, emergency_stop false (fail if LOADED/RUNNING/HOLDING or emergency stop)
+  OK    mpc           /drive max |speed| 0.000 m/s over 10 samples; no /mpc/hold seen
+  FAIL  localization  /odometry/filtered (-0.081, +0.003, 0.060 rad) tol 5 cm; /ekf_global/odometry/filtered (-0.047, +0.001, 0.032 rad) tol 15 cm; /slam/pose (-0.030, +0.000, 0.025 rad) tol 15 cm
+== FAIL (2 of 5 checks) ==

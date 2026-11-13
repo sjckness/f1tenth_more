@@ -1,0 +1,16 @@
+{"node": "corridor_rrt", "move": "drive", "reason": "no path", "ok": true, "plan_ms": 1.39, "path_m": 3.0, "failures": 0, "t_sim": 966.7, "t_wall": 1794579375.3424}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 1.07, "path_m": 3.0, "failures": 0, "t_sim": 967.7, "t_wall": 1794579376.3212}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 1.36, "path_m": 3.0, "failures": 0, "t_sim": 968.7, "t_wall": 1794579377.3013}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 1.0, "path_m": 3.0, "failures": 0, "t_sim": 969.7, "t_wall": 1794579378.2809}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.99, "path_m": 3.0, "failures": 0, "t_sim": 970.7, "t_wall": 1794579379.2601}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.98, "path_m": 3.0, "failures": 0, "t_sim": 971.7, "t_wall": 1794579380.2408}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 1.01, "path_m": 3.0, "failures": 0, "t_sim": 972.7, "t_wall": 1794579381.2201}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 1.03, "path_m": 3.0, "failures": 0, "t_sim": 973.7, "t_wall": 1794579382.1996}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 1.02, "path_m": 3.0, "failures": 0, "t_sim": 974.7, "t_wall": 1794579383.1802}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 1.01, "path_m": 3.0, "failures": 0, "t_sim": 975.7, "t_wall": 1794579384.1585}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 1.05, "path_m": 3.0, "failures": 0, "t_sim": 976.7, "t_wall": 1794579385.1386}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 1.03, "path_m": 3.0, "failures": 0, "t_sim": 977.7, "t_wall": 1794579386.1179}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 1.01, "path_m": 3.0, "failures": 0, "t_sim": 978.7, "t_wall": 1794579387.0971}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 1.02, "path_m": 3.0, "failures": 0, "t_sim": 979.7, "t_wall": 1794579388.0772}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 1.05, "path_m": 3.0, "failures": 0, "t_sim": 980.7, "t_wall": 1794579389.0564}
+{"node": "corridor_rrt", "move": "drive", "reason": "period", "ok": true, "plan_ms": 1.05, "path_m": 3.0, "failures": 0, "t_sim": 981.7, "t_wall": 1794579390.0444}

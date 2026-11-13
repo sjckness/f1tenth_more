@@ -1,0 +1,9 @@
+== ROS env (net eth, domain 44, Discovery Server 172.26.129.85:11811, super client) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/tmp/sim_isaac.ZCpyDm/eth_true.xml
+cmd: python3 /home/andreas/dev_ws/f1tenth_hil/scripts/sim/planner_compare/pc_record.py record --node p2p_geometric --out /home/andreas/dev_ws/f1tenth_hil/output/planner_compare/door_20261113_150023/p2p_geometric --timeout 180
+[record] p2p_geometric pid 76564, recording into /home/andreas/dev_ws/f1tenth_hil/output/planner_compare/door_20261113_150023/p2p_geometric
+[INFO] [1794578755.685891264] [planner_compare_recorder]: mission state None -> IDLE
+[INFO] [1794578778.473631220] [planner_compare_recorder]: mission state IDLE -> LOADED
+[INFO] [1794578778.474350509] [planner_compare_recorder]: mission state LOADED -> RUNNING
+[INFO] [1794578793.825080191] [planner_compare_recorder]: mission state RUNNING -> ABORTED
+[record] done: mission ABORTED; counts {'cpu': 212, 'gt': 2119, 'drive': 424, 'mission': 4, 'odom': 1673, 'planner_status': 16, 'planner_path': 16}

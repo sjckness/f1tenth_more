@@ -1,0 +1,69 @@
+{
+  "node": "mpc_corr",
+  "pid": 72340,
+  "cmdline": [
+    "/usr/bin/python3",
+    "/home/andreas/dev_ws/f1tenth_hil/install/mpc_controller/lib/mpc_controller/mpc_corr",
+    "--ros-args",
+    "-r",
+    "__node:=mpc_corr",
+    "-p",
+    "use_sim_time:=True",
+    "--params-file",
+    "/home/andreas/dev_ws/f1tenth_hil/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml",
+    "--params-file",
+    "/tmp/launch_params_awwcq1vg",
+    "--params-file",
+    "/tmp/launch_params_xe271dhr"
+  ],
+  "cpu_affinity": [
+    10,
+    11
+  ],
+  "host": "DESKTOP-Q3F81S6",
+  "nproc": 96,
+  "cpu_model": "AMD Ryzen Threadripper PRO 7995WX 96-Cores",
+  "clk_tck": 100,
+  "sim_time": true,
+  "gt_frame": "map_sim",
+  "record_wall_start": 1794578510.6437461,
+  "record_wall_end": 1794578554.9212153,
+  "exit_reason": "mission ABORTED",
+  "final_state": "ABORTED",
+  "mission_trail": [
+    {
+      "t_sim": 103.283333333,
+      "t_wall": 1794578512.1186736,
+      "state": "IDLE",
+      "json_path": ""
+    },
+    {
+      "t_sim": 126.066666667,
+      "t_wall": 1794578534.2997386,
+      "state": "LOADED",
+      "json_path": "/home/andreas/dev_ws/f1tenth_hil/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_1ae1b3cae348.json"
+    },
+    {
+      "t_sim": 126.066666667,
+      "t_wall": 1794578534.3011854,
+      "state": "RUNNING",
+      "json_path": "/home/andreas/dev_ws/f1tenth_hil/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_1ae1b3cae348.json"
+    },
+    {
+      "t_sim": 142.10000000000002,
+      "t_wall": 1794578550.9121132,
+      "state": "ABORTED",
+      "json_path": "/home/andreas/dev_ws/f1tenth_hil/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_1ae1b3cae348.json"
+    }
+  ],
+  "counts": {
+    "cpu": 218,
+    "odom": 1718,
+    "gt": 2148,
+    "mission": 4,
+    "drive": 429,
+    "corridor": 16,
+    "solver": 159,
+    "mpc_pred": 159
+  }
+}

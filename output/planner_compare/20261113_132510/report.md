@@ -1,0 +1,78 @@
+# Planner-controller comparison: "go straight 3m"
+
+Session `20261113_132510`, host `DESKTOP-Q3F81S6`, scene `base_room` layout `campaign`, branch `planner-modes-hil` @ `22a960e`. One run per mode, the same command sent through the LLM planner each time.
+
+The LLM produced the **same mission** for every mode (moves sha `86892f5ef777`):
+
+```json
+[
+ {
+  "id": "move_0_straight",
+  "drive": {
+   "mode": "straight",
+   "speed": 0.5
+  },
+  "stop_condition": {
+   "type": "distance_reached",
+   "distance": 3.0
+  },
+  "timeout_sec": 23,
+  "on_timeout": "abort",
+  "terminal": true
+ }
+]
+```
+
+## Results
+
+| metric | unit | corridor_mpc | corridor_rrt | p2p_geometric |
+|---|---|---|---|---|
+| mission result |  | ABORTED | ABORTED | COMPLETE |
+| mission duration | s | 23.22 | 23.22 | 6.45 |
+| distance at mission COMPLETE | m | -0.085 | 2.052 | 3.043 |
+| distance where the car stopped | m | -0.1 | 2.037 | 3.105 |
+| stopped minus commanded | m | -3.1 | -0.963 | 0.105 |
+| max lateral offset | m | 0.0 | 0.01 | 0.027 |
+| RMS lateral offset (mission) | m | 0.0 | 0.009 | 0.01 |
+| final heading error | deg | 0.12 | 0.98 | 1.56 |
+| driven length | m | 0.102 | 2.202 | 3.13 |
+| mean speed (mission) | m/s | -0.004 | 0.088 | 0.472 |
+| max speed | m/s | 0.007 | 0.498 | 0.5 |
+| mean |steering cmd| | deg | - | 0.47 | 0.52 |
+| max |steering cmd| | deg | - | 1.0 | 0.99 |
+| steering total variation | deg | - | 2.8 | 4.1 |
+| reference tracked |  | corridor centreline | planned path | planned path |
+| references published |  | 1 | 6 | 7 |
+| max lateral of the reference | m | 0.0 | 0.018 | 0.034 |
+| distance to reference, mean | m | 0.042 | 0.024 | 0.018 |
+| distance to reference, max | m | 0.085 | 0.029 | 0.057 |
+| EKF vs ground truth at the end | m | 0.116 | 0.076 | 0.064 |
+| controller CPU, mission | % core | 49.9 | 71.7 | 10.6 |
+| controller CPU, peak 1 s | % core | - | 87.9 | 12.0 |
+| controller CPU, idle before | % core | 27.6 | 10.8 | 11.1 |
+| controller CPU per sim second | ms | 500.0 | 715.7 | 105.3 |
+| controller CPU per /drive msg | ms | - | 70.9 | 10.15 |
+| /drive rate | Hz | - | 10.0 | 10.1 |
+| replans (new modes) |  | - | 6 | 7 |
+| plan time mean (wall) | ms | - | 1.09 | 0.33 |
+| plan time p95 | ms | - | 1.31 | 0.36 |
+| plan time max | ms | - | 1.37 | 0.37 |
+| controller RSS | MB | 126.0 | 98.2 | 96.0 |
+| sim real-time factor |  | 0.998 | 1.001 | 1.009 |
+| host CPU busy (all cores) | % | 5.9 | 3.7 | 4.0 |
+| LLM translation time | s | 18.941 | 18.818 | 19.156 |
+
+Frame: the car's pose when the mission went RUNNING; x forward, y left. "stopped minus commanded" is ground truth against 3 m. CPU is the controller process from /proc (utime+stime, all threads) over the mission's wall-clock window; "per sim second" removes the sim's real-time factor.
+
+![trajectories.png](trajectories.png)
+
+![paths.png](paths.png)
+
+![timeseries.png](timeseries.png)
+
+![cpu.png](cpu.png)
+
+## Notes
+
+- **corridor_mpc**: mission ended ABORTED
+- **corridor_rrt**: mission ended ABORTED

@@ -1,0 +1,64 @@
+{
+  "node": "p2p_geometric",
+  "pid": 83453,
+  "cmdline": [
+    "/usr/bin/python3",
+    "/home/andreas/dev_ws/f1tenth_hil/install/f1tenth_planners/lib/f1tenth_planners/p2p_geometric",
+    "--ros-args",
+    "-r",
+    "__node:=p2p_geometric",
+    "-p",
+    "use_sim_time:=True",
+    "--params-file",
+    "/home/andreas/dev_ws/f1tenth_hil/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml"
+  ],
+  "cpu_affinity": [
+    10,
+    11
+  ],
+  "host": "DESKTOP-Q3F81S6",
+  "nproc": 96,
+  "cpu_model": "AMD Ryzen Threadripper PRO 7995WX 96-Cores",
+  "clk_tck": 100,
+  "sim_time": true,
+  "gt_frame": "map_sim",
+  "record_wall_start": 1794579468.7748916,
+  "record_wall_end": 1794579512.1284235,
+  "exit_reason": "mission ABORTED",
+  "final_state": "ABORTED",
+  "mission_trail": [
+    {
+      "t_sim": 1061.233333333,
+      "t_wall": 1794579469.9656382,
+      "state": "IDLE",
+      "json_path": ""
+    },
+    {
+      "t_sim": 1083.75,
+      "t_wall": 1794579492.027058,
+      "state": "LOADED",
+      "json_path": "/home/andreas/dev_ws/f1tenth_hil/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_1ae1b3cae348.json"
+    },
+    {
+      "t_sim": 1083.75,
+      "t_wall": 1794579492.028342,
+      "state": "RUNNING",
+      "json_path": "/home/andreas/dev_ws/f1tenth_hil/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_1ae1b3cae348.json"
+    },
+    {
+      "t_sim": 1099.5,
+      "t_wall": 1794579508.1132312,
+      "state": "ABORTED",
+      "json_path": "/home/andreas/dev_ws/f1tenth_hil/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_1ae1b3cae348.json"
+    }
+  ],
+  "counts": {
+    "cpu": 213,
+    "gt": 2122,
+    "odom": 1693,
+    "drive": 424,
+    "mission": 4,
+    "planner_status": 16,
+    "planner_path": 16
+  }
+}

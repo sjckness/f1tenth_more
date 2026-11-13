@@ -1,0 +1,52 @@
+== ROS env (net eth, domain 44, Discovery Server 172.26.129.85:11811, super client) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/tmp/sim_isaac.QcxneA/eth_true.xml
+cmd: /home/andreas/dev_ws/f1tenth_hil/scripts/sim/llm.sh
+[llm 14:02:53] llama-server: http://127.0.0.1:8083 (llm_planner_node.LLAMA_URL)
+[llm 14:02:53] llama-server ready (/health 200)
+[llm 14:02:53] command sent: "go straight 3m"
+[INFO] [1794574974.429170750] [llm_planner_node]: planner_path=v2 -- prompt prompts/planner_system_prompt.v2.it.txt, validazione schemas/intent_v1.json, traduttore translate(), go_to_enabled=True
+[INFO] [1794574974.712482566] [llm_planner_node]: Server raggiunto e scaldato in 0.3s.
+[INFO] [1794574974.718409316] [llm_planner_node]: LLM Planner (llama-server @ http://127.0.0.1:8083/completion) pronto -- consegna via /mission/load_mission + /mission/start_mission.
+[INFO] [1794574993.619356122] [llm_planner_node]: missione identica gia' presente, riusata: /home/andreas/dev_ws/f1tenth_hil/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_fd5d8fd4f171.json
+[INFO] [1794574993.621178816] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=IDLE)
+[INFO] [1794574993.622860857] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_fd5d8fd4f171', 1 moves -- start_mission subito
+[INFO] [1794574993.624219143] [llm_planner_node]: start_mission OK: started 'llm_fd5d8fd4f171'
+
+missione generata in 18.90s (v2), 1 move:
+  0. vai dritto
+       id       move_0_straight
+       velocita 0.5 m/s
+       fino a   percorsi 3.0 m
+       timeout  23 s -> abort
+       note     TERMINALE
+
+JSON (llm_fd5d8fd4f171):
+{
+  "mission_id": "llm_fd5d8fd4f171",
+  "schema_version": "3.0",
+  "moves": [
+    {
+      "id": "move_0_straight",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.5
+      },
+      "stop_condition": {
+        "type": "distance_reached",
+        "distance": 3.0
+      },
+      "timeout_sec": 23,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
+
+scritta in: /home/andreas/dev_ws/f1tenth_hil/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_fd5d8fd4f171.json
+
+RESULT {"status": "ok", "stage": "translator", "error_type": null, "error_message": null, "attempts": 1, "rejections": [], "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 3.0}], \"unsupported\": []}", "mission_id": "llm_fd5d8fd4f171", "schema_version": "3.0", "n_moves": 1, "plan_seconds": 18.9, "unsupported": [], "notes": [], "mission": {"mission_id": "llm_fd5d8fd4f171", "schema_version": "3.0", "moves": [{"id": "move_0_straight", "drive": {"mode": "straight", "speed": 0.5}, "stop_condition": {"type": "distance_reached", "distance": 3.0}, "timeout_sec": 23, "on_timeout": "abort", "terminal": true}]}, "mission_path": "/home/andreas/dev_ws/f1tenth_hil/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_fd5d8fd4f171.json"}
+== llm.sh ==
+command:        "go straight 3m"
+mission file:   /home/andreas/dev_ws/f1tenth_hil/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_fd5d8fd4f171.json
+planner result: status=ok
+planner exit:   0

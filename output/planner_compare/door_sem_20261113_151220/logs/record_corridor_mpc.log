@@ -1,0 +1,9 @@
+== ROS env (net eth, domain 44, Discovery Server 172.26.129.85:11811, super client) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/tmp/sim_isaac.pmPwEt/eth_true.xml
+cmd: python3 /home/andreas/dev_ws/f1tenth_hil/scripts/sim/planner_compare/pc_record.py record --node mpc_corr --out /home/andreas/dev_ws/f1tenth_hil/output/planner_compare/door_sem_20261113_151220/corridor_mpc --timeout 200
+[record] mpc_corr pid 79240, recording into /home/andreas/dev_ws/f1tenth_hil/output/planner_compare/door_sem_20261113_151220/corridor_mpc
+[INFO] [1794579232.799444732] [planner_compare_recorder]: mission state None -> IDLE
+[INFO] [1794579255.173115118] [planner_compare_recorder]: mission state IDLE -> LOADED
+[INFO] [1794579255.174878413] [planner_compare_recorder]: mission state LOADED -> RUNNING
+[INFO] [1794579271.550389936] [planner_compare_recorder]: mission state RUNNING -> ABORTED
+[record] done: mission ABORTED; counts {'cpu': 216, 'mission': 4, 'gt': 2139, 'odom': 1698, 'drive': 427, 'corridor': 16, 'solver': 157, 'mpc_pred': 157}

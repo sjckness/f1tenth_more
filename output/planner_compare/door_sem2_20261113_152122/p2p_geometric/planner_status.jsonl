@@ -1,0 +1,16 @@
+{"node": "p2p_geometric", "move": "drive", "reason": "no path", "ok": true, "plan_ms": 0.22, "path_m": 3.0, "failures": 0, "t_sim": 379.8, "t_wall": 1794580038.2518}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.35, "path_m": 3.0, "failures": 0, "t_sim": 380.8, "t_wall": 1794580039.2077}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.32, "path_m": 3.0, "failures": 0, "t_sim": 381.8, "t_wall": 1794580040.1643}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.35, "path_m": 3.0, "failures": 0, "t_sim": 382.8, "t_wall": 1794580041.1284}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.36, "path_m": 3.0, "failures": 0, "t_sim": 383.8, "t_wall": 1794580042.1097}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.35, "path_m": 3.0, "failures": 0, "t_sim": 384.8, "t_wall": 1794580043.0892}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.35, "path_m": 3.0, "failures": 0, "t_sim": 385.8, "t_wall": 1794580044.0691}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.32, "path_m": 3.0, "failures": 0, "t_sim": 386.8, "t_wall": 1794580045.0486}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.35, "path_m": 3.0, "failures": 0, "t_sim": 387.8, "t_wall": 1794580046.0284}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.35, "path_m": 3.0, "failures": 0, "t_sim": 388.8, "t_wall": 1794580047.0092}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.36, "path_m": 3.0, "failures": 0, "t_sim": 389.8, "t_wall": 1794580047.9883}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.34, "path_m": 3.0, "failures": 0, "t_sim": 390.8, "t_wall": 1794580048.9692}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.37, "path_m": 3.0, "failures": 0, "t_sim": 391.8, "t_wall": 1794580049.9491}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.34, "path_m": 3.0, "failures": 0, "t_sim": 392.8, "t_wall": 1794580050.9287}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.34, "path_m": 3.0, "failures": 0, "t_sim": 393.8, "t_wall": 1794580051.9092}
+{"node": "p2p_geometric", "move": "drive", "reason": "period", "ok": true, "plan_ms": 0.34, "path_m": 3.0, "failures": 0, "t_sim": 394.8, "t_wall": 1794580052.911}
