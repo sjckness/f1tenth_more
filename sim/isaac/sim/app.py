@@ -97,10 +97,27 @@ def disable_viewport() -> None:
         log.warning("could not disable the viewport: %s", exc)
 
 
+def _bridge_dir() -> str:
+    """The isaacsim.ros2.bridge extension dir: $ISAAC_ROS_BRIDGE_DIR, else the one inside the
+    installed ``isaacsim`` package (pip install, e.g. native Windows), else the Docker image's."""
+    env = os.environ.get("ISAAC_ROS_BRIDGE_DIR")
+    if env:
+        return env
+    try:
+        import isaacsim
+        pip_dir = os.path.join(os.path.dirname(os.path.abspath(isaacsim.__file__)),
+                               "exts", "isaacsim.ros2.bridge")
+        if os.path.isdir(pip_dir):
+            return pip_dir
+    except Exception:  # noqa: BLE001
+        pass
+    return "/isaac-sim/exts/isaacsim.ros2.bridge"
+
+
 def _ensure_rclpy_path() -> None:
     """Use the bridge's internal rclpy of ROS_DISTRO (Python 3.11), never host ROS."""
     distro = os.environ.get("ROS_DISTRO", "jazzy")
-    path = f"/isaac-sim/exts/isaacsim.ros2.bridge/{distro}/rclpy"
+    path = os.path.join(_bridge_dir(), distro, "rclpy")
     sys.path[:] = [p for p in sys.path if not p.startswith("/opt/ros")]
     if os.path.isdir(path) and path not in sys.path:
         sys.path.append(path)

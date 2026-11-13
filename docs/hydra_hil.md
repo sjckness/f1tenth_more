@@ -367,11 +367,43 @@ Standalone, without the hook, on any host with the stack's ROS env (evdev, see s
 
 Written and checked on linus (RTX 5050, no Hydra, no GTSAM). Not run on the workstation:
 
-- **Hydra itself.** Nothing here has run the real Hydra, so the smoke test's graph half has not
-  run. The launch composition was checked against a fake Hydra prefix: node command lines,
-  remaps, the included semantic_inference and visualizer launch files. Hydra config keys are
-  copied from upstream configs (habitat, uhumans2, zed2i) and checked against the source, not
-  against a running parser.
+- ~~**Hydra itself.**~~ **Done 2026-11-11**, in WSL2 (Ubuntu 24.04) on the Windows HIL PC, with
+  `seg_source:=gt pose_source:=isaac_gt` on the synthetic feed: the smoke test passes and a 60 s
+  hand-run produced 88 DSG messages at ~1.5 Hz with PLACES 90-98 nodes / 310-340 edges, ROOMS 2,
+  OBJECTS 3 and a growing AGENTS trajectory. See `output/hil/hydra_wsl_status.md`.
+  The warning below was justified: one config key was wrong and it cost the whole PLACES layer.
+  `workstation_full.yaml` halved `voxel_size` and `truncation_distance` from habitat's values but
+  left `freespace_places.gvd.min_distance_m` at habitat's 0.2, and
+  `GvdPlaceExtractor::detect()` (hydra/src/frontend/gvd_place_extractor.cpp:120) returns
+  immediately when that value is `>=` the truncation distance. PLACES stayed at exactly 0 while
+  every other layer filled normally. Fixed to 0.1; `jetson_min.yaml` was already consistent.
+  **Still not run with the real Isaac feed** (that is the DDS item below), and
+  `semantic_inference` was built without TensorRT, so only `seg_source:=gt` is exercised.
+  Hydra config keys are copied from upstream configs (habitat, uhumans2, zed2i) and checked
+  against the source, not against a running parser: **expect more of these** in the keys no
+  profile has exercised yet.
+- ~~**Isaac (Windows) -> Hydra (WSL2) over DDS.**~~ **Done 2026-11-12.** `config/sim/dds/wsl.xml.in`
+  renders both sides with explicit unicast initial peers (`hil_win.py sim --net wsl` and
+  `scripts/hydra/wsl_dds_profile.sh`); the addresses are read from the running distro at every
+  launch, because a WSL restart changes them. Two things had to be fixed first: `net.core.rmem_max`
+  starts at 212992 in WSL, 80x below the 16 MB the profiles ask for (raised in
+  `/etc/sysctl.d/99-f1tenth-dds.conf`, which survives a restart), and the Windows firewall drops
+  unsolicited inbound UDP from the WSL network (measured: 0 of 12 datagrams, while a flow Windows
+  starts gets its replies back). One rule fixes it, scoped to `172.16.0.0/12` rather than an
+  address, since the WSL address is not stable:
+  `netsh advfirewall firewall add rule name="HIL Hydra WSL in ingresso (UDP)" dir=in action=allow
+  protocol=UDP localip=172.16.0.0/12 remoteip=172.16.0.0/12 profile=any`.
+  With it: 584 places, 43 agents, 2 rooms over 15.3 m of driving, and RViz opens through WSLg.
+  **OBJECTS stays 0 in the `office` world by design** -- `isaac_to_ade20k_mp3d.yaml` maps its
+  unlabelled geometry to misc (38, "never an object") and `person`/`car` to void; only `base_room`
+  labels real object classes. The on-disk graph is written **only on a clean SIGINT** (allow ~25 s),
+  and **not into `/tmp`**: that directory was wiped minutes later, taking the graphs with it. Use
+  Hydra's own default under `$HOME`. Full write-up: `output/hil/hydra_wsl_status.md`.
+- **`docs/hydra_hil.md:91` as written fails on a fresh clone.** `f1tenth_logger` pulls
+  `corridor_perception`, `f1tenth_messages`, `f1tenth_description` and `f1tenth_perception`. The
+  smoke test does not need it: build only `f1tenth_hydra f1tenth_params`.
+- **`python3-pip` is required**, not optional: `build_hydra_ws.sh` builds all 22 packages and then
+  fails on its last line (the spark_dsg bindings) with `No module named pip`.
 - **TensorRT MobileNetV2 on the 4090.** The engine is built at the first run.
 - **Jetson aarch64 build** (jetson_min): only the profile and the steps above.
 - **`pose_source:=stack_tf`.** The TF lookups against the stack's EKF + camera TF over the link,

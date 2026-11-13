@@ -18,7 +18,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sim.app import create_app  # noqa: E402  (must come before omni imports)
-from sim.config import ConfigError, get, load_config  # noqa: E402
+from sim.config import WS, ConfigError, get, load_config  # noqa: E402
 
 log = logging.getLogger("sim")
 PHYSICS_HZ = 60.0
@@ -56,7 +56,8 @@ def parse_args() -> argparse.Namespace:
                    help="config override, e.g. --set sensors.stereo.semantic.enabled=true (repeatable)")
     p.add_argument("--snapshot-at", default="", metavar="T1,T2,...",
                    help="save the left camera image (PNG, as published) at these sim times [s]")
-    p.add_argument("--snapshot-dir", default="/home/isaac_ws/output/snapshots", help="where --snapshot-at writes")
+    p.add_argument("--snapshot-dir", default=os.path.join(WS, "output", "snapshots"),
+                   help="where --snapshot-at writes (default <sim/isaac>/output/snapshots)")
     return p.parse_args()
 
 
@@ -80,6 +81,8 @@ def main() -> int:
         stop["flag"] = True
     signal.signal(signal.SIGTERM, _sig)
     signal.signal(signal.SIGINT, _sig)
+    if hasattr(signal, "SIGBREAK"):          # Windows: Ctrl+Break / console close
+        signal.signal(signal.SIGBREAK, _sig)
 
     try:
         return run(app, cfg, args, stop)

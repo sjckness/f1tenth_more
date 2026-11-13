@@ -194,12 +194,17 @@ start_container() {
   fi
   [ -n "$image" ] || die "no image: set orin.image in $HIL_CONFIG_FILE or pin one in ~/.config/f1tenth/car_image
 (the image is built by docker/orin/build.sh on main-jazzy-rust; see output/hil/setup.md)"
+  # The image already carries llama.cpp (/opt/llama.cpp, sm_87); only the .gguf models are not in
+  # it. orin.models_dir is mounted read-only at the SAME path: the planner's model_path is
+  # ~/projects/llm/models/..., and the container user is the host user (same home).
+  local models_opt=""
+  [ -n "${HIL_ORIN_MODELS_DIR:-}" ] && models_opt=" -v $HIL_ORIN_MODELS_DIR:$HIL_ORIN_MODELS_DIR:ro"
   cat <<TXT
 scripts/docker_orin.sh is not on this branch, so start the container yourself - host networking
 and host IPC are both required:
 
   docker run -d --name $HIL_ORIN_CONTAINER --network host --ipc host --runtime nvidia \\
-    --init --restart no \\
+    --init --restart no$models_opt \\
     -e F1T_CONTAINER_ROLE=car -e F1T_AUTOSTART=none \\
     -e ROS_DOMAIN_ID=$HIL_ROS_DOMAIN_ID -e RMW_IMPLEMENTATION=$HIL_ROS_RMW \\
     -e F1TENTH_DISCOVERY_SERVER=$HIL_DISCOVERY_SERVER \\
@@ -247,7 +252,7 @@ case "$CMD" in
         # -i keeps Ctrl+C reaching the launch; </dev/null is NOT used here on purpose (unlike the
         # other exec calls) because this one is the foreground process of the run.
         exec docker exec -it "${CENV[@]}" "$HIL_ORIN_CONTAINER" bash -lc \
-          "exec $(printf '%q ' "${LAUNCH[@]}")" ;;
+          ". /opt/f1tenth_ws/scripts/env/jazzy.sh; exec $(printf '%q ' "${LAUNCH[@]}")" ;;
       check)
         # hil_check is copied in rather than taken from the image: the image is built from
         # whichever branch produced it, and this check must match THIS checkout. The camera rate
@@ -259,7 +264,7 @@ case "$CMD" in
         docker cp "$REPO/scripts/sim/hil_check" "$HIL_ORIN_CONTAINER:$CHECK_IN_CONTAINER" >/dev/null
         # </dev/null: `docker exec` keeps stdin open and would swallow the rest of a piped script.
         docker exec "${CENV[@]}" "$HIL_ORIN_CONTAINER" bash -lc \
-          "exec $(printf '%q ' "${CHK[@]}")" < /dev/null ;;
+          ". /opt/f1tenth_ws/scripts/env/jazzy.sh; exec $(printf '%q ' "${CHK[@]}")" < /dev/null ;;
       shell)
         $DRY && { echo "  docker exec -it ${CENV[*]} $HIL_ORIN_CONTAINER bash -l"; exit 0; }
         exec docker exec -it "${CENV[@]}" "$HIL_ORIN_CONTAINER" bash -l ;;

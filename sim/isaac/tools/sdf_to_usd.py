@@ -561,9 +561,25 @@ def convert(args, report: dict) -> dict:
                 continue
         cache[uri] = dst
 
-    stage = Usd.Stage.CreateNew(os.path.join(args.out, "office.usd")) \
-        if not os.path.isfile(os.path.join(args.out, "office.usd")) \
-        else Usd.Stage.Open(os.path.join(args.out, "office.usd"))
+    # Unit fix. asset_converter writes every mesh stage with metersPerUnit=0.01, but what the
+    # coordinates are in depends on the format: a DAE comes out converted to centimetres (its
+    # <unit meter> applied, x100 for a metre file), an STL/OBJ keeps its raw numbers (Gazebo reads
+    # those as metres and applies the SDF <scale>, e.g. 0.001 for a mm STL). The reference below
+    # is authored in a metre stage with the SDF scale, so a DAE needs its metersPerUnit on top and
+    # the others nothing. Found 2026-11-11: without it a 1.5 m water dispenser came out 154 m high.
+    unit_fix: dict[str, float] = {}
+    for uri, dst in cache.items():
+        mpu = UsdGeom.GetStageMetersPerUnit(Usd.Stage.Open(dst))
+        is_dae = os.path.splitext(report["meshes_detail"][uri]["path"])[1].lower() == ".dae"
+        unit_fix[uri] = float(mpu) if is_dae and mpu else 1.0
+    log.info("unit fix per mesh: %s", {k: v for k, v in unit_fix.items() if v != 1.0} or "none")
+
+    # The stage is always rebuilt from scratch: opening a previous run would stack a second
+    # reference and a second scale op on every prim.
+    stage_path = os.path.join(args.out, "office.usd")
+    if os.path.isfile(stage_path):
+        os.remove(stage_path)
+    stage = Usd.Stage.CreateNew(stage_path)
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     root = UsdGeom.Xform.Define(stage, "/World")
@@ -589,11 +605,13 @@ def convert(args, report: dict) -> dict:
                 gp = f"{lp}/{_safe(leaf)}"
                 prim = stage.OverridePrim(gp) if stage.GetPrimAtPath(gp) else \
                     UsdGeom.Xform.Define(stage, gp).GetPrim()
-                prim.GetReferences().AddReference(Sdf.Reference(os.path.relpath(cache[g.uri], args.out)))
+                prim.GetReferences().AddReference(Sdf.Reference(
+                    os.path.relpath(cache[g.uri], args.out).replace(os.sep, "/")))   # USD wants '/'
                 tf = g.pose.copy()
                 xf = UsdGeom.Xformable(prim)
                 _set_matrix(xf, tf, Gf)
-                xf.AddScaleOp().Set(Gf.Vec3f(*[float(s) for s in g.scale]))
+                uf = unit_fix.get(g.uri, 1.0)
+                xf.AddScaleOp().Set(Gf.Vec3f(*[float(s) * uf for s in g.scale]))
                 n_geom += 1
                 if g.kind == "collision":
                     UsdPhysics.CollisionAPI.Apply(prim)
