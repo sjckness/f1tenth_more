@@ -44,10 +44,17 @@ them none of this changes anything.
 
 THE DOOR IS RESOLVED ONCE. "nearest" picks the confirmed door nearest the car
 at the moment the move starts and then holds that door's id for the rest of
-the move; "door_<id>" names one outright. Re-picking every tick would let the
-car swap targets halfway across a room the instant another door came closer,
-and a target that changes under a running approach is the failure
-go_to_object's own follow gate exists to prevent.
+the move; "left"/"right" pick the nearest one inside that side's bearing
+sector (DOOR_SIDE_MIN_DEG) at that same moment; "door_<id>" names one
+outright. Re-picking every tick would let the car swap targets halfway across
+a room the instant another door came closer, and a target that changes under a
+running approach is the failure go_to_object's own follow gate exists to
+prevent. For a SIDE that is not a refinement but the whole contract: the side
+is measured off the heading the car holds when it resolves the door -- it has
+no goal for this move yet, so that is the heading it finished the previous
+move with, the one the operator was looking along -- and the car then turns to
+line up, which would move any later re-reading of "right" onto a different
+doorway.
 
 ARRIVAL IS MEASURED HERE, not by mpc_corr. /mpc/goal_pose is position-only on
 arrival -- mpc_corr stores the yaw and does not consume it (see
@@ -88,7 +95,7 @@ from std_msgs.msg import Bool
 
 from f1tenth_messages.msg import Door, DoorArray
 
-from f1tenth_behavior.mission.mission_config import DOOR_NEAREST
+from f1tenth_behavior.mission.mission_config import DOOR_NEAREST, DOOR_SIDES
 from f1tenth_behavior.mission.move_scoring import record_move_outcome, write_mission_summary
 from f1tenth_behavior.mission.runtime import (
     DoorApproachRecord,
@@ -118,6 +125,32 @@ DEFAULT_APPROACH_DIST_M = 0.8
 #: Negative, i.e. just short of the opening, because the point of the phase
 #: is to be lined up BEFORE the jambs, not after them.
 APPROACH_SKIP_X_M = -0.2
+
+#: THE SIDE SECTOR [deg]. A door is "on the left" when its centre bears
+#: between these two angles to PORT of the car's nose, and "on the right" when
+#: it bears between them to STARBOARD -- measured at the moment the door is
+#: resolved (see select_door). Both bounds are exclusive of the other answer:
+#: a door inside the nose sector is on NEITHER side and a door behind the car
+#: is on neither side either.
+#:
+#: WHY A SECTOR AND NOT A SIGN. "the door on the right" is said about a
+#: doorway the speaker can see off to one side; a door 10 m ahead and 40 cm
+#: off the centre line has a positive lateral offset and is not what anybody
+#: means by it. A sector says both halves of that out loud: far enough off the
+#: nose to BE a side (MIN), and not so far round that the car would have to
+#: turn back to it (MAX).
+#:
+#: 15 deg: a door the car is pointing at is ahead, and "ahead" already has a
+#: selector -- DOOR_NEAREST, which is what the operator who says nothing
+#: gets. 135 deg: beyond three quarters of a right angle the doorway is
+#: abeam-to-behind, and reversing into a door the car has already driven past
+#: is a different manoeuvre from the one this move performs (the approach
+#: pre-point assumes the car arrives from the front). NEITHER NUMBER IS
+#: MEASURED -- there is nothing to measure, they are where the words stop
+#: meaning what they say; they are module constants so a run can argue with
+#: them.
+DOOR_SIDE_MIN_DEG = 15.0
+DOOR_SIDE_MAX_DEG = 135.0
 
 #: Phase names, as they appear in the move's record and the log.
 PHASE_APPROACH, PHASE_ENTER = 'APPROACH', 'ENTER'
@@ -180,10 +213,56 @@ def wrap_deg(radians_delta: float) -> float:
     return math.degrees(math.atan2(math.sin(radians_delta), math.cos(radians_delta)))
 
 
-def select_door(doors: dict, want: str, car_xy):
-    """The door `want` asks for, or None. See the module docstring."""
+def door_bearing_deg(door_xy, car_xy, car_yaw) -> float:
+    """Return a door centre's bearing off the car's nose [deg], POSITIVE to port.
+
+    Deliberately not door_frame_xy(): that expresses a point in the DOOR's
+    frame, which is the right thing for the approach and the arrival. A side
+    is a property of where the CAR is looking, so this is the car's frame.
+    """
+    return wrap_deg(math.atan2(door_xy[1] - car_xy[1],
+                               door_xy[0] - car_xy[0]) - car_yaw)
+
+
+def on_side(door_xy, car_xy, car_yaw, side: str) -> bool:
+    """Return True when this door is inside the car's `side` sector.
+
+    See DOOR_SIDE_MIN_DEG for what the sector is and why it has two bounds.
+    """
+    bearing = door_bearing_deg(door_xy, car_xy, car_yaw)
+    to_that_side = bearing if side == 'left' else -bearing
+    return DOOR_SIDE_MIN_DEG <= to_that_side <= DOOR_SIDE_MAX_DEG
+
+
+def _nearest(ids, doors: dict, car_xy):
+    """Return the id among `ids` whose door centre is nearest `car_xy`, or None."""
+    ids = list(ids)
+    if not ids:
+        return None
+    return min(ids, key=lambda i: math.hypot(doors[i][0][0] - car_xy[0],
+                                             doors[i][0][1] - car_xy[1]))
+
+
+def select_door(doors: dict, want: str, car_xy, car_yaw=None):
+    """The door `want` asks for, or None. See the module docstring.
+
+    Three selectors. DOOR_NEAREST takes the door nearest the car; a side
+    (DOOR_SIDES) takes the nearest one inside that side's bearing sector
+    (DOOR_SIDE_MIN_DEG), which needs the car's HEADING as well as its
+    position; 'door_<id>' names one outright and needs neither.
+
+    A side with no pose yet returns None, exactly as DOOR_NEAREST does with no
+    position: "not resolved yet", which the caller turns into door_not_found
+    only once acquire_timeout_sec is up. Guessing a side off a stale or
+    missing heading would commit the whole move to the wrong doorway.
+    """
     if not doors:
         return None
+    if want in DOOR_SIDES:
+        if car_xy is None or car_yaw is None:
+            return None
+        return _nearest((i for i in doors if on_side(doors[i][0], car_xy, car_yaw, want)),
+                        doors, car_xy)
     if want != DOOR_NEAREST:
         try:
             door_id = int(want.split('_', 1)[1])
@@ -192,8 +271,7 @@ def select_door(doors: dict, want: str, car_xy):
         return door_id if door_id in doors else None
     if car_xy is None:
         return None
-    return min(doors, key=lambda i: math.hypot(doors[i][0][0] - car_xy[0],
-                                               doors[i][0][1] - car_xy[1]))
+    return _nearest(doors, doors, car_xy)
 
 
 def door_frame_xy(point_xy, centre_xy, yaw):
@@ -309,14 +387,14 @@ class EnterDoor(py_trees.behaviour.Behaviour):
         car_yaw = self._bb(GLOBAL_YAW_KEY)
 
         if record.door_id is None:
-            door_id = select_door(self.strong, spec.door, car_xy)
+            door_id = select_door(self.strong, spec.door, car_xy, car_yaw)
             if door_id is None:
                 if now - self._move_start_sec >= spec.acquire_timeout_sec:
                     # Which failure is the useful one: is there a door there
                     # at all, or is there one that has simply not earned
                     # being driven at yet? The answer changes what to do
                     # about it -- drive past it again, or look elsewhere.
-                    matched = select_door(self.doors, spec.door, car_xy)
+                    matched = select_door(self.doors, spec.door, car_xy, car_yaw)
                     outcome = 'no_strong_door' if matched is not None else 'door_not_found'
                     return self._fail(state, move, record, outcome, now)
                 return py_trees.common.Status.SUCCESS

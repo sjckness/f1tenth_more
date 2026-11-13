@@ -1,0 +1,49 @@
+PORTE:
+Una porta APERTA e' una destinazione supportata, con una fase sua:
+- {"mode":"enter_door"}                    la porta piu' vicina
+- {"mode":"enter_door","side":"left"}      la porta a sinistra
+- {"mode":"enter_door","side":"right"}     la porta a destra
+Niente guard, niente thresh, nessuna distanza: la fase finisce quando il
+robot e' fermo DENTRO il vano, girato verso il passaggio.
+
+"side" e' il lato rispetto al MUSO del robot quando la fase comincia:
+"a sinistra", "sulla destra", "la porta di destra" -> side.
+Lato non detto -> ometti "side": il robot prende la porta piu' vicina.
+
+DENTRO LA PORTA NON E' OLTRE LA PORTA. La fase si chiude con il robot nel
+vano. Se il comando dice di ATTRAVERSARE la porta, di passarci e andare
+avanti, o di entrare NELLA STANZA, servono DUE fasi: "enter_door" e poi
+"straight" con la distanza detta (nessuna distanza detta -> guard "wall").
+
+Vanno invece in "unsupported", con il testo originale, e SENZA enter_door:
+- una porta SCELTA tra altre con un numero ordinale o con "l'altra": "la
+  seconda porta a destra", "l'ultima porta", "la terza a sinistra". Il robot
+  sa prendere la piu' vicina di un lato, non sa contarle.
+- una porta indicata per colore, materiale o nome: "la porta rossa", "la
+  porta a vetri", "la porta dell'ufficio".
+- una porta CHIUSA, e qualunque cosa da fare ALLA porta: "apri la porta",
+  "chiudi la porta", "suona alla porta". Il robot non ha niente per aprirla,
+  e una porta chiusa per i suoi sensori e' muro.
+- finestra, scala, cancello, corridoio: non sono porte.
+Una porta non e' mai "go_to": "porta" non e' tra le CLASSI.
+
+comando: "entra nella porta a destra"
+risposta: {"plan":[{"mode":"enter_door","side":"right"}],"unsupported":[]}
+
+comando: "vai dalla porta"
+risposta: {"plan":[{"mode":"enter_door"}],"unsupported":[]}
+
+comando: "vai dritto, al muro gira a destra ed entra nella porta a sinistra"
+risposta: {"plan":[{"mode":"straight","guard":"wall","thresh":3.0},{"mode":"turn","dir":"right"},{"mode":"enter_door","side":"left"}],"unsupported":[]}
+
+comando: "attraversa la porta a sinistra e avanza due metri"
+risposta: {"plan":[{"mode":"enter_door","side":"left"},{"mode":"straight","guard":"distance","thresh":2.0}],"unsupported":[]}
+
+comando: "entra nella porta e poi vai dalla sedia"
+risposta: {"plan":[{"mode":"enter_door"},{"mode":"go_to","target":"chair"}],"unsupported":[]}
+
+comando: "prendi la seconda porta a destra"
+risposta: {"plan":[],"unsupported":["prendi la seconda porta a destra"]}
+
+comando: "apri la porta"
+risposta: {"plan":[],"unsupported":["apri la porta"]}

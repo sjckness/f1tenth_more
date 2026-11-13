@@ -427,3 +427,247 @@ def test_a_confirmed_but_not_strong_door_fails_with_no_strong_door():
     strong = run([_door_msg(3, (0.0, 3.0), True)])
     assert strong.door_record.outcome is None
     assert strong.door_record.door_id == 3
+
+
+# ---------------------------------------------------------------------------
+# The side selectors (schema_version 6.1)
+# ---------------------------------------------------------------------------
+def test_a_side_parses_and_a_bogus_side_does_not():
+    """Only the two DOOR_SIDES words, exactly as spelled."""
+    from f1tenth_behavior.mission.mission_config import DOOR_SIDES
+    for side in DOOR_SIDES:
+        assert parse_mission(door_mission(door=side)).moves[0].enter_door.door == side
+    for bad in ('LEFT', 'links', 'sinistra', 'left ', 'front', 'ahead', 'both'):
+        with pytest.raises(MissionConfigError):
+            parse_mission(door_mission(door=bad))
+
+
+def test_a_side_is_not_gated_on_schema_version():
+    """Deliberate, and asserted so it is not "fixed" into a forward gate.
+
+    schema_version is informational in this loader (parse_mission's own
+    docstring) and does not decide which fields are legal; the one version
+    gate, the terminal rule, exists for BACKWARD compatibility. "6.1" is what
+    a mission DECLARES when it uses a side -- the number a reader looks up --
+    and a loader built before sides existed rejects one loudly through
+    DOOR_NAME_RE, which is the failure that actually protects anyone.
+    """
+    raw = door_mission(door='left')
+    raw['schema_version'] = '6.0'
+    assert parse_mission(raw).moves[0].enter_door.door == 'left'
+
+
+def test_the_side_example_missions_load():
+    """The three committed side missions, through the real loader."""
+    from f1tenth_behavior.mission.mission_config import load_mission_file
+    here = os.path.join(os.path.dirname(__file__), '..', 'missions')
+    for name, door in (('enter_door_left', 'left'), ('enter_door_right', 'right')):
+        config = load_mission_file(os.path.join(here, f'{name}.json'))
+        assert config.schema_version == '6.1'
+        assert config.moves[0].enter_door.door == door
+        assert config.moves[0].terminal
+
+    # The two-move shape: the door move is NOT terminal, the drive after it is.
+    # "entered" means standing in the opening, so going through needs a second
+    # move -- that is the whole point of the file.
+    through = load_mission_file(os.path.join(here, 'enter_door_right_then_straight.json'))
+    assert [m.id for m in through.moves] == ['move_0_enter_door_right',
+                                             'move_1_straight_through']
+    assert through.moves[0].enter_door.door == 'right'
+    assert not through.moves[0].terminal
+    assert through.moves[1].drive.mode == 'straight'
+    assert through.moves[1].stop_condition.type == 'distance_reached'
+    assert through.moves[1].terminal
+
+
+def _side_scene():
+    """Five strong doors around a car at the origin looking along +x.
+
+    Bearings off the nose, which is what a side is measured in
+    (DOOR_SIDE_MIN_DEG 15 .. DOOR_SIDE_MAX_DEG 135), and the distance, which
+    is what breaks a tie between two doors on the same side:
+
+        1  (3.0,  2.0)   +33.7 deg   3.61 m   left
+        2  (4.0, -2.0)   -26.6 deg   4.47 m   right
+        3  (1.0, -1.2)   -50.2 deg   1.56 m   right, and NEARER than 2
+        4  (4.0,  0.3)    +4.3 deg   4.01 m   neither: the car points at it
+        5  (-2.0, 1.0)  +153.4 deg   2.24 m   neither: behind the car
+
+    No two doors are equidistant and none sits on a sector bound, here or at
+    the other heading these tests use -- a scene that leans on either would
+    be testing float luck rather than the rule.
+    """
+    pytest.importorskip('f1tenth_messages.msg', reason='needs the built workspace')
+    from f1tenth_messages.msg import DoorArray
+    from f1tenth_behavior.behaviours import enter_door as ed
+    msg = DoorArray()
+    msg.doors = [_door_msg(1, (3.0, 2.0), True), _door_msg(2, (4.0, -2.0), True),
+                 _door_msg(3, (1.0, -1.2), True), _door_msg(4, (4.0, 0.3), True),
+                 _door_msg(5, (-2.0, 1.0), True)]
+    return ed, ed.strong_doors(msg)
+
+
+def test_a_side_picks_the_nearest_door_on_that_side():
+    """A side narrows the field; distance still decides inside it."""
+    ed, doors = _side_scene()
+    car, yaw = (0.0, 0.0), 0.0
+    assert ed.select_door(doors, 'left', car, yaw) == 1
+    assert ed.select_door(doors, 'right', car, yaw) == 3     # nearer than 2
+    # ... and 'nearest' is unchanged by any of this: door 3 is nearest overall.
+    assert ed.select_door(doors, 'nearest', car, yaw) == 3
+
+
+def test_a_door_the_car_points_at_and_one_behind_it_are_on_neither_side():
+    """Doors 4 and 5 are the two sector bounds, one each.
+
+    4 is 4.3 deg off the nose: "ahead", which is what 'nearest' is for. 5 is
+    153 deg round: the car would have to turn back to it, which is not what
+    "the door on the left" asks for. Neither may be reachable by a side.
+    """
+    ed, doors = _side_scene()
+    only_those_two = {k: v for k, v in doors.items() if k in (4, 5)}
+    assert ed.select_door(only_those_two, 'left', (0.0, 0.0), 0.0) is None
+    assert ed.select_door(only_those_two, 'right', (0.0, 0.0), 0.0) is None
+    # Both ARE still visible to the other two selectors: 5 is the nearer of
+    # the two, which is exactly why "nearest" and a side are different
+    # questions -- the nearest door here is the one behind the car.
+    assert ed.select_door(only_those_two, 'nearest', (0.0, 0.0), 0.0) == 5
+    assert ed.select_door(only_those_two, 'door_4', (0.0, 0.0), 0.0) == 4
+
+
+def test_a_side_is_measured_off_the_car_heading_not_the_map():
+    """The same five doors, the same positions, the car turned 90 deg to port.
+
+    Every answer moves. Door 1 was 33.7 deg to PORT and is now 56.3 deg to
+    STARBOARD, so it is the nearest door on the RIGHT; door 5, behind the car
+    before, is now 63.4 deg to port and is the only one on the left; door 3,
+    which WAS the nearest on the right, is now 140 deg round and on neither
+    side. A side that was a property of the door could not do any of this --
+    and 'nearest', which asks a question about distance only, does not move.
+    """
+    ed, doors = _side_scene()
+    car, yaw = (0.0, 0.0), math.pi / 2.0
+    assert ed.select_door(doors, 'right', car, yaw) == 1
+    assert ed.select_door(doors, 'left', car, yaw) == 5
+    assert ed.select_door(doors, 'nearest', car, yaw) == 3
+
+
+def test_a_side_needs_a_heading_and_a_position():
+    """No pose yet is "not resolved", never a guess.
+
+    The caller turns that into door_not_found once acquire_timeout_sec is up;
+    picking a side off a missing heading would commit the whole move to the
+    wrong doorway.
+    """
+    ed, doors = _side_scene()
+    assert ed.select_door(doors, 'right', (0.0, 0.0), None) is None
+    assert ed.select_door(doors, 'right', None, 0.0) is None
+    # A door named outright needs neither, and still does not.
+    assert ed.select_door(doors, 'door_2', None, None) == 2
+
+
+def test_the_sector_is_bounded_by_the_two_constants():
+    """Just inside each bound is on the side, just outside is not.
+
+    A tenth of a degree either way rather than the bound itself: a bearing
+    built with cos/sin and read back with atan2 lands a few 1e-14 off the
+    angle it was built from, so an exactly-on-the-bound assertion would be
+    testing float arithmetic, not the sector. Which way the bound itself goes
+    is not a question any caller can ask.
+    """
+    ed, _ = _side_scene()
+    for side, sign in (('left', 1.0), ('right', -1.0)):
+        for deg, want in ((ed.DOOR_SIDE_MIN_DEG + 0.1, True),
+                          (ed.DOOR_SIDE_MIN_DEG - 0.1, False),
+                          (ed.DOOR_SIDE_MAX_DEG - 0.1, True),
+                          (ed.DOOR_SIDE_MAX_DEG + 0.1, False)):
+            bearing = math.radians(sign * deg)
+            door_xy = (2.0 * math.cos(bearing), 2.0 * math.sin(bearing))
+            assert ed.on_side(door_xy, (0.0, 0.0), 0.0, side) is want, (side, deg)
+
+
+def test_a_side_is_subject_to_the_strong_rule():
+    """Door 3 is the nearest on the right and is NOT strong.
+
+    The side selector runs over whichever list it is handed, so the strength
+    rule holds for it exactly as it does for 'nearest': selection sees strong
+    doors only, and the answer is the next one along, not the nearest.
+    """
+    pytest.importorskip('f1tenth_messages.msg', reason='needs the built workspace')
+    from f1tenth_messages.msg import DoorArray
+    from f1tenth_behavior.behaviours import enter_door as ed
+    msg = DoorArray()
+    msg.doors = [_door_msg(2, (3.0, -2.0), True), _door_msg(3, (1.0, -1.0), False)]
+    car, yaw = (0.0, 0.0), 0.0
+    assert ed.select_door(ed.confirmed_doors(msg), 'right', car, yaw) == 3
+    assert ed.select_door(ed.strong_doors(msg), 'right', car, yaw) == 2
+
+
+def _run_acquire(selector, doors, car_xy=(0.0, 0.0), car_yaw=0.0):
+    """Drive EnterDoor's acquisition past acquire_timeout_sec; return the state."""
+    pytest.importorskip('f1tenth_messages.msg', reason='needs the built workspace')
+    from f1tenth_messages.msg import DoorArray
+    from f1tenth_behavior.behaviours import enter_door as ed
+    from f1tenth_behavior.mission.runtime import (
+        GLOBAL_XY_KEY, GLOBAL_YAW_KEY, MISSION_KEY, MissionRuntimeState)
+
+    state = MissionRuntimeState()
+    state.config = parse_mission(door_mission(door=selector))
+    clock = [0.0]
+    b = ed.EnterDoor(clock=lambda: clock[0])
+    b.node = MagicMock()
+    b.goal_pose_pub = MagicMock()
+    b.hold_pub = MagicMock()
+    b.blackboard = SimpleNamespace(**{MISSION_KEY: state, GLOBAL_XY_KEY: car_xy,
+                                      GLOBAL_YAW_KEY: car_yaw})
+    b._bb = lambda key: getattr(b.blackboard, key, None)
+    msg = DoorArray()
+    msg.doors = doors
+    b._doors_cb(msg)
+    b.update()
+    clock[0] = state.config.moves[0].enter_door.acquire_timeout_sec + 1.0
+    b.update()
+    return state, b
+
+
+def test_the_move_resolves_a_side_and_fails_cleanly_when_that_side_is_empty():
+    """Both failures keep their meaning for a side selector.
+
+    `door_not_found` is "there is no door on the right" -- which includes a
+    door that is there but ahead, or behind -- and `no_strong_door` is "there
+    is one on the right and it has not earned being driven at". Collapsing
+    them would lose the difference between looking elsewhere and driving past
+    the same doorway again.
+    """
+    ok, _ = _run_acquire('right', [_door_msg(2, (3.0, -2.0), True)])
+    assert ok.door_record.door_id == 2
+    assert ok.door_record.outcome is None
+
+    # The only door is on the OTHER side: nothing matched, not "not strong".
+    wrong_side, _ = _run_acquire('right', [_door_msg(1, (3.0, 2.0), True)])
+    assert wrong_side.door_record.outcome == 'door_not_found'
+    assert wrong_side.last_stop_reason == 'enter_door:door_not_found'
+
+    # On the right, but not strong.
+    weak, _ = _run_acquire('right', [_door_msg(2, (3.0, -2.0), False)])
+    assert weak.door_record.outcome == 'no_strong_door'
+
+    # On the right, strong, but the car has no heading yet: still unresolved,
+    # and the acquire timeout is what ends it.
+    blind, _ = _run_acquire('right', [_door_msg(2, (3.0, -2.0), True)], car_yaw=None)
+    assert blind.door_record.outcome == 'door_not_found'
+
+
+def test_a_resolved_side_is_not_re_picked_when_the_car_turns():
+    """The reason the side is resolved ONCE.
+
+    The car resolves "right" to door 2, then turns to port to line up with
+    it -- and door 2 is now dead ahead, on neither side. Re-reading the
+    selector would drop the door the move is already approaching.
+    """
+    state, b = _run_acquire('right', [_door_msg(2, (3.0, -2.0), True)])
+    assert state.door_record.door_id == 2
+    b.blackboard.mission_global_yaw = math.radians(-33.7)   # nose on the door
+    b.update()
+    assert state.door_record.door_id == 2
+    assert state.door_record.outcome is None

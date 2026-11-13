@@ -1,0 +1,24 @@
+{
+  "mission_id": "enter_door_left",
+  "schema_version": "6.1",
+  "description": "Drive to the STRONG door on the car's LEFT and stop in it, facing the way through. The side is a bearing sector around the car's nose at the moment the door is resolved (enter_door.py, DOOR_SIDE_MIN_DEG: 15 to 135 degrees to port), so this picks the nearest doorway off to the left, not one straight ahead (that is 'nearest') and not one the car has already driven past. Needs a door detector running (door_source and that detector's own enable flag) and global localization; with no strong door on the left within 5 s the move fails door_not_found -- or no_strong_door if one is there but has not earned being driven at -- and the mission aborts. Entered means within 0.15 m of the midpoint between the jambs and within 10 deg of the crossing direction: standing in the doorway, pointing through it, NOT on the far side.",
+  "moves": [
+    {
+      "id": "move_0_enter_door_left",
+      "enter_door": {
+        "type": "enter_door",
+        "door": "left",
+        "xy_tol": 0.15,
+        "yaw_tol_deg": 10,
+        "acquire_timeout_sec": 5.0,
+        "approach_dist_m": 0.8
+      },
+      "stop_condition": {
+        "type": "door_entered"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}

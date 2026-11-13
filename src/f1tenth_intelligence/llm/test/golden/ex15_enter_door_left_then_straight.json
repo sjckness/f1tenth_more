@@ -1,0 +1,54 @@
+{
+  "command": "attraversa la porta a sinistra e avanza due metri",
+  "intent": {
+    "plan": [
+      {
+        "mode": "enter_door",
+        "side": "left"
+      },
+      {
+        "mode": "straight",
+        "guard": "distance",
+        "thresh": 2.0
+      }
+    ],
+    "unsupported": []
+  },
+  "requires_confirmation": false,
+  "mission": {
+    "mission_id": "llm_f603289c57d7",
+    "schema_version": "6.1",
+    "moves": [
+      {
+        "id": "move_0_enter_door",
+        "enter_door": {
+          "type": "enter_door",
+          "door": "left",
+          "xy_tol": 0.15,
+          "yaw_tol_deg": 10.0,
+          "acquire_timeout_sec": 5.0,
+          "approach_dist_m": 0.8
+        },
+        "stop_condition": {
+          "type": "door_entered"
+        },
+        "timeout_sec": 65,
+        "on_timeout": "abort"
+      },
+      {
+        "id": "move_1_straight",
+        "drive": {
+          "mode": "straight",
+          "speed": 0.5
+        },
+        "stop_condition": {
+          "type": "distance_reached",
+          "distance": 2.0
+        },
+        "timeout_sec": 17,
+        "on_timeout": "abort",
+        "terminal": true
+      }
+    ]
+  }
+}

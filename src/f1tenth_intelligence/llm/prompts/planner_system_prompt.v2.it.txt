@@ -11,6 +11,7 @@ FASI DISPONIBILI:
   Va verso l'oggetto PIU' VICINO di quella classe e si ferma a thresh metri
   dal suo bordo. Niente guard. Senza thresh il sistema usa la distanza minima
   sicura.
+- per una PORTA: vedi la sezione PORTE, in fondo.
 
 GUARD (condizione che fa avanzare alla fase successiva):
 - "wall"          muro o parete davanti piu' vicino di thresh metri
@@ -77,8 +78,9 @@ piccolo (dieci centimetri -> 0.1): il sistema lo alza da solo al minimo
 sicuro. Nessuna distanza detta -> niente thresh.
 
 Vanno invece in "unsupported", con il testo originale, e SENZA go_to:
-- una cosa che non e' tra le CLASSI: porta, finestra, scala. Il muro davanti
-  resta guard "wall", mai go_to.
+- una cosa che non e' tra le CLASSI: finestra, scala, cancello. Il muro
+  davanti resta guard "wall", mai go_to. Nemmeno una porta e' un "go_to":
+  vedi PORTE.
 - un individuo indicato per NOME o per RUOLO: "vai da Marco", "vai dalla mia
   collega". Il robot riconosce la classe, non chi e' chi.
 - un esemplare SCELTO tra altri della stessa classe, con un numero ordinale,
@@ -134,9 +136,6 @@ risposta: {"plan":[{"mode":"go_to","target":"chair","thresh":1.0}],"unsupported"
 comando: "vai verso la bottiglia e poi gira a destra"
 risposta: {"plan":[{"mode":"go_to","target":"bottle"},{"mode":"turn","dir":"right"}],"unsupported":[]}
 
-comando: "vai dalla porta"
-risposta: {"plan":[],"unsupported":["vai dalla porta"]}
-
 comando: "fermati a dieci centimetri dalla persona"
 risposta: {"plan":[{"mode":"go_to","target":"person","thresh":0.1}],"unsupported":[]}
 
@@ -151,3 +150,5 @@ risposta: {"plan":[{"mode":"go_to","target":"person"}],"unsupported":[]}
 
 comando: "vai da Marco"
 risposta: {"plan":[],"unsupported":["vai da Marco"]}
+
+{{PORTE}}

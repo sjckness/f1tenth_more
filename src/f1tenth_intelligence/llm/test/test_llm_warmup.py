@@ -2,6 +2,9 @@
 from unittest.mock import patch
 
 from llm import llm_warmup
+from llm.plan_translate import INTENT_PROMPT_FILENAME, INTENT_PROMPT_NO_GO_TO_FILENAME
+
+import pytest
 
 import requests
 
@@ -48,3 +51,33 @@ def test_warm_up_sends_the_planner_request_shape(mock_post):
 def test_main_returns_1_when_server_never_ready(_wait):
     """A server that never gets ready is reported with exit code 1."""
     assert llm_warmup.main(['--url', 'http://x/completion', '--max-wait', '1']) == 1
+
+
+@pytest.mark.parametrize('go_to, doors, expect_file, expect_doors', [
+    (True, True, INTENT_PROMPT_FILENAME, True),
+    (True, False, INTENT_PROMPT_FILENAME, False),
+    # go_to off: the prompt without go_to has no door section to render at
+    # all, so asking for one would raise IntentPromptError -- which is what
+    # this used to do, because load_intent_prompt defaults to doors_enabled.
+    (False, True, INTENT_PROMPT_NO_GO_TO_FILENAME, False),
+    (False, False, INTENT_PROMPT_NO_GO_TO_FILENAME, False),
+])
+def test_the_warm_up_renders_the_prompt_the_planner_will_send(
+        monkeypatch, go_to, doors, expect_file, expect_doors):
+    """Byte-identical to the planner's, or the prefix cache buys nothing.
+
+    llama-server caches a prompt prefix per slot: a warm-up that renders the
+    door section while the planner renders the refusal one pays the full
+    prompt_ms twice and the warm-up has bought nothing. Both sides must
+    resolve go_to_enabled AND enter_door_enabled the same way.
+    """
+    from llm import llm_warmup
+    from llm.plan_translate import load_intent_prompt
+    monkeypatch.setattr(llm_warmup, 'go_to_enabled', lambda: go_to)
+    monkeypatch.setattr(llm_warmup, 'enter_door_enabled', lambda: doors)
+    prompt_file, rendered_doors, prompt = llm_warmup.planner_prompt()
+    assert prompt_file == expect_file
+    assert rendered_doors is expect_doors
+    assert prompt == load_intent_prompt(expect_file, doors_enabled=expect_doors)
+    assert '{{PORTE}}' not in prompt
+    assert ('enter_door' in prompt) is expect_doors

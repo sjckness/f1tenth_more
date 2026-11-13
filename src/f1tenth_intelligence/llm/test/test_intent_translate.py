@@ -508,22 +508,35 @@ def test_the_prompt_ships_all_its_worked_examples():
     beside the clamped person example -- without it the model answered the
     bare command with go_to "front_object"). The go_to prompt also switched
     its examples to the comando:/risposta: framing the real request uses.
+
+    Twenty with doors. One go_to example went away -- "vai dalla porta" was a
+    refusal and is now a planned enter_door -- and the PORTE section brings
+    seven of its own: the side, the bare nearest door, a door at the end of a
+    three-phase plan, the two-phase "attraversa ... e avanza", a door followed
+    by a go_to, and the two refusals that keep doors honest (an ordinal and
+    "apri la porta"). WITHOUT doors the same base prompt renders fifteen: the
+    thirteen that are not about doors, plus the two refusals the off section
+    carries. The prompt without go_to keeps its eight either way -- it has no
+    door section to render at all.
     """
-    assert len(intent_prompt_examples()) == 14
-    assert len(intent_prompt_examples(INTENT_PROMPT_NO_GO_TO_FILENAME)) == 8
+    assert len(intent_prompt_examples()) == 20
+    assert len(intent_prompt_examples(doors_enabled=False)) == 15
+    assert len(intent_prompt_examples(INTENT_PROMPT_NO_GO_TO_FILENAME,
+                                      doors_enabled=False)) == 8
 
 
-@pytest.mark.parametrize('prompt_file', [None, INTENT_PROMPT_NO_GO_TO_FILENAME],
-                         ids=['go_to', 'no_go_to'])
-def test_every_prompt_example_is_a_valid_intent(prompt_file):
+@pytest.mark.parametrize('prompt_file, doors', [(None, True), (None, False),
+                                                (INTENT_PROMPT_NO_GO_TO_FILENAME, False)],
+                         ids=['go_to_doors', 'go_to_no_doors', 'no_go_to'])
+def test_every_prompt_example_is_a_valid_intent(prompt_file, doors):
     """The examples are the model's strongest signal, so they are held to the schema.
 
     A worked example that the schema would reject teaches the model to produce
     rejected output, and nothing else in the pipeline would catch it -- the
     prompt is data, not code, so no import or call site ever touches it.
     """
-    examples = (intent_prompt_examples(prompt_file) if prompt_file
-                else intent_prompt_examples())
+    examples = (intent_prompt_examples(prompt_file, doors_enabled=doors) if prompt_file
+                else intent_prompt_examples(doors_enabled=doors))
     for command, intent in examples:
         jsonschema.validate(intent, load_intent_schema()), command
 

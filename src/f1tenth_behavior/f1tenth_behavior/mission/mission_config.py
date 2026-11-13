@@ -27,16 +27,37 @@ STOP_CONDITION_TYPES = {
 # object_reached stop_condition; "5.0" replaces its standoff_m (a centre
 # distance) with gap_m (car front to object edge, validated against gap_min).
 # "6.0" adds the enter_door step (DoorSpec) and its door_entered
-# stop_condition.
+# stop_condition; "6.1" adds that step's SIDE selectors (DOOR_SIDES).
 # The terminal-last-move rule that "3.0" introduced applies from "3.0" on.
-TERMINAL_REQUIRED_VERSIONS = {'3.0', '4.0', '5.0', '6.0'}
+#
+# A NEW VERSION MUST BE ADDED TO THIS SET, and forgetting is silent: there is
+# no whitelist of known versions anywhere in this file (parse_mission accepts
+# any non-empty string, deliberately -- see its docstring), so a missing entry
+# does not fail, it just stops requiring the last move to declare itself
+# terminal.
+TERMINAL_REQUIRED_VERSIONS = {'3.0', '4.0', '5.0', '6.0', '6.1'}
 
-#: enter_door's `door` selector: the nearest CONFIRMED door, or one by name.
-#: The name is the TF frame semantic_layer_node broadcasts for that door
-#: (semantic_doors.DoorTrack.frame_id), so what a mission names and what
-#: Foxglove shows are the same string.
+#: enter_door's `door` selector: the nearest CONFIRMED door, one by SIDE, or
+#: one by name. The name is the TF frame semantic_layer_node broadcasts for
+#: that door (semantic_doors.DoorTrack.frame_id), so what a mission names and
+#: what Foxglove shows are the same string.
 DOOR_NEAREST = 'nearest'
 DOOR_NAME_RE = re.compile(r'^door_\d+$')
+
+#: The SIDE selectors (schema_version "6.1"): the nearest strong door on the
+#: car's left or right AT THE MOMENT THE MOVE STARTS. What counts as a side is
+#: a bearing sector around the car's heading, defined once in
+#: behaviours/enter_door.py (DOOR_SIDE_MIN_DEG / DOOR_SIDE_MAX_DEG) because
+#: that is where it is computed; DoorSpec's docstring states the rule.
+#:
+#: NOT GATED ON schema_version, on purpose. The version string is
+#: informational in this loader and does not decide which fields are legal
+#: (parse_mission's docstring says so, and the one exception -- the terminal
+#: rule -- exists for BACKWARD compatibility, not forward). A mission that
+#: says "left" to a loader built before this existed is rejected loudly by
+#: DOOR_NAME_RE, which is the failure that matters; a second, forward gate
+#: here would only add a version set that the next version forgets to join.
+DOOR_SIDES = ('left', 'right')
 ON_OBJECT_ACTIONS = {
     'stop_and_hold', 'reduce_speed', 'reduce_speed_for', 'abort_mission',
     'skip_to_move', 'log_only',
@@ -299,6 +320,25 @@ class DoorSpec:
     id for the whole move. Re-picking every tick would let the car swap
     targets halfway across a room the instant another door came closer.
 
+    THE SIDE SELECTORS 'left' and 'right' (schema_version "6.1") resolve the
+    same way and at the same moment -- the nearest strong door ON THAT SIDE of
+    the car -- and "that side" is a BEARING SECTOR around the car's own
+    heading, not a property of the door: a door is on the left when its centre
+    bears DOOR_SIDE_MIN_DEG..DOOR_SIDE_MAX_DEG to port of the nose
+    (behaviours/enter_door.py owns both numbers and the arithmetic). The
+    heading is the one the car holds when the door is resolved, which is the
+    heading it finished the PREVIOUS move with -- it has been given no goal
+    for this one yet.
+
+    So a door within the nose sector is on NEITHER side -- it is ahead, which
+    is what 'nearest' is for -- and a door behind the car is on neither side
+    either, because backing up to a doorway the car has already passed is not
+    what "the door on the right" asks for. Both cases fail the move cleanly
+    (door_not_found) rather than resolving to something the operator did not
+    mean. Resolving against that heading once is the whole point: it is the
+    heading the operator was looking along when they said it, and it cannot
+    drift as the car turns to line itself up with the opening.
+
     NO CONFIRMED DOOR -> the move fails cleanly with a reason
     (door_not_found, or no_strong_door when one is there but has not
     earned being driven at), the mission aborts and the car holds -- the same shape
@@ -306,7 +346,8 @@ class DoorSpec:
     not fall back to another door.
     """
 
-    door: str              # DOOR_NEAREST, or a 'door_<id>' frame name
+    door: str              # DOOR_NEAREST, a DOOR_SIDES side, or a
+    #                        'door_<id>' frame name
     xy_tol: float          # [m] from the door frame's origin
     yaw_tol_deg: float     # [deg] from the door frame's x axis
     acquire_timeout_sec: float = 5.0   # no STRONG door within this ->
@@ -785,8 +826,9 @@ def _parse_door_spec(raw: object, where: str) -> DoorSpec:
              f'{where}: enter_door carries type {kind!r}; expected "enter_door"')
     door = raw.get('door', DOOR_NEAREST)
     _require(isinstance(door, str), f'{where}: enter_door.door must be a string')
-    _require(door == DOOR_NEAREST or bool(DOOR_NAME_RE.match(door)),
-             f'{where}: enter_door.door must be "{DOOR_NEAREST}" or "door_<id>" '
+    _require(door == DOOR_NEAREST or door in DOOR_SIDES or bool(DOOR_NAME_RE.match(door)),
+             f'{where}: enter_door.door must be "{DOOR_NEAREST}", '
+             f'{" or ".join(repr(s) for s in DOOR_SIDES)}, or "door_<id>" '
              f'(got {door!r})')
     xy_tol = _require_positive_number(raw, 'xy_tol', where, default=0.15)
     yaw_tol_deg = _require_positive_number(raw, 'yaw_tol_deg', where, default=10.0)
