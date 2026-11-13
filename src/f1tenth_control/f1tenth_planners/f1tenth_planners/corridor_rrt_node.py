@@ -18,6 +18,13 @@ shortcut path that pure pursuit tracks. Where mpc_corr bends a soft reference
 around an obstacle with a cost, this plans an explicit detour inside the same
 corridor; where the corridor is blocked from wall to wall, no path exists and
 the car stops and replans until one does.
+
+rrt_target_retreat (default false) changes that last case: instead of stopping,
+the goal retreats to the furthest free point on the corridor's centreline and
+the car drives there. It matters for a DRIVE move, whose target is a rolling
+point rrt_corridor_length_drive_m ahead and therefore enters any wall closer
+than that; a terminal target's own point never moves, so refusing to plan into
+it stays the right answer. See the parameter's description in stack_params.yaml.
 """
 
 import math
@@ -56,10 +63,16 @@ def build_corridor(pose, target: PlanTarget, half_width_start: float, r_min: flo
 
 
 def plan_in_corridor(pose, target: PlanTarget, obstacles: Obstacles, corridor,
-                     config: RRTConfig):
-    """RRT* from the car to the target inside ``corridor``; returns (RRTResult, polygon)."""
+                     config: RRTConfig, goal=None):
+    """RRT* from the car to the target inside ``corridor``; returns (RRTResult, polygon).
+
+    ``goal`` overrides the point to reach (rrt_target_retreat). The corridor
+    stays the one built to ``target``: only the goal inside it moves, so the
+    geometry mpc_corr and corridor_rrt share is not rebuilt for a retry.
+    """
     start = np.array(pose[:2], dtype=float)
-    goal = np.array([target.x, target.y], dtype=float)
+    goal = (np.array([target.x, target.y], dtype=float) if goal is None
+            else np.asarray(goal, dtype=float))
     relaxed = relaxed_obstacles(obstacles, [start, goal])
     polygon = corridor_polygon(corridor)
     prepared = PreparedPolygon(polygon)
@@ -87,6 +100,28 @@ def plan_in_corridor(pose, target: PlanTarget, obstacles: Obstacles, corridor,
     return result, polygon
 
 
+def retreat_goal(corridor, obstacles: Obstacles, pose, min_distance: float):
+    """Return the furthest FREE point on the centreline, or None (rrt_target_retreat).
+
+    Walks the centreline from the far end back towards the car and returns the
+    first point clear of the obstacle circles. The centreline is inside the
+    corridor by construction, so no polygon test is needed. Returns None once
+    the walk reaches ``min_distance`` of the car: everything still untested is
+    nearer than that, so there is no useful goal left to drive to.
+    """
+    start = np.array(pose[:2], dtype=float)
+    relaxed = relaxed_obstacles(obstacles, [start])
+    xc = np.asarray(corridor['xc'], dtype=float)
+    yc = np.asarray(corridor['yc'], dtype=float)
+    for i in range(len(xc) - 1, -1, -1):
+        px, py = float(xc[i]), float(yc[i])
+        if math.hypot(px - start[0], py - start[1]) < min_distance:
+            return None
+        if relaxed.point_free(px, py):
+            return np.array([px, py], dtype=float)
+    return None
+
+
 class CorridorRrtNode(PlannerControllerNode):
     """The corridor_rrt planner-controller node."""
 
@@ -107,6 +142,10 @@ class CorridorRrtNode(PlannerControllerNode):
             seed=None if seed < 0 else seed)
         self.half_width_start = float(p('corr_half_width_start_m'))
         self.drive_length = float(p('rrt_corridor_length_drive_m'))
+        self.target_retreat = bool(p('rrt_target_retreat'))
+        # Half the shortest corridor: below this the retreated goal is so close
+        # that pure pursuit has nothing to track, so stopping is the honest answer.
+        self.retreat_min = 0.5 * float(p('rrt_corridor_length_min_m'))
         self.corridor = None
         self.polygon = None
         self.last_result = None
@@ -127,6 +166,19 @@ class CorridorRrtNode(PlannerControllerNode):
             return np.array([pose[:2], [target.x, target.y]], dtype=float)
         result, polygon = plan_in_corridor(pose, target, obstacles, corridor, self.rrt_config)
         self.corridor, self.polygon, self.last_result = corridor, polygon, result
+        if not result.solved and self.target_retreat:
+            retreat = retreat_goal(corridor, obstacles, pose, self.retreat_min)
+            if retreat is not None:
+                retried, polygon = plan_in_corridor(pose, target, obstacles, corridor,
+                                                    self.rrt_config, goal=retreat)
+                if retried.solved:
+                    self.polygon, self.last_result = polygon, retried
+                    self.get_logger().info(
+                        'RRT* | target retreated to '
+                        f'{math.hypot(retreat[0] - pose[0], retreat[1] - pose[1]):.2f} m '
+                        f'(corridor end blocked): path {retried.cost:.2f} m, '
+                        f'{retried.iterations} iterations', throttle_duration_sec=0.5)
+                    return retried.path
         if not result.solved:
             self.get_logger().warn(
                 f'RRT* | no path in the corridor after {result.iterations} iterations, '

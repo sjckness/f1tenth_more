@@ -4547,6 +4547,9 @@ rrt_corridor_length_min_m:
 rrt_corridor_length_drive_m:
   default: 3.0
   description: "Corridor length [m] of an open-ended drive move in corridor_rrt, rebuilt from the car at every replan (mpc_corr's corr_L_base)."
+rrt_target_retreat:
+  default: false
+  description: "corridor_rrt: when RRT* reaches no path to the target, retry once to the furthest FREE point on the corridor centreline (at least rrt_corridor_length_min_m/2 from the car) instead of stopping. OFF by default because it changes what the mode does: today a blocked corridor end means plan() returns None, the car holds at zero and _needs_replan re-asks the same impossible question every tick (measured 2026-11-13 in base_room: 188 consecutive failures, the full rrt_time_budget_s burnt each time, car parked at 2.04 m). That is correct for a terminal target -- refusing to plan into a wall -- but wrong for a DRIVE move's rolling target, which sits rrt_corridor_length_drive_m ahead of the car and therefore walks into any wall closer than that (base_room's is 4.6 m, so the rolling point is inside it after ~1.8 m of travel). With this on, the car advances to the last free point and keeps replanning from there. COST: a failed plan then runs RRT* twice, so the worst case per tick is 2 * rrt_time_budget_s; the retry is attempted once, never recursively."
 p2p_obstacle_lookahead_m:
   default: 1.5
   description: "p2p_geometric: how far along its path [m] it checks for obstacles (circles inflated by car_radius + obstacle_safety_margin_m) and wall tracks. A blocked path inside this distance slows the car linearly to zero at p2p_obstacle_stop_m; it does not plan around (that is what corridor_rrt is for)."
