@@ -1,0 +1,47 @@
+# test_campaign_logger, office HIL campaign variant -- the recorder for
+# <repo>/office_hil_campaign (3 commands x 3 repetitions, Isaac office world,
+# stack on the Jetson Orin). See office_hil_campaign/README.md.
+#
+# Pass it with `config:=` to the SAME launch file as the default one; it is a
+# copy of config/test_campaign_logger.yaml with three values changed and
+# NOTHING else, so a change to the recorder's behaviour is made in one place and
+# copied here, never diverged:
+#
+#   campaign    the folder, under the `root:=` the launch file is given
+#   robot_name  this is not the car: it is the Orin driving Isaac
+#   llm_model   kept explicit because it lands in campaign.json, which is the
+#               only record of which model translated these commands
+#
+#   ros2 launch f1tenth_logger test_campaign_logger.launch.py \
+#       root:=/home/fabiocar/dev_ws/f1tenth_hil \
+#       config:=$(ros2 pkg prefix f1tenth_logger)/share/f1tenth_logger/config/office_hil_campaign_logger.yaml
+#
+# `root` is NOT set here on purpose: the launch file resolves it and passes it as
+# an explicit parameter, which overrides anything written in this file.
+# campaign_dir is root / campaign (robot_logger.py), so the two together decide
+# where prompts.yaml is read from and where the run folders land.
+test_campaign_logger:
+  ros__parameters:
+    campaign: office_hil_campaign        # folder under the launch file's `root:=`
+    robot_radius: 0.3                    # circle for corridor_clearance [m]
+    pre_roll_s: 2.0
+    post_roll_s: 2.0
+    max_test_duration_s: 300.0
+    status_period_s: 10.0                # status line + /test_campaign/logger_status
+    clearance_grace_s: 2.0               # no /obstacle_clearance this long after start -> ERROR
+    robot_name: orin-hil                 # Jetson Orin + Isaac office world, not the car
+    llm_model: qwen2.5-3b-instruct       # models.yaml qwen25_3b_instruct, served on the Orin
+    mpc_ok_statuses: [solved]            # /mpc/status values that count as solved
+
+    # Identical to config/test_campaign_logger.yaml from here down.
+    odom_topic: /odometry/filtered
+    imu_topic: /sensors/imu/raw
+    drive_topic: /drive
+    mpc_status_topic: /mpc/status
+    corridor_topic: /corridor
+    tracks_topic: /costmap/semantic_tracks
+    obstacle_clearance_topic: /obstacle_clearance
+    safety_event_topic: /safety/event
+    plan_result_topic: /test/plan_result
+    mission_event_topic: /test/mission_event
+    best_effort_sensors: true

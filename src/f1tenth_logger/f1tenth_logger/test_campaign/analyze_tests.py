@@ -23,6 +23,7 @@ import csv
 import json
 import math
 import statistics
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -248,17 +249,23 @@ def load_run(test_dir, mission):
     )
 
 
-def load_campaign(campaign_dir):
+def load_campaign(campaign_dir, mission=None):
     """``(runs, has_manual_file, unreadable_verdicts)``."""
     manual, unreadable = load_manual_results(campaign_dir)
     runs = []
     for mission_dir in sorted(p for p in campaign_dir.iterdir() if p.is_dir()):
+        if mission is not None and mission_dir.name != mission:
+            continue
         for test_dir in sorted(p for p in mission_dir.iterdir() if p.is_dir()):
             try:
                 parse_test_id(test_dir.name)
             except ValueError:
                 continue  # not a test folder
-            run = load_run(test_dir, mission_dir.name)
+            try:
+                run = load_run(test_dir, mission_dir.name)
+            except Exception as exc:
+                print(f"WARNING: skipping {test_dir.name}: {exc}", file=sys.stderr)
+                continue
             entry = manual.get(run.test_id)
             if entry is not None:
                 run.manual_success = entry["success"]
@@ -711,9 +718,7 @@ def main(argv=None):
         raise NotADirectoryError(f"campaign folder not found: {campaign_dir}")
     print(f"campaign: {campaign_dir}")
 
-    runs, has_manual, unreadable = load_campaign(campaign_dir)
-    if args.mission:
-        runs = [r for r in runs if r.mission == args.mission]
+    runs, has_manual, unreadable = load_campaign(campaign_dir, mission=args.mission)
     if args.prompt is not None:
         runs = [r for r in runs if r.prompt_num == args.prompt]
     if not runs:

@@ -100,6 +100,81 @@ presets:
   people:          # corridor start + the three walking characters
     car: {start: {x: 16.814, y: 0.946, z: 0.02, yaw_deg: -90.0}}
     people: {enabled: true}
+
+  # ---------------------------------------------------------------- office HIL campaign
+  # One preset per mission of office_hil_campaign/prompts.yaml. Each carries
+  # EVERYTHING that mission needs -- start pose, fill lights, people -- because the
+  # scene is fixed at Isaac launch and the campaign therefore runs one Isaac session
+  # per mission. The start poses and every number in the comments come from
+  # sim/isaac/tools/office_missions.py (output/office_missions/report.txt), which walks
+  # each move chain over the SDF's occupancy grid at the lidar plane.
+  #
+  # EACH ONE REPEATS THE WHOLE sphere_lights ARRAY, which looks redundant and is not:
+  # apply_layout deep-merges mappings but REPLACES lists wholesale (sim/config.py's
+  # _merge), so a preset that lists only its own two lights silently switches the other
+  # seven off.
+  #
+  # WHY THE EXTRA LIGHTS AT ALL: headless RaytracedLighting has no indirect diffuse, and
+  # office_missions.py reports M01's three waypoints 6.2-6.4 m from the nearest existing
+  # light. Geometry is not the risk in this campaign, light is: a chair the car can reach
+  # is useless if YOLO never sees it. These are a starting point, not a measurement --
+  # raise them if /camera/detections stays empty (plan risk 1).
+  campaign_ma:     # M01_door_left_chair: 2.6 m straight, then the 1.45 m doorway at
+                   # (8.06, -13.10) 1.25 m to the LEFT, then ConfOfficeChairBlack5 at
+                   # (3.85, -14.01), 4.0 m beyond it on a clear line of sight.
+                   # It is the ONLY detectable doorway visible from the start, so
+                   # enter_door side=left cannot pick another.
+    car: {start: {x: 9.33, y: -15.87, z: 0.02, yaw_deg: 90.0}}
+    people: {enabled: false}
+    lighting:
+      sphere_lights:
+        - {position: [16.8, 0.0, 2.4], intensity: 30000.0, radius: 0.15}     # the 7 base lights
+        - {position: [16.8, -4.0, 2.4], intensity: 30000.0, radius: 0.15}
+        - {position: [16.8, -8.0, 2.4], intensity: 30000.0, radius: 0.15}
+        - {position: [16.8, -12.0, 2.4], intensity: 30000.0, radius: 0.15}
+        - {position: [15.4, -11.6, 2.4], intensity: 30000.0, radius: 0.15}
+        - {position: [10.0, -19.4, 2.4], intensity: 30000.0, radius: 0.15}
+        - {position: [8.0, -19.4, 2.4], intensity: 25000.0, radius: 0.15}
+        - {position: [9.3, -13.3, 2.4], intensity: 30000.0, radius: 0.15}    # end of the straight leg
+        - {position: [8.1, -13.1, 2.4], intensity: 30000.0, radius: 0.15}    # in the doorway
+        - {position: [4.6, -14.0, 2.4], intensity: 30000.0, radius: 0.15}    # over the target chair
+  campaign_mb:     # M02_wall_left_wall: 4.0 m west to 3 m from the wall, 90 deg left,
+                   # 10.55 m south to 2 m from the far wall. NO perception at all -- no
+                   # object, no door -- so this is the only mission of the three whose
+                   # outcome does not depend on the renderer, and the smoke case.
+                   # Base lighting unchanged on purpose: nothing has to be seen.
+    car: {start: {x: 16.83, y: -9.87, z: 0.02, yaw_deg: 180.0}}
+    people: {enabled: false}
+  campaign_md:     # M03_person_door_right: the SAME start as campaign_mb plus a STATIC
+                   # person at (11.63, -13.30), 2.23 m down the southbound leg, and the
+                   # doorway light. After the turn that doorway (8.06, -13.10) is the only
+                   # detectable one visible, at -67 deg, inside enter_door's right-hand
+                   # 15-135 deg sector.
+                   # SEPARATE FROM campaign_mb, not an option: this person stands ON M02's
+                   # second leg and leaves 0.45 m to its left and 0.80 m to its right,
+                   # against the 1.18 m the car needs to pass one, so M02 cannot be driven
+                   # in this scene.
+                   # A path of two IDENTICAL waypoints is how a people character stands
+                   # still: sim/people.py's _at() returns pts[0] when the polyline length
+                   # is 0. The prim still carries the `person` semantic label and still
+                   # appears in /sim/ground_truth/objects, which is what the driver checks
+                   # before sending the command.
+    car: {start: {x: 16.83, y: -9.87, z: 0.02, yaw_deg: 180.0}}
+    people:
+      enabled: true
+      characters:
+        - {path: [[11.63, -13.30], [11.63, -13.30]], speed: 0.0, phase: 0.0}
+    lighting:
+      sphere_lights:
+        - {position: [16.8, 0.0, 2.4], intensity: 30000.0, radius: 0.15}     # the 7 base lights
+        - {position: [16.8, -4.0, 2.4], intensity: 30000.0, radius: 0.15}
+        - {position: [16.8, -8.0, 2.4], intensity: 30000.0, radius: 0.15}
+        - {position: [16.8, -12.0, 2.4], intensity: 30000.0, radius: 0.15}
+        - {position: [15.4, -11.6, 2.4], intensity: 30000.0, radius: 0.15}
+        - {position: [10.0, -19.4, 2.4], intensity: 30000.0, radius: 0.15}
+        - {position: [8.0, -19.4, 2.4], intensity: 25000.0, radius: 0.15}
+        - {position: [11.6, -13.3, 2.4], intensity: 30000.0, radius: 0.15}   # over the person
+        - {position: [8.1, -13.1, 2.4], intensity: 30000.0, radius: 0.15}    # in the doorway
 # NOT A DOORWAY: the world's one `Door` model is a CLOSED leaf (x 10.03..10.27, y -7.07..-6.02)
 # and a flight of stairs stands 0.6 m in front of it (Stairs collision box x 10.72..10.93,
 # y -7.41..-6.41, z 0.17..0.33). The `door` preset above uses a real opening in the wall instead,

@@ -138,6 +138,24 @@ SPHERE_LIGHTS = ((16.8, 0.0), (16.8, -4.0), (16.8, -8.0), (16.8, -12.0),
 # (schemas/intent_v1.json) and `steps` is the same thing with the ambiguity removed:
 # the door and the go_to target are named explicitly, because this tool checks the
 # geometry of ONE chain and `side` / "nearest" resolution is checked separately.
+#
+# THE IDS HERE ARE NOT THE CAMPAIGN'S. These are the four commands as they were first
+# written, plus one variant, kept so the feasibility report stays readable next to the
+# question it answered. The campaign that came out of it runs three of them, renumbered
+# in its own prompts.yaml (the recorder derives a mission folder from that file alone):
+#
+#   M-A  -> office_hil_campaign M01_door_left_chair     (Isaac preset campaign_ma)
+#   M-B  -> office_hil_campaign M02_wall_left_wall      (Isaac preset campaign_mb)
+#   M-D  -> office_hil_campaign M03_person_door_right   (Isaac preset campaign_md)
+#   M-A2 variant, not in the campaign: the mirrored door into the NE kitchen
+#   M-C  dropped: its last move cannot complete from ANY pose in this world -- go_to
+#        stops the car 0.5 m from the chair facing it, so the following "2 metres
+#        straight" has an obstacle 0.40 m ahead and times out. That is a property of
+#        the command, not of the map, which is why it is still listed and still run.
+#
+# The campaign texts also drop the ordinal ("the FIRST door on the left"): the planner
+# prompt routes an ordinal to `unsupported`, which forces an interactive confirmation.
+# `side: left|right` already means the nearest door on that side.
 MISSIONS = (
     {'id': 'M-A', 'cmd': 'go straight, enter the first door on the left and then approach the chair',
      'start': (9.33, -15.87, 90.0),

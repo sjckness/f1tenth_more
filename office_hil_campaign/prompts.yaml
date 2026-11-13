@@ -1,0 +1,71 @@
+# Prompt table of the office HIL campaign -- the ONLY source of mission names.
+#
+# `text` must be byte-identical to what the planner receives: the recorder looks
+# a test up by it when no --prompt-num is given, flags a prompt_text_mismatch
+# when the two differ, and hashes it to check that repetitions of one prompt
+# stay comparable. Edit a text and every earlier repetition of that prompt stops
+# being comparable with the new ones.
+#
+# `expected_sequence` is a comment on purpose, not a field: it is the move
+# sequence the translation metric compares the plan against, in the planner's own
+# vocabulary (llm/schemas/intent_v1.json: straight with guard distance|wall|
+# front_object, turn left|right, go_to <class>, enter_door [side left|right]).
+# It is also what the `transl_ok` column is judged against.
+#
+# EVERY NUMBER IN A CRITERION IS A MEASURED POSE, not an opinion: they come from
+# sim/isaac/tools/office_missions.py walking each move chain over the SDF's
+# occupancy grid (output/office_missions/report.txt). The verdict is therefore
+# the final map pose against the target, and the driver prints both.
+#
+# WHY NO ORDINAL ("the FIRST door on the left"), although that is how the
+# commands were first written: prompts/planner_prompt_porte.it.txt routes an
+# ordinal to `unsupported` on purpose -- the detector does not have in its list
+# the doorways the car has not driven past yet, so counting them would fail
+# door_not_found most of the time. A non-empty `unsupported` then makes
+# llm_planner_node ask for an interactive [s/N] with no flag to skip it, which
+# would stall the session. `side: left|right` already means "the nearest door on
+# that side", which in all three scenes IS the first one (checked: it is the only
+# detectable doorway visible from the pose where the door move starts, except in
+# M03's corridor where it is the only one in the right-hand sector).
+#
+# Each mission has its own Isaac preset in sim/isaac/config/scenes/office.yaml
+# (campaign_ma / campaign_mb / campaign_md) carrying the start pose, the extra
+# fill lights and, for M03, the person. M02 and M03 share a start pose but NOT a
+# scene: M03's person stands on M02's southbound leg and blocks it.
+
+# expected_sequence: [straight distance 2.6, enter_door side left, go_to chair]
+#   Isaac preset campaign_ma, start (9.33, -15.87) yaw 90 deg.
+#   The doorway is the 1.45 m opening in the meeting-room wall at (8.06, -13.10);
+#   it is the only detectable doorway visible from the start, so `side: left`
+#   cannot pick another one. 1.45 m is inside the detector's 0.6-1.5 m band but
+#   outside its 0.7-1.4 m nominal one, so the door is published `marginal`.
+- prompt_num: 1
+  mission: M01_door_left_chair
+  text: "go straight, enter the door on the left and then approach the chair"
+  success_criterion: "ends INSIDE the doorway, base_link (8.08,-13.07) +- 0.3 m and heading -x +- 10 deg, then stops within 0.5 m of a meeting-room chair facing it, base_link (5.02,-13.75) +- 0.5 m; no contact, no e-stop, and no door_not_found / no_strong_door / target_not_found on /mission/move_outcome"
+
+# expected_sequence: [straight until wall 3.0, turn left, straight until wall 2.0]
+#   Isaac preset campaign_mb, start (16.83, -9.87) yaw 180 deg.
+#   NO PERCEPTION AT ALL: no object to recognise and no door, so this is the one
+#   mission whose outcome does not depend on the renderer's lighting. It is the
+#   smoke case and runs first.
+#   The prompt names no distance: 3.0 m and 2.0 m are plan_translate's
+#   WALL_THRESH_BEFORE_TURN_M and WALL_THRESH_DEFAULT_M, so a different stopping
+#   distance is a translation finding, not a control one.
+- prompt_num: 2
+  mission: M02_wall_left_wall
+  text: "go straight at the wall, turn left and then approach the wall"
+  success_criterion: "stops 3.0 m +- 0.3 m from the wall ahead, base_link (12.83,-9.87) +- 0.3 m, turns left 90 deg +- 10 deg to yaw 270 deg, then drives 10.5 m south and stops 2.0 m +- 0.3 m from the far wall, base_link (11.63,-21.62) +- 0.4 m; no contact, no e-stop"
+
+# expected_sequence: [straight until wall 3.0, turn left, go_to person, enter_door side right]
+#   Isaac preset campaign_md, start (16.83, -9.87) yaw 180 deg -- the same start
+#   as M02, with a STATIC person added at (11.63, -13.30).
+#   After the turn the 1.45 m opening at (8.06, -13.10) is the only detectable
+#   doorway visible, at bearing -67 deg, i.e. inside enter_door's right-hand
+#   15-135 deg sector. go_to person stops 1.0 m clear (gap_min includes the
+#   0.5 m person class margin), so the car is still 3.87 m from the doorway when
+#   the door move starts, from a standstill -- see risk 3 in the plan.
+- prompt_num: 3
+  mission: M03_person_door_right
+  text: "at the wall turn left, then go to the person, then enter the door on the right"
+  success_criterion: "stops 3.0 m +- 0.3 m from the wall ahead, base_link (12.83,-9.87) +- 0.3 m, turns left 90 deg +- 10 deg, stops 1.0 m +- 0.3 m clear of the person standing at (11.63,-13.30) and facing it, base_link (11.63,-11.59) +- 0.3 m, then ends INSIDE the doorway, base_link (8.08,-13.07) +- 0.3 m and heading -x +- 10 deg; no contact, no e-stop"

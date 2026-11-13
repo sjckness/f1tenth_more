@@ -1,0 +1,23 @@
+# Run selection per mission, used by tools/campaign_aggregate.py.
+# Numbers are REPETITIONS (not prompt_num). No run number is written in any
+# other script: they all read this file.
+#
+# The campaign plans 3 repetitions of each of the 3 missions = 9 runs. Listing
+# them here rather than letting the aggregate take "every folder on disk" is
+# deliberate: a repetition is never deleted, failed runs included, so a run that
+# this file asks for and that cannot be resolved is reported MISSING by name
+# instead of quietly shrinking N.
+#
+# If a repetition has to be repeated (an aborted bringup, a reset that failed
+# its checks), the recorder allocates the next free number and the bad one stays
+# on disk. Then ADD the new number here and leave the old one out, with a line
+# saying why -- that is the whole point of the file.
+
+M01_door_left_chair:
+  runs: [1, 2, 3]
+
+M02_wall_left_wall:
+  runs: [1, 2, 3]
+
+M03_person_door_right:
+  runs: [1, 2, 3]

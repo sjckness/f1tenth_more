@@ -250,10 +250,54 @@ Running both loggers at once is the normal case, and they cannot collide:
 | started by | the supervisor, with the stack | you, by hand, only |
 | reads | `/mission/status`, and records 37 topics into the bag | the topics in the table above |
 | publishes | nothing | `/test_campaign/logger_status` only |
-| writes | `~/f1tenth_archive/{active,complete,incomplete}/`, `runs.db`, lock `/tmp/mission_logger.lock` | `<f1tenth_more>/first_test_campaign/` only |
+| writes | `~/f1tenth_archive/{active,complete,incomplete}/`, `runs.db`, lock `/tmp/mission_logger.lock` | `<root>/<campaign>/` only (`first_test_campaign` by default) |
 | code | `f1tenth_logger/*.py` | `f1tenth_logger/test_campaign/*.py` |
 
 `test/test_campaign/test_test_campaign_isolation.py` checks each row.
+
+---
+
+## A second campaign: the HIL / Orin session
+
+`office_hil_campaign/` is the same protocol against the Isaac office world, with the stack on
+the Jetson Orin and Isaac on the Windows workstation. Everything above applies; four things
+differ, and they are all configuration.
+
+**A second recorder config, not a second recorder.** `config/office_hil_campaign_logger.yaml`
+is this package's `config/test_campaign_logger.yaml` with `campaign`, `robot_name` and
+`llm_model` changed and nothing else, passed with `config:=` to the same launch file:
+
+```bash
+ros2 launch f1tenth_logger test_campaign_logger.launch.py \
+    root:=<the Orin checkout> \
+    config:=$(ros2 pkg prefix f1tenth_logger)/share/f1tenth_logger/config/office_hil_campaign_logger.yaml
+```
+
+`campaign_dir` is `root / campaign`, so those two arguments are what decide which `prompts.yaml`
+is read and where the run folders land. Keep the two config files in step: a change to the
+recorder's behaviour belongs in both.
+
+**The runs are driven by a script, not by hand.** `scripts/sim/campaign/hil_campaign.sh` (on
+the Orin host) does per repetition what step 4 above describes doing by hand, plus the things a
+simulator makes possible and a real floor does not: it puts the car back with
+`scripts/sim/restart.sh` and refuses to start the run if any of its checks fails, and it
+verifies from the latched `/sim/ground_truth/start_pose` that the scene loaded in Isaac is the
+one this mission's criterion was written for. The run itself is still exactly one
+`llm_planner_node` invocation.
+
+**Judging is gated, per mission.** `first_test_campaign/analysis/report.txt` reads
+`evaluated by hand: 0` — the one thing that campaign got wrong, and it cannot be repaired after
+the fact because `success` is a judgement, not a measurement. The driver therefore exports after
+each mission's repetitions and refuses to start the next one while any of those rows is
+unjudged, and it writes a per-run `verdict_sheet.txt` (the criterion, the final ground-truth
+pose in map coordinates against the target, the `/mission/status` trail) so that filling the
+column is reading rather than re-deriving.
+
+**The bags are tied to the runs.** The mission logger's root is redirected to
+`~/f1tenth_sim_archive` under `sim:=isaac`, and the driver records the join in
+`office_hil_campaign/bag_index.csv` and in a `bag_ref.json` sidecar in each test folder. The
+manifest's `mission_id` is a sha1 of the intent, so it is the same for every repetition of one
+command: the repetitions are separated by time, not by that id.
 
 ---
 

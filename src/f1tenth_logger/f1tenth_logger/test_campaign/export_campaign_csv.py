@@ -800,9 +800,13 @@ def scan_campaign(campaign_dir, cutoff_hz, deadband_rad):
                 parse_test_id(test_dir.name)
             except ValueError:
                 continue
-            computed.append(
-                metrics_for_test(test_dir, mission_dir.name, cutoff_hz, deadband_rad)
-            )
+            try:
+                computed.append(
+                    metrics_for_test(test_dir, mission_dir.name, cutoff_hz, deadband_rad)
+                )
+            except Exception as exc:
+                print(f"WARNING: skipping {test_dir.name}: {exc}", file=sys.stderr)
+                continue
     return computed
 
 

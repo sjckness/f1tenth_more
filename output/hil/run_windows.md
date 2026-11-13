@@ -75,13 +75,29 @@ then prints the `docker run` with the mount. Mounts can only be set when the con
 docker rm -f f1tenth_hil_car
 docker run -d --name f1tenth_hil_car --network host --ipc host --runtime nvidia \
   --init --restart no -v /home/fabiocar/projects/llm/models:/home/fabiocar/projects/llm/models:ro \
+  -v /home/fabiocar/dev_ws/f1tenth_hil:/home/fabiocar/dev_ws/f1tenth_hil \
+  -v /home/fabiocar/f1tenth_sim_archive:/home/fabiocar/f1tenth_sim_archive \
   -e F1T_CONTAINER_ROLE=car -e F1T_AUTOSTART=none \
   -e ROS_DOMAIN_ID=44 -e RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
   -e F1TENTH_DISCOVERY_SERVER=192.168.200.11:11812 \
   f1tenth:jazzy-orin-ecb457b-norust sleep infinity
 docker exec f1tenth_hil_car /opt/llama.cpp/bin/llama-server --version                      # sanity check
 docker exec f1tenth_hil_car ls /home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf
+docker exec f1tenth_hil_car ls /home/fabiocar/dev_ws/f1tenth_hil/scripts/sim/restart.sh     # campaign
 ```
+
+The last two `-v` lines are what a **test campaign** needs, and they are why the container has
+to be recreated rather than reconfigured:
+
+- the **checkout at the same path inside and out**, so the campaign folder, its `prompts.yaml`,
+  `scripts/sim/restart.sh` and `scripts/sim/planner_compare/pc_record.py` are all one path that
+  resolves on both sides — no `docker cp`, no code change, and the run folders the recorder
+  writes land in a git-tracked tree instead of a container layer that `docker rm` throws away;
+- the **bag archive on host disk**. `mission_logger_node` writes to `~/f1tenth_sim_archive`
+  under `sim:=isaac` (`config/sim/isaac.yaml`), which is tens to hundreds of MB per mission.
+
+Without them `scripts/sim/campaign/hil_campaign.sh preflight` fails and says which one is
+missing. Everything else on this page works without them.
 
 (Do not mount the host's `/scratch/fabiocar/llama.cpp`: that binary has no sm_87 cubins and
 JIT-compiles every kernel at first use, about two minutes of cold start.)
@@ -98,6 +114,27 @@ ros2 run llm llm_planner_node "go ahead 2 meters"             # the car moves in
 ```
 
 `scripts/sim/llm.sh` is the Thor's wrapper (it goes through `sim_isaac.sh`); it is not used here.
+
+## Test campaign
+
+`scripts/sim/campaign/hil_campaign.sh` drives a repeated, recorded, judged campaign over this
+setup — see [office_hil_campaign/README.md](../../office_hil_campaign/README.md) for the
+protocol and [office_missions/](../office_missions/) for why those three commands and those
+start poses. It runs on the Orin **host** and needs the two extra bind mounts above.
+
+Three terminals on the Orin (stack, recorder, driver) and one Isaac on the workstation per
+mission, because the scene is fixed at Isaac launch:
+
+```bash
+scripts/sim/campaign/hil_campaign.sh preflight    # mounts, recorder up, both trees at one commit
+scripts/sim/campaign/hil_campaign.sh translate    # --dry-run the three commands, no motion
+scripts/sim/campaign/hil_campaign.sh all --reps 3
+```
+
+It reuses, unchanged: `hil_orin` (env, `check`), `restart.sh` (through its `F1T_RESTART_INNER`
+hook, which skips the `sim_isaac.sh` re-exec this machine cannot use) and
+`planner_compare/pc_record.py` (`ready`, `record`). It does **not** use `planner_compare/run.sh`,
+which brings the stack up locally.
 
 ## One-time setup
 
