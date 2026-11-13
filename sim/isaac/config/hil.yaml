@@ -49,7 +49,7 @@ sim:
   image: f1tenth_isaac:5.1.0    # sim/isaac/docker/build.sh builds this
   container: f1t_isaac_hil      # not f1t_isaac: a local Gazebo/Isaac run may hold that name
   world: office                 # office | room6x6 | corridor | office_nvidia | base_room | hospital
-  layout: corridor              # office: corridor | door | open_space | people
+  layout: corridor              # office: corridor | door | door_left | open_space | people
   gui: false                    # headless by default (the GUI costs ~4 % of the RTF margin)
   # Camera budget. The stack is never touched, so the link load is reduced HERE.
   # Fast DDS sends one unicast copy per remote subscriber: /camera/image_raw has 2 readers and the

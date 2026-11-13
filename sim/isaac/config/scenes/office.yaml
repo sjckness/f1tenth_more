@@ -81,6 +81,20 @@ presets:
   door:            # 2.0 m in front of a 1.25 m DOORWAY at (8.064, -19.404), 6 m free beyond it,
                    # clearance 1.48 m at the start, 0.65 m minimum on the way in
     car: {start: {x: 10.064, y: -19.404, z: 0.02, yaw_deg: 180.0}}
+  door_left:       # a RUN-UP that ends beside a door: 5 m straight along -x, then a 1.25 m
+                   # DOORWAY at (11.464, -14.604) exactly 2.0 m to the car's LEFT -- the geometry
+                   # "go straight 5m then enter the door on the left" needs, which no other preset
+                   # has (`door` starts 2 m from its doorway, head on). Same width as `door`'s
+                   # opening, so the detector sees the size it already drives at.
+                   # Computed, not chosen by eye, from the same occupancy grid as the poses above
+                   # (tools/pick_spawn_poses.py's doorways(), searched for a run-up by
+                   # tools/find_door_runup.py --run 5 --side left): clearance 1.70 m at the start,
+                   # 0.45 m minimum along the run, and 12.7 m still free past the arrival point --
+                   # the margin matters because corridor_rrt plans a corridor
+                   # rrt_corridor_length_drive_m (3.0 m) PAST the car and stops where that end is
+                   # blocked (see rrt_target_retreat), so a wall just beyond the door would stall
+                   # the drive phase before the door phase ever started.
+    car: {start: {x: 16.464, y: -12.604, z: 0.02, yaw_deg: 180.0}}
   open_space:      # the largest free circle on the floor: 2.80 m clear in every direction
     car: {start: {x: 15.364, y: -11.554, z: 0.02, yaw_deg: 0.0}}
   people:          # corridor start + the three walking characters
