@@ -11,6 +11,21 @@ this setup's own, read from `sim/isaac/config/hil.local.yaml`; nothing below nee
 
 Four shells end up open at once: **W** for Isaac, **O1** stack, **O2** recorder, **O3** driver.
 
+**Unattended instead (Phases 2–4 in one go, overnight):** after Phases 0–1,
+
+```bat
+W>  scripts\sim\win\hil_follow.bat          :: leave it open; it starts and restarts Isaac itself
+```
+```bash
+O   scripts/sim/campaign/hil_night.sh start  # detaches; `status` / `stop` any time
+```
+
+and read `office_hil_campaign/MORNING.md` the next day: every step with its outcome, each run
+with its evidence, and the verdicts still to fill (the night judges nothing). The follower talks
+to the Orin only outward over ssh (needs the password-less key), so no port or firewall rule is
+added; the chair go/no-go falls back to the `campaign_ma_bright` preset by itself. Details in the
+headers of `scripts/sim/campaign/hil_night.sh` and `scripts/sim/win/hil_follow.py`.
+
 ---
 
 ## Phase 0 — get this work onto the Orin

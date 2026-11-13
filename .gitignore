@@ -93,3 +93,6 @@ output/phase*/reports/*/*.log
 
 # HIL: the per-machine copy of sim/isaac/config/hil.yaml (addresses, paths, container names)
 sim/isaac/config/hil.local.yaml
+
+# hil_follow.py: one Isaac log per launch, on the workstation
+scripts/sim/win/night/

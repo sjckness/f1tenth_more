@@ -16,6 +16,12 @@
 #   scripts/sim/campaign/hil_campaign.sh judge [M02]          export + print what is unjudged
 #   scripts/sim/campaign/hil_campaign.sh analyze              export, plots, report, aggregate
 #   scripts/sim/campaign/hil_campaign.sh bags                 the bag index as it stands
+#   scripts/sim/campaign/hil_campaign.sh recorder             test_campaign_logger, foreground
+#                                                             (the command of the header below)
+#   scripts/sim/campaign/hil_campaign.sh see chair            go/no-go: is a `chair` track in
+#                                                             /costmap/semantic_tracks, car at rest
+#   scripts/sim/campaign/hil_campaign.sh ready                the stack is up, one controller
+# Unattended, all of it plus the Isaac restarts: scripts/sim/campaign/hil_night.sh.
 # Options: --reps N, --dry-run (print, run nothing), --no-gate (do not refuse on unjudged runs), -h.
 #
 # WHAT ONE RUN IS, and why there is no "start the mission" step: ONE invocation of
@@ -88,11 +94,11 @@ m_def() {
 # ---- CLI -------------------------------------------------------------------------------------
 CMD="${1:-}"
 case "$CMD" in
-  preflight|translate|mission|all|judge|analyze|bags) shift ;;
+  preflight|translate|mission|all|judge|analyze|bags|recorder|see|ready) shift ;;
   -h|--help|help|"") usage; exit 0 ;;
-  *) die "unknown subcommand '$CMD' (preflight|translate|mission|all|judge|analyze|bags; --help)" ;;
+  *) die "unknown subcommand '$CMD' (preflight|translate|mission|all|judge|analyze|bags|recorder|see|ready; --help)" ;;
 esac
-DRY=false; REPS=3; GATE=true; TARGET=""
+DRY=false; REPS=3; GATE=true; TARGET=""; SEE_CLASS=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=true; shift ;;
@@ -101,6 +107,8 @@ while [ $# -gt 0 ]; do
     --no-gate) GATE=false; shift ;;
     -h|--help) usage; exit 0 ;;
     M0[123]) TARGET="$1"; shift ;;
+    [a-z]*) [ "$CMD" = see ] && [ -z "$SEE_CLASS" ] || die "unknown argument '$1' (--help)"
+            SEE_CLASS="$1"; shift ;;
     *) die "unknown argument '$1' (--help)" ;;
   esac
 done
@@ -174,6 +182,7 @@ write_guard() {
 
     guard.py scene  X Y YAW_DEG [--person] [--timeout 20]
     guard.py sheet  --gt FILE --target X,Y [--yaw DEG]
+    guard.py see    CLASS [--timeout 30]
 
 `scene` is what stops the right command reaching the wrong scene, which is a real risk here
 because two of the three missions share a start pose and differ only by a person. It reads the
@@ -269,6 +278,50 @@ def cmd_sheet(args):
     return 0
 
 
+def cmd_see(args):
+    """Go/no-go of a perception mission, with the car standing at its start and no mission sent:
+    does a CLASS track reach /costmap/semantic_tracks? What the car cannot see standing still,
+    go_to cannot acquire in its ~5 s either (RUNBOOK, Phase 4). Best-effort subscriptions match
+    both reliable and best-effort publishers."""
+    from rclpy.qos import qos_profile_sensor_data
+    from vision_msgs.msg import Detection2DArray, Detection3DArray
+    rclpy.init()
+    node = Node('campaign_see_guard')
+    seen = {'det_msgs': 0, 'det': set(), 'trk_msgs': 0, 'trk': set()}
+
+    def classes(m):
+        return {h.hypothesis.class_id for d in m.detections for h in d.results}
+
+    def det_cb(m):
+        seen['det_msgs'] += 1
+        seen['det'] |= classes(m)
+
+    def trk_cb(m):
+        seen['trk_msgs'] += 1
+        seen['trk'] |= classes(m)
+    node.create_subscription(Detection2DArray, '/camera/detections', det_cb,
+                             qos_profile_sensor_data)
+    node.create_subscription(Detection3DArray, '/costmap/semantic_tracks', trk_cb,
+                             qos_profile_sensor_data)
+    import time
+    deadline = time.monotonic() + args.timeout
+    while args.cls not in seen['trk'] and time.monotonic() < deadline:
+        rclpy.spin_once(node, timeout_sec=0.2)
+    node.destroy_node()
+    rclpy.shutdown()
+    print('/camera/detections       %d msgs, classes: %s'
+          % (seen['det_msgs'], ', '.join(sorted(seen['det'])) or '(none)'))
+    print('/costmap/semantic_tracks %d msgs, classes: %s'
+          % (seen['trk_msgs'], ', '.join(sorted(seen['trk'])) or '(none)'))
+    if args.cls in seen['trk']:
+        print('GO: a `%s` track is in /costmap/semantic_tracks' % args.cls)
+        return 0
+    print('NO-GO: no `%s` track in %.0f s%s' % (
+        args.cls, args.timeout, '' if seen['det_msgs'] else ' (and /camera/detections is silent)'),
+        file=sys.stderr)
+    return 1
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest='cmd', required=True)
@@ -284,6 +337,10 @@ def main(argv=None):
     h.add_argument('--target', required=True, help='X,Y')
     h.add_argument('--yaw', type=float, default=None)
     h.set_defaults(fn=cmd_sheet)
+    v = sub.add_parser('see')
+    v.add_argument('cls')
+    v.add_argument('--timeout', type=float, default=30.0)
+    v.set_defaults(fn=cmd_see)
     args = ap.parse_args(argv)
     return args.fn(args)
 
@@ -617,4 +674,19 @@ case "$CMD" in
     GATE=false; do_judge "$mdir" ;;
   analyze) do_analyze ;;
   bags) do_bags ;;
+  recorder)
+    # the header's command, so hil_night.sh starts it in exactly the environment every other
+    # call here gets (CENV, the overlay if built). Foreground: the caller backgrounds it.
+    running || die "container $HIL_ORIN_CONTAINER is not running (scripts/sim/hil_orin up)"
+    cexec ros2 launch f1tenth_logger test_campaign_logger.launch.py "root:=$REPO" \
+      "config:=$REPO/src/f1tenth_logger/config/office_hil_campaign_logger.yaml" ;;
+  ready)
+    running || die "container $HIL_ORIN_CONTAINER is not running (scripts/sim/hil_orin up)"
+    cexec python3 "$REPO/scripts/sim/planner_compare/pc_record.py" ready \
+        --node "$CONTROLLER_NODE" --timeout 300 ;;
+  see)
+    [ -n "$SEE_CLASS" ] || die "see needs a class (e.g. chair)"
+    running || die "container $HIL_ORIN_CONTAINER is not running (scripts/sim/hil_orin up)"
+    write_guard
+    cexec python3 "$GUARD_IN_CONTAINER" see "$SEE_CLASS" --timeout 30 ;;
 esac

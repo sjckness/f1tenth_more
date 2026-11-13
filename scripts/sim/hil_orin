@@ -274,9 +274,13 @@ case "$CMD" in
         echo "== stack (sim:=isaac) in $HIL_ORIN_CONTAINER =="
         echo "cmd: ${LAUNCH[*]}"
         $DRY && { echo "(dry run)"; exit 0; }
-        # -i keeps Ctrl+C reaching the launch; </dev/null is NOT used here on purpose (unlike the
+        # -it keeps Ctrl+C reaching the launch; </dev/null is NOT used here on purpose (unlike the
         # other exec calls) because this one is the foreground process of the run.
-        exec docker exec -it "${CENV[@]}" "$HIL_ORIN_CONTAINER" bash -lc \
+        # Without a terminal (hil_night.sh starts it in the background) -t would refuse to run:
+        # then there is no Ctrl+C either, and the launch is stopped from inside the container
+        # (hil_night.sh stack_down), since killing a tty-less `docker exec` leaves it running.
+        TTYF=(-i); [ -t 0 ] && [ -t 1 ] && TTYF=(-it)
+        exec docker exec "${TTYF[@]}" "${CENV[@]}" "$HIL_ORIN_CONTAINER" bash -lc \
           ". /opt/f1tenth_ws/scripts/env/jazzy.sh; exec $(printf '%q ' "${LAUNCH[@]}")" ;;
       check)
         # hil_check is copied in rather than taken from the image: the image is built from
