@@ -58,14 +58,6 @@
       <!-- Only used when @ASYNC_WRITER@ is rendered (hil.yaml link.async_writer: true): it shapes
            the image bursts instead of letting one 0.92 MB sample go out as fast as the NIC takes
            it. Declared always; an unused descriptor costs nothing. -->
-      <flow_controller_descriptors>
-        <flow_controller_descriptor>
-          <name>hil_images</name>
-          <scheduler>FIFO</scheduler>
-          <max_bytes_per_period>@FLOW_BYTES@</max_bytes_per_period>
-          <period_ms>10</period_ms>
-        </flow_controller_descriptor>
-      </flow_controller_descriptors>
     </rtps>
   </participant>
 @ASYNC_WRITER@

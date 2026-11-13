@@ -1,0 +1,21 @@
+
+Files:             bag_0.mcap
+Bag size:          2.4 GiB
+Storage id:        mcap
+ROS Distro:        jazzy
+Duration:          153.988030694s
+Start:             Nov 12 2026 16:03:53.392644202 (1794495833.392644202)
+End:               Nov 12 2026 16:06:27.380674896 (1794495987.380674896)
+Messages:          33420
+Topic information: Topic: /camera/camera_info | Type: sensor_msgs/msg/CameraInfo | Count: 1540 | Serialization Format: cdr
+                   Topic: /camera/image_raw | Type: sensor_msgs/msg/Image | Count: 1540 | Serialization Format: cdr
+                   Topic: /clock | Type: rosgraph_msgs/msg/Clock | Count: 9235 | Serialization Format: cdr
+                   Topic: /hydra/backend/dsg | Type: hydra_msgs/msg/DsgUpdate | Count: 214 | Serialization Format: cdr
+                   Topic: /hydra/backend/dsg_mesh | Type: kimera_pgmo_msgs/msg/Mesh | Count: 72 | Serialization Format: cdr
+                   Topic: /hydra/status | Type: std_msgs/msg/String | Count: 308 | Serialization Format: cdr
+                   Topic: /sim/ground_truth/front_range | Type: sensor_msgs/msg/Range | Count: 3078 | Serialization Format: cdr
+                   Topic: /sim/ground_truth/left/semantic | Type: sensor_msgs/msg/Image | Count: 1539 | Serialization Format: cdr
+                   Topic: /sim/ground_truth/odom | Type: nav_msgs/msg/Odometry | Count: 7695 | Serialization Format: cdr
+                   Topic: /tf | Type: tf2_msgs/msg/TFMessage | Count: 8199 | Serialization Format: cdr
+Service:           0
+Service information: 

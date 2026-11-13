@@ -62,6 +62,16 @@ sim:
     right_camera: false         # nothing in the stack subscribes to it; off saves render time
   extra_set: []                 # extra `--set file.key=value` overrides for sim/main.py
 
+wsl:
+  # Hydra side, on a Windows workstation ONLY. Hydra needs Ubuntu 24.04 + Jazzy + GTSAM/PCL, so it
+  # cannot run on Windows, where Isaac must run natively (the RTX renderer does not work inside
+  # Docker Desktop/WSL2). A WSL2 distro on the same PC is therefore where Hydra goes, and
+  # `hil_win.py sim --net wsl` renders config/sim/dds/wsl.xml.in so the two can meet over DDS.
+  # Only the NAME is configured: both addresses are read from the running distro at every launch,
+  # because a WSL restart changes them. The Linux side renders the same template with
+  # scripts/hydra/wsl_dds_profile.sh. Irrelevant on a Linux workstation.
+  distro: Ubuntu-24.04
+
 orin:
   # Stack side. ssh is used by sim_isaac_hil's preflight (domain/RMW/clock checks) and by setup.md.
   ssh: fabiocar@10.42.60.2
@@ -69,6 +79,10 @@ orin:
   container: f1tenth_car                       # docker/orin/compose.yaml (service car)
   image: ''                                    # empty: take it from ~/.config/f1tenth/car_image
   stack_args: ''                               # extra `k:=v` arguments for supervisor_bringup
+  # Directory of the .gguf models for the LLM planner (enable_intelligence:=true), mounted read-only
+  # at the same path in the container. llama.cpp itself is already in the image (/opt/llama.cpp).
+  # Empty: no mount, no LLM. The planner's default model is qwen2.5-3b-instruct-q5_k_m.gguf.
+  models_dir: ''
   # The container must run with host networking (the Orin has no docker bridge at all: its kernel
   # cannot load bridge.ko, see CLAUDE.md "Orin Docker"). The scripts check this and refuse.
   require_host_network: true

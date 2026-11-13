@@ -45,7 +45,13 @@ frontend:
     filter_ground: false
     gvd:
       max_distance_m: 4.5
-      min_distance_m: 0.2
+      # MUST be < truncation_distance (0.15 above), or GvdPlaceExtractor::detect() logs
+      # "GVD integrator min distance must be less than truncation distance" and returns
+      # immediately on every frame: the PLACES layer stays empty and rooms never appear
+      # (hydra/src/frontend/gvd_place_extractor.cpp:120). 0.2 was left over from the 0.1 m
+      # voxel / 0.3 truncation of habitat (still correct in jetson_min.yaml); halved with
+      # them it is 0.1, the same 2/3 of truncation.
+      min_distance_m: 0.1            # 0.2 at 0.1 m voxels
       min_diff_m: 0.1
       voronoi_config:
         mode: L1_THEN_ANGLE
