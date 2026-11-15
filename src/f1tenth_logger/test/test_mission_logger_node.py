@@ -427,6 +427,28 @@ class TestRunMetadata:
         assert 'yolo_model' in open(run['params_snapshot_path']).read()
         node.destroy_node()
 
+    @pytest.mark.parametrize('alive, expected', [
+        (['mpc_corr'], 'corridor_mpc'),
+        (['corridor_rrt'], 'corridor_rrt'),
+        (['p2p_geometric'], 'p2p_geometric'),
+        ([], 'unknown'),
+        (['mpc_corr', 'corridor_rrt'], 'unknown'),
+    ])
+    def test_manifest_records_the_planner_mode_actually_running(
+            self, tmp_path, alive, expected):
+        """The mode is read from the live controller node, not from stack_params.yaml
+        (whose default says corridor_mpc whatever the run used)."""
+        node = _make_node(tmp_path)
+        node.get_node_names_and_namespaces = lambda: [(n, '/') for n in alive + ['other']]
+        node.get_publishers_info_by_topic = lambda topic: []
+        run = self._run(tmp_path)
+        node._write_manifest(run)
+        with open(run['manifest_path']) as fh:
+            data = json.load(fh)
+        assert data['planner_controller_mode'] == expected
+        assert 'stack_launch_cmd' in data
+        node.destroy_node()
+
     def test_resolved_params_snapshot_includes_key_switches(self, tmp_path):
         node = _make_node(tmp_path)
         resolved = node._resolved_params()

@@ -846,6 +846,42 @@ def read_image_provenance(sources_path, car_sync_path):
     return info
 
 
+def planner_mode_from_node_names(names):
+    """Pure: the planner_controller_mode whose controller node is in `names`.
+
+    Exactly one controller node alive -> its mode. None, or more than one (a
+    stale node from the previous mode inside the DDS lease) -> 'unknown': the
+    manifest never guesses. The mode in stack_params.yaml is NOT consulted, it
+    is only the default and says corridor_mpc for a corridor_rrt run.
+    """
+    from f1tenth_params.planner_modes import CONTROLLER_NODE_NAMES
+    names = set(names)
+    alive = [mode for mode, node in CONTROLLER_NODE_NAMES.items() if node in names]
+    return alive[0] if len(alive) == 1 else 'unknown'
+
+
+def stack_launch_cmd(proc_root='/proc'):
+    """Best effort: the command line of the stack's top-level launch, else None.
+
+    Read from /proc, so it sees the launch arguments the stack really got
+    (profile + ~/.config/f1tenth_car/stack_args), which resolved_params cannot.
+    """
+    try:
+        pids = sorted((e for e in os.listdir(proc_root) if e.isdigit()), key=int)
+    except OSError:
+        return None
+    for pid in pids:
+        try:
+            with open(os.path.join(proc_root, pid, 'cmdline'), 'rb') as fh:
+                argv = [a for a in fh.read().decode(errors='replace').split('\0') if a]
+        except OSError:
+            continue
+        if any(a.endswith(('supervisor_bringup.launch.py', 'stack_bringup.launch.py'))
+               for a in argv):
+            return ' '.join(argv)
+    return None
+
+
 def write_archive_trigger(path, run_id):
     """Write the archive-sync request at `path` atomically.
 
@@ -1353,7 +1389,29 @@ class MissionLoggerNode(Node):
         except Exception as exc:  # noqa: BLE001
             self.get_logger().warn(f'could not snapshot stack_params.yaml: {exc}')
 
+    def _planner_controller_mode(self):
+        """The mode in effect, from which controller node is alive; 'unknown' if unsure.
+
+        Node names come from the graph and from the publishers of
+        /mpc/object_status (every mode publishes it), so a partial view under
+        the Discovery Server still finds the controller.
+        """
+        try:
+            names = {name for name, _ns in self.get_node_names_and_namespaces()}
+            names |= {info.node_name
+                      for info in self.get_publishers_info_by_topic('/mpc/object_status')}
+        except Exception as exc:  # noqa: BLE001 - the manifest must still be written
+            self.get_logger().warn(f'could not read the graph for planner_controller_mode: {exc}')
+            return 'unknown'
+        return planner_mode_from_node_names(names)
+
     def _write_manifest(self, run):
+        # Sticky once known, retried while 'unknown' (the controller may not have
+        # been discovered yet when the manifest is first written at LOADED).
+        if run.get('planner_controller_mode') in (None, 'unknown'):
+            run['planner_controller_mode'] = self._planner_controller_mode()
+        if run.get('stack_launch_cmd') is None:
+            run['stack_launch_cmd'] = stack_launch_cmd()
         payload = dict(run)
         payload['resolved_params'] = self._resolved_params()
         payload['git'] = self._git_state()
