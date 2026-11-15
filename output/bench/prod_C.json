@@ -1,0 +1,4868 @@
+{
+ "meta": {
+  "git_head": "82b4298c+dirty",
+  "ros_domain_id": "0",
+  "rmw_implementation": "rmw_fastrtps_cpp",
+  "ros_discovery_server": "127.0.0.1:11811",
+  "fastdds_profile": "/opt/f1tenth_ws/src/f1tenth_bringup/config/fastdds_profile.xml",
+  "mode": "oneshot",
+  "planner_pythonpath": null,
+  "time": "2026-11-09T12:22:27",
+  "image_sources": [
+   "commit 5802e16fb500eedb4abbb8b86e8ea5d5f9348365",
+   "subject llm: planner llama-server -c 4096 (one slot, 144 MiB of KV instead of 1152)",
+   "branch door-goal-debug",
+   "describe night-start/pwa-control-origin-224-g5802e16fb500"
+  ],
+  "llama_server_cmdline": "/opt/llama.cpp/bin/llama-server -m /home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf --port 8083 -ngl 999 -np 1 -c 4096",
+  "ros2_daemon_running": false,
+  "llama_server_props": {
+   "model_path": "/home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf",
+   "total_slots": 1,
+   "build_info": "b1-42532af",
+   "n_ctx": 4096
+  },
+  "planner_module": "/opt/f1tenth_ws/install/lib/python3.12/site-packages/llm/llm_planner_node.py",
+  "flow": "production",
+  "image_ref": "f1tenth:jazzy-orin-5802e16-norust",
+  "planner_unit": {
+   "cmdline": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/llm/llm_planner_node --dry-run",
+   "dry_run": true,
+   "idle_s": 271.8301999568939
+  },
+  "ctl": "/tmp/f1t_bench/ctl_overlay/bin/f1tenth_ctl",
+  "first_move": "first /ackermann_drive after RUNNING with |drive.speed| > 0.001 (|drive.steering_angle| when the first move is a turn)"
+ },
+ "runs": [
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 0,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 274.11732482910156,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.17143183500002124,
+    "t_plan_fetched": 0.6996704339999269,
+    "t_plan_done": 0.6641884460000256,
+    "t_load_call": 0.7000360990000445,
+    "t_load_ret": 0.866679693000151,
+    "t_loaded": 0.8389067900002374,
+    "t_start_call": 0.8668502220002665,
+    "t_start_ret": 1.0457303729999694
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.511,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.505,
+     "translate_s": 0.005,
+     "services_s": 0.0,
+     "total_s": 0.513
+    }
+   },
+   "latency": {
+    "llm_s": 0.51,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.51
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:22:31+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto e fermati a due metri dal muro",
+     "cursor": 411382,
+     "running": true,
+     "elapsed_s": 0.02
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.06
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122232-bf7938",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.17143183500002124,
+    "llm_and_ctl": 0.6641884460000256,
+    "fetch_cli": 0.03548198799990132,
+    "pause": 0.0005361940002330812,
+    "load_cli": 0.1388706910001929,
+    "start_cli": null,
+    "ready_cli": 0.1788801509997029,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.6996704339999269,
+    "total_to_refusal": 1.0451941789997363
+   }
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 0,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.395125389099121,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.1303459880000446,
+    "t_plan_fetched": 0.556221585000003,
+    "t_plan_done": 0.5238870329999372,
+    "t_load_call": 0.5565601469998,
+    "t_load_ret": 1.2055504619997919,
+    "t_loaded": 1.1774103249999825,
+    "t_start_call": 1.2056905899999038,
+    "t_start_ret": 1.3817625719998432
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_5e38c1a86f41",
+    "schema_version": "5.0",
+    "n_moves": 1,
+    "plan_seconds": 0.411,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_5e38c1a86f41",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_5e38c1a86f41.json",
+    "latency": {
+     "llm_s": 0.405,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.413
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.41
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:22:34+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dalla persona",
+     "cursor": 413405,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.54
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122234-2661d2",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.1303459880000446,
+    "llm_and_ctl": 0.5238870329999372,
+    "fetch_cli": 0.03233455200006574,
+    "pause": 0.00047868999990896555,
+    "load_cli": 0.6208501780001825,
+    "start_cli": null,
+    "ready_cli": 0.17607198199993945,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.556221585000003,
+    "total_to_refusal": 1.3812838819999342
+   }
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 0,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.871664047241211,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.13820681799961676,
+    "t_plan_fetched": 1.1671097509997708,
+    "t_plan_done": 1.102870055999574,
+    "t_load_call": 1.1675509049996435,
+    "t_load_ret": 1.3361008439997022,
+    "t_loaded": 1.3089268229996378,
+    "t_start_call": 1.3362353729999086,
+    "t_start_ret": 1.5101078919997235
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 0.983,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.977,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.985
+    }
+   },
+   "latency": {
+    "llm_s": 0.98,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.98
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:22:37+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto, al muro gira a destra e avanza 2 metri",
+     "cursor": 415554,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.06
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.06,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122238-60fe55",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.13820681799961676,
+    "llm_and_ctl": 1.102870055999574,
+    "fetch_cli": 0.06423969500019666,
+    "pause": 0.0005756830000791524,
+    "load_cli": 0.14137591799999427,
+    "start_cli": null,
+    "ready_cli": 0.17387251899981493,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 1.1671097509997708,
+    "total_to_refusal": 1.5095322089996444
+   }
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 1,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.4256927967071533,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.15405580700007704,
+    "t_plan_fetched": 0.6798147579997931,
+    "t_plan_done": 0.6471216439999807,
+    "t_load_call": 0.6801112069997544,
+    "t_load_ret": 0.8387687269996604,
+    "t_loaded": 0.813046070999917,
+    "t_start_call": 0.838904982999793,
+    "t_start_ret": 1.0149799119999443
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.509,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.503,
+     "translate_s": 0.005,
+     "services_s": 0.0,
+     "total_s": 0.511
+    }
+   },
+   "latency": {
+    "llm_s": 0.5,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.51
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:22:41+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto e fermati a due metri dal muro",
+     "cursor": 418955,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122242-bf7938",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.15405580700007704,
+    "llm_and_ctl": 0.6471216439999807,
+    "fetch_cli": 0.03269311399981234,
+    "pause": 0.00043270500009384705,
+    "load_cli": 0.13293486400016263,
+    "start_cli": null,
+    "ready_cli": 0.17607492900015131,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.6798147579997931,
+    "total_to_refusal": 1.0145472069998505
+   }
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 1,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.3878917694091797,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.14314370300007795,
+    "t_plan_fetched": 0.5941273700000238,
+    "t_plan_done": 0.5356556639999326,
+    "t_load_call": 0.5944686190000539,
+    "t_load_ret": 0.7495040140001947,
+    "t_loaded": 0.7241388000002189,
+    "t_start_call": 0.7496472470002118,
+    "t_start_ret": 0.9267330600000605
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_5e38c1a86f41",
+    "schema_version": "5.0",
+    "n_moves": 1,
+    "plan_seconds": 0.416,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_5e38c1a86f41",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_5e38c1a86f41.json",
+    "latency": {
+     "llm_s": 0.41,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.418
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.42
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:22:44+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dalla persona",
+     "cursor": 420978,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122244-2661d2",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.14314370300007795,
+    "llm_and_ctl": 0.5356556639999326,
+    "fetch_cli": 0.05847170600009122,
+    "pause": 0.00048448200004713726,
+    "load_cli": 0.12967018100016503,
+    "start_cli": null,
+    "ready_cli": 0.1770858129998487,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.5941273700000238,
+    "total_to_refusal": 0.9262485780000134
+   }
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 1,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.41323184967041,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.12662668200027838,
+    "t_plan_fetched": 1.1609509980003168,
+    "t_plan_done": 1.0886799750001046,
+    "t_load_call": 1.1613597990003655,
+    "t_load_ret": 1.3265863690003243,
+    "t_loaded": 1.2990835460000199,
+    "t_start_call": 1.326724194000235,
+    "t_start_ret": 1.5013861269999325
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 0.98,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.974,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.982
+    }
+   },
+   "latency": {
+    "llm_s": 0.97,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.98
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:22:47+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto, al muro gira a destra e avanza 2 metri",
+     "cursor": 423126,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122248-60fe55",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.12662668200027838,
+    "llm_and_ctl": 1.0886799750001046,
+    "fetch_cli": 0.07227102300021215,
+    "pause": 0.0005466259999593603,
+    "load_cli": 0.1377237469996544,
+    "start_cli": null,
+    "ready_cli": 0.17466193299969746,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 1.1609509980003168,
+    "total_to_refusal": 1.500839500999973
+   }
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 2,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.434760093688965,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.13860205499986478,
+    "t_plan_fetched": 0.6665694090002034,
+    "t_plan_done": 0.6288677960001223,
+    "t_load_call": 0.6668725780000386,
+    "t_load_ret": 0.8253156360001412,
+    "t_loaded": 0.7981461899998976,
+    "t_start_call": 0.8254506439998295,
+    "t_start_ret": 1.0016438170000583
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.507,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.502,
+     "translate_s": 0.005,
+     "services_s": 0.0,
+     "total_s": 0.509
+    }
+   },
+   "latency": {
+    "llm_s": 0.5,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.51
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:22:50+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto e fermati a due metri dal muro",
+     "cursor": 426526,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122251-bf7938",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.13860205499986478,
+    "llm_and_ctl": 0.6288677960001223,
+    "fetch_cli": 0.037701613000081124,
+    "pause": 0.0004381769995234208,
+    "load_cli": 0.13127361199985899,
+    "start_cli": null,
+    "ready_cli": 0.17619317300022885,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.6665694090002034,
+    "total_to_refusal": 1.001205640000535
+   }
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 2,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.3936445713043213,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.13249428899962368,
+    "t_plan_fetched": 0.5582021259997418,
+    "t_plan_done": 0.5232451629999559,
+    "t_load_call": 0.5585123999999269,
+    "t_load_ret": 0.7269147919996612,
+    "t_loaded": 0.6975215929996921,
+    "t_start_call": 0.7270457359995817,
+    "t_start_ret": 0.904503745999591
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_5e38c1a86f41",
+    "schema_version": "5.0",
+    "n_moves": 1,
+    "plan_seconds": 0.407,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_5e38c1a86f41",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_5e38c1a86f41.json",
+    "latency": {
+     "llm_s": 0.401,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.409
+    }
+   },
+   "latency": {
+    "llm_s": 0.4,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.41
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:22:54+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dalla persona",
+     "cursor": 428549,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.06
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122254-2661d2",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.13249428899962368,
+    "llm_and_ctl": 0.5232451629999559,
+    "fetch_cli": 0.0349569629997859,
+    "pause": 0.00044121800010543666,
+    "load_cli": 0.13900919299976522,
+    "start_cli": null,
+    "ready_cli": 0.17745801000000938,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.5582021259997418,
+    "total_to_refusal": 0.9040625279994856
+   }
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 2,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.4048056602478027,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.18473506199961776,
+    "t_plan_fetched": 1.178693132999797,
+    "t_plan_done": 1.138276852999752,
+    "t_load_call": 1.1790790219997689,
+    "t_load_ret": 1.3366892149997511,
+    "t_loaded": 1.3107436769996639,
+    "t_start_call": 1.3368202869996821,
+    "t_start_ret": 1.50932637599999
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 0.981,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.975,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.983
+    }
+   },
+   "latency": {
+    "llm_s": 0.97,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.98
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:22:56+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto, al muro gira a destra e avanza 2 metri",
+     "cursor": 430698,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122257-60fe55",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.18473506199961776,
+    "llm_and_ctl": 1.138276852999752,
+    "fetch_cli": 0.040416280000044935,
+    "pause": 0.000516960999902949,
+    "load_cli": 0.131664654999895,
+    "start_cli": null,
+    "ready_cli": 0.17250608900030784,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 1.178693132999797,
+    "total_to_refusal": 1.508809415000087
+   }
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 3,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.3887948989868164,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.21946057000013752,
+    "t_plan_fetched": 0.7503522320002958,
+    "t_plan_done": 0.704925373000151,
+    "t_load_call": 0.7506551139999829,
+    "t_load_ret": 0.911213126000348,
+    "t_loaded": 0.8824155460001748,
+    "t_start_call": 0.9113460230000783,
+    "t_start_ret": 1.0849842440002249
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.509,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.503,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.511
+    }
+   },
+   "latency": {
+    "llm_s": 0.5,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.51
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:00+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto e fermati a due metri dal muro",
+     "cursor": 434099,
+     "running": true,
+     "elapsed_s": 0.02
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.04
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122301-bf7938",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.21946057000013752,
+    "llm_and_ctl": 0.704925373000151,
+    "fetch_cli": 0.04542685900014476,
+    "pause": 0.00043577899941737996,
+    "load_cli": 0.13176043200019194,
+    "start_cli": null,
+    "ready_cli": 0.1736382210001466,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.7503522320002958,
+    "total_to_refusal": 1.0845484650008075
+   }
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 3,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.40010929107666,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.15877016700005697,
+    "t_plan_fetched": 0.5861097609999888,
+    "t_plan_done": 0.5458305049996852,
+    "t_load_call": 0.5864238429999205,
+    "t_load_ret": 0.7461476769999535,
+    "t_loaded": 0.7203890840000895,
+    "t_start_call": 0.7462822049997158,
+    "t_start_ret": 0.9253878409999743
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_5e38c1a86f41",
+    "schema_version": "5.0",
+    "n_moves": 1,
+    "plan_seconds": 0.414,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_5e38c1a86f41",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_5e38c1a86f41.json",
+    "latency": {
+     "llm_s": 0.409,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.416
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.42
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:03+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dalla persona",
+     "cursor": 436122,
+     "running": true,
+     "elapsed_s": 0.02
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122304-2661d2",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.15877016700005697,
+    "llm_and_ctl": 0.5458305049996852,
+    "fetch_cli": 0.040279256000303576,
+    "pause": 0.00044860999969387194,
+    "load_cli": 0.13396524100016904,
+    "start_cli": null,
+    "ready_cli": 0.17910563600025853,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.5861097609999888,
+    "total_to_refusal": 0.9249392310002804
+   }
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 3,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.399139404296875,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.14994424599990452,
+    "t_plan_fetched": 1.193421305999891,
+    "t_plan_done": 1.127587073000086,
+    "t_load_call": 1.1938322510000035,
+    "t_load_ret": 1.3461359620000621,
+    "t_loaded": 1.3162694180000472,
+    "t_start_call": 1.3462692110001626,
+    "t_start_ret": 1.522847574000025
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 1.0,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.994,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 1.002
+    }
+   },
+   "latency": {
+    "llm_s": 0.99,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 1.0
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:06+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto, al muro gira a destra e avanza 2 metri",
+     "cursor": 438271,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.04
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122307-60fe55",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.14994424599990452,
+    "llm_and_ctl": 1.127587073000086,
+    "fetch_cli": 0.06583423299980495,
+    "pause": 0.0005441940002128831,
+    "load_cli": 0.1224371670000437,
+    "start_cli": null,
+    "ready_cli": 0.1765783629998623,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 1.193421305999891,
+    "total_to_refusal": 1.522303379999812
+   }
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 4,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.420452833175659,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.14716852499987,
+    "t_plan_fetched": 0.7099288609997529,
+    "t_plan_done": 0.6384813589997975,
+    "t_load_call": 0.710241085999769,
+    "t_load_ret": 0.8773471259996768,
+    "t_loaded": 0.8513752519997979,
+    "t_start_call": 0.8774827429997458,
+    "t_start_ret": 1.0510901200000262
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.514,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.509,
+     "translate_s": 0.005,
+     "services_s": 0.0,
+     "total_s": 0.516
+    }
+   },
+   "latency": {
+    "llm_s": 0.51,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.52
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:10+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto e fermati a due metri dal muro",
+     "cursor": 441670,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.06,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122310-bf7938",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.14716852499987,
+    "llm_and_ctl": 0.6384813589997975,
+    "fetch_cli": 0.07144750199995542,
+    "pause": 0.0004478420000850747,
+    "load_cli": 0.14113416600002893,
+    "start_cli": null,
+    "ready_cli": 0.1736073770002804,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.7099288609997529,
+    "total_to_refusal": 1.0506422779999411
+   }
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 4,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.4333932399749756,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.15607659100032834,
+    "t_plan_fetched": 0.5878589940002712,
+    "t_plan_done": 0.5435028580000107,
+    "t_load_call": 0.5881689480002024,
+    "t_load_ret": 0.742819868999959,
+    "t_loaded": 0.7160171119999177,
+    "t_start_call": 0.7429553900001338,
+    "t_start_ret": 0.9218567390003045
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_5e38c1a86f41",
+    "schema_version": "5.0",
+    "n_moves": 1,
+    "plan_seconds": 0.415,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_5e38c1a86f41",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_5e38c1a86f41.json",
+    "latency": {
+     "llm_s": 0.409,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.417
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.42
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:13+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dalla persona",
+     "cursor": 443693,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.04
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122313-2661d2",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.15607659100032834,
+    "llm_and_ctl": 0.5435028580000107,
+    "fetch_cli": 0.04435613600026045,
+    "pause": 0.00044547500010594376,
+    "load_cli": 0.12784816399971533,
+    "start_cli": null,
+    "ready_cli": 0.17890134900017074,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.5878589940002712,
+    "total_to_refusal": 0.9214112640001986
+   }
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 4,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.4039766788482666,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.13025553399984346,
+    "t_plan_fetched": 1.1579265679997661,
+    "t_plan_done": 1.1054427849999229,
+    "t_load_call": 1.1583122009997169,
+    "t_load_ret": 1.3198400139999649,
+    "t_loaded": 1.292339205999724,
+    "t_start_call": 1.319970414999716,
+    "t_start_ret": 1.4920564439998998
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 0.989,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.983,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.991
+    }
+   },
+   "latency": {
+    "llm_s": 0.98,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.99
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:16+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto, al muro gira a destra e avanza 2 metri",
+     "cursor": 445842,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.06,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122317-60fe55",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.13025553399984346,
+    "llm_and_ctl": 1.1054427849999229,
+    "fetch_cli": 0.05248378299984324,
+    "pause": 0.0005160339997019037,
+    "load_cli": 0.1340270050000072,
+    "start_cli": null,
+    "ready_cli": 0.17208602900018377,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 1.1579265679997661,
+    "total_to_refusal": 1.4915404100001979
+   }
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 5,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.408536911010742,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.11588316000006671,
+    "t_plan_fetched": 0.6437093249996906,
+    "t_plan_done": 0.6099856129999353,
+    "t_load_call": 0.6440219339997384,
+    "t_load_ret": 0.8149036069999056,
+    "t_loaded": 0.7887279560000025,
+    "t_start_call": 0.8150459439998485,
+    "t_start_ret": 0.992666010999983
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.509,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.503,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.511
+    }
+   },
+   "latency": {
+    "llm_s": 0.5,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.51
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:19+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto e fermati a due metri dal muro",
+     "cursor": 449243,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.06
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122320-bf7938",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.11588316000006671,
+    "llm_and_ctl": 0.6099856129999353,
+    "fetch_cli": 0.033723711999755324,
+    "pause": 0.00045494599999074126,
+    "load_cli": 0.14470602200026406,
+    "start_cli": null,
+    "ready_cli": 0.17762006700013444,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.6437093249996906,
+    "total_to_refusal": 0.9922110649999922
+   }
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 5,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.3994805812835693,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.11930237400019905,
+    "t_plan_fetched": 0.5481581809999625,
+    "t_plan_done": 0.5178198260000499,
+    "t_load_call": 0.5484977340001933,
+    "t_load_ret": 0.7030669629998556,
+    "t_loaded": 0.6782828039999913,
+    "t_start_call": 0.7032031869998718,
+    "t_start_ret": 0.8776787950000653
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_5e38c1a86f41",
+    "schema_version": "5.0",
+    "n_moves": 1,
+    "plan_seconds": 0.412,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_5e38c1a86f41",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_5e38c1a86f41.json",
+    "latency": {
+     "llm_s": 0.405,
+     "translate_s": 0.007,
+     "services_s": 0.0,
+     "total_s": 0.415
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.41
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:22+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dalla persona",
+     "cursor": 451266,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.06,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122323-2661d2",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.11930237400019905,
+    "llm_and_ctl": 0.5178198260000499,
+    "fetch_cli": 0.030338354999912553,
+    "pause": 0.0004757770002470352,
+    "load_cli": 0.129785069999798,
+    "start_cli": null,
+    "ready_cli": 0.17447560800019346,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.5481581809999625,
+    "total_to_refusal": 0.8772030179998183
+   }
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 5,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.391850471496582,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.12854167399973448,
+    "t_plan_fetched": 1.1574191939998855,
+    "t_plan_done": 1.1056687569998758,
+    "t_load_call": 1.1578165389996684,
+    "t_load_ret": 1.3216044920000058,
+    "t_loaded": 1.2927894379999998,
+    "t_start_call": 1.321738379999715,
+    "t_start_ret": 1.5002652039997884
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 0.991,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.983,
+     "translate_s": 0.007,
+     "services_s": 0.0,
+     "total_s": 0.993
+    }
+   },
+   "latency": {
+    "llm_s": 0.98,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.99
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:25+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto, al muro gira a destra e avanza 2 metri",
+     "cursor": 453415,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.04
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122326-60fe55",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.12854167399973448,
+    "llm_and_ctl": 1.1056687569998758,
+    "fetch_cli": 0.0517504370000097,
+    "pause": 0.0005312329994922038,
+    "load_cli": 0.13497289900033138,
+    "start_cli": null,
+    "ready_cli": 0.17852682400007325,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 1.1574191939998855,
+    "total_to_refusal": 1.4997339710002962
+   }
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 6,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.4279422760009766,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.151417794000281,
+    "t_plan_fetched": 0.7047619539998777,
+    "t_plan_done": 0.6525140419998934,
+    "t_load_call": 0.7050690270002633,
+    "t_load_ret": 0.8661789540001337,
+    "t_loaded": 0.839907494000272,
+    "t_start_call": 0.8663132259998747,
+    "t_start_ret": 1.0463219450002725
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.525,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.519,
+     "translate_s": 0.005,
+     "services_s": 0.0,
+     "total_s": 0.527
+    }
+   },
+   "latency": {
+    "llm_s": 0.52,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.53
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:29+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto e fermati a due metri dal muro",
+     "cursor": 456816,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122329-bf7938",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.151417794000281,
+    "llm_and_ctl": 0.6525140419998934,
+    "fetch_cli": 0.05224791199998435,
+    "pause": 0.0004413450001266028,
+    "load_cli": 0.13483846700000868,
+    "start_cli": null,
+    "ready_cli": 0.18000871900039783,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.7047619539998777,
+    "total_to_refusal": 1.045880600000146
+   }
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 6,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.4176814556121826,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.14066581799988853,
+    "t_plan_fetched": 0.5663717319998796,
+    "t_plan_done": 0.5339382319998549,
+    "t_load_call": 0.566701686000215,
+    "t_load_ret": 0.7183133049998105,
+    "t_loaded": 0.691954676000023,
+    "t_start_call": 0.7184448580001117,
+    "t_start_ret": 0.8917763680001372
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_5e38c1a86f41",
+    "schema_version": "5.0",
+    "n_moves": 1,
+    "plan_seconds": 0.411,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_5e38c1a86f41",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_5e38c1a86f41.json",
+    "latency": {
+     "llm_s": 0.405,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.413
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.41
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:32+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dalla persona",
+     "cursor": 458839,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.04
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122332-2661d2",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.14066581799988853,
+    "llm_and_ctl": 0.5339382319998549,
+    "fetch_cli": 0.03243350000002465,
+    "pause": 0.00046150700063662953,
+    "load_cli": 0.12525298999980805,
+    "start_cli": null,
+    "ready_cli": 0.17333151000002545,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.5663717319998796,
+    "total_to_refusal": 0.8913148609995005
+   }
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 6,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.3902711868286133,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.18214815300007103,
+    "t_plan_fetched": 1.2115318050000496,
+    "t_plan_done": 1.1557407110003624,
+    "t_load_call": 1.2119555819999732,
+    "t_load_ret": 1.3730027589999736,
+    "t_loaded": 1.346346337000341,
+    "t_start_call": 1.373136039000201,
+    "t_start_ret": 1.5502505730000848
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 0.987,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.981,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.989
+    }
+   },
+   "latency": {
+    "llm_s": 0.98,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.99
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:35+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto, al muro gira a destra e avanza 2 metri",
+     "cursor": 460988,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122336-60fe55",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.18214815300007103,
+    "llm_and_ctl": 1.1557407110003624,
+    "fetch_cli": 0.05579109399968729,
+    "pause": 0.0005570570001509623,
+    "load_cli": 0.1343907550003678,
+    "start_cli": null,
+    "ready_cli": 0.17711453399988386,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 1.2115318050000496,
+    "total_to_refusal": 1.5496935159999339
+   }
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 7,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.42568302154541,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.17078222300006018,
+    "t_plan_fetched": 0.7183803849998185,
+    "t_plan_done": 0.6671834849998959,
+    "t_load_call": 0.7187203550001868,
+    "t_load_ret": 0.8760498219999135,
+    "t_loaded": 0.8494166639998184,
+    "t_start_call": 0.8761876140001732,
+    "t_start_ret": 1.0503097539999544
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.51,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.504,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.512
+    }
+   },
+   "latency": {
+    "llm_s": 0.5,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.51
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:38+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto e fermati a due metri dal muro",
+     "cursor": 464389,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.06,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122339-bf7938",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.17078222300006018,
+    "llm_and_ctl": 0.6671834849998959,
+    "fetch_cli": 0.05119689999992261,
+    "pause": 0.00047776200062799035,
+    "load_cli": 0.13069630899963158,
+    "start_cli": null,
+    "ready_cli": 0.1741221399997812,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.7183803849998185,
+    "total_to_refusal": 1.0498319919993264
+   }
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 7,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.4118194580078125,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.1822276109996892,
+    "t_plan_fetched": 0.6190769999998338,
+    "t_plan_done": 0.5715271849999226,
+    "t_load_call": 0.6194019290001052,
+    "t_load_ret": 0.780618611999671,
+    "t_loaded": 0.7551176179999857,
+    "t_start_call": 0.7807544520001102,
+    "t_start_ret": 0.9620283639997069
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_5e38c1a86f41",
+    "schema_version": "5.0",
+    "n_moves": 1,
+    "plan_seconds": 0.416,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_5e38c1a86f41",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_5e38c1a86f41.json",
+    "latency": {
+     "llm_s": 0.41,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.418
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.42
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:41+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dalla persona",
+     "cursor": 466411,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122342-2661d2",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.1822276109996892,
+    "llm_and_ctl": 0.5715271849999226,
+    "fetch_cli": 0.04754981499991118,
+    "pause": 0.00046076900071057025,
+    "load_cli": 0.1357156889998805,
+    "start_cli": null,
+    "ready_cli": 0.18127391199959675,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.6190769999998338,
+    "total_to_refusal": 0.9615675949989964
+   }
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 7,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.430520534515381,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.21135326000012356,
+    "t_plan_fetched": 1.2436742199997752,
+    "t_plan_done": 1.1792538760000753,
+    "t_load_call": 1.2440920129997721,
+    "t_load_ret": 1.3986530560000574,
+    "t_loaded": 1.3719786490000843,
+    "t_start_call": 1.3987933439998415,
+    "t_start_ret": 1.5829455080001935
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 0.987,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.98,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.989
+    }
+   },
+   "latency": {
+    "llm_s": 0.98,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.99
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:44+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto, al muro gira a destra e avanza 2 metri",
+     "cursor": 468559,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122345-60fe55",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.21135326000012356,
+    "llm_and_ctl": 1.1792538760000753,
+    "fetch_cli": 0.06442034399969998,
+    "pause": 0.0005580809997809411,
+    "load_cli": 0.12788663600031214,
+    "start_cli": null,
+    "ready_cli": 0.18415216400035206,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 1.2436742199997752,
+    "total_to_refusal": 1.5823874270004126
+   }
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 8,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.4274935722351074,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.12758660400004374,
+    "t_plan_fetched": 0.65373336499988,
+    "t_plan_done": 0.6144390380000004,
+    "t_load_call": 0.6540442460000122,
+    "t_load_ret": 0.8132669070000702,
+    "t_loaded": 0.7869606620001832,
+    "t_start_call": 0.8133978189998743,
+    "t_start_ret": 0.991045960000065
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.503,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.498,
+     "translate_s": 0.005,
+     "services_s": 0.0,
+     "total_s": 0.505
+    }
+   },
+   "latency": {
+    "llm_s": 0.5,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.51
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:48+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto e fermati a due metri dal muro",
+     "cursor": 471959,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122348-bf7938",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.12758660400004374,
+    "llm_and_ctl": 0.6144390380000004,
+    "fetch_cli": 0.03929432699987956,
+    "pause": 0.00044179299993629684,
+    "load_cli": 0.132916416000171,
+    "start_cli": null,
+    "ready_cli": 0.17764814100019066,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.65373336499988,
+    "total_to_refusal": 0.9906041670001287
+   }
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 8,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.4040708541870117,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.12337983499992333,
+    "t_plan_fetched": 0.5512863489998381,
+    "t_plan_done": 0.5187056469999334,
+    "t_load_call": 0.55160922999994,
+    "t_load_ret": 0.7248056729999917,
+    "t_loaded": 0.6958561219998955,
+    "t_start_call": 0.7249427299998388,
+    "t_start_ret": 0.904941375999897
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_5e38c1a86f41",
+    "schema_version": "5.0",
+    "n_moves": 1,
+    "plan_seconds": 0.412,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_5e38c1a86f41",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_5e38c1a86f41.json",
+    "latency": {
+     "llm_s": 0.406,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.414
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.41
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:51+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dalla persona",
+     "cursor": 473982,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.06
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122351-2661d2",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.12337983499992333,
+    "llm_and_ctl": 0.5187056469999334,
+    "fetch_cli": 0.032580701999904704,
+    "pause": 0.00045993799994903384,
+    "load_cli": 0.14424689199995555,
+    "start_cli": null,
+    "ready_cli": 0.17999864600005822,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.5512863489998381,
+    "total_to_refusal": 0.904481437999948
+   }
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 8,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.408254384994507,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.16680534799979796,
+    "t_plan_fetched": 1.1947356199998467,
+    "t_plan_done": 1.1310728779999408,
+    "t_load_call": 1.1951280690000203,
+    "t_load_ret": 1.3548839499999303,
+    "t_loaded": 1.328822057999787,
+    "t_start_call": 1.3550171349997981,
+    "t_start_ret": 1.5316885689999253
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 0.985,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.979,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.987
+    }
+   },
+   "latency": {
+    "llm_s": 0.98,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.99
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:54+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto, al muro gira a destra e avanza 2 metri",
+     "cursor": 476131,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122355-60fe55",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.16680534799979796,
+    "llm_and_ctl": 1.1310728779999408,
+    "fetch_cli": 0.06366274199990585,
+    "pause": 0.0005256340000414639,
+    "load_cli": 0.1336939889997666,
+    "start_cli": null,
+    "ready_cli": 0.1766714340001272,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 1.1947356199998467,
+    "total_to_refusal": 1.5311629349998839
+   }
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 9,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.429696559906006,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.13124492299994017,
+    "t_plan_fetched": 0.6610234190002302,
+    "t_plan_done": 0.6173540980003054,
+    "t_load_call": 0.6613219160003609,
+    "t_load_ret": 0.8323155370003406,
+    "t_loaded": 0.8049541190002856,
+    "t_start_call": 0.8324641140002313,
+    "t_start_ret": 1.0094770220002829
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.503,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.497,
+     "translate_s": 0.005,
+     "services_s": 0.0,
+     "total_s": 0.505
+    }
+   },
+   "latency": {
+    "llm_s": 0.5,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.51
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:23:57+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto e fermati a due metri dal muro",
+     "cursor": 479532,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.06
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122358-bf7938",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.13124492299994017,
+    "llm_and_ctl": 0.6173540980003054,
+    "fetch_cli": 0.04366932099992482,
+    "pause": 0.0004470740000215301,
+    "load_cli": 0.14363220299992463,
+    "start_cli": null,
+    "ready_cli": 0.17701290800005154,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.6610234190002302,
+    "total_to_refusal": 1.0090299480002614
+   }
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 9,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.418016195297241,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.12380294299964589,
+    "t_plan_fetched": 0.5488676289996874,
+    "t_plan_done": 0.5189719929999228,
+    "t_load_call": 0.5491814859997248,
+    "t_load_ret": 0.7032460179998452,
+    "t_loaded": 0.673692175999804,
+    "t_start_call": 0.7033772509998926,
+    "t_start_ret": 0.8848850249996758
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_5e38c1a86f41",
+    "schema_version": "5.0",
+    "n_moves": 1,
+    "plan_seconds": 0.409,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_5e38c1a86f41",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_5e38c1a86f41.json",
+    "latency": {
+     "llm_s": 0.403,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.411
+    }
+   },
+   "latency": {
+    "llm_s": 0.4,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.41
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:24:00+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dalla persona",
+     "cursor": 481555,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.04
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122401-2661d2",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.12380294299964589,
+    "llm_and_ctl": 0.5189719929999228,
+    "fetch_cli": 0.029895635999764636,
+    "pause": 0.00044509000008474686,
+    "load_cli": 0.1245106900000792,
+    "start_cli": null,
+    "ready_cli": 0.18150777399978324,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.5488676289996874,
+    "total_to_refusal": 0.8844399349995911
+   }
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 9,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.389099597930908,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.1381062949999432,
+    "t_plan_fetched": 1.181113792999895,
+    "t_plan_done": 1.1005662809998285,
+    "t_load_call": 1.1815139870000166,
+    "t_load_ret": 1.3378963529999055,
+    "t_loaded": 1.3113395459999992,
+    "t_start_call": 1.338034208999943,
+    "t_start_ret": 1.5140273079996405
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 0.984,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.978,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.986
+    }
+   },
+   "latency": {
+    "llm_s": 0.98,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.99
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:24:03+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto, al muro gira a destra e avanza 2 metri",
+     "cursor": 483704,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.04
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122404-60fe55",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.1381062949999432,
+    "llm_and_ctl": 1.1005662809998285,
+    "fetch_cli": 0.08054751200006649,
+    "pause": 0.0005380500001592736,
+    "load_cli": 0.1298255589999826,
+    "start_cli": null,
+    "ready_cli": 0.1759930989996974,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 1.181113792999895,
+    "total_to_refusal": 1.5134892579994812
+   }
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 10,
+   "variant": "pause3",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 2.439262628555298,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.12779742399970928,
+    "t_plan_fetched": 0.6527998779997688,
+    "t_plan_done": 0.6158569819999684,
+    "t_load_call": 3.6531284590000723,
+    "t_load_ret": 3.8182533249996595,
+    "t_loaded": 3.7895773420000296,
+    "t_start_call": 6.818403873000079,
+    "t_start_ret": 6.994252653999865
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.502,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.496,
+     "translate_s": 0.005,
+     "services_s": 0.0,
+     "total_s": 0.504
+    }
+   },
+   "latency": {
+    "llm_s": 0.5,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.5
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:24:07+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto e fermati a due metri dal muro",
+     "cursor": 487105,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122407-bf7938",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.12779742399970928,
+    "llm_and_ctl": 0.6158569819999684,
+    "fetch_cli": 0.036942895999800385,
+    "pause": 6.000479129000723,
+    "load_cli": 0.13644888299995728,
+    "start_cli": null,
+    "ready_cli": 0.17584878099978596,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.6527998779997688,
+    "total_to_refusal": 0.993773524999142
+   }
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 11,
+   "variant": "pause3",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 8.403234720230103,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.15950206200022876,
+    "t_plan_fetched": 0.5868610390002686,
+    "t_plan_done": 0.5467295220000778,
+    "t_load_call": 3.5871920640001917,
+    "t_load_ret": 3.7453615770000397,
+    "t_loaded": 3.7193384350002816,
+    "t_start_call": 6.745503016999919,
+    "t_start_ret": 6.965360228000009
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_5e38c1a86f41",
+    "schema_version": "5.0",
+    "n_moves": 1,
+    "plan_seconds": 0.412,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_5e38c1a86f41",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_5e38c1a86f41.json",
+    "latency": {
+     "llm_s": 0.406,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.414
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.41
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:24:16+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dalla persona",
+     "cursor": 489128,
+     "running": true,
+     "elapsed_s": 0.02
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.08,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122416-2661d2",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.15950206200022876,
+    "llm_and_ctl": 0.5467295220000778,
+    "fetch_cli": 0.0401315170001908,
+    "pause": 6.0004724649998025,
+    "load_cli": 0.13214637100008986,
+    "start_cli": null,
+    "ready_cli": 0.2198572110000896,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 0.5868610390002686,
+    "total_to_refusal": 0.9648877630002062
+   }
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 12,
+   "variant": "pause3",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 8.458319187164307,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.15110100699985196,
+    "t_plan_fetched": 1.1842460709999614,
+    "t_plan_done": 1.1157736430000114,
+    "t_load_call": 4.184664182999768,
+    "t_load_ret": 4.346714033999888,
+    "t_loaded": 4.316859356999885,
+    "t_start_call": 7.3468580469998415,
+    "t_start_ret": 7.520273414999792
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 0.988,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.982,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.99
+    }
+   },
+   "latency": {
+    "llm_s": 0.98,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.99
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T12:24:25+01:00",
+     "target": "planner",
+     "env_file": "/tmp/f1t_bench/overlay.env",
+     "ok": true,
+     "sent": "vai dritto, al muro gira a destra e avanza 2 metri",
+     "cursor": 491277,
+     "running": true,
+     "elapsed_s": 0.01
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 0.05
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.07,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T122426-60fe55",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.15110100699985196,
+    "llm_and_ctl": 1.1157736430000114,
+    "fetch_cli": 0.06847242799995001,
+    "pause": 6.00056212499976,
+    "load_cli": 0.13219517400011682,
+    "start_cli": null,
+    "ready_cli": 0.17341536799995083,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": 1.1842460709999614,
+    "total_to_refusal": 1.519711290000032
+   }
+  }
+ ],
+ "flow": "production",
+ "summary": {
+  "per_command": {
+   "vai dritto e fermati a due metri dal muro": {
+    "llm_and_ctl": {
+     "n": 10,
+     "median": 0.6428015014998891,
+     "p95": 0.704925373000151,
+     "max": 0.704925373000151
+    },
+    "fetch_cli": {
+     "n": 10,
+     "median": 0.04148182399990219,
+     "p95": 0.07144750199995542,
+     "max": 0.07144750199995542
+    },
+    "load_cli": {
+     "n": 10,
+     "median": 0.13388666550008566,
+     "p95": 0.14470602200026406,
+     "max": 0.14470602200026406
+    },
+    "start_cli": null,
+    "running_to_move": null,
+    "send_cli": {
+     "n": 10,
+     "median": 0.1492931595000755,
+     "p95": 0.21946057000013752,
+     "max": 0.21946057000013752
+    },
+    "ready_cli": {
+     "n": 10,
+     "median": 0.1766030405001402,
+     "p95": 0.18000871900039783,
+     "max": 0.18000871900039783
+    },
+    "pause": {
+     "n": 10,
+     "median": 0.00044443349997891346,
+     "p95": 0.0005361940002330812,
+     "max": 0.0005361940002330812
+    },
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": {
+     "n": 10,
+     "median": 0.68974259599986,
+     "p95": 0.7503522320002958,
+     "max": 0.7503522320002958
+    },
+    "total_to_refusal": {
+     "n": 10,
+     "median": 1.0298706929997934,
+     "p95": 1.0845484650008075,
+     "max": 1.0845484650008075
+    }
+   },
+   "vai dalla persona": {
+    "llm_and_ctl": {
+     "n": 10,
+     "median": 0.5289126324998961,
+     "p95": 0.5715271849999226,
+     "max": 0.5715271849999226
+    },
+    "fetch_cli": {
+     "n": 10,
+     "median": 0.0337688324998453,
+     "p95": 0.05847170600009122,
+     "max": 0.05847170600009122
+    },
+    "load_cli": {
+     "n": 10,
+     "median": 0.13187515549998352,
+     "p95": 0.6208501780001825,
+     "max": 0.6208501780001825
+    },
+    "start_cli": null,
+    "running_to_move": null,
+    "send_cli": {
+     "n": 10,
+     "median": 0.1365800534997561,
+     "p95": 0.1822276109996892,
+     "max": 0.1822276109996892
+    },
+    "ready_cli": {
+     "n": 10,
+     "median": 0.17817967950009006,
+     "p95": 0.18150777399978324,
+     "max": 0.18150777399978324
+    },
+    "pause": {
+     "n": 10,
+     "median": 0.00046035350032980205,
+     "p95": 0.00048448200004713726,
+     "max": 0.00048448200004713726
+    },
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": {
+     "n": 10,
+     "median": 0.5622869289998107,
+     "p95": 0.6190769999998338,
+     "max": 0.6190769999998338
+    },
+    "total_to_refusal": {
+     "n": 10,
+     "median": 0.9129463510000733,
+     "p95": 1.3812838819999342,
+     "max": 1.3812838819999342
+    }
+   },
+   "vai dritto, al muro gira a destra e avanza 2 metri": {
+    "llm_and_ctl": {
+     "n": 10,
+     "median": 1.116627914999981,
+     "p95": 1.1792538760000753,
+     "max": 1.1792538760000753
+    },
+    "fetch_cli": {
+     "n": 10,
+     "median": 0.06395121850005125,
+     "p95": 0.08054751200006649,
+     "max": 0.08054751200006649
+    },
+    "load_cli": {
+     "n": 10,
+     "median": 0.1338604969998869,
+     "p95": 0.14137591799999427,
+     "max": 0.14137591799999427
+    },
+    "start_cli": null,
+    "running_to_move": null,
+    "send_cli": {
+     "n": 10,
+     "median": 0.14407553199976064,
+     "p95": 0.21135326000012356,
+     "max": 0.21135326000012356
+    },
+    "ready_cli": {
+     "n": 10,
+     "median": 0.17628573099977984,
+     "p95": 0.18415216400035206,
+     "max": 0.18415216400035206
+    },
+    "pause": {
+     "n": 10,
+     "median": 0.0005411220001860784,
+     "p95": 0.0005756830000791524,
+     "max": 0.0005756830000791524
+    },
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": {
+     "n": 10,
+     "median": 1.179903462999846,
+     "p95": 1.2436742199997752,
+     "max": 1.2436742199997752
+    },
+    "total_to_refusal": {
+     "n": 10,
+     "median": 1.5115107334995628,
+     "p95": 1.5823874270004126,
+     "max": 1.5823874270004126
+    }
+   }
+  },
+  "overall": {
+   "llm_and_ctl": {
+    "n": 30,
+    "median": 0.6428015014998891,
+    "p95": 1.1557407110003624,
+    "max": 1.1792538760000753
+   },
+   "fetch_cli": {
+    "n": 30,
+    "median": 0.044891497500202604,
+    "p95": 0.07227102300021215,
+    "max": 0.08054751200006649
+   },
+   "load_cli": {
+    "n": 30,
+    "median": 0.13382961499996782,
+    "p95": 0.14470602200026406,
+    "max": 0.6208501780001825
+   },
+   "start_cli": null,
+   "running_to_move": null,
+   "send_cli": {
+    "n": 30,
+    "median": 0.14190476049998324,
+    "p95": 0.21135326000012356,
+    "max": 0.21946057000013752
+   },
+   "ready_cli": {
+    "n": 30,
+    "median": 0.17684217100008937,
+    "p95": 0.18150777399978324,
+    "max": 0.18415216400035206
+   },
+   "pause": {
+    "n": 30,
+    "median": 0.00046864200044183235,
+    "p95": 0.0005580809997809411,
+    "max": 0.0005756830000791524
+   },
+   "total_to_running": null,
+   "total_to_move": null,
+   "total_to_move_no_pause": null,
+   "cmd_to_plan": {
+    "n": 30,
+    "median": 0.68974259599986,
+    "p95": 1.2115318050000496,
+    "max": 1.2436742199997752
+   },
+   "total_to_refusal": {
+    "n": 30,
+    "median": 1.0455373894999411,
+    "p95": 1.5496935159999339,
+    "max": 1.5823874270004126
+   }
+  },
+  "excluded": [],
+  "kept": 30
+ },
+ "summaries": {
+  "pause0": {
+   "per_command": {
+    "vai dritto e fermati a due metri dal muro": {
+     "llm_and_ctl": {
+      "n": 10,
+      "median": 0.6428015014998891,
+      "p95": 0.704925373000151,
+      "max": 0.704925373000151
+     },
+     "fetch_cli": {
+      "n": 10,
+      "median": 0.04148182399990219,
+      "p95": 0.07144750199995542,
+      "max": 0.07144750199995542
+     },
+     "load_cli": {
+      "n": 10,
+      "median": 0.13388666550008566,
+      "p95": 0.14470602200026406,
+      "max": 0.14470602200026406
+     },
+     "start_cli": null,
+     "running_to_move": null,
+     "send_cli": {
+      "n": 10,
+      "median": 0.1492931595000755,
+      "p95": 0.21946057000013752,
+      "max": 0.21946057000013752
+     },
+     "ready_cli": {
+      "n": 10,
+      "median": 0.1766030405001402,
+      "p95": 0.18000871900039783,
+      "max": 0.18000871900039783
+     },
+     "pause": {
+      "n": 10,
+      "median": 0.00044443349997891346,
+      "p95": 0.0005361940002330812,
+      "max": 0.0005361940002330812
+     },
+     "total_to_running": null,
+     "total_to_move": null,
+     "total_to_move_no_pause": null,
+     "cmd_to_plan": {
+      "n": 10,
+      "median": 0.68974259599986,
+      "p95": 0.7503522320002958,
+      "max": 0.7503522320002958
+     },
+     "total_to_refusal": {
+      "n": 10,
+      "median": 1.0298706929997934,
+      "p95": 1.0845484650008075,
+      "max": 1.0845484650008075
+     }
+    },
+    "vai dalla persona": {
+     "llm_and_ctl": {
+      "n": 10,
+      "median": 0.5289126324998961,
+      "p95": 0.5715271849999226,
+      "max": 0.5715271849999226
+     },
+     "fetch_cli": {
+      "n": 10,
+      "median": 0.0337688324998453,
+      "p95": 0.05847170600009122,
+      "max": 0.05847170600009122
+     },
+     "load_cli": {
+      "n": 10,
+      "median": 0.13187515549998352,
+      "p95": 0.6208501780001825,
+      "max": 0.6208501780001825
+     },
+     "start_cli": null,
+     "running_to_move": null,
+     "send_cli": {
+      "n": 10,
+      "median": 0.1365800534997561,
+      "p95": 0.1822276109996892,
+      "max": 0.1822276109996892
+     },
+     "ready_cli": {
+      "n": 10,
+      "median": 0.17817967950009006,
+      "p95": 0.18150777399978324,
+      "max": 0.18150777399978324
+     },
+     "pause": {
+      "n": 10,
+      "median": 0.00046035350032980205,
+      "p95": 0.00048448200004713726,
+      "max": 0.00048448200004713726
+     },
+     "total_to_running": null,
+     "total_to_move": null,
+     "total_to_move_no_pause": null,
+     "cmd_to_plan": {
+      "n": 10,
+      "median": 0.5622869289998107,
+      "p95": 0.6190769999998338,
+      "max": 0.6190769999998338
+     },
+     "total_to_refusal": {
+      "n": 10,
+      "median": 0.9129463510000733,
+      "p95": 1.3812838819999342,
+      "max": 1.3812838819999342
+     }
+    },
+    "vai dritto, al muro gira a destra e avanza 2 metri": {
+     "llm_and_ctl": {
+      "n": 10,
+      "median": 1.116627914999981,
+      "p95": 1.1792538760000753,
+      "max": 1.1792538760000753
+     },
+     "fetch_cli": {
+      "n": 10,
+      "median": 0.06395121850005125,
+      "p95": 0.08054751200006649,
+      "max": 0.08054751200006649
+     },
+     "load_cli": {
+      "n": 10,
+      "median": 0.1338604969998869,
+      "p95": 0.14137591799999427,
+      "max": 0.14137591799999427
+     },
+     "start_cli": null,
+     "running_to_move": null,
+     "send_cli": {
+      "n": 10,
+      "median": 0.14407553199976064,
+      "p95": 0.21135326000012356,
+      "max": 0.21135326000012356
+     },
+     "ready_cli": {
+      "n": 10,
+      "median": 0.17628573099977984,
+      "p95": 0.18415216400035206,
+      "max": 0.18415216400035206
+     },
+     "pause": {
+      "n": 10,
+      "median": 0.0005411220001860784,
+      "p95": 0.0005756830000791524,
+      "max": 0.0005756830000791524
+     },
+     "total_to_running": null,
+     "total_to_move": null,
+     "total_to_move_no_pause": null,
+     "cmd_to_plan": {
+      "n": 10,
+      "median": 1.179903462999846,
+      "p95": 1.2436742199997752,
+      "max": 1.2436742199997752
+     },
+     "total_to_refusal": {
+      "n": 10,
+      "median": 1.5115107334995628,
+      "p95": 1.5823874270004126,
+      "max": 1.5823874270004126
+     }
+    }
+   },
+   "overall": {
+    "llm_and_ctl": {
+     "n": 30,
+     "median": 0.6428015014998891,
+     "p95": 1.1557407110003624,
+     "max": 1.1792538760000753
+    },
+    "fetch_cli": {
+     "n": 30,
+     "median": 0.044891497500202604,
+     "p95": 0.07227102300021215,
+     "max": 0.08054751200006649
+    },
+    "load_cli": {
+     "n": 30,
+     "median": 0.13382961499996782,
+     "p95": 0.14470602200026406,
+     "max": 0.6208501780001825
+    },
+    "start_cli": null,
+    "running_to_move": null,
+    "send_cli": {
+     "n": 30,
+     "median": 0.14190476049998324,
+     "p95": 0.21135326000012356,
+     "max": 0.21946057000013752
+    },
+    "ready_cli": {
+     "n": 30,
+     "median": 0.17684217100008937,
+     "p95": 0.18150777399978324,
+     "max": 0.18415216400035206
+    },
+    "pause": {
+     "n": 30,
+     "median": 0.00046864200044183235,
+     "p95": 0.0005580809997809411,
+     "max": 0.0005756830000791524
+    },
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": {
+     "n": 30,
+     "median": 0.68974259599986,
+     "p95": 1.2115318050000496,
+     "max": 1.2436742199997752
+    },
+    "total_to_refusal": {
+     "n": 30,
+     "median": 1.0455373894999411,
+     "p95": 1.5496935159999339,
+     "max": 1.5823874270004126
+    }
+   },
+   "excluded": [],
+   "kept": 30
+  },
+  "pause3": {
+   "per_command": {
+    "vai dritto e fermati a due metri dal muro": {
+     "llm_and_ctl": {
+      "n": 1,
+      "median": 0.6158569819999684,
+      "p95": 0.6158569819999684,
+      "max": 0.6158569819999684
+     },
+     "fetch_cli": {
+      "n": 1,
+      "median": 0.036942895999800385,
+      "p95": 0.036942895999800385,
+      "max": 0.036942895999800385
+     },
+     "load_cli": {
+      "n": 1,
+      "median": 0.13644888299995728,
+      "p95": 0.13644888299995728,
+      "max": 0.13644888299995728
+     },
+     "start_cli": null,
+     "running_to_move": null,
+     "send_cli": {
+      "n": 1,
+      "median": 0.12779742399970928,
+      "p95": 0.12779742399970928,
+      "max": 0.12779742399970928
+     },
+     "ready_cli": {
+      "n": 1,
+      "median": 0.17584878099978596,
+      "p95": 0.17584878099978596,
+      "max": 0.17584878099978596
+     },
+     "pause": {
+      "n": 1,
+      "median": 6.000479129000723,
+      "p95": 6.000479129000723,
+      "max": 6.000479129000723
+     },
+     "total_to_running": null,
+     "total_to_move": null,
+     "total_to_move_no_pause": null,
+     "cmd_to_plan": {
+      "n": 1,
+      "median": 0.6527998779997688,
+      "p95": 0.6527998779997688,
+      "max": 0.6527998779997688
+     },
+     "total_to_refusal": {
+      "n": 1,
+      "median": 0.993773524999142,
+      "p95": 0.993773524999142,
+      "max": 0.993773524999142
+     }
+    },
+    "vai dalla persona": {
+     "llm_and_ctl": {
+      "n": 1,
+      "median": 0.5467295220000778,
+      "p95": 0.5467295220000778,
+      "max": 0.5467295220000778
+     },
+     "fetch_cli": {
+      "n": 1,
+      "median": 0.0401315170001908,
+      "p95": 0.0401315170001908,
+      "max": 0.0401315170001908
+     },
+     "load_cli": {
+      "n": 1,
+      "median": 0.13214637100008986,
+      "p95": 0.13214637100008986,
+      "max": 0.13214637100008986
+     },
+     "start_cli": null,
+     "running_to_move": null,
+     "send_cli": {
+      "n": 1,
+      "median": 0.15950206200022876,
+      "p95": 0.15950206200022876,
+      "max": 0.15950206200022876
+     },
+     "ready_cli": {
+      "n": 1,
+      "median": 0.2198572110000896,
+      "p95": 0.2198572110000896,
+      "max": 0.2198572110000896
+     },
+     "pause": {
+      "n": 1,
+      "median": 6.0004724649998025,
+      "p95": 6.0004724649998025,
+      "max": 6.0004724649998025
+     },
+     "total_to_running": null,
+     "total_to_move": null,
+     "total_to_move_no_pause": null,
+     "cmd_to_plan": {
+      "n": 1,
+      "median": 0.5868610390002686,
+      "p95": 0.5868610390002686,
+      "max": 0.5868610390002686
+     },
+     "total_to_refusal": {
+      "n": 1,
+      "median": 0.9648877630002062,
+      "p95": 0.9648877630002062,
+      "max": 0.9648877630002062
+     }
+    },
+    "vai dritto, al muro gira a destra e avanza 2 metri": {
+     "llm_and_ctl": {
+      "n": 1,
+      "median": 1.1157736430000114,
+      "p95": 1.1157736430000114,
+      "max": 1.1157736430000114
+     },
+     "fetch_cli": {
+      "n": 1,
+      "median": 0.06847242799995001,
+      "p95": 0.06847242799995001,
+      "max": 0.06847242799995001
+     },
+     "load_cli": {
+      "n": 1,
+      "median": 0.13219517400011682,
+      "p95": 0.13219517400011682,
+      "max": 0.13219517400011682
+     },
+     "start_cli": null,
+     "running_to_move": null,
+     "send_cli": {
+      "n": 1,
+      "median": 0.15110100699985196,
+      "p95": 0.15110100699985196,
+      "max": 0.15110100699985196
+     },
+     "ready_cli": {
+      "n": 1,
+      "median": 0.17341536799995083,
+      "p95": 0.17341536799995083,
+      "max": 0.17341536799995083
+     },
+     "pause": {
+      "n": 1,
+      "median": 6.00056212499976,
+      "p95": 6.00056212499976,
+      "max": 6.00056212499976
+     },
+     "total_to_running": null,
+     "total_to_move": null,
+     "total_to_move_no_pause": null,
+     "cmd_to_plan": {
+      "n": 1,
+      "median": 1.1842460709999614,
+      "p95": 1.1842460709999614,
+      "max": 1.1842460709999614
+     },
+     "total_to_refusal": {
+      "n": 1,
+      "median": 1.519711290000032,
+      "p95": 1.519711290000032,
+      "max": 1.519711290000032
+     }
+    }
+   },
+   "overall": {
+    "llm_and_ctl": {
+     "n": 3,
+     "median": 0.6158569819999684,
+     "p95": 1.1157736430000114,
+     "max": 1.1157736430000114
+    },
+    "fetch_cli": {
+     "n": 3,
+     "median": 0.0401315170001908,
+     "p95": 0.06847242799995001,
+     "max": 0.06847242799995001
+    },
+    "load_cli": {
+     "n": 3,
+     "median": 0.13219517400011682,
+     "p95": 0.13644888299995728,
+     "max": 0.13644888299995728
+    },
+    "start_cli": null,
+    "running_to_move": null,
+    "send_cli": {
+     "n": 3,
+     "median": 0.15110100699985196,
+     "p95": 0.15950206200022876,
+     "max": 0.15950206200022876
+    },
+    "ready_cli": {
+     "n": 3,
+     "median": 0.17584878099978596,
+     "p95": 0.2198572110000896,
+     "max": 0.2198572110000896
+    },
+    "pause": {
+     "n": 3,
+     "median": 6.000479129000723,
+     "p95": 6.00056212499976,
+     "max": 6.00056212499976
+    },
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null,
+    "cmd_to_plan": {
+     "n": 3,
+     "median": 0.6527998779997688,
+     "p95": 1.1842460709999614,
+     "max": 1.1842460709999614
+    },
+    "total_to_refusal": {
+     "n": 3,
+     "median": 0.993773524999142,
+     "p95": 1.519711290000032,
+     "max": 1.519711290000032
+    }
+   },
+   "excluded": [],
+   "kept": 3
+  }
+ },
+ "complete": true,
+ "final_state": "ABORTED"
+}

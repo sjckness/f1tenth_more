@@ -1,0 +1,6 @@
+﻿obstacle	Rep	success	plan_ok	exec_ok	safe	task_ok	goal_error_m	lateral_error_max_m	viol_fixed_pct	min_clear_any_m	min_clear_after_start_m	solver_usable_pct	unusable_streak_max_s	jerk_rms_mps3	steer_direction_rev_per_m
+	1			true	true			0,042	0	0,098	0,098	81,657	1,096	2,588	2,373
+	2			true	true			0,202	0	0,158	0,158	85,629	1,042	2,486	1,944
+	5			true	true			0,295	0	0,120	0,120	85	1,006	2,785	2,868
+	7			true	true			0,248	0	0,169	0,169	80,128	1,272	2,294	2,354
+	3	false		false	true			0,057	0	0,449	0,544	82,692	0,585	2,596	1,488
