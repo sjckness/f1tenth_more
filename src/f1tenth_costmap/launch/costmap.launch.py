@@ -85,7 +85,7 @@ def generate_launch_description():
         'enable_slam', default_value=str(enable_default), description=enable_desc)
 
     score_threshold_la = DeclareLaunchArgument(
-        'semantic_score_threshold', default_value='0.5',
+        'semantic_score_threshold', default_value='0.3',
         description="Minimum vision_msgs detection score for semantic_layer_"
                     "node to accumulate a detection at all.")
     merge_distance_la = DeclareLaunchArgument(
