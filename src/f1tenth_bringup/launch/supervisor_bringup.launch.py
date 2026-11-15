@@ -168,8 +168,8 @@ def generate_launch_description():
     # including why this isn't just a baked-in-at-parse-time stack-wide value).
     # mission-logger-opt-in pass: the same treatment again, for the same
     # reason -- the supervisor forwards only components.yaml's args, so this
-    # has to arrive as a declared parameter or `enable_mission_logger:=true`
-    # on this command line would do nothing at all.
+    # has to arrive as a declared parameter or `enable_mission_logger:=false`
+    # on this command line would do nothing at all (the yaml default is true).
     enable_mission_logger_default, enable_mission_logger_desc = get_default(
         'enable_mission_logger')
     enable_mission_logger_la = DeclareLaunchArgument(

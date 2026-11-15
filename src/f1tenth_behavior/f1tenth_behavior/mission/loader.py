@@ -254,8 +254,9 @@ class MissionLoader:
                 'mission_countdown_sec', get_value('mission_countdown_sec')).value)
         # ...but only while the mission recorder runs: the standstill
         # measurement and the bag's start-up only matter when recording. With
-        # enable_mission_logger false (the stack default since 2026-10-16) a
-        # start begins at once. The value is the supervisor's own
+        # enable_mission_logger false a start begins at once; true (the stack
+        # default again since 2026-10-23, after a false spell from
+        # 2026-10-16) arms the countdown. The value is the supervisor's own
         # enable_mission_logger, forwarded through behavior_bringup.launch.py
         # -- the same one that decides whether mission_logger.launch.py runs.
         self._logger_enabled = bool(node.declare_parameter(

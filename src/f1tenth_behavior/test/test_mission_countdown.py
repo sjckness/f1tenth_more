@@ -471,7 +471,7 @@ def test_the_default_countdown_comes_from_stack_params_and_is_zero():
 # --------------------------------------------------------------------------
 
 def test_logger_off_starts_at_once():
-    """enable_mission_logger false (the stack default): no standstill wait."""
+    """enable_mission_logger false: no standstill wait."""
     loader, node = _make_loader(countdown_s=None, logger_on=False)
     begins = _count_begins(loader)
     t0 = time.monotonic()

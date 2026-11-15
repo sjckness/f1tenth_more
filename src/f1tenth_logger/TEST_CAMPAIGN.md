@@ -60,16 +60,19 @@ ros2 launch f1tenth_bringup supervisor_bringup.launch.py enable_mission_logger:=
 ./scripts/stackctl.py status                          # what is actually up (the ros2 CLI lies under the discovery server)
 ```
 
-`enable_mission_logger:=true` IS REQUIRED FOR A CAMPAIGN RUN and is not the
-default any more (since 2026-10-16). Without it `mission_logger_node` is not
-created at all, nor is the 5 Hz depth throttle that feeds its bags, and the run
-leaves nothing in `~/f1tenth_archive` -- the per-test recorder in step 2 is a
-DIFFERENT recorder and does not replace it. The default moved to false because
-recording is not free on this box: the audit of `corridor10m_20261015T171753`
-measured 12 cores at 95-97 %, `/scan` reaching the bag at 30 Hz against the
-40 Hz urg_node published, and 5.5 MB/s written of which 73 % was Image and grid
-topics (`output/logger_check.md`). With the argument, everything inside the
-logger behaves exactly as before.
+`enable_mission_logger:=true` IS REQUIRED FOR A CAMPAIGN RUN to leave a bag
+behind. Without it `mission_logger_node` is not created at all, nor is the
+5 Hz depth throttle that feeds its bags, and the run leaves nothing in
+`~/f1tenth_archive` -- the per-test recorder in step 2 is a DIFFERENT recorder
+and does not replace it. Pass it explicitly anyway, even though it is the
+stack's own default again (it went to false on 2026-10-16, then back to true
+on 2026-10-23 via an unrelated cherry-pick that never discussed the tradeoff):
+recording is not free on this box -- the audit of
+`corridor10m_20261015T171753` measured 12 cores at 95-97 %, `/scan` reaching
+the bag at 30 Hz against the 40 Hz urg_node published, and 5.5 MB/s written of
+which 73 % was Image and grid topics (`output/logger_check.md`) -- and that
+cost has never been re-measured or re-accepted since the revert. With the
+argument, everything inside the logger behaves exactly as before.
 
 Check it took, before trusting the run:
 

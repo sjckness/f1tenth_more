@@ -700,8 +700,9 @@ class ComponentSupervisorNode(Node):
         # It exists because the supervisor launches each component with the
         # args in components.yaml and does NOT forward its own CLI args, so
         # without this `supervisor_bringup.launch.py enable_mission_logger:=
-        # true` would be silently ignored -- the component would still run
-        # mission_logger.launch.py with its own (now false) default.
+        # false` would be silently ignored -- the component would still run
+        # mission_logger.launch.py with its own stack_params.yaml default
+        # (true again since 2026-10-23, see that key's own description).
         self.enable_mission_logger = bool(
             self.declare_parameter('enable_mission_logger', False).value)
         # Rust ports (output/rust/): supervisor_bringup.launch.py guard:= and
@@ -1277,10 +1278,15 @@ class ComponentSupervisorNode(Node):
     def _apply_mission_logger_override(self):
         """Pass enable_mission_logger down to the one component that launches it.
 
-        Recording is opt-in since 2026-10-16 (stack_params.yaml's own
-        enable_mission_logger description says why), and this supervisor
+        Recording defaulted to opt-in from 2026-10-16 to 2026-10-23
+        (stack_params.yaml's own enable_mission_logger description says why);
+        an unrelated cherry-pick (6137165f9) flipped that yaml default back
+        to true with no mention of logging in its message, so recording is
+        on by default again and the CPU/bag-rate cost that motivated the
+        opt-in default has not been re-accepted. Pass enable_mission_logger:
+        =false explicitly to opt back out. Either direction, this supervisor
         launches every component with the args components.yaml gives it and
-        nothing else. So the live declared parameter is written into the args
+        nothing else, so the live declared parameter is written into the args
         of whichever 'diagnostics' entry launches mission_logger.launch.py --
         found by launch_file rather than by position, so reordering that
         component cannot quietly disconnect the toggle. Same in-place mutation
