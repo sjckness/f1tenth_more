@@ -3437,6 +3437,9 @@ mission_translator_go_to_acquire_timeout_sec:
 mission_translator_go_to_lost_grace_sec:
   default: 1.5
   description: "go_to_object.lost_grace_sec [s] for a go_to intent phase: how long a lost target is driven toward its last point at reduced speed before the move fails target_lost. Same value as missions/go_to_person.json."
+mission_translator_go_to_search_min_confidence:
+  default: 0.5
+  description: "min_confidence on the object_seen stop_condition of the search move translate() prepends before every go_to_object move (go_to_object aborts target_not_found if the class is not already a confirmed track within go_to_acquire_timeout_sec; the search move drives straight until it is first sighted). Same value as missions/straight_until_potted_plant.json."
 mission_translator_turn_magnitude_deg:
   default: 90.0
   description: "Magnitude [deg] of every turn the translator emits, written into BOTH drive.turn_mag_deg and stop_condition.value from one variable. The behaviour tree honours any value -- condition_eval's orientation_delta ends the move on abs(turn_accum_deg) >= abs(value), nothing clamps it to 90 -- so this is a real choice. It stays 90 because 90 is the only magnitude the stack has been run at, and the MPC side of a larger turn is unverified."

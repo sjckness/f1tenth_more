@@ -11,11 +11,25 @@
   },
   "requires_confirmation": false,
   "mission": {
-    "mission_id": "llm_5e38c1a86f41",
+    "mission_id": "llm_c4cca62260df",
     "schema_version": "5.0",
     "moves": [
       {
-        "id": "move_0_go_to",
+        "id": "move_0_search",
+        "drive": {
+          "mode": "straight",
+          "speed": 0.5
+        },
+        "stop_condition": {
+          "type": "object_seen",
+          "class": "person",
+          "min_confidence": 0.5
+        },
+        "timeout_sec": 65,
+        "on_timeout": "abort"
+      },
+      {
+        "id": "move_1_go_to",
         "go_to_object": {
           "target_class": "person",
           "gap_m": 1.1,

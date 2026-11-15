@@ -552,6 +552,10 @@ class TranslatorConfig:
     go_to_acquire_timeout_sec: float = 5.0
     go_to_lost_grace_sec: float = 1.5
 
+    # min_confidence on the object_seen guard of the search move translate()
+    # prepends before every go_to_object move -- see _go_to_search_move.
+    go_to_search_min_confidence: float = 0.5
+
     # The magnitude every emitted turn carries. See translate()'s own note on
     # D2: the behaviour tree honours whatever value it is given, so this is a
     # real choice rather than the only reachable number, but 90 is the only
@@ -682,10 +686,15 @@ def _expected_seconds(phase: dict, cfg: TranslatorConfig) -> float:
     return cfg.open_guard_max_distance / cfg.speed_straight
 
 
+def _clamp_timeout_sec(expected_s: float, cfg: TranslatorConfig) -> int:
+    """clamp(ceil(expected * factor + floor), TIMEOUT_MIN_SEC, TIMEOUT_MAX_SEC)."""
+    raw = math.ceil(expected_s * cfg.timeout_factor + cfg.timeout_floor)
+    return int(max(TIMEOUT_MIN_SEC, min(TIMEOUT_MAX_SEC, raw)))
+
+
 def _timeout_sec(phase: dict, cfg: TranslatorConfig) -> int:
     """clamp(ceil(expected * factor + floor), TIMEOUT_MIN_SEC, TIMEOUT_MAX_SEC)."""
-    raw = math.ceil(_expected_seconds(phase, cfg) * cfg.timeout_factor + cfg.timeout_floor)
-    return int(max(TIMEOUT_MIN_SEC, min(TIMEOUT_MAX_SEC, raw)))
+    return _clamp_timeout_sec(_expected_seconds(phase, cfg), cfg)
 
 
 def _check_ranges(plan) -> None:
@@ -779,14 +788,60 @@ def _go_to_object_move(i, phase, cfg, prov, gap_limits_for, notes):
     return body
 
 
-def _intent_move(i, phase, cfg, prev_turn_sign, prov, *, go_to_enabled=True,
+def _go_to_search_move(pos, phase, cfg, prov):
+    """The move translate() prepends before every go_to_object move.
+
+    go_to_object aborts target_not_found if the target class is not already a
+    confirmed track within go_to_acquire_timeout_sec of ITS move starting --
+    it does not drive while it waits. This drives straight on the heading
+    this move starts with until the class is first sighted (object_seen),
+    exactly the pattern missions/straight_until_potted_plant.json was
+    hand-written for, so every go_to intent phase is safe the same way
+    without the model ever having to ask for it.
+
+    `pos` is this move's own index in the final moves array (see translate()).
+    """
+    at = f'moves[{pos}]'
+    target = phase['target']
+    timeout = _clamp_timeout_sec(cfg.open_guard_max_distance / cfg.speed_straight, cfg)
+    move = {
+        'id': f'move_{pos}_search',
+        'drive': {'mode': 'straight', 'speed': cfg.speed_straight},
+        'stop_condition': {
+            'type': 'object_seen',
+            'class': target,
+            'min_confidence': cfg.go_to_search_min_confidence,
+        },
+        'timeout_sec': timeout,
+        'on_timeout': 'abort',
+    }
+    prov[f'{at}.id'] = (DERIVED, 'f"move_{array position}_search"')
+    prov[f'{at}.drive.mode'] = (CONST, 'straight -- holds the heading this move starts with')
+    prov[f'{at}.drive.speed'] = (CONFIG, 'speed_straight')
+    prov[f'{at}.stop_condition.type'] = (CONST, 'object_seen')
+    prov[f'{at}.stop_condition.class'] = (INTENT, "the go_to phase's own target")
+    prov[f'{at}.stop_condition.min_confidence'] = (CONFIG, 'go_to_search_min_confidence')
+    prov[f'{at}.timeout_sec'] = (
+        DERIVED,
+        'clamp(ceil(open_guard_max_distance / speed_straight * timeout_factor + '
+        'timeout_floor), TIMEOUT_MIN_SEC, TIMEOUT_MAX_SEC)')
+    prov[f'{at}.on_timeout'] = (CONST, 'abort')
+    return move
+
+
+def _intent_move(pos, phase, cfg, prev_turn_sign, prov, *, go_to_enabled=True,
                  gap_limits_for=None, notes=None):
-    """One intent phase -> one mission move, recording provenance for every leaf.
+    """One intent phase -> a list of one or more mission moves, recording
+    provenance for every leaf. Every mode but go_to returns exactly one move;
+    go_to returns [search move, go_to_object move] -- see _go_to_search_move.
+
+    `pos` is the index this phase's move(s) START at in the final moves
+    array -- NOT its index in `plan`, which the caller (translate()) tracks
+    separately once a go_to phase can occupy two array slots.
 
     prev_turn_sign is the turn_sign of the most recent turn phase, or None,
     and is used only by the post_turn_uses_straight=False branch.
     """
-    at = f'moves[{i}]'
     mode = phase['mode']
 
     # go_to_enabled=False is the planner's switch back to the stack before
@@ -807,24 +862,39 @@ def _intent_move(i, phase, cfg, prev_turn_sign, prov, *, go_to_enabled=True,
         # _plan_v2 puts around it; short, and only the three things the model
         # has to act on.
         raise UnsupportedIntentModeError(
-            f'fase {i}: "go_to" non e\' eseguibile da questo robot. '
+            f'fase {pos}: "go_to" non e\' eseguibile da questo robot. '
             'Non sostituirlo con "front_object": quello si ferma alla cosa '
             'piu\' vicina, non a quella nominata. '
             'Rimetti la richiesta in "unsupported".')
 
-    move = {'id': f'move_{i}_{mode}'}
-    prov[f'{at}.id'] = (DERIVED, 'f"move_{index}_{intent mode}"')
-
     if mode == 'go_to':
         # Never falls through to the straight branch: a go_to that reached
-        # here is a go_to_object move or nothing.
+        # here is a search + go_to_object pair, or nothing.
+        search = _go_to_search_move(pos, phase, cfg, prov)
+        go_to_pos = pos + 1
+        at = f'moves[{go_to_pos}]'
+        move = {'id': f'move_{go_to_pos}_go_to'}
+        prov[f'{at}.id'] = (DERIVED, 'f"move_{array position}_go_to"')
         move['go_to_object'] = _go_to_object_move(
-            i, phase, cfg, prov, gap_limits_for or _default_gap_limits,
+            go_to_pos, phase, cfg, prov, gap_limits_for or _default_gap_limits,
             notes if notes is not None else [])
         move['stop_condition'] = {'type': 'object_reached'}
         prov[f'{at}.stop_condition.type'] = (
             CONST, 'object_reached -- the only stop condition a go_to_object step takes')
-    elif mode == 'turn':
+        move['timeout_sec'] = _timeout_sec(phase, cfg)
+        prov[f'{at}.timeout_sec'] = (
+            DERIVED,
+            'clamp(ceil(expected_s * timeout_factor + timeout_floor), '
+            f'{TIMEOUT_MIN_SEC}, {TIMEOUT_MAX_SEC}) -- see _expected_seconds')
+        move['on_timeout'] = 'abort'
+        prov[f'{at}.on_timeout'] = (CONST, 'abort')
+        return [search, move]
+
+    at = f'moves[{pos}]'
+    move = {'id': f'move_{pos}_{mode}'}
+    prov[f'{at}.id'] = (DERIVED, 'f"move_{array position}_{intent mode}"')
+
+    if mode == 'turn':
         turn_sign = TURN_SIGN[phase['dir']]
         mag = _round_deg(cfg.turn_magnitude_deg)
         move['drive'] = {
@@ -838,8 +908,8 @@ def _intent_move(i, phase, cfg, prev_turn_sign, prov, *, go_to_enabled=True,
         # re-deriving the second from the first is how a last-bit mismatch
         # gets in. This is the same discipline phases_to_mission() uses.
         move['stop_condition'] = {'type': 'orientation_delta', 'value': mag}
-        prov[f'{at}.drive.mode'] = (INTENT, f'plan[{i}].mode "turn" -> "wall_turn"')
-        prov[f'{at}.drive.turn_sign'] = (INTENT, f'plan[{i}].dir via TURN_SIGN')
+        prov[f'{at}.drive.mode'] = (INTENT, 'plan[].mode "turn" -> "wall_turn"')
+        prov[f'{at}.drive.turn_sign'] = (INTENT, 'plan[].dir via TURN_SIGN')
         prov[f'{at}.drive.turn_mag_deg'] = (CONFIG, 'turn_magnitude_deg')
         prov[f'{at}.drive.speed'] = (CONFIG, 'speed_turn')
         prov[f'{at}.stop_condition.type'] = (CONST, 'orientation_delta')
@@ -849,7 +919,7 @@ def _intent_move(i, phase, cfg, prev_turn_sign, prov, *, go_to_enabled=True,
         cond_type, thresh_key, extra = GUARD_MAP[guard]
         if cfg.post_turn_uses_straight or prev_turn_sign is None:
             move['drive'] = {'mode': 'straight', 'speed': cfg.speed_straight}
-            prov[f'{at}.drive.mode'] = (INTENT, f'plan[{i}].mode "straight"')
+            prov[f'{at}.drive.mode'] = (INTENT, 'plan[].mode "straight"')
         else:
             # D1 fallback. A zero magnitude is legal on a wall_turn whose stop
             # condition is not orientation_delta, and it is what "keep the
@@ -866,9 +936,9 @@ def _intent_move(i, phase, cfg, prev_turn_sign, prov, *, go_to_enabled=True,
         prov[f'{at}.drive.speed'] = (CONFIG, 'speed_straight')
 
         stop = {'type': cond_type, thresh_key: _round_m(phase['thresh'])}
-        prov[f'{at}.stop_condition.type'] = (INTENT, f'plan[{i}].guard {guard!r} via GUARD_MAP')
+        prov[f'{at}.stop_condition.type'] = (INTENT, f'plan[].guard {guard!r} via GUARD_MAP')
         prov[f'{at}.stop_condition.{thresh_key}'] = (
-            INTENT, f'plan[{i}].thresh, rounded to 2 dp')
+            INTENT, 'plan[].thresh, rounded to 2 dp')
         for key, value in extra.items():
             stop[key] = value
             prov[f'{at}.stop_condition.{key}'] = (CONST, f'GUARD_MAP[{guard!r}] fixed param')
@@ -881,7 +951,7 @@ def _intent_move(i, phase, cfg, prev_turn_sign, prov, *, go_to_enabled=True,
         f'{TIMEOUT_MIN_SEC}, {TIMEOUT_MAX_SEC}) -- see _expected_seconds')
     move['on_timeout'] = 'abort'
     prov[f'{at}.on_timeout'] = (CONST, 'abort')
-    return move
+    return [move]
 
 
 def _validate_output(mission: dict, gap_limits_for=None) -> None:
@@ -946,6 +1016,35 @@ def _default_wall_thresh(intent):
     return {**intent, 'plan': new_plan}, filled
 
 
+def _drop_search_before_go_to(intent):
+    """Return (intent, dropped plan indices) without a thresh-less straight
+    phase that directly precedes a go_to.
+
+    "go straight until you see X, then approach X": the model writes the
+    first half as a straight phase with no thresh (no guard can say "until
+    seen"), which the schema rejects on every retry. The search move
+    translate() prepends before every go_to_object already does exactly
+    that, so the phase is redundant and is removed. Wall guards are left for
+    _default_wall_thresh. The caller's dict is never mutated.
+    """
+    plan = intent.get('plan') if isinstance(intent, dict) else None
+    if not isinstance(plan, list):
+        return intent, []
+    dropped = []
+    new_plan = []
+    for i, phase in enumerate(plan):
+        nxt = plan[i + 1] if i + 1 < len(plan) else None
+        if (isinstance(phase, dict) and phase.get('mode') == 'straight'
+                and 'thresh' not in phase and phase.get('guard') != 'wall'
+                and isinstance(nxt, dict) and nxt.get('mode') == 'go_to'):
+            dropped.append(i)
+            continue
+        new_plan.append(phase)
+    if not dropped:
+        return intent, []
+    return {**intent, 'plan': new_plan}, dropped
+
+
 def translate(intent, *, config=None, explain=False, go_to_enabled=True,
               gap_limits_for=None) -> TranslationResult:
     """Translate an intent_v1 document into a validated mission.
@@ -976,6 +1075,7 @@ def translate(intent, *, config=None, explain=False, go_to_enabled=True,
     the MPC side of a >90 turn is unverified -- not because anything clamps it.
     """
     cfg = config if config is not None else TranslatorConfig()
+    intent, dropped_searches = _drop_search_before_go_to(intent)
     intent, defaulted_walls = _default_wall_thresh(intent)
 
     try:
@@ -996,17 +1096,23 @@ def translate(intent, *, config=None, explain=False, go_to_enabled=True,
     moves = []
     notes = []
     prev_turn_sign = None
+    # phase_pos[i] = the array index phase i's move(s) start at: 1:1 with its
+    # index in `plan` only until the first go_to, which occupies two slots.
+    phase_pos = []
     for i, phase in enumerate(plan):
-        moves.append(_intent_move(i, phase, cfg, prev_turn_sign, prov,
+        phase_pos.append(len(moves))
+        moves.extend(_intent_move(len(moves), phase, cfg, prev_turn_sign, prov,
                                   go_to_enabled=go_to_enabled,
                                   gap_limits_for=gap_limits_for, notes=notes))
         if phase['mode'] == 'turn':
             prev_turn_sign = TURN_SIGN[phase['dir']]
 
     for i, value in defaulted_walls.items():
-        prov[f'moves[{i}].stop_condition.distance'] = (
+        prov[f'moves[{phase_pos[i]}].stop_condition.distance'] = (
             DERIVED, f'plan[{i}] wall guard had no thresh: WALL_THRESH_* default')
         notes.append(f'fase {i + 1}: distanza dal muro non detta, uso {value:.1f} m')
+    for i in dropped_searches:
+        notes.append(f'fase {i + 1}: "dritto finche\' non vedi" coperto dalla ricerca del go_to')
 
     moves[-1]['terminal'] = True
     prov[f'moves[{len(moves) - 1}].terminal'] = (DERIVED, 'True on the last move only')
@@ -1014,12 +1120,11 @@ def translate(intent, *, config=None, explain=False, go_to_enabled=True,
     has_go_to = any(phase['mode'] == 'go_to' for phase in plan)
     id_source = _canonical_json(intent)
     if has_go_to:
-        # A go_to move's gap_m comes from stack_params as well as the intent
-        # (default and clamp both read gap_min). Hashing the resolved gaps too
-        # gives a new id when a margin changes, instead of a collision that
+        # A go_to's moves carry stack_params values beyond the intent (gap_m,
+        # the search move's min_confidence). Hashing the emitted moves gives a
+        # new id when any of them changes, instead of a collision that
         # llm_planner_node._write_mission_file refuses to overwrite.
-        id_source += _canonical_json(
-            [m['go_to_object']['gap_m'] for m in moves if 'go_to_object' in m])
+        id_source += _canonical_json(moves)
     mission_id = '{}_{}'.format(
         cfg.mission_id_prefix,
         hashlib.sha1(id_source.encode('utf-8')).hexdigest()[:12])
@@ -1036,7 +1141,7 @@ def translate(intent, *, config=None, explain=False, go_to_enabled=True,
     # same stack_params.)
     prov['mission_id'] = (
         DERIVED, 'f"{mission_id_prefix}_{sha1(canonical_json(intent) '
-                 '[+ canonical_json(go_to gap_m list) when go_to is present])[:12]}"')
+                 '[+ canonical_json(moves) when go_to is present])[:12]}"')
     prov['schema_version'] = (
         CONST,
         f'{schema_version} -- {OBJECT_MISSION_SCHEMA_VERSION} when a go_to phase is present')
