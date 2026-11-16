@@ -407,6 +407,7 @@ class TestLoggerNode(Node):
             "plan_id": plan_id,
             "ros_start_time": self._now(),
             "source": NODE_NAME,
+            "planner_controller_mode": self._planner_controller_mode(),
         }
         # prompt_num -1 (the planner's default when nobody passed --prompt-num)
         # means "resolve it from the text": prompts.yaml indexes both, and the
@@ -465,6 +466,24 @@ class TestLoggerNode(Node):
         )
         return logger
 
+    def _planner_controller_mode(self):
+        """Return the planner_controller_mode in effect, read as mission_logger_node does.
+
+        From which controller node is alive (graph node names plus the
+        publishers of /mpc/object_status), 'unknown' when none or several
+        are. stack_params.yaml is not consulted: it only holds the default.
+        """
+        try:
+            from f1tenth_logger.mission_logger_node import planner_mode_from_node_names
+            names = {name for name, _ns in self.get_node_names_and_namespaces()}
+            names |= {info.node_name for info in
+                      self.get_publishers_info_by_topic("/mpc/object_status")}
+        except Exception as exc:  # noqa: BLE001 - the record must still be written
+            self._warn_once("planner_controller_mode",
+                            f"cannot read planner_controller_mode: {exc}")
+            return "unknown"
+        return planner_mode_from_node_names(names)
+
     def _close_test(self, outcome, reason):
         if self._test is not None:
             # a test shorter than the grace period is still checked, once
@@ -476,6 +495,11 @@ class TestLoggerNode(Node):
         self._mission_started = False
         if logger is None:
             return
+        # Retried at close while unknown: the controller may not have been
+        # discovered yet when the test opened. Not at shutdown (no context).
+        if (logger.extra_meta.get("planner_controller_mode") == "unknown"
+                and not self._shutting_down):
+            logger.extra_meta["planner_controller_mode"] = self._planner_controller_mode()
         summary = logger.finish(outcome, reason)
         message = (
             f"[test_campaign] close {logger.mission}/{logger.test_id} "
