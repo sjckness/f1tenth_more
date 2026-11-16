@@ -264,7 +264,9 @@ def test_stack_bringup_forwards_both_mpc_switches_to_navigation():
     assert len(nav) == 1
     forwarded = {perform_substitutions(ctx, list(k)) if not isinstance(k, str) else k
                  for k, _v in nav[0].launch_arguments}
-    assert forwarded == {'corridor_impl', 'mpc_solver_impl'}
+    # planner_controller_mode rides the same include (planners-on-car merge):
+    # navigation.launch.py picks the drive-lane node from it.
+    assert forwarded == {'corridor_impl', 'mpc_solver_impl', 'planner_controller_mode'}
 
 
 def test_stack_bringup_forwards_hard_stop_impl_to_the_mux():
