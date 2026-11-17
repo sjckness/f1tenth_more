@@ -1,13 +1,28 @@
 # scripts/sim/isaac_tuning: Isaac harness for tuning mpc_corr on "obstacle ahead"
 
-Work in progress (branch `isaac-mpc-tuning`). Runs short headless Isaac scenarios on linus with
-the car's stack (`scripts/sim/sim_isaac.sh`, `sim:=isaac`), MPC parameters passed as an override
-YAML (never by editing `stack_params.yaml`), and scores each run from live topics (no bags).
+Headless Isaac Sim scenarios on linus with the car's stack (`scripts/sim/sim_isaac.sh`,
+`sim:=isaac`, the same supervisor bringup), MPC parameters passed as launch overlays (never by
+editing `stack_params.yaml`), every run scored from live topics (no bags). The night loop and
+its numbers: [`tuning/PLAN.md`](tuning/PLAN.md).
 
-- `scenarios/S1..S5.yaml`: the scenarios (base_room, layout `tuning`, 4 m at 0.5 m/s, seeded
-  start-pose jitter of +-5 cm / +-3 deg).
-- `docker/Dockerfile`: minimal Isaac Sim 5.1 image for `~/isaac_ws` (tag
-  `isaac_ws_devcontainer-isaac-sim:latest`).
+```bash
+cd ~/dev_ws/f1tenth_isaac_tuning          # branch isaac-mpc-tuning, built (colcon, --symlink-install)
+python3 scripts/sim/isaac_tuning/run_scenario.py --scenario S1 \
+    --params scripts/sim/isaac_tuning/tuning/baseline.yaml --repeat 3
+python3 scripts/sim/isaac_tuning/run_set.py --params scripts/sim/isaac_tuning/tuning/next_params.yaml
+python3 scripts/sim/isaac_tuning/tuning/check_params.py scripts/sim/isaac_tuning/tuning/next_params.yaml
+python3 -m pytest scripts/sim/isaac_tuning/test -q                  # pure parts, no ROS
+```
 
-The Isaac side (cylinder obstacles, the `tuning` layout, the runtime `/sim/scenario` topic) lives
-in `~/isaac_ws`, branch `mpc-tuning`.
+Output under `output/isaac_tuning/<timestamp>_<scenario>/`: one directory per run (CSV streams,
+`meta.json`, `run.json` with outcome, clearances and score), `session.json` (wall times, the
+orphan check), `aggregate.json`.
+
+Needs:
+- the Isaac image `isaac_ws_devcontainer-isaac-sim:latest` (`docker/Dockerfile`, ~23 GB) and
+  `~/isaac_ws` on branch `mpc-tuning` (cylinders, layout `tuning`, `/sim/scenario`);
+- >= 3.5 GB of free GPU memory: stop `freeparty-llm.service` first (`night_loop.py` does it);
+- no other ROS stack of this workspace and no `f1t_isaac` container running (preflight).
+
+Private ROS domain 78 and Discovery Server port 11878 (never the car's 42 / 11811).
+`env.sh` gives a shell the same environment (`source scripts/sim/isaac_tuning/env.sh`).
