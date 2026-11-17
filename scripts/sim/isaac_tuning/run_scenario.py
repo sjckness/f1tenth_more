@@ -129,8 +129,17 @@ def free_vram_mib() -> int | None:
 class Session:
     """The Discovery Server, Isaac and the stack this harness started (and only those)."""
 
-    def __init__(self, out: str, domain: int, ds_port: int, min_vram_mib: int = 3500):
+    def __init__(self, out: str, domain: int, ds_port: int, min_vram_mib: int = 3500,
+                 isaac_sets=(), spectator: bool = False):
         self.out = out
+        self.isaac_sets = list(isaac_sets)
+        self.spectator_dir = None
+        if spectator:
+            tag = 'run_' + time.strftime('%Y%m%d_%H%M%S')
+            self.isaac_sets += ['scene.spectator.enabled=true',
+                                f'scene.spectator.out_dir=output/spectator/{tag}']
+            self.spectator_dir = os.path.join(os.path.expanduser('~/isaac_ws'), 'output',
+                                              'spectator', tag)
         self.domain, self.ds_port = domain, ds_port
         self.min_vram_mib = min_vram_mib
         self.ds = self.isaac = self.stack = None
@@ -190,7 +199,8 @@ class Session:
         env = dict(os.environ, F1T_SIM_MIN_FREE_GB='10', F1TENTH_SIM_DISCOVERY_PORT=str(self.ds_port))
         self.isaac = subprocess.Popen(
             [SIM_ISAAC, 'isaac', '--domain', str(self.domain), '--scene', scene, '--layout', layout,
-             '--set', 'sensors.stereo.right_camera=false'],
+             '--set', 'sensors.stereo.right_camera=false',
+             *[a for kv in self.isaac_sets for a in ('--set', kv)]],
             stdout=logf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, env=env,
             start_new_session=True)
         if not self.wait_clock(300.0):
@@ -264,6 +274,27 @@ class Session:
         self.save()
 
 
+def copy_frames(spectator_dir: str, run_dir: str) -> int:
+    """Copy the spectator frames of this run's sim-time window into <run_dir>/frames."""
+    import shutil
+    with open(os.path.join(run_dir, 'meta.json'), encoding='utf-8') as fh:
+        meta = json.load(fh)
+    t0, t1 = meta.get('t_running'), meta.get('t_end')
+    if t0 is None or t1 is None or not os.path.isdir(spectator_dir):
+        return 0
+    os.makedirs(os.path.join(run_dir, 'frames'), exist_ok=True)
+    n = 0
+    for name in sorted(os.listdir(spectator_dir)):
+        try:
+            t = float(name[1:-4])
+        except ValueError:
+            continue
+        if t0 - 1.0 <= t <= t1 + 3.0:
+            shutil.copy(os.path.join(spectator_dir, name), os.path.join(run_dir, 'frames', name))
+            n += 1
+    return n
+
+
 def run_reps(session: Session, sid: str, params: dict, space: dict, reps, set_dir: str,
              seq0: int = 1, fresh_stack_per_run: bool = False) -> list[dict]:
     """Run repetitions `reps` of scenario `sid`; returns the run.json dicts."""
@@ -301,15 +332,19 @@ def run_reps(session: Session, sid: str, params: dict, space: dict, reps, set_di
                 stop_group(rec, 'recorder', first=signal.SIGINT, grace=10.0)
                 code = -1
             wall = round(time.time() - t0, 1)
-            if code == 2 and attempt == 1:
-                # stack never got ready: restart it (and Isaac if it died) once
-                session.event('stack not ready: restarting it', run=run_dir)
+            if code in (2, 4) and attempt == 1:
+                # 2: the stack never got ready; 4: /sim/scenario, /reset_all or the mission start
+                # failed (seen: /reset_all's ekf_global step lost /ekf_global/set_pose after a
+                # few resets). Restart the stack (and Isaac if it died) and retry the run once.
+                session.event('run setup failed: restarting the stack', run=run_dir, code=code)
                 session.stop_stack()
                 continue
             break
         run = metrics.compute(run_dir) if os.path.exists(os.path.join(run_dir, 'meta.json')) else {
             'scenario': sid, 'rep': rep, 'outcome': 'invalid', 'valid': False, 'score': None}
         run['recorder_code'] = code
+        if session.spectator_dir and os.path.exists(os.path.join(run_dir, 'meta.json')):
+            run['frames'] = copy_frames(session.spectator_dir, run_dir)
         run['wall_recorder_s'] = wall
         run['isaac_alive_after'] = session.isaac_ok()
         if fresh_stack_per_run:
@@ -334,6 +369,9 @@ def main(argv=None) -> int:
     ap.add_argument('--ds-port', type=int, default=11878)
     ap.add_argument('--fresh-stack-per-run', action='store_true')
     ap.add_argument('--keep-isaac', action='store_true', help='leave Isaac + DS running at the end')
+    ap.add_argument('--spectator', action='store_true',
+                    help='third-person screenshots (Isaac scene.spectator) into <run>/frames/')
+    ap.add_argument('--isaac-set', action='append', default=[], help='extra Isaac --set KEY=VALUE')
     args = ap.parse_args(argv)
     space = common.load_space()
     params = common.load_yaml(args.params) or {}
@@ -344,7 +382,8 @@ def main(argv=None) -> int:
     out = args.out or os.path.join(common.OUT_ROOT, time.strftime('%Y%m%d_%H%M%S') + f'_{args.scenario}')
     os.makedirs(out, exist_ok=True)
     common.dump_yaml(common.full_params(params, space), os.path.join(out, 'params.yaml'))
-    session = Session(out, args.domain, args.ds_port)
+    session = Session(out, args.domain, args.ds_port, isaac_sets=args.isaac_set,
+                      spectator=args.spectator)
     t0 = time.time()
     try:
         session.preflight(attach=False)
