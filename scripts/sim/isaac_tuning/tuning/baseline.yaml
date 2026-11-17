@@ -1,0 +1,3 @@
+# The parameter set under test: {ROS parameter: value}, keys from space.yaml. Empty = every
+# default of space.yaml (= stack_params.yaml on mpc-centerline-target).
+{}
