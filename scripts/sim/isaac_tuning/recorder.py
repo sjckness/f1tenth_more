@@ -375,7 +375,13 @@ def main(argv=None) -> int:
     t0 = time.time()
     applied, bad = {}, []
     for node, want in expect.items():
+        # A node can be in the graph before its parameter service answers (mpc_corr's
+        # __init__ is long): ask again for up to 30 s while nothing comes back.
+        t_end = time.time() + 30.0
         got = rec.get_params(node, list(want))
+        while (not got or any(v is None for v in got.values())) and time.time() < t_end:
+            rec.spin_until(lambda: False, 2.0)
+            got = rec.get_params(node, list(want))
         applied[node] = got
         for k, v in want.items():
             g = got.get(k)

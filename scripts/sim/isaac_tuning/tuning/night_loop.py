@@ -155,6 +155,8 @@ def main(argv=None) -> int:
     ap.add_argument('--domain', type=int, default=78)
     ap.add_argument('--ds-port', type=int, default=11878)
     ap.add_argument('--seed', type=int, default=17)
+    ap.add_argument('--spectator', action='store_true',
+                    help='third-person frames of every run (<run>/frames), for the figures')
     args = ap.parse_args(argv)
     space = common.load_space()
     stop_cfg = space.get('stop') or {}
@@ -174,7 +176,7 @@ def main(argv=None) -> int:
     state['gpu']['before'] = gpu_service('stop', args.gpu_service)
     log(f'night loop in {night}: GPU service {state["gpu"]["before"]}')
     params = common.load_yaml(args.start) or {}
-    session = Session(night, args.domain, args.ds_port)
+    session = Session(night, args.domain, args.ds_port, spectator=args.spectator)
     invalid_streak = 0
     tried = set()
     try:
