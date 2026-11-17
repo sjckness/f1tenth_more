@@ -22,6 +22,7 @@ SIM_OVERLAY_SRC = os.path.join(BRINGUP_CONFIG, 'sim', 'isaac.yaml')
 HOST_OVERLAY_SRC = os.path.join(BRINGUP_CONFIG, 'sim', 'hosts', 'linus.yaml')
 
 SCENARIO_IDS = ('S1', 'S2', 'S3', 'S4', 'S5')
+MOVING_IDS = ('M1', 'M2', 'M3', 'M4')
 
 # Car geometry the metrics need (car_spec / stack_params): base_link is the rear axle centre.
 WHEELBASE_M = 0.305
@@ -67,6 +68,7 @@ def scenario_instance(scn: dict, rep: int) -> dict:
            'yaw_deg': math.degrees(yaw0) + rng.uniform(-dyaw, dyaw)}
     obstacles = {}
     obstacle_info = []
+    motion = {}
     for ob in scn.get('obstacles') or []:
         lat = float(ob.get('lateral_m', 0.0))
         if ob.get('lateral_sign') == 'alternate' and rep % 2 == 1:
@@ -75,9 +77,20 @@ def scenario_instance(scn: dict, rep: int) -> dict:
         x = x0 + ahead * math.cos(yaw0) - lat * math.sin(yaw0)
         y = y0 + ahead * math.sin(yaw0) + lat * math.cos(yaw0)
         obstacles[ob['id']] = [round(x, 4), round(y, 4)]
-        obstacle_info.append({'id': ob['id'], 'x': x, 'y': y, 'ahead_m': ahead, 'lateral_m': lat,
-                              'radius_m': OBSTACLE_RADIUS_M[ob['id']]})
+        info = {'id': ob['id'], 'x': x, 'y': y, 'ahead_m': ahead, 'lateral_m': lat,
+                'radius_m': OBSTACLE_RADIUS_M[ob['id']]}
+        mo = ob.get('motion')
+        if mo:
+            # velocity given in the nominal start frame (along the heading, left-positive)
+            va, vl = float(mo.get('v_along', 0.0)), float(mo.get('v_lat', 0.0))
+            v = [va * math.cos(yaw0) - vl * math.sin(yaw0), va * math.sin(yaw0) + vl * math.cos(yaw0)]
+            motion[ob['id']] = {'v': [round(v[0], 4), round(v[1], 4)],
+                                'delay_s': float(mo.get('delay_s', 0.0)),
+                                'duration_s': float(mo.get('duration_s', 1e9))}
+            info['motion'] = motion[ob['id']]
+        obstacle_info.append(info)
     return {'scenario': scn['id'], 'rep': int(rep), 'car': car, 'obstacles': obstacles,
+            'motion': motion,
             'obstacle_info': obstacle_info, 'mission': dict(scn['mission']),
             'nominal_start': {'x': x0, 'y': y0, 'yaw_deg': math.degrees(yaw0)}}
 

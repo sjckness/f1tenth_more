@@ -360,7 +360,7 @@ def run_reps(session: Session, sid: str, params: dict, space: dict, reps, set_di
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
-    ap.add_argument('--scenario', required=True, choices=common.SCENARIO_IDS)
+    ap.add_argument('--scenario', required=True, choices=common.SCENARIO_IDS + common.MOVING_IDS)
     ap.add_argument('--params', required=True, help='parameter set YAML ({name: value}, see space.yaml)')
     ap.add_argument('--repeat', type=int, default=1)
     ap.add_argument('--first-rep', type=int, default=0)

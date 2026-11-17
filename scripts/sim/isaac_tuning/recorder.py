@@ -125,6 +125,7 @@ class Recorder(Node):
                                'stop_source']),
             'obstacles': f('obstacles.csv', ['t', 'frame', 'n', 'x', 'y', 'r']),
             'cpu': f('cpu.csv', ['t_wall', 't', 'mpc_cpu_s']),
+            'movers': f('movers.csv', ['t', 'id', 'x', 'y']),
         }
         self.jsonl = {k: open(os.path.join(out, f'{k}.jsonl'), 'w', encoding='utf-8')
                       for k in ('corridor', 'events', 'outcome')}
@@ -144,7 +145,9 @@ class Recorder(Node):
         sub(Obstacle2DArray, '/costmap/semantic_obstacles', self._on_obstacles, BE)
         sub(String, '/corridor', self._on_corridor, BE)
         sub(String, '/sim/scenario_applied', self._on_applied, LATCHED)
+        sub(String, '/sim/ground_truth/movers', self._on_movers, BE)
         self.pub_scenario = self.create_publisher(String, '/sim/scenario', RELIABLE)
+        self.pub_go = self.create_publisher(String, '/sim/scenario_go', RELIABLE)
         self.cli_reset_all = self.create_client(Trigger, '/reset_all')
         self.cli_load = self.create_client(LoadMission, '/mission/load_mission')
         self.cli_start = self.create_client(Trigger, '/mission/start_mission')
@@ -255,6 +258,16 @@ class Recorder(Node):
         self.jsonl['corridor'].write(json.dumps({'t': self._t(), 'definition': d.get('definition'),
                                                  'psi_ref': d.get('psi_ref'),
                                                  'length_m': d.get('length_m')}) + '\n')
+
+    def _on_movers(self, msg):
+        if not self.recording:
+            return
+        try:
+            d = json.loads(msg.data)
+        except ValueError:
+            return
+        for oid, xy in (d.get('obstacles') or {}).items():
+            self.csv['movers'].row(d.get('t'), oid, xy[0], xy[1])
 
     def _on_applied(self, msg):
         try:
@@ -396,7 +409,8 @@ def main(argv=None) -> int:
 
     # 3. scenario
     t0 = time.time()
-    req = {'seq': args.seq, 'car': inst['car'], 'obstacles': inst['obstacles']}
+    req = {'seq': args.seq, 'car': inst['car'], 'obstacles': inst['obstacles'],
+           'motion': inst.get('motion') or {}}
     rec.applied = None
     msg = String()
     msg.data = json.dumps(req)
@@ -447,6 +461,11 @@ def main(argv=None) -> int:
         return finish(4, f'mission never RUNNING (state {rec.mission_state})')
     t_run = rec.t_sim
     meta['t_running'] = t_run
+    if inst.get('motion'):
+        go = String()
+        go.data = json.dumps({'seq': args.seq})
+        rec.pub_go.publish(go)
+        meta['t_go'] = rec.t_sim
     end_reason = None
     wall_guard = time.time() + 3.0 * timeout_s + 30.0
     while time.time() < wall_guard:

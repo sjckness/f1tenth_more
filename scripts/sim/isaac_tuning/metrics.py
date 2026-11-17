@@ -26,6 +26,7 @@ under test uses: a set cannot pass by shrinking its own margin.
 """
 from __future__ import annotations
 
+import bisect
 import csv
 import json
 import math
@@ -120,17 +121,31 @@ def compute(run_dir: str) -> dict:
     out['duration_s'] = t_end - t_run
     out['time_to_goal_s'] = (t_end - t_run) if final_state == 'COMPLETE' else None
 
-    # obstacles: true positions, car-centre (axle midpoint) clearance and footprint contact
+    # obstacles: true positions (moving ones from /sim/ground_truth/movers, 20 Hz), car-centre
+    # (axle midpoint) clearance and footprint contact
     obstacles = inst.get('obstacle_info') or []
+    movers: dict = {}
+    for row in read_csv(os.path.join(run_dir, 'movers.csv')):
+        movers.setdefault(row['id'], []).append((_f(row['t']), _f(row['x']), _f(row['y'])))
     clearances, contact = [], math.inf
     for ob in obstacles:
         r = float(ob['radius_m'])
+        track = sorted(movers.get(ob['id'], [])) if ob.get('motion') else []
+        times = [p[0] for p in track]
+
+        def where(t, ob=ob, track=track, times=times):
+            if not track:
+                return ob['x'], ob['y']
+            i = bisect.bisect_right(times, t)
+            p = track[max(0, min(i, len(track)) - 1)]
+            return p[1], p[2]
         dmin = math.inf
         for row in window:
             x, y, yaw = _f(row['x']), _f(row['y']), _f(row['yaw'])
+            ox, oy = where(_f(row['t']))
             cx, cy = x + 0.5 * WHEELBASE_M * math.cos(yaw), y + 0.5 * WHEELBASE_M * math.sin(yaw)
-            dmin = min(dmin, math.hypot(cx - ob['x'], cy - ob['y']))
-            contact = min(contact, footprint_circle_clearance(x, y, yaw, ob['x'], ob['y'], r))
+            dmin = min(dmin, math.hypot(cx - ox, cy - oy))
+            contact = min(contact, footprint_circle_clearance(x, y, yaw, ox, oy, r))
         r_safe = r + CAR_RADIUS_M + SHIPPED_MARGIN_M
         clearances.append({'id': ob['id'], 'r': r, 'min_centre_dist_m': dmin, 'r_safe_ref_m': r_safe,
                            'margin_m': dmin - r_safe})

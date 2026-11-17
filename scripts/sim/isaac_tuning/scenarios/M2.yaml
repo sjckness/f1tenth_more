@@ -1,0 +1,19 @@
+# M2: cylinder D0.5 coming head-on at 0.25 m/s, starting 3.5 m ahead on the line
+id: M2
+description: "cylinder D0.5 coming head-on at 0.25 m/s, starting 3.5 m ahead on the line"
+scene: base_room
+layout: tuning               # ~/isaac_ws config/scenes/base_room.yaml (branch mpc-tuning)
+car_start: {x: 0.5, y: 3.0, yaw_deg: 0.0}
+mission:
+  distance_m: 4.0
+  speed_mps: 0.5
+  timeout_s: 20.0
+# MOVING obstacle: placed at ahead_m / lateral_m (nominal start frame), it starts moving when the
+# mission goes RUNNING (/sim/scenario_go) + delay_s, at v_along / v_lat (m/s, nominal frame,
+# left-positive) for duration_s, then stands still. Kinematic: it does not react to the car.
+obstacles:
+  - id: cyl050
+    ahead_m: 3.5
+    lateral_m: 0.0
+    motion: {v_along: -0.25, v_lat: 0.0, delay_s: 0.0, duration_s: 8.0}
+jitter: {seed: 1202, xy_m: 0.05, yaw_deg: 3.0}

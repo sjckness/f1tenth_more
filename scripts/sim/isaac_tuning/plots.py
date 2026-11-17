@@ -42,15 +42,18 @@ plt.rcParams.update({
     'font.size': 10, 'axes.titlesize': 11, 'axes.titleweight': 'bold', 'legend.frameon': False,
     'axes.spines.top': False, 'axes.spines.right': False,
 })
-SCN_TITLE = {'S1': 'S1  D0.5 on the line, 1.5 m', 'S2': 'S2  D1.0 on the line, 1.5 m',
+SCN_TITLE = {'M1': 'M1  D0.5 crossing from the right, 0.4 m/s',
+             'M2': 'M2  D0.5 head-on, 0.25 m/s', 'M3': 'M3  D0.5 crossing from the left, 0.5 m/s',
+             'M4': 'M4  D0.5 walks in and stops on the line',
+             **{'S1': 'S1  D0.5 on the line, 1.5 m', 'S2': 'S2  D1.0 on the line, 1.5 m',
              'S3': 'S3  D0.5, +-0.15 m off, 1.5 m', 'S4': 'S4  D0.5 on the line, 1.0 m',
-             'S5': 'S5  no obstacle'}
+             'S5': 'S5  no obstacle'}}
 
 
 def load_set(set_dir: str) -> list[dict]:
     """Every run of a set directory: run.json + its ground-truth path."""
     runs = []
-    for rj in sorted(glob.glob(os.path.join(set_dir, 'S?_r*', 'run.json'))):
+    for rj in sorted(glob.glob(os.path.join(set_dir, '[SM]?_r*', 'run.json'))):
         d = os.path.dirname(rj)
         with open(rj, encoding='utf-8') as fh:
             run = json.load(fh)
@@ -72,11 +75,18 @@ def load_set(set_dir: str) -> list[dict]:
                         ys.append(float(row['y']))
         run['path'] = (xs, ys)
         run['dir'] = d
+        mv = os.path.join(d, 'movers.csv')
+        run['movers'] = {}
+        if os.path.exists(mv):
+            with open(mv, newline='', encoding='utf-8') as fh:
+                for row in csv.DictReader(fh):
+                    run['movers'].setdefault(row['id'], []).append((float(row['x']), float(row['y'])))
         runs.append(run)
     return runs
 
 
-def fig_map(sets: list[tuple[str, list]], out: str, scenarios=common.SCENARIO_IDS) -> str:
+def fig_map(sets: list[tuple[str, list]], out: str,
+            scenarios=common.SCENARIO_IDS + common.MOVING_IDS) -> str:
     """Top view per scenario, the sets overlaid (one color per set, fixed order)."""
     present = [s for s in scenarios if any(r['scenario'] == s for _, runs in sets for r in runs)]
     fig, axes = plt.subplots(1, len(present), figsize=(4.0 * len(present), 4.4), squeeze=False)
@@ -89,6 +99,17 @@ def fig_map(sets: list[tuple[str, list]], out: str, scenarios=common.SCENARIO_ID
                 if not drawn:
                     for ob in r['instance'].get('obstacle_info', []):
                         rr = ob['radius_m']
+                        track = r.get('movers', {}).get(ob['id'])
+                        if ob.get('motion') and track:
+                            # moving: its path, faint discs along it, the final disc solid
+                            ax.plot([p[0] for p in track], [p[1] for p in track], ':', color=INK2,
+                                    linewidth=1.5, zorder=2)
+                            for p in track[::max(1, len(track) // 6)]:
+                                ax.add_patch(Circle(p, rr, color=OBST, alpha=0.15, zorder=2))
+                            ax.add_patch(Circle(track[-1], rr, color=OBST, alpha=0.55, zorder=2))
+                            ax.annotate('', xy=track[-1], xytext=track[0],
+                                        arrowprops=dict(arrowstyle='->', color=INK2, lw=1.2))
+                            continue
                         ax.add_patch(Circle((ob['x'], ob['y']), rr, color=OBST, alpha=0.55, zorder=2))
                         ax.add_patch(Circle((ob['x'], ob['y']), rr + 0.32, fill=False, ls='--',
                                             edgecolor=OBST, linewidth=1.0, zorder=2))
@@ -112,8 +133,10 @@ def fig_map(sets: list[tuple[str, list]], out: str, scenarios=common.SCENARIO_ID
     handles += [Circle((0, 0), 1, color=OBST, alpha=0.55, label='obstacle'),
                 plt.Line2D([0], [0], color=OBST, ls='--', label='R_safe (r + 0.32 m)'),
                 plt.Line2D([0], [0], marker='x', color=CRITICAL, ls='', mew=2.5, label='collision / e-stop')]
-    fig.legend(handles=handles, loc='upper center', ncol=len(handles), bbox_to_anchor=(0.5, 1.02))
-    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    ncol = len(handles) if len(present) >= 4 else min(3, len(handles))
+    rows = math.ceil(len(handles) / ncol)
+    fig.legend(handles=handles, loc='upper center', ncol=ncol, bbox_to_anchor=(0.5, 1.0), fontsize=9)
+    fig.tight_layout(rect=(0, 0, 1, 1.0 - 0.07 * rows - (0.0 if len(present) >= 4 else 0.04)))
     fig.savefig(out, dpi=130)
     plt.close(fig)
     return out
@@ -171,7 +194,7 @@ def fig_margins(sets: list[tuple[str, list]], out: str) -> str:
                for k, (label, _) in enumerate(sets)]
     handles.append(plt.Line2D([0], [0], marker='x', ls='', color=CRITICAL, mew=2, label='collision / e-stop'))
     ax.legend(handles=handles, loc='lower right')
-    ax.text(len(scen) - 0.5, -0.015, '3 cm tolerance', color=INK2, fontsize=8, ha='right', va='center')
+    ax.text(-0.45, -0.015, '3 cm tolerance', color=INK2, fontsize=8, ha='left', va='center')
     fig.tight_layout()
     fig.savefig(out, dpi=130)
     plt.close(fig)
