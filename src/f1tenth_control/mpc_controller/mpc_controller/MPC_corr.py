@@ -1099,20 +1099,6 @@ class MPCController(Node):
             self.wall_row_identity = wb.RowIdentity(
                 self.wall_row_merge_angle_deg, self.wall_row_merge_offset_m)
 
-        # Max tangential shove applied to the lookahead target when it lands
-        # inside an obstacle's safety radius -- see compute_local_target,
-        # which is the only reader. A DECLARED PARAMETER whose default comes
-        # from stack_params.yaml via get_value(), same single-sourcing as
-        # corridor_update_period below: the number lives in that file and
-        # nowhere else, so a bare `ros2 run` that bypasses the launch file
-        # still gets the deployed value, and the test stand-in in
-        # test_corridor_lookahead_target.py reads the same key rather than
-        # carrying a copy.
-        self.obstacle_target_shift = float(
-            self.declare_parameter(
-                'obstacle_target_shift_m',
-                get_value('obstacle_target_shift_m')).value)
-
         # nice: see _apply_nice() below, called near the end of __init__.
         # Defaults to no-op (0) so this node's priority is unchanged unless a
         # deployment explicitly opts in via mpc_corr.launch.py. CPU affinity
@@ -1720,6 +1706,17 @@ class MPCController(Node):
         # =========================
         # Pesi
         # =========================
+        # mpc-centerline-target (2026-11-17): THE OBSTACLE MUST BEAT THE
+        # TARGET. compute_local_target no longer moves the target off an
+        # obstacle, so on a centreline obstacle the terminal w_term pull and
+        # the stage w_obs cost meet head-on inside one QP. With the old
+        # balance the obstacle lost: driven closed-loop (real corridor,
+        # target and RTI solve around the vehicle model, test/
+        # test_centerline_target_closed_loop.py) the car's centre went
+        # 0.2-0.3 m inside R_safe. mpc_w_obs was raised; w_term and w_corr
+        # were checked and left alone. stack_params.yaml holds the value and
+        # the measured table; this comment deliberately does not repeat them.
+        #
         # w_psi / w_corr are now REALLY WIRED UP -- w_psi as a terminal-yaw
         # cost and w_corr as a stagewise squared-lateral-offset cost, in
         # mpc_solver.py's RTI QP as well as in planner_cost_corridor. Before
@@ -1795,8 +1792,8 @@ class MPCController(Node):
         #     measured, in both directions.
         #   - OBSTACLE CLEARANCE. The old note's mechanism -- a lateral
         #     penalty resists the deflection while an obstacle is still
-        #     there -- has not gone away. w_obs was deliberately left at
-        #     2.8 for less shyness, and w_corr now pulls the other way.
+        #     there -- has not gone away. (w_obs was raised on
+        #     mpc-centerline-target, see the head of this block.)
         # a bare `ros2 run` that bypasses the launch file gets the deployed
         # set too. Until this pass these were ten bare literals with no ROS
         # parameter behind them at all: no launch override, no config
@@ -1809,16 +1806,9 @@ class MPCController(Node):
         # through untouched; every other key is per-stage and is multiplied
         # by STAGE_WEIGHT_REF_HORIZON / N = 7/20 = 0.35 inside
         # solve_mpc_step (mpc_solver.scale_stage_weights). Quote the
-        # EFFECTIVE number when comparing against a tuning note:
-        #
-        #   key            yaml literal   effective (x 0.35)
-        #   w_corr              3.5714               1.2500
-        #   w_psi_stage         4.7736               1.6708
-        #   w_v                 4.2857               1.5000
-        #   w_du_delta          8.5714               3.0000
-        #   w_obs               8.0000               2.8000
-        #   w_term              9.0                  9.0    (terminal)
-        #   w_psi               4.5                  4.5    (terminal)
+        # EFFECTIVE number when comparing against a tuning note (each key's
+        # stack_params.yaml description quotes it; test_weight_set.py pins
+        # the translation, so no copy of the table lives here to go stale).
         #
         # The stage literals are rho / (7 * sigma^2), which is exactly what
         # makes the TOTAL stage cost over the horizon equal rho / sigma^2
@@ -1867,31 +1857,6 @@ class MPCController(Node):
         # three moves later is a real safety regression, not a cosmetic one.
         self.vdes_default = self.vdes
         self.avoidance_margin_default = self.avoidance_margin
-
-        # =========================
-        # Target smoothing / obstacle-deflection coast
-        # =========================
-        # Exponential smoothing on compute_local_target's (possibly obstacle-
-        # deflected) output point -- raw per-frame obstacle detections can
-        # otherwise make the target jump frame to frame even with
-        # f1tenth_perception's own merge/plausibility filtering upstream.
-        # new = alpha*raw + (1-alpha)*old; alpha=1.0 disables smoothing
-        # (always the raw point); smaller alpha = smoother but slower to react.
-        self.target_smoothing_alpha = float(
-            self.declare_parameter('target_smoothing_alpha', 0.5).value)
-        self.smoothed_target: Optional[np.ndarray] = None
-
-        # When the obstacle(s) deflecting the target drop out of the live
-        # per-frame list (one missed detection, one merge-away, object
-        # actually cleared -- compute_local_target has no per-frame memory of
-        # its own), don't snap the target straight back to the raw centerline
-        # on the very next tick: decay the last-applied deflection linearly to
-        # zero over this many ticks instead. 1 tick = one compute_local_target
-        # call (~one control_loop tick, self.ts seconds apart).
-        self.deflection_decay_ticks = int(
-            self.declare_parameter('deflection_decay_ticks', 5).value)
-        self.last_deflection_vec = np.zeros(2)
-        self.deflection_decay_remaining = 0
 
         # =========================
         # Salvataggio debug corridoio
@@ -2451,7 +2416,7 @@ class MPCController(Node):
 
         self.get_logger().info(
             'MPC Controller STARTED (pure MPC + obstacle avoidance '
-            '[fixed deflection + predicted clearance], no plan executor)'
+            '[solver w_obs cost, centerline target], no plan executor)'
         )
 
         # ---- DEBUG: dump della configurazione all'avvio ----
@@ -4010,10 +3975,6 @@ class MPCController(Node):
         # getattr for the duck-typed stand-ins, which carry no channel.
         if getattr(self, 'speed_channel', None) is not None:
             self._speed_reset('goal_change')
-        # Target smoothing / obstacle-deflection coast: previous move's state.
-        self.smoothed_target = None
-        self.last_deflection_vec = np.zeros(2)
-        self.deflection_decay_remaining = 0
         # Object mode's per-move geometry. Cleared HERE rather than in each of
         # the other four callbacks, so that any new goal of any shape drops an
         # active object approach without those callbacks having to grow a line
@@ -7985,6 +7946,25 @@ class MPCController(Node):
         return float(lookahead)
 
     def compute_local_target(self, x, corridor):
+        """
+        Return the MPC's terminal target: the lookahead point ON the centerline.
+
+        Projects the car onto the corridor centerline (argmin distance),
+        advances `lookahead` (_corridor_lookahead) along the cumulative
+        arclength and returns that centerline sample, clamped to the last one
+        at the corridor end. Nothing else: no obstacle moves it, and nothing
+        filters it across ticks.
+
+        OBSTACLES ARE THE SOLVER'S JOB. The point is returned even when it
+        falls inside an obstacle's safety disc. Avoidance happens in the QP
+        alone, where mpc_solver's soft w_obs cost is traded against this
+        target's w_term pull (and the stage cross-track w_corr) in one
+        optimisation. Shifting the target here instead (the
+        obstacle_target_shift_m deflection, with its 5-tick coast and an
+        exponential smoother on top, removed on branch mpc-centerline-target)
+        made the target generator do the avoidance and left the MPC chasing a
+        point that had already swerved.
+        """
         p_robot = np.array([x[0], x[1]], dtype=float)
 
         xc = np.asarray(corridor["xc"], dtype=float)
@@ -8005,133 +7985,13 @@ class MPCController(Node):
             [xc[idx_target], yc[idx_target]],
             dtype=float
         )
-        # Raw (pre-obstacle-deflection) target -- kept so the deflection-coast
-        # logic below can tell whether THIS tick actually deflected anything,
-        # and can decay a stale deflection back onto the (current) centerline
-        # rather than some earlier tick's raw point.
-        p_target_raw = p_target.copy()
 
         # ---- DEBUG: indice piu' vicino e indice di lookahead ----
         self.get_logger().info(
             f'TGT | idx={idx} idx_target={idx_target}/{len(xc) - 1} '
-            f'lookahead={lookahead:.2f} nominale=({p_target[0]:+.3f},{p_target[1]:+.3f})'
+            f'lookahead={lookahead:.2f} target=({p_target[0]:+.3f},{p_target[1]:+.3f})'
         )
-
-        # se il target lookahead cade dentro il margine di sicurezza di un
-        # ostacolo, spostalo tangenzialmente fuori: e' qui che avviene
-        # l'evitamento ostacoli / cambio di direzione locale, senza bisogno
-        # di un piano.
-        #
-        # UPGRADE:
-        #  - il raggio di innesco ora usa la stessa distanza di sicurezza del
-        #    solver (R_safe = r + d_safe) invece del solo raggio ostacolo,
-        #    cosi' il target inizia a muoversi PRIMA che il costo del solver
-        #    debba intervenire con forza, non dopo.
-        #  - lo spostamento tangenziale ora e' proporzionale a quanto il
-        #    target ha "sconfinato" nel margine di sicurezza (0 a R_safe,
-        #    massimo sulla superficie dell'ostacolo) invece di un salto fisso
-        #    di 1.0 m.
-        #
-        # THE CEILING ON THAT DISPLACEMENT IS obstacle_target_shift_m, a
-        # declared parameter read from stack_params.yaml (see __init__). It
-        # used to be 0.6 * mean(halfWidth) -- corridor-derived, and so
-        # self-limiting against leaving the corridor, but also unnamed,
-        # untunable without a rebuild, and silently retuned by any change to
-        # corr_wmin/corr_wmax. At the shipping geometry it evaluated to
-        # exactly 0.36 m; the parameter now ships 0.30, deliberately smaller
-        # so the car passes close to obstacles instead of swerving wide.
-        # The PROPORTIONAL SHAPE below is unchanged -- this is only its
-        # ceiling, still scaled by `penetration`.
-        #
-        # Because the value is no longer derived from the corridor, the
-        # "never leaves the corridor" property is no longer structural: it
-        # holds because 0.30 < the 0.64 m narrow half-width, not because
-        # the arithmetic forces it. The throttled warn below is what keeps
-        # that from going quiet if either number is ever retuned past the
-        # other.
-        d_safe = corridor.get("d_safe", 0.0)
-        max_defl = self.obstacle_target_shift
-
-        mean_half_width = float(np.mean(corridor["halfWidth"]))
-        if max_defl > mean_half_width:
-            self.get_logger().warn(
-                f'TGT/defl | obstacle_target_shift_m {max_defl:.3f} exceeds the '
-                f'corridor mean half-width {mean_half_width:.3f}: a fully '
-                f'penetrating obstacle deflects the target outside its own '
-                f'corridor.',
-                throttle_duration_sec=5.0)
-
-        for ox, oy, r in corridor.get("obstacles_world", []):
-            p_obs = np.array([ox, oy], dtype=float)
-            R_safe = r + self.car_radius + self.avoidance_margin
-
-            v = p_target - p_obs
-            d = np.linalg.norm(v)
-
-            if d < R_safe:
-                if d < 1e-6:
-                    psi = float(x[2])
-                    v = np.array([np.cos(psi), np.sin(psi)], dtype=float)
-                    d = 1e-6
-
-                v_hat = v / d
-                t = np.array([-v_hat[1], v_hat[0]], dtype=float)
-
-                e = np.array([np.cos(float(x[2])), np.sin(float(x[2]))], dtype=float)
-                if np.dot(t, e) < 0.0:
-                    t = -t
-
-                penetration = float(np.clip((R_safe - d) / max(R_safe - r, 1e-6), 0.0, 1.0))
-                offset = max_defl * penetration
-
-                p_target_old = p_target.copy()
-                p_target = p_obs + R_safe * v_hat + offset * t
-
-                # ---- DEBUG: deflessione tangenziale effettivamente applicata ----
-                self.get_logger().info(
-                    f'TGT/defl | ostacolo=({ox:+.3f},{oy:+.3f},r={r:.3f}) d={d:.3f}<R_safe={R_safe:.3f} '
-                    f'pen={penetration:.2f} offset={offset:.3f} '
-                    f'({p_target_old[0]:+.3f},{p_target_old[1]:+.3f}) -> '
-                    f'({p_target[0]:+.3f},{p_target[1]:+.3f})'
-                )
-
-        # ---- Obstacle-deflection coast --------------------------------
-        # deflected_this_tick is True iff the loop above actually moved
-        # p_target away from the raw centerline point (i.e. some obstacle in
-        # THIS frame's corridor["obstacles_world"] was inside R_safe of it).
-        deflected_this_tick = not np.allclose(p_target, p_target_raw)
-
-        if deflected_this_tick:
-            self.last_deflection_vec = p_target - p_target_raw
-            self.deflection_decay_remaining = self.deflection_decay_ticks
-        elif self.deflection_decay_remaining > 0:
-            # The obstacle that was deflecting the target is no longer in this
-            # frame's list (missed detection, merged away, or genuinely
-            # cleared) -- coast the deflection down to zero over
-            # deflection_decay_ticks ticks instead of snapping back to the raw
-            # centerline on this very first clear tick. Decrement BEFORE
-            # computing the fraction so this first coast tick already shows
-            # partial decay (not another full-strength tick) -- reaches
-            # exactly zero after deflection_decay_ticks ticks, not ticks+1.
-            self.deflection_decay_remaining -= 1
-            decay_fraction = self.deflection_decay_remaining / self.deflection_decay_ticks
-            p_target = p_target_raw + decay_fraction * self.last_deflection_vec
-            self.get_logger().info(
-                f'TGT/coast | no live deflection this tick, coasting '
-                f'({self.deflection_decay_remaining}/{self.deflection_decay_ticks} '
-                f'ticks left) -> ({p_target[0]:+.3f},{p_target[1]:+.3f})'
-            )
-        # else: no deflection this tick and none coasting -- p_target is
-        # already the raw centerline point, nothing to do.
-
-        # ---- Exponential smoothing on the final (possibly coasted) point ---
-        if self.smoothed_target is None:
-            self.smoothed_target = p_target.copy()
-        else:
-            alpha = self.target_smoothing_alpha
-            self.smoothed_target = alpha * p_target + (1.0 - alpha) * self.smoothed_target
-
-        return self.smoothed_target
+        return p_target
 
     # ==========================================
     # TRASFORMAZIONE ROBOT -> GLOBALE

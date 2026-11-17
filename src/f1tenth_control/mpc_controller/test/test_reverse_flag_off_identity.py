@@ -1,11 +1,20 @@
 """
-allow_reverse false is bit-identical to 868ec8a on the existing closed-loop scenarios.
+allow_reverse false is bit-identical to the plain solve on the existing closed-loop scenarios.
 
-The golden file (test/data/closed_loop_golden.json) was written on 868ec8a,
-before the reverse work touched mpc_solver.py: one SHA-256 per run over the
-exact bytes of every solve's inputs and outputs (closed_loop_golden.py). These
-tests route every one of those solves through the code the node now runs and
-require the same digests -- every tick of every run, bit for bit.
+The golden file (test/data/closed_loop_golden.json) holds one SHA-256 per run
+over the exact bytes of every solve's inputs and outputs
+(closed_loop_golden.py). These tests route every one of those solves through
+the code the node now runs and require the same digests -- every tick of every
+run, bit for bit.
+
+It was first written on 868ec8a, before the reverse work touched
+mpc_solver.py, and RE-RECORDED on branch mpc-centerline-target: every run
+feeds compute_local_target's pref_nom into its solves, and that branch removed
+the target's obstacle deflection, its coast and its exponential smoother, so
+all 20 input streams changed by design (the obstacle-free rows too, through
+the smoother). The solver and the reverse dispatch did not change; what the
+digests pin -- that the allow_reverse-false paths are the plain call -- is the
+same property against the new reference.
 """
 
 from types import SimpleNamespace
@@ -22,10 +31,10 @@ def recorded():
     return golden.load_golden()
 
 
-def test_the_golden_file_was_recorded_before_the_reverse_work(recorded):
+def test_the_golden_file_is_the_centerline_target_recording(recorded):
     import json
     with open(golden.GOLDEN_PATH, encoding='utf-8') as fh:
-        assert json.load(fh)['recorded_at'] == '868ec8a'
+        assert json.load(fh)['recorded_at'] == 'mpc-centerline-target'
     assert len(recorded) == 20
 
 

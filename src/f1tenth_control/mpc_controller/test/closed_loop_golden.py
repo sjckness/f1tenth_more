@@ -15,9 +15,12 @@ run is bit-for-bit the same, inputs included, so a change anywhere upstream
 (corridor, target, warm start) shows up as well as a change in the solver.
 
 The golden file was written on 868ec8a, before the reverse work touched
-mpc_solver.py, with:
+mpc_solver.py, and re-recorded on branch mpc-centerline-target (the target no
+longer deflects or smooths, so every run's pref_nom changed), with:
 
     python3 test/closed_loop_golden.py --write test/data/closed_loop_golden.json
+
+then 'recorded_at' set to the branch name (the commit did not exist yet).
 """
 
 import argparse

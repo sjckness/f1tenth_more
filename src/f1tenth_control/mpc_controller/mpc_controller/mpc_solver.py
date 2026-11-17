@@ -109,8 +109,8 @@ stage. The slack-free byte-identical case is the one where the flag is
 explicitly turned off, or where costmap_boundary_node's staleness gating is
 withholding data.
 
-Purely additive: does not remove or weaken w_obs/compute_local_target's
-existing soft deflection -- boundaries is an EXTRA set of hard rows on
+Purely additive: does not remove or weaken the soft w_obs obstacle cost
+-- boundaries is an EXTRA set of hard rows on
 top of everything _solve_rti already builds, empty by default (`[]`),
 matching solve_mpc_step's/_solve_slsqp's existing "boundaries not
 implemented there" scope (SLSQP is the legacy/rollback path, not what
@@ -1240,7 +1240,7 @@ def _solve_rti(
         # -2 E^T p pattern as the terminal position cost below.
         #
         # The bound alone is a WALL: anywhere inside half_w costs nothing, so
-        # a car pushed off-center by an obstacle deflection had no reason to
+        # a car pushed off-center by an obstacle had no reason to
         # come back. This term is the gradient that makes it come back. It was
         # previously present only as a commented-out line in
         # planner_cost_corridor (the SLSQP objective), which the default RTI

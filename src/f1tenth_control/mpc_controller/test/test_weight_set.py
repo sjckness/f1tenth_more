@@ -65,7 +65,7 @@ _EFFECTIVE = {
     'w_psi_stage': 1.67,
     'w_v': 1.5,
     'w_du_delta': 3.0,
-    'w_obs': 2.8,
+    'w_obs': 70.0,
 }
 
 _YAML_TO_DICT = {
@@ -169,11 +169,16 @@ class TestWhatChangedAndWhatDeliberatelyDidNot:
     def test_stage_heading_tracking_is_on_now(self):
         assert _shipped()['w_psi_stage'] > 0.0
 
-    def test_obstacle_shyness_was_not_increased(self):
-        """w_obs effective stays 2.8. Less shyness was wanted, not more, so
-        this one is pinned against being swept along by the retune."""
-        scaled = scale_stage_weights(_shipped(), horizon=20)
-        assert scaled['w_obs'] == pytest.approx(2.8, abs=0.01)
+    def test_the_obstacle_cost_outweighs_the_terminal_pull(self):
+        """mpc-centerline-target: the target is never moved off an obstacle,
+        so inside an obstacle's disc the stage w_obs term and the terminal
+        w_term pull meet in one QP and the obstacle has to win. Effective
+        w_obs went 2.8 -> 70 (the old 'shyness not increased' pin is
+        superseded). Pins the ordering, not the number: a single stage's
+        obstacle weight above the terminal weight."""
+        shipped = _shipped()
+        scaled = scale_stage_weights(shipped, horizon=20)
+        assert scaled['w_obs'] > shipped['w_term']
 
     def test_steering_magnitude_stays_off(self):
         """w_delta0 penalises the SIZE of the steering command. The car has

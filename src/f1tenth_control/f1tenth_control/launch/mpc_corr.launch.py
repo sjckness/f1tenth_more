@@ -188,12 +188,6 @@ def generate_launch_description():
     delta_max_la = DeclareLaunchArgument(
         'delta_max', default_value=str(delta_max_default), description=delta_max_desc)
 
-    obstacle_target_shift_m_default, obstacle_target_shift_m_desc = get_default(
-        'obstacle_target_shift_m')
-    obstacle_target_shift_m_la = DeclareLaunchArgument(
-        'obstacle_target_shift_m', default_value=str(obstacle_target_shift_m_default),
-        description=obstacle_target_shift_m_desc)
-
     corridor_heading_return_default, corridor_heading_return_desc = get_default(
         'corridor_heading_return')
     corridor_heading_return_la = DeclareLaunchArgument(
@@ -411,7 +405,6 @@ def generate_launch_description():
             'mpc_w_du_a': LaunchConfiguration('mpc_w_du_a'),
             'delta_min': LaunchConfiguration('delta_min'),
             'delta_max': LaunchConfiguration('delta_max'),
-            'obstacle_target_shift_m': LaunchConfiguration('obstacle_target_shift_m'),
             'corridor_heading_return': LaunchConfiguration('corridor_heading_return'),
             'use_hard_boundary_constraints': LaunchConfiguration(
                 'use_hard_boundary_constraints'),
@@ -453,7 +446,7 @@ def generate_launch_description():
         mpc_w_v_la, mpc_w_obs_la, mpc_w_du_delta_la, mpc_w_delta0_la,
         mpc_w_u_a_la, mpc_w_du_a_la,
         delta_min_la, delta_max_la,
-        obstacle_target_shift_m_la, corridor_heading_return_la,
+        corridor_heading_return_la,
         use_hard_boundary_constraints_la, boundary_hard_la,
         boundary_max_sources_la, boundary_slack_weight_la, boundary_slack_max_la,
         boundary_source_la, max_wall_constraints_la, wall_row_max_coast_s_la,

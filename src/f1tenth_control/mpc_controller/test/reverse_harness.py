@@ -324,8 +324,6 @@ def run_scenario(sc: Scenario, allow_reverse: bool = True, cfg: ReverseConfig = 
 
     def set_goal(kind, value, t):
         nonlocal corridor, warm
-        fake.smoothed_target = None
-        fake.deflection_decay_remaining = 0
         corridor = None
         if kind == 'distance':
             fake.goal_pose_xy = None
