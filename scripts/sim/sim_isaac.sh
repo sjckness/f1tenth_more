@@ -64,6 +64,7 @@
 #                        linus.yaml when this host has fewer than 12 CPUs; 'none' to disable)
 #   F1T_SIM_CLOCK_WAIT   seconds 'stack' waits for /clock (default 30)
 #   F1T_SIM_LOG_DIR      where 'all' writes isaac.log (default: a temporary dir, removed on exit)
+#   F1T_SIM_MIN_FREE_GB  free GB on / that isaac/all require before starting (default 25)
 if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 set -eo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -76,7 +77,7 @@ REPO="$(cd "$HERE/../.." && pwd)"
 ISAAC_WS="${ISAAC_WS:-$HOME/isaac_ws}"
 ISAAC_IMAGE="isaac_ws_devcontainer-isaac-sim:latest"
 ISAAC_CONTAINER="${ISAAC_CONTAINER_NAME:-f1t_isaac}"
-MIN_FREE_DISK_GB=25
+MIN_FREE_DISK_GB="${F1T_SIM_MIN_FREE_GB:-25}"
 CLOCK_WAIT="${F1T_SIM_CLOCK_WAIT:-30}"
 
 usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }

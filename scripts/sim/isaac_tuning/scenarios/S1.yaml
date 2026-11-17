@@ -1,0 +1,17 @@
+# S1: cylinder D0.5 m on the centerline, 1.5 m ahead
+id: S1
+description: "cylinder D0.5 m on the centerline, 1.5 m ahead"
+scene: base_room
+layout: tuning               # ~/isaac_ws config/scenes/base_room.yaml (branch mpc-tuning)
+# Nominal car start, map_sim frame, base_link (rear-axle centre). The room interior is
+# x, y in [0, 6]; a 4 m drive from x 0.5 ends with the bumper ~1.1 m from the far wall.
+car_start: {x: 0.5, y: 3.0, yaw_deg: 0.0}
+mission:
+  distance_m: 4.0            # stop_condition distance_reached (straight-line, /odometry/filtered)
+  speed_mps: 0.5
+  timeout_s: 20.0            # mission timeout_sec (on_timeout abort) and the runner's sim-time limit
+# Obstacles are placed relative to the NOMINAL start (jitter moves the car, not them):
+# ahead_m = base_link -> obstacle centre along the nominal heading, lateral_m left-positive.
+obstacles:
+  - {id: cyl050, ahead_m: 1.5, lateral_m: 0.0}
+jitter: {seed: 101, xy_m: 0.05, yaw_deg: 3.0}

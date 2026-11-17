@@ -1,0 +1,15 @@
+# S2: cylinder D1.0 m (a wide person) on the centerline, 1.5 m ahead
+id: S2
+description: "cylinder D1.0 m (a wide person) on the centerline, 1.5 m ahead"
+scene: base_room
+layout: tuning               # ~/isaac_ws config/scenes/base_room.yaml (branch mpc-tuning)
+# Nominal car start, map_sim frame, base_link (rear-axle centre). The room interior is
+# x, y in [0, 6]; a 4 m drive from x 0.5 ends with the bumper ~1.1 m from the far wall.
+car_start: {x: 0.5, y: 3.0, yaw_deg: 0.0}
+mission:
+  distance_m: 4.0            # stop_condition distance_reached (straight-line, /odometry/filtered)
+  speed_mps: 0.5
+  timeout_s: 20.0            # mission timeout_sec (on_timeout abort) and the runner's sim-time limit
+obstacles:
+  - {id: cyl100, ahead_m: 1.5, lateral_m: 0.0}
+jitter: {seed: 202, xy_m: 0.05, yaw_deg: 3.0}
