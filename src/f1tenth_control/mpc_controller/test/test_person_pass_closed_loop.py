@@ -18,8 +18,8 @@ pipeline does to a person the car is passing:
   person is gone on the first detection frame after they leave the view. The
   list is only refreshed on detection frames (8.2 Hz, measured in the
   2026-09-01 mission analysis) and held in between, as MPC_corr holds its
-  last message. compute_local_target's own 5-tick deflection coast is inside
-  the real method and applies unchanged.
+  last message. compute_local_target never reacts to the list (the target is
+  always the centreline lookahead point); only the solver's w_obs does.
 * mpc_corr's /drive clamp (+1.0 / 0.0 m/s) is applied to the plant.
 
 The person is 0.50 m wide; the obstacle radius is what obstacle_projector_node

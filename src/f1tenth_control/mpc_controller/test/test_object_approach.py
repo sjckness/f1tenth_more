@@ -613,7 +613,7 @@ class TestApproachLookahead:
 
 class TestMinStandoff:
 
-    def test_it_is_r_safe_as_compute_local_target_forms_it(self):
+    def test_it_is_r_safe_as_the_solver_obstacle_cost_forms_it(self):
         assert min_standoff_clear_of(0.85, 0.20, 0.12) == pytest.approx(1.17)
 
     def test_legacy_height_radius_person_needs_more_than_one_metre(self):

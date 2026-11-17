@@ -33,7 +33,6 @@ import unittest
 
 import numpy as np
 
-from f1tenth_params.param_defaults import get_value
 from mpc_controller.MPC_corr import MPCController
 
 
@@ -60,24 +59,6 @@ class _FakeMPC:
         self.N = 20
         self.ts = 0.1
         self.vdes = 0.5
-        # Obstacle deflection.
-        self.car_radius = 0.20
-        self.avoidance_margin = 0.12
-        # READ, NOT COPIED. This is the same stack_params.yaml key
-        # MPCController.__init__ declares its obstacle_target_shift_m
-        # parameter default from, so this stand-in cannot drift from the
-        # deployed number the way a hand-mirrored literal would -- which is
-        # exactly how corridor_update_period ended up with four spellings,
-        # three of them wrong.
-        self.obstacle_target_shift = float(get_value('obstacle_target_shift_m'))
-        self.last_deflection_vec = np.zeros(2)
-        self.deflection_decay_remaining = 0
-        self.deflection_decay_ticks = 5
-        # Smoothing. None on every call in these tests, so the RAW geometry is
-        # what comes back -- the smoothing filter is exercised on its own
-        # below rather than blurring the projection/advance assertions.
-        self.smoothed_target = None
-        self.target_smoothing_alpha = 0.5
 
     def get_logger(self):
         return _FakeLogger()
@@ -260,105 +241,76 @@ class TestTheTargetSitsOnTheCenterlineAndAdvances(unittest.TestCase):
         self.assertGreater(bearing, 0.0)
 
 
-class TestObstaclesReachTheTargetBeforeItIsComputed(unittest.TestCase):
-    """The ordering the reference's own docstring flags as load-bearing."""
+class TestObstaclesNeverMoveTheTarget(unittest.TestCase):
+    """
+    The target is the centerline point whatever the obstacle list holds.
 
-    def test_an_obstacle_on_the_target_displaces_it_off_the_centerline(self):
-        """
-        Confirm the deflection loop actually fires.
+    Until branch mpc-centerline-target compute_local_target pushed the
+    lookahead point out of any obstacle's R_safe disc and tangentially by up
+    to obstacle_target_shift_m, then coasted that shove for 5 ticks and
+    smoothed the result. The avoidance happened in the target generator, and
+    the MPC chased a point that had already swerved. These tests replace the
+    ones that pinned that deflection (its firing, its size, its ceiling): the
+    obstacle is now the solver's business alone.
+    """
 
-        It only fires if corridor["obstacles_world"] is populated BEFORE
-        compute_local_target runs. It used to be written after, so the loop
-        always saw an empty list and the displacement was dead code.
-        """
+    def test_an_obstacle_on_the_target_leaves_it_on_the_centerline(self):
+        """Confirm a disc right on the lookahead point changes nothing."""
         corridor = _straight_corridor(3.0)
         clean = MPCController.compute_local_target(
             _FakeMPC(), [0.0, 0.0, 0.0, 0.5], corridor)
 
         corridor["obstacles_world"] = [(1.5, 0.0, 0.15)]
-        deflected = MPCController.compute_local_target(
+        with_obstacle = MPCController.compute_local_target(
             _FakeMPC(), [0.0, 0.0, 0.0, 0.5], corridor)
 
-        self.assertFalse(_on_centerline(corridor, deflected, tol=1e-3))
-        self.assertGreater(
-            math.hypot(deflected[0] - clean[0], deflected[1] - clean[1]), 0.1)
-        # Displaced clear of the obstacle's safety disc, not merely nudged.
-        self.assertGreaterEqual(
-            math.hypot(deflected[0] - 1.5, deflected[1] - 0.0),
-            0.15 + 0.20 + 0.12 - 1e-6)
+        self.assertTrue(_on_centerline(corridor, with_obstacle))
+        self.assertTrue(np.array_equal(clean, with_obstacle))
 
-    def test_the_tangential_shove_is_the_parameter_not_a_literal(self):
-        """
-        Pin the SIZE of the sideways displacement to obstacle_target_shift_m.
-
-        The ceiling used to be `0.6 * mean(corridor["halfWidth"])` -- an
-        unnamed literal that silently retuned itself whenever corr_wmin/
-        corr_wmax moved, and that no config file recorded. It is a declared
-        parameter now, so this asserts the parameter is what actually reaches
-        the geometry: two different values, two matching displacements.
-
-        Geometry: the lookahead target lands exactly on the obstacle centre
-        (obstacle at 1.5 m, lookahead 1.5 m), which is the degenerate branch
-        -- penetration saturates at 1.0, so the tangential term is the full
-        ceiling and reads straight off the y coordinate. The radial term goes
-        entirely into x, so the two do not mix.
-        """
-        for shift in (0.30, 0.12):
-            with self.subTest(shift=shift):
-                corridor = _straight_corridor(3.0)
-                corridor["obstacles_world"] = [(1.5, 0.0, 0.15)]
-                fake = _FakeMPC()
-                fake.obstacle_target_shift = shift
-
-                target = MPCController.compute_local_target(
-                    fake, [0.0, 0.0, 0.0, 0.5], corridor)
-
-                # Tangential (+y, since the car heads +x) == the parameter.
-                self.assertAlmostEqual(float(target[1]), shift, places=6)
-                # Radial (+x) is R_safe past the obstacle, untouched by this
-                # change -- guards against the parameter leaking into the
-                # radial term.
-                r_safe = 0.15 + fake.car_radius + fake.avoidance_margin
-                self.assertAlmostEqual(float(target[0]), 1.5 + r_safe, places=6)
-
-    def test_no_hardcoded_deflection_ceiling_survives_in_the_source(self):
-        """The old corridor-derived literal is gone, not merely bypassed."""
+    def test_the_target_does_not_read_the_obstacle_list(self):
+        """Structural: the method has no obstacle input left to react to."""
         src = inspect.getsource(MPCController.compute_local_target)
-        self.assertNotIn('0.6 * float(np.mean(', src)
-        self.assertIn('self.obstacle_target_shift', src)
+        body = src.split('"""')[-1]
+        self.assertNotIn('obstacles_world', body)
+        self.assertNotIn('R_safe', body)
 
-    def test_the_shipping_shift_fits_inside_the_narrow_corridor(self):
+    def test_no_state_carries_a_target_from_one_tick_to_the_next(self):
         """
-        The sanity check that makes 0.30 a legal value, kept executable.
+        Confirm the same pose and corridor give the same target, whatever came before.
 
-        A deflection wider than the corridor half-width puts the terminal
-        cost's own target outside the corridor the corridor cost is pulling
-        the car back into -- the two costs then fight. corr_wmin is the
-        narrow end, read from its yaml key corr_half_width_start_m rather
-        than copied here.
+        The old exponential smoother (target_smoothing_alpha) and the
+        deflection coast made the answer depend on the previous ticks. A
+        stand-in that has seen a far-away target first must not drag it in.
         """
-        shift = float(get_value('obstacle_target_shift_m'))
-        wmin = float(get_value('corr_half_width_start_m'))
-        self.assertLess(shift, wmin)
+        corridor = _straight_corridor(3.0)
+        fake = _FakeMPC()
+        MPCController.compute_local_target(
+            fake, [2.9, 0.0, 0.0, 0.5], corridor)
+        again = MPCController.compute_local_target(
+            fake, [0.0, 0.0, 0.0, 0.5], corridor)
+        fresh = MPCController.compute_local_target(
+            _FakeMPC(), [0.0, 0.0, 0.0, 0.5], corridor)
+        self.assertTrue(np.array_equal(again, fresh))
 
-    def test_control_loop_populates_the_dict_before_taking_the_target(self):
+    def test_control_loop_attaches_obstacles_every_tick_before_the_solve(self):
         """
         Pins the ORDERING in control_loop, which no geometry test can see.
 
         Reads the source: the obstacles_world/d_safe writes must appear before
-        the compute_local_target call, and both must sit OUTSIDE the
-        `if need_update:` corridor-rebuild block so they refresh every tick
-        even when the corridor is served from cache.
+        the solve, and both must sit OUTSIDE the `if need_update:`
+        corridor-rebuild block so they refresh every tick even when the
+        corridor is served from cache -- the solver's obstacle cost reads them
+        from the corridor dict.
         """
         src = inspect.getsource(MPCController.control_loop)
         i_obs = src.index('corridor["obstacles_world"] = ')
         i_safe = src.index('corridor["d_safe"] = ')
-        i_target = src.index("self.compute_local_target(")
+        i_solve = src.index("self._mpc_solve(")
         i_rebuild = src.index("self.cached_corridor = self.build_straight_corridor")
         i_uncached = src.index("corridor = self.cached_corridor")
 
-        self.assertLess(i_obs, i_target)
-        self.assertLess(i_safe, i_target)
+        self.assertLess(i_obs, i_solve)
+        self.assertLess(i_safe, i_solve)
         # After the rebuild block has been left behind, so this runs on cached
         # corridors too.
         self.assertLess(i_rebuild, i_uncached)
@@ -374,9 +326,6 @@ class TestEveryGoalInvalidatesTheCorridorCache(unittest.TestCase):
         fake.last_corridor_time = 123.0
         fake.last_corridor_stamp = object()
         fake.cached_pref_nom = np.array([9.0, 9.0])
-        fake.smoothed_target = np.array([9.0, 9.0])
-        fake.last_deflection_vec = np.array([1.0, 1.0])
-        fake.deflection_decay_remaining = 3
         return fake
 
     def test_it_clears_the_corridor_and_the_target_state(self):
@@ -388,9 +337,6 @@ class TestEveryGoalInvalidatesTheCorridorCache(unittest.TestCase):
         self.assertIsNone(fake.last_corridor_time)
         self.assertIsNone(fake.last_corridor_stamp)
         self.assertIsNone(fake.cached_pref_nom)
-        self.assertIsNone(fake.smoothed_target)
-        self.assertEqual(fake.deflection_decay_remaining, 0)
-        self.assertTrue(np.allclose(fake.last_deflection_vec, 0.0))
 
     def test_clearing_last_corridor_time_forces_a_rebuild_next_tick(self):
         """

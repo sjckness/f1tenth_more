@@ -667,12 +667,13 @@ def min_standoff_clear_of(target_radius: float, car_radius: float,
                           clearance: float = 0.0) -> float:
     """Smallest standoff that keeps the goal outside the target's own R_safe.
 
-    compute_local_target deflects its lookahead target tangentially whenever
-    that target falls within R_safe = obstacle_radius + car_radius +
-    avoidance_margin of an obstacle. The tracked object IS an obstacle -- it is
-    in the same detection stream that feeds the obstacle list, and it is not
-    excluded -- so a goal placed inside its R_safe is pushed sideways by the
-    avoidance machinery, and the car arrives beside the thing it was sent to.
+    The solver's obstacle cost acts within R_safe = obstacle_radius +
+    car_radius + avoidance_margin of an obstacle. Wherever the tracked object
+    is in the obstacle list (it is in the same detection stream; mpc_corr
+    leaves the move's own target out, see move_target.py), a goal placed
+    inside its R_safe puts the terminal target inside that disc, and the
+    obstacle cost then holds the car off the goal: it arrives short of, or
+    beside, the thing it was sent to.
 
     Returns R_safe plus `clearance`. See MPC_corr's goal_object branch for the
     shipped numbers.

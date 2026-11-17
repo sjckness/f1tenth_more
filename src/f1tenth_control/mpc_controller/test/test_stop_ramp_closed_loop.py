@@ -108,10 +108,9 @@ BRAKING_MEASURED = (0.144, 1.50)
 CORR_L = 3.0
 # pref_nom is NOT the corridor end: the node passes compute_local_target's
 # LOOKAHEAD point, at max(corr_lookahead_frac * L, lookahead_clamp_length(...))
-# along the centreline, pinned to the end when that exceeds L. With no
-# obstacles to deflect around -- this scenario has none -- compute_local_target
-# reduces to exactly that point, so the rig computes it directly rather than
-# standing up the duck-typed node the deflection logic would need. The
+# along the centreline, pinned to the end when that exceeds L. That is all
+# compute_local_target ever returns (obstacles never move it), so the rig
+# computes it directly rather than standing up a duck-typed node. The
 # distinction matters: at the corridor end the terminal cost is an ARRIVAL
 # target and the solver sprints at it (see _stop_ramp_limits), at the lookahead
 # it is a direction pull.

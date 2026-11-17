@@ -126,7 +126,6 @@ def runs(quick):
             return {'ticks': len(res.xs) - 1, 'steps': len(res.steps),
                     'flags_last': res.flags[-1] if res.flags else None,
                     'terminal_last': res.terminal[-1] if res.terminal else None,
-                    'deflected': sum(bool(d) for d in res.deflected),
                     'final_state': [float(v) for v in res.xs[-1]]}
         out.append((name, [approach_rig], fn, None))
     for name, kwargs in golden.PERSON_RUNS:

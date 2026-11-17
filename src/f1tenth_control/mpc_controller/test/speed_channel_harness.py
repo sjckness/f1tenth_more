@@ -195,7 +195,7 @@ def straight_corridor(origin, psi, length=CORR_L, n=120):
 
 
 def pref_nom(corridor, vdes):
-    """compute_local_target's lookahead point with no obstacles to deflect."""
+    """compute_local_target's lookahead point (obstacles never move it)."""
     length = float(corridor['L'])
     lookahead = max(LOOKAHEAD_FRAC * length,
                     lookahead_clamp_length(HORIZON, TS_PRED, vdes, LOOKAHEAD_REACH_MARGIN))
