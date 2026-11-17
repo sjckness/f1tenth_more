@@ -2330,6 +2330,19 @@ mpc_w_v:
 mpc_w_obs:
   default: 200.0
   description: "PER-STAGE obstacle soft cost, w_obs * softplus(R - d_front)^2 with R = car_radius + obstacle_safety_margin_m and d_front the clearance of the probe points ahead of the nose, on every stage including the terminal one. Effective value 70.0 after the 7/20 stage scaling. Was literal 8.0 (effective 2.8) until mpc-centerline-target (2026-11-17): with the target no longer moved off obstacles the obstacle term has to beat the terminal w_term pull inside the disc; see the table above mpc_w_term."
+# THE SIDE RULE (mpc_controller/side_rule.py, 2026-11-18, Andreas: "mettiamoci sta regola di
+# lato"). With the target always on the centreline, an obstacle exactly on the line ahead of an
+# aligned car leaves the QP mirror-symmetric -- no lateral gradient, no side to prefer -- and the
+# car stops in front of it (closed loop). An obstacle ahead within mpc_obstacle_tie_band_m of the
+# car's line (along the move heading) goes to the solver displaced to the side OPPOSITE
+# mpc_obstacle_tie_side, its radius grown by the displacement so the displaced disc contains the
+# real one (never less clearance, only a side). Outside the band the geometry decides.
+mpc_obstacle_tie_band_m:
+  default: 0.05
+  description: "Side rule band [m]: obstacles ahead whose centre is within this lateral distance of the car's line are passed on mpc_obstacle_tie_side (displaced to the other side by up to 2x this, radius grown by the displacement). 0 turns the rule off. 0.05: a few cm of detection noise must not make the side a coin flip; larger values swerve wider for slightly off-line obstacles (the radius grows by up to 2 x band)."
+mpc_obstacle_tie_side:
+  default: left
+  description: "Side rule: which side the car passes an obstacle that sits on its line ('left' or 'right'). See mpc_obstacle_tie_band_m."
 # w_du_delta IS THE ONE TERM DELIBERATELY OFF THE rho/sigma^2 SET (2026-09-09).
 # Lowered effective 8.33 -> 3.0, i.e. literal 23.8095 -> 8.5714. The derived
 # value came from sigma = 0.03 rad/step, and that sigma was chosen as "what

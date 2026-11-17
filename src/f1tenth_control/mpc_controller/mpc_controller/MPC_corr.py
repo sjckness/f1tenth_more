@@ -36,6 +36,7 @@ from f1tenth_params.semantic_objects import MEMORY as SEMANTIC_MEMORY
 from f1tenth_params.semantic_objects import objects_to_odom_circles
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from mpc_controller.cost_to_go import CostToGo, LatticeConfig
+from mpc_controller import side_rule
 from mpc_controller.move_target import (
     MoveTarget, without_target_circles, without_target_objects)
 from f1tenth_params.corridor_geometry import (
@@ -964,6 +965,16 @@ class MPCController(Node):
         # In-code default (0.12) matches stack_params.yaml's obstacle_safety_margin_m
         # key -- see car_radius's own comment above.
         self.avoidance_margin = float(self.declare_parameter('avoidance_margin', 0.12).value)
+
+        # The side rule (mpc_controller/side_rule.py): an obstacle ahead within
+        # this band of the car's line goes to the solver displaced to the side
+        # opposite mpc_obstacle_tie_side (radius grown by the displacement), so
+        # a centred obstacle does not leave the QP without a side to prefer.
+        # stack_params.yaml is the only source of both numbers.
+        self.obstacle_tie_band_m = float(self.declare_parameter(
+            'mpc_obstacle_tie_band_m', get_value('mpc_obstacle_tie_band_m')).value)
+        self.obstacle_tie_side = side_rule.side_sign(str(self.declare_parameter(
+            'mpc_obstacle_tie_side', get_value('mpc_obstacle_tie_side')).value))
 
         # Solver selection: real-time-iteration (linearize once + one warm-started
         # OSQP QP solve per tick) vs. the original from-scratch nonlinear SLSQP
@@ -5966,6 +5977,7 @@ class MPCController(Node):
         # avoidance was coming from the solver's w_obs cost alone, fighting
         # every tick against a static straight-line target -- hence the
         # oversized, last-moment corrections.
+        obstacles_global = self._tie_broken_obstacles(obstacles_global, corridor)
         corridor["obstacles_world"] = obstacles_global
         corridor["d_safe"] = self.dmin
         # UPGRADE: car_radius/avoidance_margin, read by both
@@ -7944,6 +7956,25 @@ class MPCController(Node):
                     f'every cycle and never advances.',
                     throttle_duration_sec=5.0)
         return float(lookahead)
+
+    def _tie_broken_obstacles(self, obstacles, corridor):
+        """
+        Apply the side rule (side_rule.break_ties) to this tick's obstacle list.
+
+        The line is the car's position along the corridor's reference heading
+        (psiRef: the move's frozen heading on a straight move), considered as
+        far ahead as the corridor reaches.
+        """
+        heading = float(corridor.get("psiRef", self.yaw))
+        reach = float(corridor.get("L", self.corr_L_base))
+        out, n = side_rule.break_ties(obstacles, (self.x, self.y), heading,
+                                      self.obstacle_tie_band_m, self.obstacle_tie_side, reach)
+        if n:
+            self.get_logger().info(
+                f'TIE | {n} obstacle(s) within {self.obstacle_tie_band_m:.2f} m of the line: '
+                f'passing on the {"left" if self.obstacle_tie_side > 0 else "right"}',
+                throttle_duration_sec=2.0)
+        return out
 
     def compute_local_target(self, x, corridor):
         """

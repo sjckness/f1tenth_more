@@ -31,16 +31,26 @@ with the obstacle ahead the solver waits ~2 s for the wheels to reach full
 lock before it accelerates, so at 6 s the car is still beside the obstacle
 and "after the obstacle" has not happened yet.
 
-SYMMETRY. Case 1 exactly as written (obstacle ON the line, car aligned) is a
-mirror-symmetric QP: the obstacle cost has no lateral gradient and the solver
-has no side to prefer. Any real detection breaks that symmetry, so case 1 is
-also run with the obstacle 5 mm off the line ('nudged'); the exact case is
-kept to show what it does.
+SYMMETRY AND THE SIDE RULE. Case 1 exactly as written (obstacle ON the line,
+car aligned) is a mirror-symmetric QP: the obstacle cost has no lateral
+gradient, and without help the car stopped in front of the obstacle. Since
+2026-11-18 the side rule (side_rule.py, mpc_obstacle_tie_band_m /
+mpc_obstacle_tie_side, Andreas's call) breaks the tie: an obstacle within the
+band of the car's line is passed on the configured side. The rig runs the
+node's own MPCController._tie_broken_obstacles, as control_loop does. Case 1
+is also run with the obstacle 5 mm off the line ('nudged': inside the band,
+so it is passed on the configured side too).
+
+STEERING SIGN CHANGES (test 3) are counted while the car moves (> 0.05 m/s:
+at a standstill the steering dithers before it commits and goes round
+nothing) and outside a 0.02 rad deadband (~1.1 deg, the servo's resolution
+order; the same deadband scripts/sim/isaac_tuning/metrics.py uses). The raw
+count (every tick, 0.01 rad) is printed by the table for comparison.
 
 Assertions that do NOT hold today are kept, marked xfail(strict=True) with
-the reason, so they flip loudly the day they start to hold; the work order
-says to report these, not to add a mechanism (a side choice, a homing term)
-to make them pass.
+the measured reason, so they flip loudly the day they start to hold; the work
+order says to report these, not to add a mechanism (a homing term) to make
+them pass.
 
 Run standalone: python3 -m pytest test/test_centerline_target_closed_loop.py -v
 Print the runs:  python3 -m pytest test/test_centerline_target_closed_loop.py -s -k table
@@ -56,6 +66,7 @@ from f1tenth_params.param_defaults import get_value
 from mpc_controller.MPC_corr import MPCController
 from mpc_controller.drive_limits import clamp_drive_speed
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
+from mpc_controller.side_rule import side_sign
 from mpc_controller.vehicle_model import f1tenth_state_fcn_dt_beta
 
 import test_object_approach_closed_loop as rig
@@ -74,9 +85,9 @@ CENTRELINE_TOL_M = 1e-6
 RETURN_TOL_M = 0.10
 UNCHANGED_TOL_M = 0.02
 MAX_SIGN_CHANGES = 2
-# Steering below this magnitude counts as straight, so solver noise around
-# zero is not counted as a sign change (0.01 rad = 0.57 deg).
-STEER_DEADBAND_RAD = 0.01
+# Steering below this magnitude counts as straight (see the module docstring).
+STEER_DEADBAND_RAD = 0.02
+MOVING_MPS = 0.05
 
 WEIGHT_KEYS = ('w_term', 'w_v', 'w_psi', 'w_u_a', 'w_du_delta', 'w_du_a',
                'w_delta0', 'w_obs', 'w_corr', 'w_line', 'w_psi_stage')
@@ -100,6 +111,8 @@ def _fake_controller():
     fake.goal_start_xy = (0.0, 0.0)
     fake.goal_anchor_odom = (0.0, 0.0, 0.0)
     fake.psi_init_corridor = 0.0
+    fake.obstacle_tie_band_m = float(get_value('mpc_obstacle_tie_band_m'))
+    fake.obstacle_tie_side = side_sign(get_value('mpc_obstacle_tie_side'))
     return fake
 
 
@@ -136,9 +149,12 @@ class Run:
             return math.inf
         return abs(float(self.states[-1, 1]))
 
-    def sign_changes(self):
+    def sign_changes(self, deadband=STEER_DEADBAND_RAD, moving=MOVING_MPS):
+        """Count steering sign changes while moving, outside the deadband."""
         d = np.asarray(self.deltas)
-        signs = np.sign(np.where(np.abs(d) < STEER_DEADBAND_RAD, 0.0, d))
+        v = self.states[:, 3]
+        d = d[v > moving]
+        signs = np.sign(np.where(np.abs(d) < deadband, 0.0, d))
         signs = signs[signs != 0.0]
         return int(np.sum(signs[1:] != signs[:-1]))
 
@@ -160,7 +176,9 @@ def drive(obstacle, duration=DURATION_S):
         if corridor is None or t - last_build >= period - 1e-9:
             corridor = MPCController.build_straight_corridor(fake, x)
             last_build = t
-        corridor['obstacles_world'] = obstacles
+        fake.x, fake.y, fake.yaw = float(x[0]), float(x[1]), float(x[2])
+        solver_obstacles = MPCController._tie_broken_obstacles(fake, obstacles, corridor)
+        corridor['obstacles_world'] = solver_obstacles
         corridor['d_safe'] = rig.DMIN
         corridor['car_radius'] = rig.CAR_RADIUS
         corridor['avoidance_margin'] = rig.AVOIDANCE_MARGIN
@@ -171,7 +189,7 @@ def drive(obstacle, duration=DURATION_S):
         u0, info = solve_mpc_step(
             x0=x, last_u=last_u, pref_nom=pref_nom, corridor=corridor,
             horizon=rig.HORIZON, ts=rig.TS, params=rig.PARAMS, limits=rig.LIMITS,
-            weights=dict(weights), obstacles=obstacles, dmin=rig.DMIN, vdes=fake.vdes,
+            weights=dict(weights), obstacles=solver_obstacles, dmin=rig.DMIN, vdes=fake.vdes,
             solver='rti', warm_start_z=warm)
         warm = shift_warm_start(info.get('zopt'), rig.HORIZON) if info else None
         v_cmd, _ = clamp_drive_speed(x[3] + u0[1] * rig.TS, rig.MAX_FORWARD_SPEED, 0.0)
@@ -191,12 +209,16 @@ ON_LINE = (OBSTACLE_AHEAD_M, 0.0, OBSTACLE_R_M)
 NUDGED = (OBSTACLE_AHEAD_M, NUDGE_M, OBSTACLE_R_M)
 BESIDE = (OBSTACLE_AHEAD_M, BESIDE_LATERAL_M, BESIDE_R_M)
 
-SYMMETRIC_DEADLOCK = (
-    'exact symmetry: obstacle on the line, car aligned -- the obstacle cost has '
-    'no lateral gradient, the QP has no side to prefer and the car stops in '
-    'front of the obstacle. Needs a decision (a side rule is a bias, and the '
-    'work order forbids adding one); any real detection breaks the symmetry, '
-    'see the nudged case')
+FRONT_PROBES_SHORT = (
+    'a few mm inside R_safe (measured: on_line -4 mm, nudged -7 mm at w_obs 200): the '
+    'obstacle cost probes only points ahead of the nose, so while the car swerves its '
+    'centre trails close to the R_safe circle; passing on the configured side when the '
+    'obstacle is a few mm towards it costs those mm. w_obs 300 gives +4 / +1 mm (see '
+    'stack_params); the Isaac tuning loop is where w_obs gets settled')
+COUNTER_STEER_CHATTER = (
+    'on the exact centreline case the counter-steer after the swerve chatters once '
+    'around zero (+0.04 -> -0.03 -> +0.02 -> -0.04 rad within 0.4 s): 3 sign changes '
+    'while moving. The nudged case has 1. Reported, no bias added (work order)')
 NO_LATERAL_HOMING = (
     'no lateral homing by design: build_straight_corridor re-anchors the '
     'straight corridor on the car at every rebuild ("THE PRICE" in '
@@ -222,18 +244,19 @@ def test_print_the_table(runs, capsys):
     """Not an assertion: the numbers. Run with -s -k table."""
     with capsys.disabled():
         print(f'\n{"run":<8} {"min ctr":>8} {"R_safe":>7} {"passed":>6} '
-              f'{"end y":>7} {"peak|y|":>7} {"x end":>6} {"sign ch":>7}')
+              f'{"end y":>7} {"peak|y|":>7} {"x end":>6} {"sign ch":>7} {"raw":>4}')
         for name, run in runs.items():
             s = run.states
             if name == 'free':
                 print(f'{name:<8} {"-":>8} {"-":>7} {"-":>6} {s[-1, 1]:>+7.3f} '
                       f'{np.max(np.abs(s[:, 1])):>7.3f} {s[-1, 0]:>6.2f} '
-                      f'{run.sign_changes():>7}')
+                      f'{run.sign_changes():>7} {run.sign_changes(0.01, -1.0):>4}')
                 continue
             obs = _obstacle(name)
             print(f'{name:<8} {run.min_centre_distance(obs):>8.3f} {r_safe(obs[2]):>7.2f} '
                   f'{str(run.passed(obs)):>6} {s[-1, 1]:>+7.3f} '
-                  f'{np.max(np.abs(s[:, 1])):>7.3f} {s[-1, 0]:>6.2f} {run.sign_changes():>7}')
+                  f'{np.max(np.abs(s[:, 1])):>7.3f} {s[-1, 0]:>6.2f} {run.sign_changes():>7} '
+                  f'{run.sign_changes(0.01, -1.0):>4}')
 
 
 # ---- 1. obstacle on the centreline ------------------------------------------
@@ -248,7 +271,10 @@ def test_1_the_car_stays_inside_the_corridor(runs, name):
     assert max(runs[name].out_of_corridor) <= 1e-6
 
 
-@pytest.mark.parametrize('name', ['on_line', 'nudged'])
+@pytest.mark.parametrize('name', [
+    pytest.param('on_line', marks=pytest.mark.xfail(strict=True, reason=FRONT_PROBES_SHORT)),
+    pytest.param('nudged', marks=pytest.mark.xfail(strict=True, reason=FRONT_PROBES_SHORT)),
+])
 def test_1_the_car_keeps_r_safe_from_the_obstacle(runs, name):
     obs = _obstacle(name)
     assert runs[name].min_centre_distance(obs) >= r_safe(obs[2])
@@ -261,16 +287,19 @@ def test_1_the_car_never_touches_the_obstacle(runs, name):
     assert runs[name].min_centre_distance(obs) > obs[2] + rig.CAR_RADIUS
 
 
-@pytest.mark.parametrize('name', [
-    pytest.param('on_line', marks=pytest.mark.xfail(strict=True, reason=SYMMETRIC_DEADLOCK)),
-    'nudged',
-])
+@pytest.mark.parametrize('name', ['on_line', 'nudged'])
 def test_1_the_car_gets_past_the_obstacle(runs, name):
     assert runs[name].passed(_obstacle(name))
 
 
+@pytest.mark.parametrize('name', ['on_line', 'nudged'])
+def test_1_the_side_rule_passes_on_the_configured_side(runs, name):
+    side = side_sign(get_value('mpc_obstacle_tie_side'))
+    assert np.sign(runs[name].states[-1, 1]) == side
+
+
 @pytest.mark.parametrize('name', [
-    pytest.param('on_line', marks=pytest.mark.xfail(strict=True, reason=SYMMETRIC_DEADLOCK)),
+    pytest.param('on_line', marks=pytest.mark.xfail(strict=True, reason=NO_LATERAL_HOMING)),
     pytest.param('nudged', marks=pytest.mark.xfail(strict=True, reason=NO_LATERAL_HOMING)),
 ])
 def test_1_the_lateral_error_returns_under_10_cm_after_the_obstacle(runs, name):
@@ -293,7 +322,10 @@ def test_2_an_obstacle_outside_the_corridor_changes_nothing(runs):
 
 # ---- 3. anti-oscillation smoke -----------------------------------------------
 
-def test_3_the_steering_changes_sign_at_most_twice_going_round(runs):
-    """On the nudged case, the one that actually goes round."""
-    assert runs['nudged'].passed(NUDGED)
-    assert runs['nudged'].sign_changes() <= MAX_SIGN_CHANGES
+@pytest.mark.parametrize('name', [
+    pytest.param('on_line', marks=pytest.mark.xfail(strict=True, reason=COUNTER_STEER_CHATTER)),
+    'nudged',
+])
+def test_3_the_steering_changes_sign_at_most_twice_going_round(runs, name):
+    assert runs[name].passed(_obstacle(name))
+    assert runs[name].sign_changes() <= MAX_SIGN_CHANGES
