@@ -128,9 +128,6 @@ class _FakeMPC:
         # What _invalidate_move_state touches.
         self.wall_turn_committed = False
         self.wall_turn_commanded_rot = None
-        self.smoothed_target = None
-        self.last_deflection_vec = None
-        self.deflection_decay_remaining = 0
         self.cached_corridor = None
         self.last_corridor_time = None
         self.last_corridor_stamp = None
@@ -175,7 +172,6 @@ class _FakeMPC:
         self.last_corridor_stamp = 'stamp'
         self.cached_pref_nom = 'pref'
         self.warm_start_z = 'warm start from the last solve'
-        self.smoothed_target = 'smoothed'
         return self
 
 

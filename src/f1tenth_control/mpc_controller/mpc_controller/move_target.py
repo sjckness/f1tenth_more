@@ -4,8 +4,8 @@ The current object move's TARGET, which is never an obstacle. Pure Python, no RO
 A go_to_object move drives TO an object, so mpc_corr leaves that object out of
 everything that keeps the car away from things:
 
-- the obstacle list the solver's w_obs and compute_local_target's deflection
-  read (live /perception/obstacles_2d circles and remembered semantic objects);
+- the obstacle list the solver's w_obs reads (live /perception/obstacles_2d
+  circles and remembered semantic objects);
 - the reverse manoeuvre's rear check (RearEnv.objects) and the front distance
   its stuck detection reads, so the target can neither make the car "stuck"
   nor block a reverse.

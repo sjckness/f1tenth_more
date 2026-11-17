@@ -97,7 +97,6 @@ def run(n):
     # Corridor builds.
     t = []
     for x in states:
-        fake.smoothed_target = None
         t0 = time.perf_counter()
         MPCController.build_straight_corridor(fake, x)
         t.append((time.perf_counter() - t0) * 1e3)
@@ -111,7 +110,6 @@ def run(n):
     # Forward alone (today's tick).
     t = []
     for x in states:
-        fake.smoothed_target = None
         t0 = time.perf_counter()
         forward(x)
         t.append((time.perf_counter() - t0) * 1e3)
@@ -134,7 +132,6 @@ def run(n):
         calls0 = rear.calls
         t = []
         for k, x in enumerate(states):
-            fake.smoothed_target = None
             t0 = time.perf_counter()
             sup.before_forward(k * rh.TS, x, env)
             _u, info = forward(x)
