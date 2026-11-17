@@ -1706,6 +1706,17 @@ class MPCController(Node):
         # =========================
         # Pesi
         # =========================
+        # mpc-centerline-target (2026-11-17): THE OBSTACLE MUST BEAT THE
+        # TARGET. compute_local_target no longer moves the target off an
+        # obstacle, so on a centreline obstacle the terminal w_term pull and
+        # the stage w_obs cost meet head-on inside one QP. With the old
+        # balance the obstacle lost: driven closed-loop (real corridor,
+        # target and RTI solve around the vehicle model, test/
+        # test_centerline_target_closed_loop.py) the car's centre went
+        # 0.2-0.3 m inside R_safe. mpc_w_obs was raised; w_term and w_corr
+        # were checked and left alone. stack_params.yaml holds the value and
+        # the measured table; this comment deliberately does not repeat them.
+        #
         # w_psi / w_corr are now REALLY WIRED UP -- w_psi as a terminal-yaw
         # cost and w_corr as a stagewise squared-lateral-offset cost, in
         # mpc_solver.py's RTI QP as well as in planner_cost_corridor. Before
@@ -1781,8 +1792,8 @@ class MPCController(Node):
         #     measured, in both directions.
         #   - OBSTACLE CLEARANCE. The old note's mechanism -- a lateral
         #     penalty resists the deflection while an obstacle is still
-        #     there -- has not gone away. w_obs was deliberately left at
-        #     2.8 for less shyness, and w_corr now pulls the other way.
+        #     there -- has not gone away. (w_obs was raised on
+        #     mpc-centerline-target, see the head of this block.)
         # a bare `ros2 run` that bypasses the launch file gets the deployed
         # set too. Until this pass these were ten bare literals with no ROS
         # parameter behind them at all: no launch override, no config
@@ -1795,16 +1806,9 @@ class MPCController(Node):
         # through untouched; every other key is per-stage and is multiplied
         # by STAGE_WEIGHT_REF_HORIZON / N = 7/20 = 0.35 inside
         # solve_mpc_step (mpc_solver.scale_stage_weights). Quote the
-        # EFFECTIVE number when comparing against a tuning note:
-        #
-        #   key            yaml literal   effective (x 0.35)
-        #   w_corr              3.5714               1.2500
-        #   w_psi_stage         4.7736               1.6708
-        #   w_v                 4.2857               1.5000
-        #   w_du_delta          8.5714               3.0000
-        #   w_obs               8.0000               2.8000
-        #   w_term              9.0                  9.0    (terminal)
-        #   w_psi               4.5                  4.5    (terminal)
+        # EFFECTIVE number when comparing against a tuning note (each key's
+        # stack_params.yaml description quotes it; test_weight_set.py pins
+        # the translation, so no copy of the table lives here to go stale).
         #
         # The stage literals are rho / (7 * sigma^2), which is exactly what
         # makes the TOTAL stage cost over the horizon equal rho / sigma^2

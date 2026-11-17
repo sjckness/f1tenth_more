@@ -142,7 +142,13 @@ def test_a_remembered_person_behind_refuses_the_reverse():
     person = _obj(7, 'person', 1.66 - cfg.car_rear_offset_m - 0.3 - 0.65, 0.0, 0.25, 0.65,
                   SemanticObject.MEMORY, conf=0.5)
     memory = objects_to_odom_circles([person], (0.0, 0.0, 0.0))
-    r = H.run(H.Script(objects=lambda t: memory), duration=12.0, front_wall_x=2.0)
+    # The car starts PAST the person (base_link x 1.3, the person's disc already behind the
+    # rear bumper), as the scenario describes. Starting at 0 put the car inside the grown
+    # 0.65 m disc with the person ahead, so the forward MPC drove through it: harmless at the
+    # old w_obs 8.0, but at mpc-centerline-target's 200.0 the car swerves round it and ends up
+    # stuck beside, not in front of, the person -- a different scenario from the one pinned.
+    r = H.run(H.Script(objects=lambda t: memory), duration=12.0, front_wall_x=2.0,
+              start=(1.3, 0.0, 0.0, 0.0))
     assert H.reverses(r) == []
     stuck_ticks = [s for s in r.status if s['stuck']]
     assert stuck_ticks and all(s['rear_reason'] == 'rear_object' for s in stuck_ticks)

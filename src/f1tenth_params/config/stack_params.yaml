@@ -2267,6 +2267,40 @@ mpc_prediction_dt_s:
 #                                 fight holding a line.
 #   w_u_a, w_du_a 0.0  -> 0.0     unchanged, still off
 #
+# mpc-centerline-target (2026-11-17): w_obs 2.8 -> 70.0 effective (literal
+# 8.0 -> 200.0); w_term and w_corr unchanged. compute_local_target no longer
+# moves the target off an obstacle, so a centreline obstacle now sets the
+# stage w_obs cost directly against the terminal w_term pull in one QP, and
+# the obstacle has to win. Closed loop, nominal plant (real corridor, target
+# and RTI solve around the vehicle model; mpc_controller
+# test/test_centerline_target_closed_loop.py), 10 s at 0.5 m/s: worst
+# car-centre clearance minus R_safe (r + car_radius +
+# obstacle_safety_margin_m) and the most steering sign changes, over
+#   r0.5:  r 0.5 at 1.5 m, offset 5 mm / -2 cm / 10 cm
+#   r0.25: r 0.25 at 1.5 m, offset 1 cm / +-15 cm / 30 cm
+#   1.0m:  r 0.25 at 1.0 m (late), offset 1 cm
+#   w_obs  w_term  w_corr      r0.5            r0.25           1.0m
+#     8.0     9.0  3.5714   -0.241 m 3 sc   -0.194 m 1 sc   -0.289 m 1 sc
+#    80.0     9.0  1.0      -0.020 m 3 sc   +0.048 m 3 sc   -0.152 m 4 sc
+#   120.0     9.0  1.0      -0.003 m 3 sc   +0.072 m 3 sc   -0.145 m 2 sc
+#   200.0     9.0  1.0      +0.005 m 1 sc   +0.100 m 3 sc   -0.126 m 2 sc
+#   200.0     9.0  3.5714   +0.006 m 1 sc   +0.094 m 3 sc   -0.127 m 2 sc  <- shipped
+#   200.0    15.0  1.0      +0.006 m 3 sc   +0.095 m 3 sc   -0.137 m 2 sc
+# w_corr does not hinder the swerve at this w_obs (rows 4 and 5), so it stays
+# on its derivation; a higher w_term buys nothing and adds sign changes. Gains
+# flatten above ~200: the obstacle cost probes only points AHEAD of the nose
+# (SOLVER_FRONT_POINT_OFFSETS_M), so while the car swerves its centre trails
+# close to the R_safe circle whatever w_obs is. A continuous attenuation of
+# w_term by the target's penetration of the nearest disc was tried and NOT
+# kept: no clearance gained, and with a floor of 0.2 the car stopped short of
+# a 0.5 m obstacle instead of passing it. Still open, reported, not patched:
+# an obstacle EXACTLY on the line with the car aligned gives the QP no side to
+# prefer (the car stops in front of it); a late (1.0 m) obstacle ends ~13 cm
+# inside R_safe; the r 0.25 offset cases change steering sign 3 times. From
+# a standstill the solver waits ~2 s for the wheels to reach lock before it
+# accelerates. Nominal-model numbers: retune on the car / in Isaac
+# (scripts/sim/isaac_tuning on branch isaac-mpc-tuning).
+#
 # NOTE ON vdes, which this derivation did not settle: the velocity sigma was
 # chosen against vdes 0.45, and MPC_corr's bootstrap self.vdes is 0.5 (and
 # every real move overwrites it from the move's own commanded speed anyway).
@@ -2294,8 +2328,8 @@ mpc_w_v:
   description: "PER-STAGE speed-tracking weight on (v - vdes)^2. Effective value 1.50 after the 7/20 stage scaling. Was literal 8.0, effective 2.8."
 # tuned against legacy height radii, re-validate on floor
 mpc_w_obs:
-  default: 8.0
-  description: "PER-STAGE obstacle soft-deflection weight. Effective value 2.8 after the 7/20 stage scaling -- UNCHANGED, deliberately: less obstacle shyness was wanted, not more."
+  default: 200.0
+  description: "PER-STAGE obstacle soft cost, w_obs * softplus(R - d_front)^2 with R = car_radius + obstacle_safety_margin_m and d_front the clearance of the probe points ahead of the nose, on every stage including the terminal one. Effective value 70.0 after the 7/20 stage scaling. Was literal 8.0 (effective 2.8) until mpc-centerline-target (2026-11-17): with the target no longer moved off obstacles the obstacle term has to beat the terminal w_term pull inside the disc; see the table above mpc_w_term."
 # w_du_delta IS THE ONE TERM DELIBERATELY OFF THE rho/sigma^2 SET (2026-09-09).
 # Lowered effective 8.33 -> 3.0, i.e. literal 23.8095 -> 8.5714. The derived
 # value came from sigma = 0.03 rad/step, and that sigma was chosen as "what
