@@ -1780,8 +1780,10 @@ class MPCController(Node):
         #     measured, in both directions.
         #   - OBSTACLE CLEARANCE. The old note's mechanism -- a lateral
         #     penalty resists the deflection while an obstacle is still
-        #     there -- has not gone away. w_obs was deliberately left at
-        #     2.8 for less shyness, and w_corr now pulls the other way.
+        #     there -- has not gone away: w_corr pulls the other way. w_obs
+        #     is no longer on this derivation at all; it is derived from
+        #     w_term (stack_params.yaml, mpc_w_obs) since the target stopped
+        #     dodging obstacles.
         # a bare `ros2 run` that bypasses the launch file gets the deployed
         # set too. Until this pass these were ten bare literals with no ROS
         # parameter behind them at all: no launch override, no config
@@ -1801,9 +1803,11 @@ class MPCController(Node):
         #   w_psi_stage         4.7736               1.6708
         #   w_v                 4.2857               1.5000
         #   w_du_delta          8.5714               3.0000
-        #   w_obs               8.0000               2.8000
         #   w_term              9.0                  9.0    (terminal)
         #   w_psi               4.5                  4.5    (terminal)
+        #
+        # w_obs is per-stage too (x 0.35) but is not in this table: its
+        # literal is derived from w_term, see mpc_w_obs in stack_params.yaml.
         #
         # The stage literals are rho / (7 * sigma^2), which is exactly what
         # makes the TOTAL stage cost over the horizon equal rho / sigma^2

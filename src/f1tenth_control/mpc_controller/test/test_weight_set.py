@@ -35,6 +35,7 @@ import pytest
 
 from f1tenth_params.param_defaults import get_value
 from mpc_controller.mpc_solver import (
+    _softplus_sq_derivs,
     STAGE_WEIGHT_REF_HORIZON,
     _STAGE_WEIGHT_KEYS,
     scale_stage_weights,
@@ -65,8 +66,13 @@ _EFFECTIVE = {
     'w_psi_stage': 1.67,
     'w_v': 1.5,
     'w_du_delta': 3.0,
-    'w_obs': 2.8,
 }
+
+# mpc_w_obs's derivation inputs (see that key's comment in stack_params.yaml):
+# the largest obstacle the corridor work is sized for, a 1 m object, and the
+# depth into its disc beyond which the obstacle must out-pull the target.
+_W_OBS_SIZING_RADIUS_M = 0.5
+_W_OBS_DOMINANCE_DEPTH_M = 0.10
 
 _YAML_TO_DICT = {
     'mpc_w_term': 'w_term',
@@ -169,11 +175,26 @@ class TestWhatChangedAndWhatDeliberatelyDidNot:
     def test_stage_heading_tracking_is_on_now(self):
         assert _shipped()['w_psi_stage'] > 0.0
 
-    def test_obstacle_shyness_was_not_increased(self):
-        """w_obs effective stays 2.8. Less shyness was wanted, not more, so
-        this one is pinned against being swept along by the retune."""
+    def test_inside_the_disc_the_obstacle_out_pulls_the_terminal_target(self):
+        """
+        Pin mpc_w_obs's derivation from mpc_w_term, not its literal.
+
+        REPLACES the pin that kept w_obs at effective 2.8 ("less shyness"):
+        that held while compute_local_target pushed the target out of every
+        disc. The target now stays on the centreline inside a disc, so at the
+        terminal stage w_term pulls the car INTO the obstacle and w_obs must
+        win: for a target at the centre of an r 0.5 m obstacle, the
+        obstacle's gradient w_obs_eff * g'(d) must exceed the target's
+        2 * w_term * (R_safe - d) at every depth d past 0.10 m. g' grows
+        faster than the target's pull shrinks, so d = 0.10 is the binding
+        depth and checking it covers the rest.
+        """
         scaled = scale_stage_weights(_shipped(), horizon=20)
-        assert scaled['w_obs'] == pytest.approx(2.8, abs=0.01)
+        r_safe = (_W_OBS_SIZING_RADIUS_M + float(get_value('car_radius'))
+                  + float(get_value('obstacle_safety_margin_m')))
+        for depth in (_W_OBS_DOMINANCE_DEPTH_M, 0.2, 0.4, r_safe):
+            _g, g_prime, _g2 = _softplus_sq_derivs(depth)
+            assert scaled['w_obs'] * g_prime >= 2.0 * scaled['w_term'] * (r_safe - depth), depth
 
     def test_steering_magnitude_stays_off(self):
         """w_delta0 penalises the SIZE of the steering command. The car has

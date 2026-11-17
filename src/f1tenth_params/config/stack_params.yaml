@@ -2256,9 +2256,10 @@ mpc_prediction_dt_s:
 #                                 mpc_w_du_delta key itself)
 #   w_term        3.0  -> 9.0     terminal, unscaled
 #   w_psi         1.5  -> 4.5     terminal, unscaled
-#   w_obs         2.8  -> 2.8     UNCHANGED -- less obstacle shyness was
-#                                 wanted, and 2.8 is already the rescaled
-#                                 value, so the literal 8.0 stays put
+#   w_obs         2.8  -> 2.8     unchanged by this retune; RAISED later
+#                                 (branch mpc-centerline-target) when the
+#                                 target stopped dodging obstacles -- see
+#                                 mpc_w_obs itself for the derivation
 #   w_delta0      0.0  -> 0.0     stays OFF. It penalises steering
 #                                 MAGNITUDE, and with a ~2 deg plant bias
 #                                 (steering_calibration.yaml's own
@@ -2292,10 +2293,42 @@ mpc_w_line:
 mpc_w_v:
   default: 4.2857
   description: "PER-STAGE speed-tracking weight on (v - vdes)^2. Effective value 1.50 after the 7/20 stage scaling. Was literal 8.0, effective 2.8."
-# tuned against legacy height radii, re-validate on floor
+# w_obs IS DERIVED FROM w_term, NOT FROM rho/sigma^2 (branch
+# mpc-centerline-target). The lookahead target no longer leaves an obstacle's
+# disc (compute_local_target), so when it falls inside one the terminal
+# w_term pull and this cost meet head on in the QP, and the obstacle has to
+# win. The obstacle term is softplus(s)^2 per stage, s = R_safe - (probe
+# distance to the centre), softplus beta 10 (mpc_solver._SOFTPLUS_BETA);
+# R_safe = r + car_radius + obstacle_safety_margin_m. The requirement, at the
+# terminal stage, for the worst target (the CENTRE of the disc) of the
+# largest obstacle the corridor work is sized for (r 0.5 m, a 1 m object, so
+# R_safe 0.82 m): at every depth d into the disc beyond 0.10 m the
+# obstacle's gradient exceeds the target's,
+#     w_obs_eff * g'(d) >= 2 * w_term * (R_safe - d),   g = softplus^2,
+# tightest at d = 0.10: g'(0.10) = 0.1920, so w_obs_eff >= 2 * w_term *
+# 0.72 / 0.1920 = 7.5 * w_term. The literal is that over the 7/20 stage
+# scaling, rounded up. test_weight_set.py recomputes the inequality from
+# this key and mpc_w_term, so raising w_term without this one fails there.
+# Within 0.10 m of the rim the target still wins: a soft cost always yields a
+# little, which is why the closed-loop tests measure clearance, not intent.
+#
+# MEASURED, 2026-11-17 (the test_centerline_target_closed_loop.py rig,
+# nominal model, disc r 0.5 m 1 mm off the line, 0.5 m/s; old 8.0 -> 193.0,
+# clearance of the front probes to R_safe, negative = inside):
+#   held 6 m corridor, disc 2.5 m / 3.0 m ahead   -0.47 -> -0.015 m
+#   the node's 1 s rebuilds, disc 2.5 m ahead       -0.25 -> +0.03 m
+#   the work order's disc 1.5 m ahead               about -0.20 m at any
+#                                                   weight: steering envelope
+# Steering sign changes while passing on the held corridor: 2 either way.
+# No solve failed. Attenuating w_term with the target's penetration into
+# the nearest disc (smoothstep, floor 0.1; the fallback the work order
+# allowed) was measured and REJECTED: with the rebuilds it took the probes
+# from +0.03 m to -0.17 m, because the target pulling into the disc is what
+# makes the horizon swing round it; weakened, w_psi and w_corr hold the car
+# on the line.
 mpc_w_obs:
-  default: 8.0
-  description: "PER-STAGE obstacle soft-deflection weight. Effective value 2.8 after the 7/20 stage scaling -- UNCHANGED, deliberately: less obstacle shyness was wanted, not more."
+  default: 193.0
+  description: "PER-STAGE obstacle weight on softplus(R_safe - probe distance)^2, R_safe = r + car_radius + obstacle_safety_margin_m. Effective value after the 7/20 stage scaling is 0.35 x this. DERIVED from mpc_w_term so the obstacle beats the terminal target inside a disc: for a target at the centre of an r 0.5 m obstacle, the obstacle's gradient exceeds the target's at every depth beyond 0.10 m (w_obs_eff >= 7.5 x w_term; see the comment above). Was 8.0 (effective 2.8) while compute_local_target still pushed the target out of the disc. Retune on the car; mpc_rear.w_obs (reverse manoeuvre) is separate and unchanged."
 # w_du_delta IS THE ONE TERM DELIBERATELY OFF THE rho/sigma^2 SET (2026-09-09).
 # Lowered effective 8.33 -> 3.0, i.e. literal 23.8095 -> 8.5714. The derived
 # value came from sigma = 0.03 rad/step, and that sigma was chosen as "what
