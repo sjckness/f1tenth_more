@@ -92,7 +92,46 @@ systemctl --user start freeparty-llm.service     # alla fine (il night loop lo f
 5. Del night loop è stata fatta **solo l'iterazione 1**: l'abbiamo fermato per passare agli ostacoli mobili. Il proponente Claude è stato provato una volta, a mano, e ha funzionato.
 6. Il sim usa `unknown_objects_mode: active`, l'auto `off`: i pesi trovati qui valgono sull'auto solo se arriva un disco simile.
 
-## 6. Prossimi passi suggeriti
+## 6. Idee di Andreas (2026-11-18, fine sessione): da fare nella prossima chat
+
+### 6.1 Oggetti veri, riconosciuti dalla perception: niente posizioni "regalate"
+Oggi i cilindri arrivano all'MPC dal LiDAR come oggetti `unknown` (`unknown_objects_mode: active`), e il sim conosce la loro posizione esatta. È troppo facile. Serve **una persona che si muove**, riconosciuta da YOLO sulle immagini della ZED renderizzate da Isaac, proiettata in 3D, tracciata e messa sulla mappa dal semantic layer (`/costmap/semantic_objects` e `/costmap/semantic_obstacles`). Così la pipeline è la stessa dell'auto e si può tornare a `unknown_objects_mode: off`, come sull'auto.
+
+**Cosa c'è già:**
+- **Persona statica:** già in `~/isaac_ws`, base_room (`M_Medical_01` in posa `arms_down`, collider a capsula, ground truth `/sim/ground_truth/person_pose` a 50 Hz). Nel layout `tuning` oggi è spenta.
+- **Persone che camminano:** esiste `sim/isaac/sim/people.py` sulla linea hil-isaac (commit `c6e5feb6`; si legge con `git show orin/logger-planner-mode:sim/isaac/sim/people.py`). Ogni persona segue dei waypoint a velocità costante. È un rigid body kinematic con collider a capsula, quindi il LiDAR la vede, ha una mesh che YOLO riconosce, e pubblica la ground truth negli objects. Limite: scivola, non c'è un ciclo di camminata. Va portato in `~/isaac_ws` `mpc-tuning`, a fianco dei movers di `/sim/scenario`.
+
+**Cosa fare:**
+1. In `/sim/scenario` aggiungere una o più `people: [{waypoints, speed, start_on_go}]`, avviate da `/sim/scenario_go` come i movers.
+2. Pubblicare la ground truth di ogni persona su `/sim/ground_truth/movers`, così le metriche funzionano già.
+3. Scenari P1–P4, con `unknown_objects_mode: off` (quindi senza `fixed_node_params`):
+   - P1: persona che attraversa da destra a 1 m/s;
+   - P2: persona che cammina verso l'auto;
+   - P3: persona che entra e si ferma sulla linea;
+   - P4: persona ferma sulla linea, il caso della regola di lato.
+4. Nelle metriche: raggio della persona circa 0.29 (impronta 0.58 × 0.42); R_safe usa il margine di classe `person` 0.5 di `obstacle_class_margin_m`, come sull'auto.
+5. Controllare la VRAM: Isaac, YOLO dello stack e camera spettatore sugli 8 GB. Durante i run di stanotte la GPU era intorno ai 3.7 GB.
+
+Vantaggi: si misurano latenza e campo visivo della camera (la persona esce dall'inquadratura mentre la si supera: c'è già `test_person_pass_closed_loop.py`), il tracker e la memoria. I pesi trovati qui diventano trasferibili all'auto.
+
+### 6.2 Regola di lato "informata": passare dal lato da cui l'ostacolo si sta allontanando
+Oggi la regola di lato sceglie un lato **fisso** (`left`) quando l'ostacolo è entro 5 cm dalla linea. L'idea è usare le **osservazioni precedenti**. Se l'ostacolo si sta spostando lateralmente, il lato da cui proviene si sta liberando ed è più probabile che resti libero; quindi si passa **dietro** di lui, sul lato opposto alla sua velocità laterale. È anche la risposta giusta a M1, dove l'auto ha schivato nel verso in cui andava il cilindro e lo ha colpito.
+
+**Dati disponibili:** `SemanticObject` (su `/costmap/semantic_objects`, già sottoscritto da `mpc_corr` per la memoria) ha **`id` di track stabile**, `x`, `y` in map, `radius_m`, `state` (TRACKED o MEMORY) e `time_since_seen_s`, ma **non la velocità**. `Obstacle2D` (`/costmap/semantic_obstacles`, la lista che usa il solver) ha solo `x`, `y`, `r`, senza `id`.
+
+**Proposta** (da implementare in `side_rule.py` e `MPC_corr`, testabile nel rig closed-loop):
+1. Stimare per ogni `id` la velocità da posizioni successive, con un filtro passa-basso o una regressione su una finestra di circa 1 s. Si possono anche aggiungere `vx`, `vy` a `SemanticObject` nel semantic layer, dove il tracker esiste già.
+2. Associare gli ostacoli del solver ai track: stessa posizione entro pochi cm, oppure far portare l'`id` a `Obstacle2D`.
+3. Regola per un ostacolo nella banda:
+   - se `|v_lat| > v_min` (circa 0.1 m/s), il lato scelto è opposto al segno di `v_lat` (si passa alle sue spalle);
+   - se è fermo, il lato dal quale è arrivato, se il track lo ricorda (lato appena liberato);
+   - altrimenti il lato con più spazio libero nel costmap;
+   - solo come ultima risorsa, il lato fisso.
+4. **Latch per track e per mossa:** una volta scelto, il lato non cambia finché quel track è nella banda, con isteresi, per evitare oscillazioni. Oggi la regola non ha memoria.
+5. Più in generale, oltre la banda: **dischi predetti per stadio** nel costo `w_obs`. La posizione dell'ostacolo allo stadio k diventa `p + v·k·ts`, così l'MPC "vede" dove sarà la persona. Con questo M1 si risolve senza bisogno della regola di lato.
+6. Test: rig closed-loop con un ostacolo che si muove lateralmente (attraversa da destra e da sinistra, si ferma sulla linea) e asserzioni su lato scelto, nessun contatto e numero di cambi di segno. Poi in Isaac M1–M4 e P1–P4.
+
+## 7. Prossimi passi suggeriti
 
 - Girare M1–M4 ×3: `run_scenario.py --scenario M2 ...`; tutti funzionano già con `--spectator`.
 - Nell'MPC: ostacoli con velocità, cioè posizione predetta per stadio nel costo `w_obs`. Usare `side_rule` per il caso frontale.
