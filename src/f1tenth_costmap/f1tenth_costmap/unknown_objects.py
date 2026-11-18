@@ -407,6 +407,14 @@ MODES = ('off', 'shadow', 'active')
 DISK_SPACING_M = 0.2
 
 
+def is_elongated(trk) -> bool:
+    """Tell whether an unknown track is drawn as a chain of disks (length > 1.5 x width)."""
+    if not trk.is_unknown or trk.extent is None:
+        return False
+    length, width = trk.extent
+    return length > 1.5 * width
+
+
 def track_disks(trk, spacing_m=DISK_SPACING_M):
     """
     Return [(x, y, r)] map: the disks a track occupies.
@@ -420,11 +428,9 @@ def track_disks(trk, spacing_m=DISK_SPACING_M):
     one 0.65 m disk reaching into the travel strip (output/obstacles_v2,
     D11).
     """
-    if not trk.is_unknown or trk.extent is None:
+    if not is_elongated(trk):
         return [(trk.x_map, trk.y_map, trk.radius())]
     length, width = trk.extent
-    if length <= 1.5 * width:
-        return [(trk.x_map, trk.y_map, trk.radius())]
     half = 0.5 * max(width, 0.1)
     reach = 0.5 * length - half
     n = int(math.ceil(2.0 * reach / spacing_m)) + 1
