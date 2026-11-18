@@ -125,6 +125,12 @@ parameters:
     min: 0.0
     max: 0.4
     note: extra prediction time for perception latency (EMA lag ~0.2 s at 10 Hz)
+  mpc_obs_body_probes:
+    node: mpc_corr
+    via: node_param
+    default: false
+    choices: [false, true]
+    note: the obstacle term also probes the rear bumper and the axle midpoint (flank / tail hits)
   mpc_obstacle_side_mode:
     node: mpc_corr
     via: node_param

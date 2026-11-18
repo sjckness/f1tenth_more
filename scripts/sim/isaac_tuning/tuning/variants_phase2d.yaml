@@ -1,0 +1,8 @@
+# Phase 2 A/B redo, the part an Isaac restart race cut (alpha_wake's M runs, informed, all), and the
+# body probes (mpc_obs_body_probes, added after the phase 3 diagnosis) on the best velocity variant.
+alpha_wake: {mpc_obs_vel_trust: 1.0, mpc_obs_wake_weight: 150.0, mpc_obs_wake_horizon_s: 1.0}
+informed: {mpc_obstacle_side_mode: informed}
+all: {mpc_obs_vel_trust: 1.0, mpc_obs_wake_weight: 150.0, mpc_obs_wake_horizon_s: 1.0,
+      mpc_obstacle_side_mode: informed}
+alpha_wake_body: {mpc_obs_vel_trust: 1.0, mpc_obs_wake_weight: 150.0, mpc_obs_wake_horizon_s: 1.0,
+                  mpc_obs_body_probes: true}
