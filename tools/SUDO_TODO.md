@@ -24,7 +24,7 @@ Niente qui e' stato eseguito. Ogni voce dice dove serve, il comando e cosa sbloc
    `"insecure-registries": ["linus:5000"]` in `/etc/docker/daemon.json` + restart di dockerd. Attenzione:
    il daemon.json dell'Orin ha `bridge: none` / `iptables: false` (CLAUDE.md "Orin Docker"): una
    modifica sbagliata lascia dockerd giu' al boot. Serve solo se un giorno la build passa su linus.
-6. **`asio_cmake_module` per costruire vesc_driver su linus**: `sudo apt install ros-jazzy-asio-cmake-module`.
+6. **FATTO 2026-11-18** - **`asio_cmake_module` per costruire vesc_driver su linus**: `sudo apt install ros-jazzy-asio-cmake-module`.
    Senza, `vesc_driver` non si configura e restano fuori anche vesc, f1tenth_hardware, f1tenth_control,
    mpc_controller, f1tenth_planners, f1tenth_bringup, f1tenth_more, vesc_tuning (2026-11-18). Poi:
    `colcon build --symlink-install --packages-select vesc_driver vesc f1tenth_hardware f1tenth_control mpc_controller f1tenth_planners f1tenth_bringup f1tenth_more vesc_tuning`.
