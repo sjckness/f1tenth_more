@@ -218,6 +218,143 @@ def contact_sheet(run_dir: str, out: str, n: int = 6) -> str:
     return out
 
 
+# ---------------------------------------------------------------- mpc-dodge figures
+def load_runs_glob(set_dir: str, pattern: str) -> list[dict]:
+    """Every run under set_dir whose directory matches pattern (dodge runs: D<dd>_s<seed>_r<k>)."""
+    runs = []
+    for rj in sorted(glob.glob(os.path.join(set_dir, pattern, 'run.json'))):
+        runs.extend(_load_named(set_dir, os.path.basename(os.path.dirname(rj))))
+    return runs
+
+
+def _load_named(set_dir: str, name: str) -> list[dict]:
+    d = os.path.join(set_dir, name)
+    with open(os.path.join(d, 'run.json'), encoding='utf-8') as fh:
+        run = json.load(fh)
+    with open(os.path.join(d, 'instance.json'), encoding='utf-8') as fh:
+        run['instance'] = json.load(fh)
+    with open(os.path.join(d, 'meta.json'), encoding='utf-8') as fh:
+        meta = json.load(fh)
+    t0, t1 = meta.get('t_running'), meta.get('t_end')
+    xs, ys = [], []
+    with open(os.path.join(d, 'gt.csv'), newline='', encoding='utf-8') as fh:
+        for row in csv.DictReader(fh):
+            t = float(row['t'])
+            if t0 is None or (t0 - 0.2 <= t <= (t1 or 1e9) + 0.5):
+                xs.append(float(row['x']))
+                ys.append(float(row['y']))
+    run['path'] = (xs, ys)
+    run['dir'] = d
+    run['movers'] = {}
+    mv = os.path.join(d, 'movers.csv')
+    if os.path.exists(mv):
+        with open(mv, newline='', encoding='utf-8') as fh:
+            for row in csv.DictReader(fh):
+                tt = float(row['t'])
+                if t0 is None or (t0 - 0.2 <= tt <= (t1 or 1e9) + 0.5):
+                    run['movers'].setdefault(row['id'], []).append((float(row['x']), float(row['y'])))
+    return [run]
+
+
+def fig_dfail(results: list[dict], out: str) -> str:
+    """Small multiples, one hue: d_fail of the dodge ramp, good M runs, good S runs per variant."""
+    names = [r['variant'] for r in results][::-1]
+    rs = results[::-1]
+    panels = [('dodge ramp: d_fail (first level that fails)',
+               [((r.get('ramp') or {}).get('d_fail')) for r in rs], None),
+              ('M1-M4: good runs', [(r.get('M') or {}).get('good') for r in rs],
+               [(r.get('M') or {}).get('n') for r in rs]),
+              ('S1-S5: good runs', [(r.get('S') or {}).get('good') for r in rs],
+               [(r.get('S') or {}).get('n') for r in rs])]
+    fig, axes = plt.subplots(1, 3, figsize=(12, 0.45 * len(names) + 1.6), sharey=True)
+    for ax, (title, vals, ns) in zip(axes, panels):
+        y = range(len(names))
+        v = [0 if x is None else x for x in vals]
+        ax.barh(list(y), v, color=SERIES[0], height=0.62, zorder=2)
+        for i, x in enumerate(vals):
+            lab = '-' if x is None else (f'{x}/{ns[i]}' if ns and ns[i] is not None else str(x))
+            ax.text((0 if x is None else x) + 0.05 * max(1, max(v) or 1), i, lab, va='center',
+                    color=INK, fontsize=9)
+        ax.set_title(title, loc='left')
+        ax.grid(axis='y', visible=False)
+        top = max(v) if v else 1
+        ax.set_xlim(0, max(1, top) * 1.25 + (0.5 if ns is None else 0))
+    axes[0].set_yticks(range(len(names)))
+    axes[0].set_yticklabels(names)
+    fig.tight_layout()
+    fig.savefig(out, dpi=130)
+    plt.close(fig)
+    return out
+
+
+def fig_dodge_runs(runs: list[dict], out: str, title: str = '') -> str:
+    """Top views of dodge runs (room 8.5 x 6 m): the car's path, every cylinder's track."""
+    n = len(runs)
+    cols = min(3, n)
+    rows_n = math.ceil(n / cols)
+    fig, axes = plt.subplots(rows_n, cols, figsize=(5.2 * cols, 3.9 * rows_n), squeeze=False)
+    for ax in axes.ravel()[n:]:
+        ax.axis('off')
+    for ax, r in zip(axes.ravel(), runs):
+        ax.add_patch(Rectangle((0, 0), 8.5, 6, fill=False, edgecolor=INK2, linewidth=1.5))
+        for ob in r['instance'].get('obstacle_info', []):
+            tr = r['movers'].get(ob['id'])
+            if not tr:
+                continue
+            ax.plot([p[0] for p in tr], [p[1] for p in tr], '-', color=OBST, linewidth=1.0,
+                    alpha=0.6, zorder=2)
+            ax.add_patch(Circle(tr[-1], ob['radius_m'], color=OBST, alpha=0.6, zorder=2))
+        xs, ys = r['path']
+        ax.plot(xs, ys, color=SERIES[0], linewidth=2.0, zorder=3)
+        if r.get('outcome') in ('collision', 'estop'):
+            ax.plot(xs[-1], ys[-1], 'x', color=CRITICAL, markersize=11, mew=2.5, zorder=5)
+        f = r.get('failure') or {}
+        sub = (f'{r["outcome"]}' + (f', level {f.get("level")}, margin {f["margin_m"]:+.2f} m'
+                                    if f else ''))
+        ax.set_title(f'{r["scenario"]}: {sub}', loc='left', fontsize=10)
+        ax.set_xlim(0, 8.5)
+        ax.set_ylim(0, 6)
+        ax.set_aspect('equal')
+    if title:
+        fig.suptitle(title, x=0.01, ha='left', fontweight='bold')
+    fig.tight_layout()
+    fig.savefig(out, dpi=120)
+    plt.close(fig)
+    return out
+
+
+def fig_return(sets: list[tuple[str, list]], out: str, scenarios=('S1', 'S2', 'S3')) -> str:
+    """Lateral offset from the start line along the drive, per variant: the return after a swerve."""
+    fig, axes = plt.subplots(1, len(scenarios), figsize=(4.6 * len(scenarios), 3.6), sharey=True,
+                             squeeze=False)
+    for ax, sid in zip(axes[0], scenarios):
+        ax.axhspan(-0.10, 0.10, color=GRID, alpha=0.8, zorder=0)
+        for k, (label, runs) in enumerate(sets):
+            for r in (r for r in runs if r['scenario'] == sid):
+                xs, ys = r['path']
+                if not xs:
+                    continue
+                st = r['instance']['nominal_start']
+                yaw = math.radians(r.get('start_pose_map_sim', {}).get('yaw_deg', st['yaw_deg']))
+                x0 = r.get('start_pose_map_sim', {}).get('x', xs[0])
+                y0 = r.get('start_pose_map_sim', {}).get('y', ys[0])
+                c, s_ = math.cos(yaw), math.sin(yaw)
+                a = [c * (x - x0) + s_ * (y - y0) for x, y in zip(xs, ys)]
+                b = [-s_ * (x - x0) + c * (y - y0) for x, y in zip(xs, ys)]
+                ax.plot(a, b, color=SERIES[k % len(SERIES)], linewidth=2.0, alpha=0.85)
+        ax.set_title(SCN_TITLE.get(sid, sid), loc='left')
+        ax.set_xlabel('along the start heading [m]')
+    axes[0][0].set_ylabel('lateral offset [m]')
+    handles = [plt.Line2D([0], [0], color=SERIES[k % len(SERIES)], lw=2.5, label=label)
+               for k, (label, _) in enumerate(sets)]
+    handles.append(Rectangle((0, 0), 1, 1, color=GRID, label='+-0.10 m'))
+    fig.legend(handles=handles, loc='upper center', ncol=len(handles), bbox_to_anchor=(0.5, 1.0))
+    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    fig.savefig(out, dpi=130)
+    plt.close(fig)
+    return out
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
     ap.add_argument('--night', default=None, help='night_<date> directory (iterations it*)')
