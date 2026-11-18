@@ -49,6 +49,11 @@ RETURN_FLAGS = {'corridor_lateral_reanchor': False, 'return_gain': 1.0,
                 'return_lookahead_min_m': 1.0,
                 'return_max_heading_deg': 35.0, 'return_overshoot_max_m': 0.15}
 FIXED_TRUST = {'obs_vel_trust': 1.0}
+# The rig's baseline is the STATIC controller (every mpc-dodge term off), whatever stack_params
+# ships: since the car deploy (mpc-dodge-car) the shipped defaults are the Isaac-tuned set, and
+# 'static' must stay static. Each case names its flags on top of this; the 'shipped' cases run the
+# stack_params defaults themselves.
+STATIC = {'obs_vel_trust': 0.0, 'obs_wake_weight': 0.0, 'obs_body_probes': False}
 
 
 def r_safe(r):
@@ -85,7 +90,11 @@ def _fake(**flags):
     fake._side_latch = SideLatch()
     fake._move_line_origin = None
     fake.costmap_boundaries_world = []
-    # ... with this case's flags over them
+    fake.obs_body_probes = bool(get_value('mpc_obs_body_probes'))
+    # ... the static baseline unless the case asks for the shipped defaults, then its flags
+    if not flags.pop('shipped', False):
+        for k, v in STATIC.items():
+            setattr(fake, k, v)
     for k, v in flags.items():
         setattr(fake, k, v)
     weights = shipped_weights()
@@ -279,6 +288,7 @@ def runs():
     for name, side in (('from_right', -1.0), ('from_left', 1.0)):
         out[f'{name}/static'] = drive(crossing(side), DURATION)
         out[f'{name}/trust1'] = drive(crossing(side), DURATION, **FIXED_TRUST)
+        out[f'{name}/shipped'] = drive(crossing(side), DURATION, shipped=True)
     out['m4/fixed'] = drive(walk_in_and_stop(ahead=M4_AHEAD), DURATION)
     out['m4/informed'] = drive(walk_in_and_stop(ahead=M4_AHEAD), DURATION,
                                obstacle_side_mode='informed')
@@ -405,3 +415,14 @@ def test_body_probes_keep_r_safe_when_a_crossing_obstacle_closes_on_the_flank(ru
     assert body.min_margin() >= -TOL_M
     assert body.min_margin() >= runs[f'flank/{name}/trust1'].min_margin()
     assert body.states[-1, 0] > 4.0
+
+
+# ---- the shipped (car deploy) set: docs/mpc_dodge/mpc_params_tuned.yaml -------------------------
+
+@pytest.mark.parametrize('name', ['from_right', 'from_left'])
+def test_shipped_defaults_pass_a_crossing_obstacle_at_least_as_well_as_trust1(runs, name):
+    shipped = runs[f'{name}/shipped']
+    assert shipped.contact() > 0.0
+    assert shipped.min_margin() >= -TOL_M
+    assert shipped.min_margin() >= runs[f'{name}/trust1'].min_margin() - TOL_M
+    assert shipped.states[-1, 0] > 4.0
