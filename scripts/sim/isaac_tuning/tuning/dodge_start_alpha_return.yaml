@@ -1,0 +1,6 @@
+# phase 3 start: alpha_return of the phase 2b A/B (predicted discs + the return arc)
+mpc_obs_vel_trust: 1.0
+corridor_lateral_reanchor: false
+mpc_return_gain: 1.0
+mpc_return_lookahead_ratio: 2.5
+mpc_return_psi_scale: 0.5
