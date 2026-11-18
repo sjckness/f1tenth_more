@@ -106,3 +106,18 @@ def test_arc_correction_moves_the_centroid_away_from_the_sensor():
     x, y = tv.arc_centre_correction((2.0, 0.0), 0.25, (0.0, 0.0))
     assert x == pytest.approx(2.0 + 0.5 / math.pi) and y == pytest.approx(0.0)
     assert tv.arc_centre_correction((2.0, 0.0), 0.0) == (2.0, 0.0)
+
+
+def test_a_cylinder_arc_may_move_a_wall_stub_may_not():
+    from f1tenth_costmap import unknown_objects as uo
+
+    class Trk:
+        is_unknown = True
+
+        def __init__(self, extent):
+            self.extent = extent
+    arc = Trk((0.54, 0.24))          # a D0.5 cylinder's half-arc: aspect ~2
+    stub = Trk((0.6, 0.05))          # a wall stub: aspect 6 over the 0.1 m floor
+    assert uo.is_elongated(arc)      # still drawn as a chain of disks
+    assert not uo.is_elongated(arc, ratio=3.5, min_width=0.1)
+    assert uo.is_elongated(stub, ratio=3.5, min_width=0.1)

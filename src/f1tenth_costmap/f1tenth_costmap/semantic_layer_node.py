@@ -483,6 +483,7 @@ class SemanticLayerNode(Node):
             max_gap_s=vparam('track_velocity_max_gap_s', 1.0))
         self.velocity_arc_correction = bool(
             self.declare_parameter('track_velocity_arc_correction', True).value)
+        self.velocity_max_aspect = vparam('track_velocity_max_aspect', 3.5)
         self._odom_history = []
         if self.velocity_enabled:
             self.odom_sub = self.create_subscription(
@@ -1161,14 +1162,18 @@ class SemanticLayerNode(Node):
         """
         Return the track's VelocityEstimate, or None (feature off, never measured).
 
-        An ELONGATED unknown cluster (unknown_objects.track_disks draws it as a chain: a wall
-        stub, a cabinet run) is never v_valid: its centroid slides along it as the visible part
-        changes while the car drives (seen in Isaac: a wall chain behind the car at 0.29 m/s).
+        A LONG, THIN unknown cluster (length > track_velocity_max_aspect x its width, the width
+        floored at 0.1 m: a wall stub, a cabinet run) is never v_valid: its centroid slides along
+        it as the visible part changes while the car drives (seen in Isaac: a wall stub behind the
+        car at 0.29 m/s, aspect ~6). A cylinder's half-arc (aspect ~2) is not one: the plain
+        chain criterion of track_disks (1.5) also caught every LiDAR cylinder and left the
+        phase 2 A/B with v_valid on 1 % of the moving cylinders' disks.
         """
         if not self.velocity_enabled:
             return None
         est = self._velocity.estimate(trk.track_id)
-        if est is not None and est.valid and uo.is_elongated(trk):
+        if est is not None and est.valid and uo.is_elongated(
+                trk, ratio=self.velocity_max_aspect, min_width=0.1):
             est = dataclasses.replace(est, valid=False)
         return est
 
