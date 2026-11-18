@@ -24,12 +24,16 @@ Niente qui e' stato eseguito. Ogni voce dice dove serve, il comando e cosa sbloc
    `"insecure-registries": ["linus:5000"]` in `/etc/docker/daemon.json` + restart di dockerd. Attenzione:
    il daemon.json dell'Orin ha `bridge: none` / `iptables: false` (CLAUDE.md "Orin Docker"): una
    modifica sbagliata lascia dockerd giu' al boot. Serve solo se un giorno la build passa su linus.
-6. **Spazio disco su linus**: il precheck vuole 25 GB liberi su / (oggi 12). Non serve sudo ma va
+6. **`asio_cmake_module` per costruire vesc_driver su linus**: `sudo apt install ros-jazzy-asio-cmake-module`.
+   Senza, `vesc_driver` non si configura e restano fuori anche vesc, f1tenth_hardware, f1tenth_control,
+   mpc_controller, f1tenth_planners, f1tenth_bringup, f1tenth_more, vesc_tuning (2026-11-18). Poi:
+   `colcon build --symlink-install --packages-select vesc_driver vesc f1tenth_hardware f1tenth_control mpc_controller f1tenth_planners f1tenth_bringup f1tenth_more vesc_tuning`.
+7. **Spazio disco su linus** (risolto in parte 2026-11-18: 35 GB liberi dopo la pulizia dei worktree): il precheck vuole 25 GB liberi su / (oggi 12). Non serve sudo ma va
    deciso cosa cancellare (immagini Docker, bag).
 
 ## GitHub (admin del repo sjckness/f1tenth_more)
 
-7. **Branch protection di main** (merge bloccato se la CI e' rossa): Settings -> Branches -> Add rule
+8. **Branch protection di main** (merge bloccato se la CI e' rossa): Settings -> Branches -> Add rule
    `main`: "Require status checks to pass" con `tools-core / core` e `ros-packages / build-test`,
    "Require branches to be up to date". Oppure:
    `gh api -X PUT repos/sjckness/f1tenth_more/branches/main/protection --input protection.json`.
