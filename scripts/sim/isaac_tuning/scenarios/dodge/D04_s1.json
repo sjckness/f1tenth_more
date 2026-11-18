@@ -1,0 +1,162 @@
+{
+ "id": "D04_s1",
+ "family": "D",
+ "d": 4,
+ "seed": 1,
+ "candidate_seed": 401000,
+ "rejected_candidates": 0,
+ "description": "dodge d=4: 3 levels, cylinders at 0.6 m/s, 1 diagonal",
+ "scene": "base_room",
+ "layout": "dodge",
+ "car_start": {
+  "x": 0.5,
+  "y": 3.0,
+  "yaw_deg": 0.0
+ },
+ "mission": {
+  "distance_m": 4.5,
+  "speed_mps": 0.5,
+  "timeout_s": 17.0
+ },
+ "ramp": {
+  "speed": 0.6,
+  "diag_frac": 0.4,
+  "n_levels": 3
+ },
+ "levels": [
+  {
+   "level": 0,
+   "ahead_m": 1.5,
+   "n": 1,
+   "diameters": [
+    0.5
+   ],
+   "theta_deg": 0.0,
+   "direction": -1.0,
+   "speed": 0.6,
+   "segment_m": 5.4,
+   "spacing_m": 0.0
+  },
+  {
+   "level": 1,
+   "ahead_m": 2.5,
+   "n": 1,
+   "diameters": [
+    0.3
+   ],
+   "theta_deg": 0.0,
+   "direction": 1.0,
+   "speed": 0.6,
+   "segment_m": 5.6000000000000005,
+   "spacing_m": 0.0
+  },
+  {
+   "level": 2,
+   "ahead_m": 3.5,
+   "n": 2,
+   "diameters": [
+    0.5,
+    0.3
+   ],
+   "theta_deg": -29.73792427513724,
+   "direction": -1.0,
+   "speed": 0.6,
+   "segment_m": 2.419191396638398,
+   "spacing_m": 1.8441604831383496
+  }
+ ],
+ "obstacles": [
+  {
+   "id": "c050_0",
+   "level": 0,
+   "ahead_m": 1.5,
+   "lateral_m": 0.7182,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     1.5,
+     2.7
+    ],
+    "b": [
+     1.5,
+     -2.7
+    ],
+    "speed": 0.6,
+    "s0": 1.9818,
+    "delay_s": 0.0
+   }
+  },
+  {
+   "id": "c030_0",
+   "level": 1,
+   "ahead_m": 2.5,
+   "lateral_m": -2.7434,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     2.5,
+     -2.8
+    ],
+    "b": [
+     2.5,
+     2.8
+    ],
+    "speed": 0.6,
+    "s0": 0.0566,
+    "delay_s": 0.0
+   }
+  },
+  {
+   "id": "c050_1",
+   "level": 2,
+   "ahead_m": 4.0279,
+   "lateral_m": 0.924,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     4.1,
+     1.0503
+    ],
+    "b": [
+     3.8148,
+     0.551
+    ],
+    "speed": 0.6,
+    "s0": 0.1454,
+    "delay_s": 0.0
+   }
+  },
+  {
+   "id": "c030_1",
+   "level": 2,
+   "ahead_m": 3.1131,
+   "lateral_m": -0.6773,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     3.1852,
+     -0.551
+    ],
+    "b": [
+     2.9,
+     -1.0503
+    ],
+    "speed": 0.6,
+    "s0": 0.1454,
+    "delay_s": 0.0
+   }
+  }
+ ],
+ "jitter": {
+  "seed": 7041,
+  "xy_m": 0.05,
+  "yaw_deg": 3.0
+ },
+ "oracle": {
+  "start_lag_s": 0.6,
+  "time_slack_s": 0.25,
+  "buffer_m": 0.0,
+  "dt_s": 0.2,
+  "wall_clearance_m": 0.45
+ }
+}

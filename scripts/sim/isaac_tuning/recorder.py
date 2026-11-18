@@ -123,7 +123,8 @@ class Recorder(Node):
             'hard_stop': f('hard_stop.csv', ['t', 'engaged', 'nearest_range_m']),
             'bt': f('bt.csv', ['t', 'active_lane', 'emergency_trip', 'safety_stop_active',
                                'stop_source']),
-            'obstacles': f('obstacles.csv', ['t', 'frame', 'n', 'x', 'y', 'r']),
+            'obstacles': f('obstacles.csv', ['t', 'frame', 'n', 'x', 'y', 'r', 'id', 'vx', 'vy',
+                                             'v_valid', 'v_sigma']),
             'cpu': f('cpu.csv', ['t_wall', 't', 'mpc_cpu_s']),
             'movers': f('movers.csv', ['t', 'id', 'x', 'y']),
         }
@@ -244,9 +245,13 @@ class Recorder(Node):
             return
         t = self._t(msg)
         if not msg.obstacles:
-            self.csv['obstacles'].row(t, msg.header.frame_id, 0, '', '', '')
+            self.csv['obstacles'].row(t, msg.header.frame_id, 0, '', '', '', '', '', '', '', '')
         for o in msg.obstacles:
-            self.csv['obstacles'].row(t, msg.header.frame_id, len(msg.obstacles), o.x, o.y, o.r)
+            # id / velocity (odom) only on a stack with semantic_track_velocity_enabled
+            self.csv['obstacles'].row(t, msg.header.frame_id, len(msg.obstacles), o.x, o.y, o.r,
+                                      getattr(o, 'id', ''), getattr(o, 'vx', ''),
+                                      getattr(o, 'vy', ''), int(getattr(o, 'v_valid', False)),
+                                      getattr(o, 'v_sigma', ''))
 
     def _on_corridor(self, msg):
         if not self.recording:

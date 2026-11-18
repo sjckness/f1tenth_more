@@ -57,13 +57,131 @@ parameters:
     max: 0.90
     note: corridor half-width at the car end (far end x 2.3/1.3). There is NO obstacle-adaptive
       widening on this branch; this is the only width knob.
+  # ---- more weights (mpc-dodge phase 3) ------------------------------------------------------
+  mpc_w_psi:
+    node: mpc_corr
+    via: launch_arg
+    default: 4.5
+    min: 0.5
+    max: 15.0
+    note: terminal heading weight (not stage-scaled)
+  mpc_w_v:
+    node: mpc_corr
+    via: launch_arg
+    default: 4.2857
+    min: 1.0
+    max: 12.0
+    effective_scale: 0.35
+    note: per-stage speed tracking
+  mpc_prediction_dt_s:
+    node: mpc_corr
+    via: launch_arg
+    default: 0.1
+    min: 0.1
+    max: 0.2
+    note: prediction step, N stays 20 (horizon 2.0-4.0 s); also moves the lookahead floor
+  class_margin_unknown_m:
+    node: semantic_layer_node
+    via: class_margin
+    class: unknown
+    default: 0.0
+    min: 0.0
+    max: 0.25
+    note: obstacle_class_margin_m['unknown'], added to every LiDAR-only disc (the car uses {person 0.5})
+  mission_speed_mps:
+    node: mission
+    via: mission
+    default: 0.5
+    min: 0.4
+    max: 0.7
+    note: cruise speed of the straight mission (the scenario's own speed_mps when absent); 0.4 is the floor
+  # ---- moving obstacles (mpc-dodge phase 2, mpc_controller/obstacle_motion.py) ---------------
+  mpc_obs_vel_trust:
+    node: mpc_corr
+    via: node_param
+    default: 0.0
+    min: 0.0
+    max: 1.0
+    note: predicted discs p + alpha v t_k for v_valid obstacles; 0 = static (today)
+  mpc_obs_wake_weight:
+    node: mpc_corr
+    via: node_param
+    default: 0.0
+    min: 0.0
+    max: 600.0
+    effective_scale: 0.35
+    note: soft cost on the half-ellipse ahead of an approaching obstacle's motion; 0 = off
+  mpc_obs_wake_horizon_s:
+    node: mpc_corr
+    via: node_param
+    default: 1.0
+    min: 0.3
+    max: 2.0
+    note: wake length in seconds of the obstacle's motion
+  mpc_obs_vel_lead_s:
+    node: mpc_corr
+    via: node_param
+    default: 0.0
+    min: 0.0
+    max: 0.4
+    note: extra prediction time for perception latency (EMA lag ~0.2 s at 10 Hz)
+  mpc_obstacle_side_mode:
+    node: mpc_corr
+    via: node_param
+    default: fixed
+    choices: [fixed, informed]
+    note: the side rule (informed = velocity, came-from, space, fixed; latched per track)
+  # ---- the return onto the line (mpc-dodge phase 2b, mpc_controller/lateral_return.py) --------
+  corridor_lateral_reanchor:
+    node: mpc_corr
+    via: node_param
+    default: true
+    choices: [true, false]
+    note: true = corridor through the car every rebuild (today); false = the move's line fixed in odom
+  mpc_return_gain:
+    node: mpc_corr
+    via: node_param
+    default: 0.0
+    min: 0.0
+    max: 4.0
+    note: w_corr x (1 + gain min(1, |e| / 0.5)) while returning
+  mpc_return_lookahead_ratio:
+    node: mpc_corr
+    via: node_param
+    default: 0.0
+    min: 0.0
+    max: 5.0
+    note: the return arc lands ratio * |e| ahead (0 = no arc, w_corr alone); below ~2 the arc is past full lock
+  mpc_return_psi_scale:
+    node: mpc_corr
+    via: node_param
+    default: 1.0
+    min: 0.2
+    max: 1.0
+    note: heading weights x this at a large lateral error (overshoot allowed)
+  mpc_return_max_heading_deg:
+    node: mpc_corr
+    via: node_param
+    default: 35.0
+    min: 20.0
+    max: 40.0
+    note: cap on the return's approach angle
+  mpc_return_overshoot_max_m:
+    node: mpc_corr
+    via: node_param
+    default: 0.15
+    min: 0.05
+    max: 0.3
+    note: allowed overshoot; also caps the approach angle (R_min (1 - cos theta) <= this)
 # Not tunable, but set for every run (the sim-vs-car difference is in PLAN.md's open questions):
 fixed_node_params:
   semantic_layer_node:
     unknown_objects_mode: active   # LiDAR-only objects (the Isaac cylinders) reach mpc_corr
+    semantic_track_velocity_enabled: true   # id + odom velocity on every Obstacle2D (inert while
+                                            # mpc_corr's mpc-dodge flags are off)
 # The night loop's targets (night_loop.py).
 stop:
   screening_repeats: 3            # S1-S4 x 3 + S5 x 1 per candidate set
   confirm_repeats: 10             # S1-S4 x 10 for a candidate that passed screening
   margin_tolerance_m: 0.03        # a run is good if success and clearance >= R_safe_ref - this
-  max_iterations: 10
+  max_iterations: 40

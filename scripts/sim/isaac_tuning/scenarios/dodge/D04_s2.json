@@ -1,0 +1,141 @@
+{
+ "id": "D04_s2",
+ "family": "D",
+ "d": 4,
+ "seed": 2,
+ "candidate_seed": 402001,
+ "rejected_candidates": 1,
+ "description": "dodge d=4: 3 levels, cylinders at 0.6 m/s, 2 diagonal",
+ "scene": "base_room",
+ "layout": "dodge",
+ "car_start": {
+  "x": 0.5,
+  "y": 3.0,
+  "yaw_deg": 0.0
+ },
+ "mission": {
+  "distance_m": 4.5,
+  "speed_mps": 0.5,
+  "timeout_s": 17.0
+ },
+ "ramp": {
+  "speed": 0.6,
+  "diag_frac": 0.4,
+  "n_levels": 3
+ },
+ "levels": [
+  {
+   "level": 0,
+   "ahead_m": 1.5,
+   "n": 1,
+   "diameters": [
+    0.3
+   ],
+   "theta_deg": 15.315945590922668,
+   "direction": -1.0,
+   "speed": 0.6,
+   "segment_m": 4.54301991652725,
+   "spacing_m": 0.0
+  },
+  {
+   "level": 1,
+   "ahead_m": 2.5,
+   "n": 1,
+   "diameters": [
+    0.3
+   ],
+   "theta_deg": 34.38103583182255,
+   "direction": 1.0,
+   "speed": 0.6,
+   "segment_m": 2.125045201823271,
+   "spacing_m": 0.0
+  },
+  {
+   "level": 2,
+   "ahead_m": 3.5,
+   "n": 1,
+   "diameters": [
+    0.3
+   ],
+   "theta_deg": 0.0,
+   "direction": -1.0,
+   "speed": 0.6,
+   "segment_m": 5.6000000000000005,
+   "spacing_m": 0.0
+  }
+ ],
+ "obstacles": [
+  {
+   "id": "c030_0",
+   "level": 0,
+   "ahead_m": 2.0583,
+   "lateral_m": -2.0385,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     0.9,
+     2.1908
+    ],
+    "b": [
+     2.1,
+     -2.1908
+    ],
+    "speed": 0.6,
+    "s0": 4.3851,
+    "delay_s": 0.0
+   }
+  },
+  {
+   "id": "c030_1",
+   "level": 1,
+   "ahead_m": 2.6332,
+   "lateral_m": 0.1947,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     1.9,
+     -0.8769
+    ],
+    "b": [
+     3.1,
+     0.8769
+    ],
+    "speed": 0.6,
+    "s0": 1.2985,
+    "delay_s": 0.0
+   }
+  },
+  {
+   "id": "c030_2",
+   "level": 2,
+   "ahead_m": 3.5,
+   "lateral_m": -0.6484,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     3.5,
+     2.8
+    ],
+    "b": [
+     3.5,
+     -2.8
+    ],
+    "speed": 0.6,
+    "s0": 3.4484,
+    "delay_s": 0.0
+   }
+  }
+ ],
+ "jitter": {
+  "seed": 7042,
+  "xy_m": 0.05,
+  "yaw_deg": 3.0
+ },
+ "oracle": {
+  "start_lag_s": 0.6,
+  "time_slack_s": 0.25,
+  "buffer_m": 0.0,
+  "dt_s": 0.2,
+  "wall_clearance_m": 0.45
+ }
+}

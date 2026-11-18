@@ -143,6 +143,7 @@ class Session:
         self.domain, self.ds_port = domain, ds_port
         self.min_vram_mib = min_vram_mib
         self.ds = self.isaac = self.stack = None
+        self.layout = None
         self.stack_params = None
         self.info = {'started': datetime.datetime.now().isoformat(timespec='seconds'),
                      'domain': domain, 'ds_port': ds_port, 'events': [], 'wall': {}, 'orphans': []}
@@ -195,7 +196,8 @@ class Session:
     # ------------------------------------------------------------ isaac
     def start_isaac(self, layout: str = 'tuning', scene: str = 'base_room') -> None:
         t0 = time.time()
-        logf = open(os.path.join(self.out, 'isaac.log'), 'w')
+        self.layout = layout
+        logf = open(os.path.join(self.out, f'isaac_{layout}.log'), 'a')
         env = dict(os.environ, F1T_SIM_MIN_FREE_GB='10', F1TENTH_SIM_DISCOVERY_PORT=str(self.ds_port))
         self.isaac = subprocess.Popen(
             [SIM_ISAAC, 'isaac', '--domain', str(self.domain), '--scene', scene, '--layout', layout,
@@ -215,6 +217,24 @@ class Session:
 
     def isaac_ok(self) -> bool:
         return container_running() and (self.isaac is None or self.isaac.poll() is None)
+
+    def stop_isaac(self) -> None:
+        """Stop Isaac (and the stack first): a layout change needs a new Isaac."""
+        self.stop_stack()
+        if container_running():
+            subprocess.run(['docker', 'stop', '-t', '40', ISAAC_CONTAINER], capture_output=True)
+        stop_group(self.isaac, 'isaac', first=signal.SIGTERM, grace=60.0)
+        self.isaac = None
+        self.layout = None
+
+    def ensure_layout(self, layout: str) -> None:
+        """Isaac running with `layout` (restarted, with the stack, when another layout is up)."""
+        if self.layout == layout and self.isaac_ok():
+            return
+        if self.isaac is not None or container_running():
+            self.event('isaac layout change: restarting', have=self.layout, want=layout)
+            self.stop_isaac()
+        self.start_isaac(layout=layout)
 
     # ------------------------------------------------------------ stack
     def start_stack(self, sim_overlay: str, sim_extra: str, tag: str) -> None:
@@ -299,6 +319,8 @@ def run_reps(session: Session, sid: str, params: dict, space: dict, reps, set_di
              seq0: int = 1, fresh_stack_per_run: bool = False) -> list[dict]:
     """Run repetitions `reps` of scenario `sid`; returns the run.json dicts."""
     scn = common.load_scenario(sid)
+    layout = scn.get('layout', 'tuning')
+    session.ensure_layout(layout)
     sim_overlay, sim_extra = common.write_overlays(params, space, set_dir)
     expect = common.expected_node_params(params, space)
     with open(os.path.join(set_dir, 'expect.json'), 'w', encoding='utf-8') as fh:
@@ -308,6 +330,9 @@ def run_reps(session: Session, sid: str, params: dict, space: dict, reps, set_di
         run_dir = os.path.join(set_dir, f'{sid}_r{rep}')
         os.makedirs(run_dir, exist_ok=True)
         inst = common.scenario_instance(scn, rep)
+        speed = common.full_params(params, space).get('mission_speed_mps')
+        if speed is not None and 'mission_speed_mps' in (params or {}):
+            inst['mission']['speed_mps'] = float(speed)   # the set's cruise speed (space.yaml)
         with open(os.path.join(run_dir, 'instance.json'), 'w', encoding='utf-8') as fh:
             json.dump(inst, fh, indent=1)
         mission_path = os.path.join(run_dir, 'mission.json')
@@ -316,8 +341,8 @@ def run_reps(session: Session, sid: str, params: dict, space: dict, reps, set_di
         for attempt in (1, 2):
             if not session.isaac_ok():
                 session.event('isaac down: restarting', run=run_dir)
-                session.stop_stack()
-                session.start_isaac()
+                session.stop_isaac()
+                session.start_isaac(layout=layout)
             if session.stack is None:
                 session.start_stack(sim_overlay, sim_extra, tag=f'{sid}_r{rep}')
             t0 = time.time()
@@ -360,7 +385,8 @@ def run_reps(session: Session, sid: str, params: dict, space: dict, reps, set_di
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
-    ap.add_argument('--scenario', required=True, choices=common.SCENARIO_IDS + common.MOVING_IDS)
+    ap.add_argument('--scenario', required=True,
+                    help=f'{", ".join(common.SCENARIO_IDS + common.MOVING_IDS)} or D<dd>_s<seed> (dodge.py)')
     ap.add_argument('--params', required=True, help='parameter set YAML ({name: value}, see space.yaml)')
     ap.add_argument('--repeat', type=int, default=1)
     ap.add_argument('--first-rep', type=int, default=0)
@@ -388,7 +414,6 @@ def main(argv=None) -> int:
     try:
         session.preflight(attach=False)
         session.start_ds()
-        session.start_isaac()
         runs = run_reps(session, args.scenario, params, space,
                         range(args.first_rep, args.first_rep + args.repeat), out,
                         fresh_stack_per_run=args.fresh_stack_per_run)

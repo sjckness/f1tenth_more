@@ -47,6 +47,12 @@ W_MARGIN, W_TIME, W_OSC, W_TRACK = 0.4, 0.2, 0.2, 0.2
 SAFETY_FRAMES = ('base_link/hard_stop', 'base_link/emergency', 'base_link/proximity_guard',
                  'base_link/obstacle')
 HARD_FAILURES = ('collision', 'estop')
+# Steering saturation (mpc_corr's limits: delta_max 0.319 rad, dDeltaMax 0.5 rad/s), counted at
+# SAT_FRAC of the limit on the /drive commands.
+DELTA_MAX_RAD = 0.319
+DELTA_RATE_MAX = 0.5
+SAT_FRAC = 0.97
+SOLVE_DEADLINE_MS = 100.0
 
 
 def read_csv(path: str) -> list[dict]:
@@ -139,16 +145,20 @@ def compute(run_dir: str) -> dict:
             i = bisect.bisect_right(times, t)
             p = track[max(0, min(i, len(track)) - 1)]
             return p[1], p[2]
-        dmin = math.inf
+        dmin, t_min, body = math.inf, None, math.inf
         for row in window:
             x, y, yaw = _f(row['x']), _f(row['y']), _f(row['yaw'])
             ox, oy = where(_f(row['t']))
             cx, cy = x + 0.5 * WHEELBASE_M * math.cos(yaw), y + 0.5 * WHEELBASE_M * math.sin(yaw)
-            dmin = min(dmin, math.hypot(cx - ox, cy - oy))
-            contact = min(contact, footprint_circle_clearance(x, y, yaw, ox, oy, r))
+            dc = math.hypot(cx - ox, cy - oy)
+            if dc < dmin:
+                dmin, t_min = dc, _f(row['t']) - t_run
+            body = min(body, footprint_circle_clearance(x, y, yaw, ox, oy, r))
+        contact = min(contact, body)
         r_safe = r + CAR_RADIUS_M + SHIPPED_MARGIN_M
         clearances.append({'id': ob['id'], 'r': r, 'min_centre_dist_m': dmin, 'r_safe_ref_m': r_safe,
-                           'margin_m': dmin - r_safe})
+                           'margin_m': dmin - r_safe, 't_min_s': t_min, 'body_clearance_m': body,
+                           'level': ob.get('level')})
     out['obstacles'] = clearances
     out['min_margin_m'] = min((c['margin_m'] for c in clearances), default=None)
     out['min_body_clearance_m'] = contact if obstacles else None
@@ -156,6 +166,7 @@ def compute(run_dir: str) -> dict:
     # steering, solver, perception, safety
     drive = [r for r in read_csv(os.path.join(run_dir, 'drive.csv')) if t_run <= _f(r['t']) <= t_end]
     out['steer_sign_changes'] = sign_changes([_f(r['steer'], 0.0) for r in drive])
+    out['steer_sat'] = steering_saturation(drive)
     solver = [r for r in read_csv(os.path.join(run_dir, 'solver.csv')) if t_run <= _f(r['t']) <= t_end]
     out['solver_ticks'] = len(solver)
     out['solve_failures'] = sum(1 for r in solver if r['success'] in ('0', 'False'))
@@ -164,6 +175,7 @@ def compute(run_dir: str) -> dict:
               if t_run <= _f(r['t']) <= t_end]
     status = [v for v in status if v == v]
     out['solve_time_ms_p95'] = (sorted(status)[int(0.95 * (len(status) - 1))] if status else None)
+    out['solve_over_deadline'] = sum(1 for v in status if v > SOLVE_DEADLINE_MS)
     cpu = [r for r in read_csv(os.path.join(run_dir, 'cpu.csv'))
            if r['t'] and t_run <= _f(r['t']) <= t_end and r['mpc_cpu_s']]
     if len(cpu) >= 2 and solver:
@@ -220,9 +232,84 @@ def compute(run_dir: str) -> dict:
         outcome = 'timeout'
     out['outcome'] = outcome
     out['mission_final_state'] = final_state
+    out['failure'] = failure_point(out, clearances, drive, t_run)
+    out['return'] = return_metrics(window, along, obstacles, inst, (x0, y0, yaw0), t_run)
     out.update(score_run(out, dist, speed, bool(obstacles)))
     out['nominal'] = {'distance_m': dist, 'speed_mps': speed, 'timeout_s': timeout}
     return out
+
+
+RETURN_TOL_M = 0.10
+
+
+def return_metrics(window, along, obstacles, inst, start, t_run) -> dict | None:
+    """The return onto the line after the last obstacle (mpc-dodge phase 2b), start frame.
+
+    x_pass: the furthest obstacle's along-coordinate + its radius (moving ones: where they were
+    placed; dodge levels: the level's distance). From the first ground-truth sample past x_pass:
+    return_time_s, until |y| stays under RETURN_TOL_M for good (None: not back by the end of the
+    mission); overshoot_m, the largest excursion on the side OPPOSITE the swerve (the side of the
+    largest |y| before x_pass); crossings of y = 0 after x_pass; final |y|. None without obstacles
+    or if the car never got past them."""
+    if not obstacles or not window:
+        return None
+    x0, y0, yaw0 = start
+    c0, s0 = math.cos(yaw0), math.sin(yaw0)
+    ends = []
+    for ob in obstacles:
+        dx, dy = float(ob['x']) - x0, float(ob['y']) - y0
+        ends.append(c0 * dx + s0 * dy + float(ob['radius_m']))
+    x_pass = max(ends)
+    k = next((i for i, (a, _b) in enumerate(along) if a >= x_pass), None)
+    if k is None:
+        return {'x_pass_m': x_pass, 'passed': False}
+    before = [b for _a, b in along[:k + 1]]
+    side = 1.0 if before and max(before, key=abs) >= 0.0 else -1.0
+    after = along[k:]
+    ts = [_f(r['t']) for r in window[k:]]
+    ys = [b for _a, b in after]
+    out_idx = [i for i, y in enumerate(ys) if abs(y) >= RETURN_TOL_M]
+    if not out_idx:
+        t_back = 0.0
+    elif out_idx[-1] == len(ys) - 1:
+        t_back = None
+    else:
+        t_back = ts[out_idx[-1] + 1] - ts[0]
+    crossings = sum(1 for a, b in zip(ys, ys[1:]) if (a > 0.0) != (b > 0.0))
+    return {'x_pass_m': x_pass, 'passed': True, 'swerve_side': side,
+            'lateral_at_pass_m': ys[0], 'return_time_s': t_back,
+            'overshoot_m': max(0.0, max(-side * y for y in ys)), 'crossings': crossings,
+            'final_lateral_m': ys[-1], 'time_after_pass_s': ts[-1] - ts[0]}
+
+
+def steering_saturation(drive_rows, t0=None, t1=None) -> dict:
+    """Share of /drive commands at the steering limit (|delta|) and at the rate limit (|d delta/dt|)."""
+    rows = [(_f(r['t']), _f(r['steer'], 0.0)) for r in drive_rows]
+    rows = [(t, d) for t, d in rows if (t0 is None or t >= t0) and (t1 is None or t <= t1)]
+    if not rows:
+        return {'n': 0, 'delta_frac': None, 'rate_frac': None, 'delta_any': False, 'rate_any': False}
+    n_delta = sum(1 for _, d in rows if abs(d) >= SAT_FRAC * DELTA_MAX_RAD)
+    rates = []
+    for (ta, da), (tb, db) in zip(rows, rows[1:]):
+        if tb - ta > 0.02:
+            rates.append(abs(db - da) / (tb - ta))
+    n_rate = sum(1 for v in rates if v >= SAT_FRAC * DELTA_RATE_MAX)
+    return {'n': len(rows), 'delta_frac': n_delta / len(rows),
+            'rate_frac': (n_rate / len(rates)) if rates else None,
+            'delta_any': n_delta > 0, 'rate_any': n_rate > 0}
+
+
+def failure_point(run: dict, clearances: list, drive_rows, t_run: float):
+    """Where a run that is not good failed: the obstacle (and its level) of the worst margin, that
+    margin, the body clearance, when (s after RUNNING), and the steering saturation in the 1.5 s
+    before it. None for a good run or a run without obstacles."""
+    if not clearances or good_enough(run):
+        return None
+    worst = min(clearances, key=lambda c: c['margin_m'])
+    t = worst.get('t_min_s')
+    sat = steering_saturation(drive_rows, t_run + t - 1.5, t_run + t) if t is not None else None
+    return {'id': worst['id'], 'level': worst.get('level'), 'margin_m': worst['margin_m'],
+            'body_clearance_m': worst.get('body_clearance_m'), 't_s': t, 'steer_sat_before': sat}
 
 
 def score_run(r: dict, dist: float, speed: float, has_obstacle: bool) -> dict:

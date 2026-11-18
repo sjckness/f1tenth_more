@@ -109,6 +109,8 @@ def main(argv=None) -> int:
     ap.add_argument('--domain', type=int, default=78)
     ap.add_argument('--ds-port', type=int, default=11878)
     ap.add_argument('--no-history', action='store_true')
+    ap.add_argument('--spectator', action='store_true',
+                    help='third-person screenshots (Isaac scene.spectator) into <run>/frames/')
     args = ap.parse_args(argv)
     space = common.load_space()
     params = common.load_yaml(args.params) or {}
@@ -120,11 +122,10 @@ def main(argv=None) -> int:
     out = args.out or os.path.join(common.OUT_ROOT, f'set_{set_id}')
     os.makedirs(out, exist_ok=True)
     common.dump_yaml(common.full_params(params, space), os.path.join(out, 'params.yaml'))
-    session = Session(out, args.domain, args.ds_port)
+    session = Session(out, args.domain, args.ds_port, spectator=args.spectator)
     try:
         session.preflight(attach=False)
         session.start_ds()
-        session.start_isaac()
         result = run_set(session, params, space, out, args.repeat, args.s5_repeat,
                          scenarios=tuple(args.scenarios.split(',')))
     finally:

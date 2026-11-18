@@ -44,7 +44,16 @@ def dump_yaml(data, path: str) -> str:
 
 
 # ---------------------------------------------------------------- scenarios
+def is_dodge(sid: str) -> bool:
+    """D<dd>_s<seed>: a generated scenario of the dodge family (dodge.py)."""
+    return sid.startswith('D') and '_s' in sid
+
+
 def load_scenario(sid: str) -> dict:
+    if is_dodge(sid):
+        import dodge
+        d, seed = dodge.parse_id(sid)
+        return dodge.ensure(d, seed)
     path = os.path.join(SCENARIO_DIR, f'{sid}.yaml')
     scn = load_yaml(path)
     if scn.get('id') != sid:
@@ -69,18 +78,30 @@ def scenario_instance(scn: dict, rep: int) -> dict:
     obstacles = {}
     obstacle_info = []
     motion = {}
+    def to_map(ahead, lat):
+        return (x0 + ahead * math.cos(yaw0) - lat * math.sin(yaw0),
+                y0 + ahead * math.sin(yaw0) + lat * math.cos(yaw0))
+
     for ob in scn.get('obstacles') or []:
         lat = float(ob.get('lateral_m', 0.0))
         if ob.get('lateral_sign') == 'alternate' and rep % 2 == 1:
             lat = -lat
         ahead = float(ob['ahead_m'])
-        x = x0 + ahead * math.cos(yaw0) - lat * math.sin(yaw0)
-        y = y0 + ahead * math.sin(yaw0) + lat * math.cos(yaw0)
+        x, y = to_map(ahead, lat)
         obstacles[ob['id']] = [round(x, 4), round(y, 4)]
         info = {'id': ob['id'], 'x': x, 'y': y, 'ahead_m': ahead, 'lateral_m': lat,
-                'radius_m': OBSTACLE_RADIUS_M[ob['id']]}
+                'radius_m': obstacle_radius(ob['id'])}
+        if 'level' in ob:
+            info['level'] = int(ob['level'])
         mo = ob.get('motion')
-        if mo:
+        if mo and mo.get('type') == 'pingpong':
+            # back and forth a -> b (nominal start frame in the scenario, map_sim here)
+            a, b = to_map(*mo['a']), to_map(*mo['b'])
+            motion[ob['id']] = {'type': 'pingpong', 'a': [round(a[0], 4), round(a[1], 4)],
+                                'b': [round(b[0], 4), round(b[1], 4)], 'speed': float(mo['speed']),
+                                's0': float(mo['s0']), 'delay_s': float(mo.get('delay_s', 0.0))}
+            info['motion'] = motion[ob['id']]
+        elif mo:
             # velocity given in the nominal start frame (along the heading, left-positive)
             va, vl = float(mo.get('v_along', 0.0)), float(mo.get('v_lat', 0.0))
             v = [va * math.cos(yaw0) - vl * math.sin(yaw0), va * math.sin(yaw0) + vl * math.cos(yaw0)]
@@ -95,8 +116,42 @@ def scenario_instance(scn: dict, rep: int) -> dict:
             'nominal_start': {'x': x0, 'y': y0, 'yaw_deg': math.degrees(yaw0)}}
 
 
-# The movable obstacles of the Isaac 'tuning' layout (~/isaac_ws config/scenes/base_room.yaml).
+# The movable obstacles of the Isaac 'tuning' layout (~/isaac_ws config/scenes/base_room.yaml), and the
+# 'dodge' layout's pool c030_<i> (D0.3) / c050_<i> (D0.5).
 OBSTACLE_RADIUS_M = {'cyl050': 0.25, 'cyl100': 0.50}
+
+
+def obstacle_radius(oid: str) -> float:
+    if oid in OBSTACLE_RADIUS_M:
+        return OBSTACLE_RADIUS_M[oid]
+    if oid.startswith('c030_'):
+        return 0.15
+    if oid.startswith('c050_'):
+        return 0.25
+    raise KeyError(f'unknown obstacle id {oid!r}')
+
+
+def pingpong_point(a, b, s: float):
+    """Same formula as ~/isaac_ws sim/motion.py (test_dodge checks they agree)."""
+    ax, ay = float(a[0]), float(a[1])
+    bx, by = float(b[0]), float(b[1])
+    length = math.hypot(bx - ax, by - ay)
+    if length <= 1e-9:
+        return [ax, ay]
+    u = math.fmod(s, 2.0 * length)
+    if u < 0.0:
+        u += 2.0 * length
+    f = (u if u <= length else 2.0 * length - u) / length
+    return [ax + f * (bx - ax), ay + f * (by - ay)]
+
+
+def motion_position(m: dict, origin, tau: float):
+    """Where an armed obstacle is tau s after /sim/scenario_go (Isaac sim/motion.py)."""
+    tau = tau - float(m.get('delay_s', 0.0))
+    if m.get('type') == 'pingpong':
+        return pingpong_point(m['a'], m['b'], float(m.get('s0', 0.0)) + float(m['speed']) * max(tau, 0.0))
+    tau = min(max(tau, 0.0), float(m.get('duration_s', 1e9)))
+    return [float(origin[0]) + float(m['v'][0]) * tau, float(origin[1]) + float(m['v'][1]) * tau]
 
 
 def mission_json(scn_inst: dict) -> dict:
@@ -130,6 +185,10 @@ def check_params(params: dict, space: dict) -> list[str]:
             problems.append(f'{name}: not in the space (allowed: {", ".join(sorted(entries))})')
             continue
         e = entries[name]
+        if 'choices' in e:
+            if value not in e['choices']:
+                problems.append(f'{name}: {value!r} not one of {e["choices"]}')
+            continue
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             problems.append(f'{name}: {value!r} is not a number')
             continue
@@ -160,28 +219,62 @@ def write_overlays(params: dict, space: dict, out_dir: str) -> tuple[str, str]:
     nav = extra.setdefault('component_supervisor_node', {}).setdefault(
         'ros__parameters', {}).setdefault('sim_component_args', {}).setdefault('navigation', {})
     overlay = copy.deepcopy(load_yaml(SIM_OVERLAY_SRC))
+    margins = {}
     for name, value in full.items():
         e = entries[name]
         if e['via'] == 'launch_arg':
             nav[e.get('launch_arg', name)] = float(value)
         elif e['via'] == 'node_param':
             node = e['node']
-            overlay.setdefault(node, {}).setdefault('ros__parameters', {})[name] = float(value)
+            overlay.setdefault(node, {}).setdefault('ros__parameters', {})[name] = _typed(e, value)
+        elif e['via'] == 'class_margin':
+            margins[e['class']] = float(value)
+        elif e['via'] == 'mission':
+            pass                           # run_scenario.run_reps applies it to the mission
         else:
             raise ValueError(f'{name}: unknown via {e["via"]!r}')
     for node, block in (space.get('fixed_node_params') or {}).items():
         overlay.setdefault(node, {}).setdefault('ros__parameters', {}).update(block)
+    if margins:
+        overlay.setdefault('semantic_layer_node', {}).setdefault('ros__parameters', {})[
+            'obstacle_class_margin_m'] = class_margin_json(margins)
     sim_overlay = dump_yaml(overlay, os.path.join(out_dir, 'sim_overlay.yaml'))
     sim_extra = dump_yaml(extra, os.path.join(out_dir, 'sim_overlay_extra.yaml'))
     return sim_overlay, sim_extra
 
 
+def _typed(entry: dict, value):
+    """A node_param's value as the node declares it: choices keep their type, numbers are floats."""
+    return value if 'choices' in entry else float(value)
+
+
+# stack_params' obstacle_class_margin_m default, which the class_margin entries add to.
+BASE_CLASS_MARGINS = {'person': 0.5}
+
+
+def class_margin_json(margins: dict) -> str:
+    """semantic_layer_node's obstacle_class_margin_m string (JSON) with these classes set."""
+    import json
+    out = dict(BASE_CLASS_MARGINS)
+    out.update({k: float(v) for k, v in margins.items()})
+    return json.dumps(out, sort_keys=True)
+
+
 def expected_node_params(params: dict, space: dict) -> dict:
     """{node: {ros_param: value}} the runner checks on the live nodes after bringup."""
     out: dict = {}
+    margins = {}
     for name, value in full_params(params, space).items():
         e = space['parameters'][name]
-        out.setdefault(e['node'], {})[e.get('ros_param', name)] = float(value)
+        if e['via'] == 'mission':
+            continue
+        if e['via'] == 'class_margin':
+            margins[e['class']] = float(value)
+            continue
+        out.setdefault(e['node'], {})[e.get('ros_param', name)] = _typed(e, value)
+    if margins:
+        out.setdefault('semantic_layer_node', {})['obstacle_class_margin_m'] = class_margin_json(
+            margins)
     for node, block in (space.get('fixed_node_params') or {}).items():
         out.setdefault(node, {}).update(block)
     return out

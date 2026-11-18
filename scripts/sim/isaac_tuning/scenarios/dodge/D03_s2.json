@@ -1,0 +1,162 @@
+{
+ "id": "D03_s2",
+ "family": "D",
+ "d": 3,
+ "seed": 2,
+ "candidate_seed": 302000,
+ "rejected_candidates": 0,
+ "description": "dodge d=3: 3 levels, cylinders at 0.5 m/s, 2 diagonal",
+ "scene": "base_room",
+ "layout": "dodge",
+ "car_start": {
+  "x": 0.5,
+  "y": 3.0,
+  "yaw_deg": 0.0
+ },
+ "mission": {
+  "distance_m": 4.5,
+  "speed_mps": 0.5,
+  "timeout_s": 17.0
+ },
+ "ramp": {
+  "speed": 0.5,
+  "diag_frac": 0.3,
+  "n_levels": 3
+ },
+ "levels": [
+  {
+   "level": 0,
+   "ahead_m": 1.5,
+   "n": 1,
+   "diameters": [
+    0.3
+   ],
+   "theta_deg": -27.58333393437487,
+   "direction": -1.0,
+   "speed": 0.5,
+   "segment_m": 2.5915786210280203,
+   "spacing_m": 0.0
+  },
+  {
+   "level": 1,
+   "ahead_m": 2.5,
+   "n": 2,
+   "diameters": [
+    0.3,
+    0.5
+   ],
+   "theta_deg": 20.174999285897094,
+   "direction": 1.0,
+   "speed": 0.5,
+   "segment_m": 3.479383756345544,
+   "spacing_m": 1.7331794452690785
+  },
+  {
+   "level": 2,
+   "ahead_m": 3.5,
+   "n": 1,
+   "diameters": [
+    0.3
+   ],
+   "theta_deg": 0.0,
+   "direction": -1.0,
+   "speed": 0.5,
+   "segment_m": 5.6000000000000005,
+   "spacing_m": 0.0
+  }
+ ],
+ "obstacles": [
+  {
+   "id": "c030_0",
+   "level": 0,
+   "ahead_m": 1.3363,
+   "lateral_m": -0.3133,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     2.1,
+     1.1485
+    ],
+    "b": [
+     0.9,
+     -1.1485
+    ],
+    "speed": 0.5,
+    "s0": 1.6493,
+    "delay_s": 0.0
+   }
+  },
+  {
+   "id": "c030_1",
+   "level": 1,
+   "ahead_m": 2.4823,
+   "lateral_m": -0.0482,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     1.9,
+     -1.633
+    ],
+    "b": [
+     2.5022,
+     0.0061
+    ],
+    "speed": 0.5,
+    "s0": 1.6883,
+    "delay_s": 0.0
+   }
+  },
+  {
+   "id": "c050_0",
+   "level": 1,
+   "ahead_m": 3.08,
+   "lateral_m": 1.5786,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     2.4978,
+     -0.0061
+    ],
+    "b": [
+     3.1,
+     1.633
+    ],
+    "speed": 0.5,
+    "s0": 1.6883,
+    "delay_s": 0.0
+   }
+  },
+  {
+   "id": "c030_2",
+   "level": 2,
+   "ahead_m": 3.5,
+   "lateral_m": 1.8132,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     3.5,
+     2.8
+    ],
+    "b": [
+     3.5,
+     -2.8
+    ],
+    "speed": 0.5,
+    "s0": 0.9868,
+    "delay_s": 0.0
+   }
+  }
+ ],
+ "jitter": {
+  "seed": 7032,
+  "xy_m": 0.05,
+  "yaw_deg": 3.0
+ },
+ "oracle": {
+  "start_lag_s": 0.6,
+  "time_slack_s": 0.25,
+  "buffer_m": 0.0,
+  "dt_s": 0.2,
+  "wall_clearance_m": 0.45
+ }
+}
