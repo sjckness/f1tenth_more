@@ -242,3 +242,8 @@ but no longer needed.
 - Then run `tools/f1t exp index` (= `tools/core/analysis/index.py`; `--check` fails on missing fields or unknown module versions), update "Stato attuale" in the area README, and tag `exp/<id>` on the tested commit.
 - Every change to a module (ROS package) bumps `<version>` in its `package.xml` (SemVer: MAJOR breaks topics/params/interfaces, MINOR adds behaviour, PATCH fixes) and adds a `CHANGELOG.md` entry in the same commit, on the feature branch; no merge without it. Release tag: `<package>/vX.Y.Z`.
 - A report lists the module versions it tested in `modules:`. `docs/history/LOG.md` stays the commit diary.
+
+## Branches
+
+- Reference branch: `main`, which since 2026-11-18 contains the car's line (`orin/mpc-dodge-car` c0c13972 merged in); branch new work from it (inventory: `docs/analysis/_branches.md`).
+- A finished branch is archived, not just deleted: tag `archive/<name>` on its tip, then `git branch -D` (a `-YYYYMMDD` suffix if the tag already exists).
