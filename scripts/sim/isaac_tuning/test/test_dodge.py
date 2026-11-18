@@ -40,9 +40,12 @@ def test_harness_and_isaac_use_the_same_motion_formula():
     spec.loader.exec_module(mod)
     pp = {'type': 'pingpong', 'a': [1.0, 0.5], 'b': [1.6, 5.2], 'speed': 0.9, 's0': 1.3, 'delay_s': 0.2}
     lin = {'v': [0.0, 0.4], 'delay_s': 0.0, 'duration_s': 6.0}
+    wp = {'type': 'waypoints', 'points': [[3.0, 0.6], [3.0, 3.0], [4.0, 3.0]], 'speed': 1.0,
+          'delay_s': 0.5}
     for tau in (0.0, 0.1, 3.3, 7.9, 20.0):
         assert mod.motion_position(pp, [0, 0], tau) == pytest.approx(common.motion_position(pp, [0, 0], tau))
         assert mod.motion_position(lin, [2, 1], tau) == pytest.approx(common.motion_position(lin, [2, 1], tau))
+        assert mod.motion_position(wp, None, tau) == pytest.approx(common.motion_position(wp, None, tau))
 
 
 def test_generated_scenario_is_deterministic_feasible_and_inside_the_room():
