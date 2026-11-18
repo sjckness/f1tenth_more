@@ -14,6 +14,7 @@ mano.** Le skill di Claude Code in `.claude/skills/` chiamano questi comandi e b
 | `f1t whatis <pkg> [ver\|--deployed]` | CHANGELOG, analisi, parametri di una versione | version-lookup |
 | `f1t exp new <area> <slug>`, `f1t exp index` | nuova analisi con le versioni dell'Orin; indici | new-experiment |
 | `f1t release <pkg> [patch\|minor\|major]` | bump SemVer, voce CHANGELOG, commit, tag | release-module |
+| `f1t repo prune [--apply] [--rescue DIR]` | pulizia di un clone: branch gia' su GitHub, worktree inutili (anche su altre macchine) | - |
 | `f1t doctor`, `f1t core sync`, `f1t setup`, `f1t selftest` | manutenzione del tooling | - |
 
 ## Struttura

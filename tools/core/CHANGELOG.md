@@ -7,6 +7,13 @@ nello stesso commit, su main.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-18
+
+### Added
+- `f1t repo prune [--repo DIR] [--apply] [--rescue DIR]`: pulizia di un clone, anche su un'altra
+  macchina: cancella (con tag `archive/<nome>`) i branch locali non piu' su GitHub e gia' tutti su
+  GitHub, rimuove i worktree inutili salvando prima i file fuori da git; dry-run di default.
+
 ## [1.0.2] - 2026-11-18
 
 ### Fixed

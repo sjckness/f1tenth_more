@@ -214,3 +214,27 @@ test_precommit_hook_blocks_core_on_branch() {
   run git -C "$r" commit -q -m "core con bump"
   assert_rc 0 "hook con bump"
 }
+
+test_repo_prune() {
+  local r=$REPO bare=$REPO.origin.git wt=$REPO.wt
+  git init -q --bare "$bare" && git -C "$r" remote add origin "$bare" && git -C "$r" push -q origin main
+  # gone: su GitHub solo nel tag archive/gone (branch cancellato su origin)
+  git -C "$r" checkout -q -b gone && echo g > "$r/g.txt" && git -C "$r" add g.txt && git -C "$r" commit -q -m g
+  git -C "$r" push -q origin gone && git -C "$r" tag -a archive/gone gone -m x && git -C "$r" push -q origin archive/gone
+  git -C "$r" push -q origin --delete gone && git -C "$r" checkout -q main
+  git -C "$r" branch live main && git -C "$r" push -q origin live            # ancora su GitHub
+  git -C "$r" checkout -q -b solo && echo s > "$r/s.txt" && git -C "$r" add s.txt && git -C "$r" commit -q -m s
+  git -C "$r" checkout -q main                                                  # solo: commit non pushato
+  git -C "$r" worktree add -q "$wt" gone && echo dati > "$wt/run.csv"
+  run "$F1T" repo prune --repo "$r"
+  assert_rc 0 "prune dry-run" && assert_in "da cancellare" && assert_in "ancora su GitHub" \
+    && assert_in "1 commit solo qui" && assert_in "--rescue DIR" && assert_clean || return 1
+  git -C "$r" rev-parse -q --verify refs/heads/gone >/dev/null || { fail "il dry-run ha cancellato"; return 1; }
+  run "$F1T" repo prune --repo "$r" --apply --rescue "$r.rescue"
+  assert_rc 0 "prune apply" && assert_clean || return 1
+  [ ! -d "$wt" ] || { fail "worktree non rimosso"; return 1; }
+  ls "$r.rescue"/*/run.csv >/dev/null 2>&1 || { fail "dati non salvati"; return 1; }
+  ! git -C "$r" rev-parse -q --verify refs/heads/gone >/dev/null || { fail "gone non cancellato"; return 1; }
+  git -C "$r" rev-parse -q --verify refs/heads/solo >/dev/null && git -C "$r" rev-parse -q --verify refs/heads/live >/dev/null \
+    || fail "cancellato un branch da tenere"
+}
