@@ -2913,7 +2913,7 @@ class MPCController(Node):
             return
 
         mode = str(msg.mode)
-        if mode not in ('straight', 'wall_turn'):
+        if mode not in ('straight', 'wall_turn', 'reverse'):
             # mission_config.py validates this at load time, so anything
             # reaching here with a bad mode came from a bare `ros2 topic pub`
             # that bypassed the mission pipeline. Degrade to the safe shape
@@ -2921,7 +2921,7 @@ class MPCController(Node):
             # callback or driving an undefined geometry.
             self.get_logger().warn(
                 f'goal_drive: mode={mode!r} sconosciuto, uso "straight" come '
-                'fallback (i modi validi sono "straight" e "wall_turn").'
+                'fallback (i modi validi sono "straight" "wall_turn" e "reverse").'
             )
             mode = 'straight'
 
@@ -2965,8 +2965,16 @@ class MPCController(Node):
 
         # ---- per-move overrides, both duration-scoped by _clear_drive_state
         # SENTINEL: speed == 0 means "use the node default".
+        # SENTINEL: speed == 0 means "use the node default".
         if msg.speed > 0.0:
-            self.vdes = float(msg.speed)
+            speed_val = float(msg.speed)
+        else:
+            speed_val = self.default_vdes
+
+        if mode == 'reverse':
+            self.vdes = -abs(speed_val)
+        else:
+            self.vdes = abs(speed_val)
         # SENTINEL: d_safe < 0 means "use the node default". 0.0 is a REAL
         # value (no standoff at all), which is why the sentinel is negative
         # and not zero.

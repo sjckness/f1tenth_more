@@ -3,7 +3,7 @@
 LLM Planner Node -- versione llama-server (Qwen2.5-3B-Instruct locale).
 
 Traduce un comando in linguaggio naturale in un PIANO JSON (vocabolario
-invariato: modes {straight, wall_turn}, guards {wall, turned, front_object,
+invariato: modes {straight, wall_turn, reverse}, guards {wall, turned, front_object,
 distance}), poi lo traduce (plan_translate.phases_to_mission()) in una
 missione del sistema REALE di f1tenth_behavior e la consegna tramite il
 flusso di servizi gia' in produzione:
@@ -158,7 +158,7 @@ LLAMA_TIMEOUT = 90.0
 
 # Vocabolario ESATTO del piano LLM -- INVARIATO (validate_plan lo applica,
 # non ha nulla a che fare con lo schema missioni reale, vedi plan_translate.py).
-VALID_MODES = ("straight", "wall_turn")
+VALID_MODES = ("straight", "wall_turn", "reverse")
 VALID_GUARDS = ("wall", "turned", "front_object", "distance")
 
 # soglie plausibili, per intercettare allucinazioni numeriche -- INVARIATO
@@ -189,9 +189,10 @@ SYSTEM_PROMPT = """Sei un traduttore da linguaggio naturale a un piano di naviga
 Il robot esegue una SEQUENZA DI FASI. Ogni fase e' un oggetto JSON.
 
 CAMPI OBBLIGATORI:
-- "mode": uno tra ["straight", "wall_turn"]
+- "mode": uno tra ["straight", "wall_turn", "reverse"]
     - "straight": va dritto mantenendo l'orientamento iniziale.
     - "wall_turn": gira (serve "turn_sign").
+    - "reverse": va indietro mantenendo l'orientamento iniziale.
 - "guard": condizione che fa AVANZARE alla fase successiva. Uno tra:
     - "wall": muro davanti piu' vicino di "thresh" metri.
     - "turned": ruotato di piu' di "thresh" radianti.
@@ -281,7 +282,7 @@ def _wait_for_llama_server(url: str, max_wait_s: float = 90.0) -> float:
         try:
             response = requests.post(
                 url,
-                json={'prompt': 'ciao', 'n_predict': 8, 'temperature': 0.0},
+                json={'prompt': 'ciao', 'n_predict': 8, 'temperature': 0.0, 'stop': ['comando:', 'risposta', '<|im_end|>', '</s>']},
                 timeout=LLAMA_TIMEOUT,
             )
             response.raise_for_status()
@@ -318,11 +319,50 @@ def _completion(system_prompt: str, command_text: str):
     allucinate e json.loads() rifiutava l'intera risposta con "Extra data"
     anche quando il piano, fino a quel punto, era perfettamente valido.
     """
+    import time
+    from rclpy.logging import get_logger
+    
     prompt = system_prompt + f'\ncomando: "{command_text}"\nrisposta:'
+    
+    # Usa il logger nativo di ROS 2 invece di quello standard di Python
+    logger = get_logger('llm_planner_node')
+    
+    # --- LOGGING DIAGNOSTICO AGGIUNTO: ispezione del prompt completo ---
+    logger.info("=" * 60)
+    logger.info(f"[LLM-PROMPT] Comando utente: '{command_text}'")
+    logger.info(f"[LLM-PROMPT] Lunghezza contesto: {len(prompt)} caratteri")
+    logger.info("-" * 60)
+    logger.info(f"\n{prompt}\n")
+    logger.info("=" * 60)
+    
+    t0 = time.time()
     try:
         response = requests.post(
             LLAMA_URL,
-            json={'prompt': prompt, 'n_predict': 512, 'temperature': 0.0},
+            json={
+                'prompt': prompt, 
+                'n_predict': 512, 
+                'temperature': 0.0,
+                # Forces llama-server to structurally constrain tokens and cut off instantly at the closing brace '}'
+                'json_schema': {
+                    "type": "object",
+                    "properties": {
+                        "plan": {
+                            "type": "array",
+                            "items": {
+                                "type": "object"
+                            }
+                        },
+                        "unsupported": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "required": ["plan", "unsupported"]
+                }
+            },
             timeout=LLAMA_TIMEOUT,
         )
     except requests.exceptions.ConnectionError as e:
@@ -331,25 +371,34 @@ def _completion(system_prompt: str, command_text: str):
             "all'avvio -- e' stato riavviato o e' crashato?)."
         ) from e
     response.raise_for_status()
-    raw = response.json().get('content', '').strip()
+    
+    res_data = response.json()
+    raw = res_data.get('content', '').strip()
+    timings = res_data.get('timings', {})
+    
+    # --- LOGGING DIAGNOSTICO AGGIUNTO: metriche interne e output raw ---
+    logger.info("=" * 60)
+    logger.info("[LLM-GENERATION DIAGNOSTICS]")
+    logger.info(f" • Prompt eval : {timings.get('prompt_n', 0)} token in {timings.get('prompt_ms', 0):.1f}ms ({timings.get('prompt_per_second', 0):.1f} t/s)")
+    logger.info(f" • Generation  : {timings.get('predicted_n', 0)} token in {timings.get('predicted_ms', 0):.1f}ms ({timings.get('predicted_per_second', 0):.1f} t/s)")
+    logger.info(f" • Tempo tot.  : {time.time() - t0:.2f}s")
+    logger.info("-" * 60)
+    logger.info(f"[LLM-RAW RESPONSE]:\n{raw}")
+    logger.info("=" * 60)
+
     try:
         parsed, end_index = json.JSONDecoder().raw_decode(raw)
     except ValueError as e:
-        # La STESSA eccezione, stesso tipo e stesso messaggio, ri-sollevata:
-        # le si appende soltanto il testo che il modello ha davvero prodotto.
-        # Senza questo, una risposta non parsabile e' l'unico fallimento di
-        # cui non resta traccia di cosa sia stato detto -- il chiamante vede
-        # "Expecting value: line 1 column 1" e nient'altro. Letto da
-        # _emit_result() (campo llm_raw) e da nessun altro.
         e.llm_raw = raw
         raise
+        
     trailing = raw[end_index:].strip()
     if trailing:
-        logging.getLogger(__name__).debug(
+        logger.info(
             f'_completion: scartati {len(trailing)} caratteri dopo il '
             f'JSON valido: {trailing!r}')
+            
     return parsed
-
 
 def get_plan_from_llm(command_text: str) -> list:
     """Traduce un comando -> lista di fasi, via llama-server's /completion.
