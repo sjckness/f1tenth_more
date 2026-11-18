@@ -175,7 +175,7 @@ class Run:
 
 
 def drive(obstacles_at, duration, x0=(0.0, 0.0, 0.0), sigma_v=0.0, v_valid=True, seed=0,
-          line_origin=None, **flags):
+          line_origin=None, drive_move=False, **flags):
     """
     Drive the move with obstacles_at(t) -> [(x, y, r, vx, vy)] true obstacles; return a Run.
 
@@ -188,6 +188,12 @@ def drive(obstacles_at, duration, x0=(0.0, 0.0, 0.0), sigma_v=0.0, v_valid=True,
     fake = _fake(**flags)
     if line_origin is not None:
         fake._move_line_origin = tuple(line_origin)
+    if drive_move:
+        # a mission's 'drive: straight' move: build_straight_corridor's drive branch, not the
+        # goal_distance one (what the Isaac harness runs)
+        fake.goal_distance = None
+        fake.goal_anchor_odom = None
+        fake.drive_cmd = {'mode': 'straight', 'speed': SPEED_MPS}
     period = float(get_value('corridor_update_period'))
     x = np.array([x0[0], x0[1], x0[2], 0.0])
     last_u, warm, corridor, last_build = np.zeros(2), None, None, None
@@ -282,6 +288,7 @@ def runs():
     out['return/free_offset_today'] = drive(lambda t: [], 14.0, x0=(0.0, 1.0, 0.0),
                                             line_origin=(0.0, 0.0))
     out['return/on_line'] = drive(on_line(r=0.5), 14.0, **RETURN_FLAGS)
+    out['return/on_line_drive'] = drive(on_line(r=0.5), 14.0, drive_move=True, **RETURN_FLAGS)
     return out
 
 
@@ -369,8 +376,9 @@ def test_return_from_1m_offset_settles_with_a_small_overshoot(runs):
     assert run.sign_changes() <= 3
 
 
-def test_return_after_an_obstacle_on_the_line_comes_back_under_10_cm(runs):
-    run = runs['return/on_line']
+@pytest.mark.parametrize('name', ['return/on_line', 'return/on_line_drive'])
+def test_return_after_an_obstacle_on_the_line_comes_back_under_10_cm(runs, name):
+    run = runs[name]
     assert run.min_margin() >= -TOL_M
     t_back, overshoot, crossings = run.return_metrics(2.0)
     assert t_back is not None
