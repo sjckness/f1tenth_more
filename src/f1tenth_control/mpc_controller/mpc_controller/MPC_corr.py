@@ -101,6 +101,10 @@ CORRIDOR_WALLS = 'bezier'
 #: reaches (the car's own offset, plus what one rebuild period of swerving can add at 0.5 m/s).
 CORRIDOR_CONTAIN_MARGIN_M = 0.45
 
+#: mpc-dodge mpc_obs_body_probes: probe points along the car's axis from base_link (rear axle):
+#: the rear bumper and the axle midpoint (car_spec: rear bumper -0.082 m, wheelbase 0.305 m).
+BODY_PROBE_OFFSETS_M = (-0.08, 0.15)
+
 
 def lookahead_clamp_length(n_steps, ts, v_des, reach_margin):
     """Corridor length at and below which the lookahead pins to the corridor end.
@@ -8031,6 +8035,7 @@ class MPCController(Node):
         self.obs_pred_max_s = float(_p('mpc_obs_pred_max_s'))
         self.obs_wake_weight = max(0.0, float(_p('mpc_obs_wake_weight')))
         self.obs_wake_horizon_s = float(_p('mpc_obs_wake_horizon_s'))
+        self.obs_body_probes = bool(_p('mpc_obs_body_probes'))
         self.obstacle_side_mode = str(_p('mpc_obstacle_side_mode'))
         if self.obstacle_side_mode not in ('fixed', 'informed'):
             raise ValueError("mpc_obstacle_side_mode must be 'fixed' or 'informed', "
@@ -8115,6 +8120,10 @@ class MPCController(Node):
         """
         corridor['obstacles_world_stages'] = None
         corridor['wake_world_stages'] = None
+        corridor['body_probe_offsets'] = None
+        if (getattr(self, 'obs_body_probes', False) and obstacles
+                and getattr(self, 'mpc_solver_impl', 'py') != 'rust'):
+            corridor['body_probe_offsets'] = BODY_PROBE_OFFSETS_M
         trust = getattr(self, 'obs_vel_trust', 0.0)
         wake = getattr(self, 'obs_wake_weight', 0.0)
         if (trust <= 0.0 and wake <= 0.0) or not any(m is not None and m.valid for m in motions):

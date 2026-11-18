@@ -468,7 +468,8 @@ def solve_mpc_step(
             'boundary_slack_max': boundary_slack_max,
             'speed_model': speed_model}
         if impl == 'rust' and (corridor.get('obstacles_world_stages') is not None
-                               or corridor.get('wake_world_stages') is not None):
+                               or corridor.get('wake_world_stages') is not None
+                               or corridor.get('body_probe_offsets')):
             # The Rust core takes one (x, y, r) list for every stage: it cannot
             # see predicted discs or a wake. Refuse rather than drop them.
             raise ValueError('per-stage obstacles (mpc_obs_vel_trust / mpc_obs_wake_weight) '
@@ -1190,6 +1191,11 @@ def _solve_rti(
     stage_obstacles = corridor.get('obstacles_world_stages')
     stage_wake = corridor.get('wake_world_stages')
     w_wake = float(weights.get('w_obs_wake', 0.0))
+    # BODY PROBES (mpc_obs_body_probes, mpc-dodge): extra probe points along the car's own axis
+    # (base_link + offset * heading) in every stage's obstacle term, so an obstacle closing in on
+    # the car's flank or tail costs too -- the nose probes alone are blind to it once the nose is
+    # past. Same mechanism as the reverse stages' rear probes. None (default) = today's probes.
+    body_offsets = tuple(corridor.get('body_probe_offsets') or ())
 
     for k in range(N):
         xk1_idx = x_idx(k + 1)
@@ -1231,7 +1237,8 @@ def _solve_rti(
         M_obs, b_obs = _linearize_obstacle_cost_rti(
             x_ref_k1[:4], params['L'], car_radius, avoidance_margin,
             obstacles_world if stage_obstacles is None else stage_obstacles[k],
-            rear_offsets=(rear_offsets if spec is not None and rear_stage[k] else None))
+            rear_offsets=(tuple(rear_offsets if spec is not None and rear_stage[k] else ())
+                          + body_offsets) or None)
         if n_x > 4:
             # The command state does not enter the obstacle term.
             M_obs = np.pad(M_obs, ((0, n_x - 4), (0, n_x - 4)))
@@ -1627,6 +1634,10 @@ def planner_cost_corridor(
             p_base = np.array([x[0], x[1]], dtype=float)
             front_points = front_points + [
                 p_base + float(o) * e for o in stage_spec.get('rear_offsets', ())]
+        if corridor.get('body_probe_offsets'):
+            p_base = np.array([x[0], x[1]], dtype=float)
+            front_points = front_points + [
+                p_base + float(o) * e for o in corridor['body_probe_offsets']]
 
         _stage_obs = corridor.get('obstacles_world_stages')
         d_front = 1e6

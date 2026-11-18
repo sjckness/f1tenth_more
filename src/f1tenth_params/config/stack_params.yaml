@@ -2362,6 +2362,9 @@ mpc_obs_wake_weight:
 mpc_obs_wake_horizon_s:
   default: 1.0
   description: "Length of the wake in seconds of the obstacle's own motion (see mpc_obs_wake_weight)."
+mpc_obs_body_probes:
+  default: false
+  description: "Body probes: the obstacle term of every stage also probes the rear bumper and the axle midpoint (base_link + offset * heading), not only points ahead of the nose. Isaac dodge runs (phase 3 diagnosis): about a third of the failures were a cylinder closing in on the flank or tail of a car moving at full speed, which the nose probes cannot see once the nose is past. Needs mpc_solver_impl py."
 mpc_obstacle_side_mode:
   default: fixed
   description: "Side rule: 'fixed' = an obstacle within mpc_obstacle_tie_band_m of the line is always passed on mpc_obstacle_tie_side (today). 'informed' = the side opposite its lateral velocity (pass behind it), else the side it came from, else the side with more free space, else mpc_obstacle_tie_side; latched per track for the move while it stays within mpc_obstacle_side_release_m of the line."
