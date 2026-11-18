@@ -110,3 +110,41 @@ def test_node_fed_a_fake_status_sequence(tmp_path):
     r1 = next(campaign.glob("D01_*/P001-R001-*"))
     lifecycle = [e for e in _events(r1) if e.startswith("mission_")]
     assert lifecycle == ["mission_started", "mission_finished"]
+
+
+def test_meta_records_the_planner_mode_actually_running(tmp_path):
+    """meta.json's planner_controller_mode comes from the live controller node.
+
+    As in mission_logger_node: unknown at open (none discovered yet), retried
+    at close, where corridor_rrt is the one alive.
+    """
+    rclpy = pytest.importorskip("rclpy")
+    pytest.importorskip("f1tenth_messages.msg")
+    from f1tenth_logger.test_campaign.logger_node import TestLoggerNode
+
+    campaign = tmp_path / "doors_campaign"
+    campaign.mkdir()
+    (campaign / "prompts.yaml").write_text(yaml.safe_dump([{
+        "prompt_num": 1, "mission": "D01_straight_2m_then_left_door",
+        "text": "straight_2m_then_left_door", "success_criterion": "x"}]))
+    rclpy.init(args=["--ros-args", "-p", f"root:={tmp_path}",
+                     "-p", "campaign:=doors_campaign", "-p", "auto_mode:=true",
+                     "-p", "post_roll_s:=0.0", "-p", "pre_roll_s:=0.0"])
+    node = TestLoggerNode()
+    alive = []
+    node.get_node_names_and_namespaces = lambda: [(n, "/") for n in alive + ["other"]]
+    node.get_publishers_info_by_topic = lambda topic: []
+    try:
+        node.apply_mission_status("RUNNING", JSON, False)
+        assert node._test.extra_meta["planner_controller_mode"] == "unknown"
+        alive.append("corridor_rrt")
+        node.apply_mission_status("COMPLETE", JSON, False)
+        time.sleep(0.01)
+        node._tick()
+    finally:
+        node.close_open_test()
+        node.destroy_node()
+        rclpy.shutdown()
+
+    meta = _metas(campaign)["R001"]
+    assert meta["extra_meta"]["planner_controller_mode"] == "corridor_rrt"

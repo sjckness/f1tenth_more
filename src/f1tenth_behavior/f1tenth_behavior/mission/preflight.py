@@ -51,6 +51,8 @@ from typing import Callable, List, Optional
 
 from f1tenth_behavior.mission.mission_config import MissionConfig
 from f1tenth_params.param_defaults import get_value, get_wall_distance_topic
+from f1tenth_params.planner_modes import (
+    CONTROLLER_NODE_NAMES, validate_planner_controller_mode)
 from f1tenth_behavior.mission.runtime import (
     CURRENT_XY_KEY,
     FRONT_CLEARANCE_KEY,
@@ -153,6 +155,26 @@ def _uses_forward_only_obstacle_distance(config: MissionConfig) -> bool:
     return False
 
 
+def controller_requirement(planner_controller_mode: str = 'corridor_mpc') -> Requirement:
+    """Return the requirement for the node that drives every move in this mode.
+
+    corridor_mpc is _MPC_CORR itself, so its requirement and failure message
+    are unchanged; corridor_rrt and p2p_geometric (f1tenth_planners) take the
+    same goal topics and are required by their own node names
+    (f1tenth_params/planner_modes.py).
+    """
+    mode = validate_planner_controller_mode(planner_controller_mode)
+    if mode == 'corridor_mpc':
+        return _MPC_CORR
+    name = CONTROLLER_NODE_NAMES[mode]
+    return Requirement(
+        name=name,
+        reason=(f'every move type is driven through it (planner_controller_mode '
+                f'{mode})'),
+        node_name=name,
+    )
+
+
 # Default actuation node: the car's ackermann_to_vesc_node (_ACKERMANN_TO_VESC).
 DEFAULT_ACTUATION_NODE = 'ackermann_to_vesc_node'
 
@@ -200,11 +222,14 @@ def wall_distance_requirement(scene_labels: Optional[bool] = None) -> Requiremen
 
 def required_dependencies(config: MissionConfig,
                           actuation_node: str = DEFAULT_ACTUATION_NODE,
-                          scene_labels: Optional[bool] = None) -> List[Requirement]:
+                          scene_labels: Optional[bool] = None,
+                          planner_controller_mode: str = 'corridor_mpc'
+                          ) -> List[Requirement]:
     """Pure function: what must be alive for THIS mission, specifically --
     not a blanket "everything the stack could ever need" list. Testable
     without rclpy (see test/test_preflight.py)."""
-    reqs = [_MPC_CORR, _actuation_requirement(actuation_node), _LOCALIZATION]
+    reqs = [controller_requirement(planner_controller_mode),
+            _actuation_requirement(actuation_node), _LOCALIZATION]
 
     stop_condition_types = {m.stop_condition.type for m in config.moves}
     for m in config.moves:
