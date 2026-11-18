@@ -1,0 +1,129 @@
+{
+ "id": "D01_s3",
+ "family": "D",
+ "d": 1,
+ "seed": 3,
+ "candidate_seed": 103000,
+ "rejected_candidates": 0,
+ "description": "dodge d=1: 2 levels, cylinders at 0.3 m/s, 1 diagonal",
+ "scene": "base_room",
+ "layout": "dodge",
+ "car_start": {
+  "x": 0.5,
+  "y": 3.0,
+  "yaw_deg": 0.0
+ },
+ "mission": {
+  "distance_m": 3.5,
+  "speed_mps": 0.5,
+  "timeout_s": 15.0
+ },
+ "ramp": {
+  "speed": 0.3,
+  "diag_frac": 0.1,
+  "n_levels": 2
+ },
+ "levels": [
+  {
+   "level": 0,
+   "ahead_m": 1.5,
+   "n": 2,
+   "diameters": [
+    0.3,
+    0.5
+   ],
+   "theta_deg": -16.05678882681201,
+   "direction": 1.0,
+   "speed": 0.3,
+   "segment_m": 4.338552011870497,
+   "spacing_m": 1.8864826096469318
+  },
+  {
+   "level": 1,
+   "ahead_m": 2.5,
+   "n": 1,
+   "diameters": [
+    0.3
+   ],
+   "theta_deg": 0.0,
+   "direction": -1.0,
+   "speed": 0.3,
+   "segment_m": 5.6000000000000005,
+   "spacing_m": 0.0
+  }
+ ],
+ "obstacles": [
+  {
+   "id": "c030_0",
+   "level": 0,
+   "ahead_m": 1.7136,
+   "lateral_m": -0.7422,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     2.1,
+     -2.0846
+    ],
+    "b": [
+     1.4218,
+     0.2718
+    ],
+    "speed": 0.3,
+    "s0": 1.397,
+    "delay_s": 0.0
+   }
+  },
+  {
+   "id": "c050_0",
+   "level": 0,
+   "ahead_m": 1.1918,
+   "lateral_m": 1.0707,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     1.5782,
+     -0.2718
+    ],
+    "b": [
+     0.9,
+     2.0846
+    ],
+    "speed": 0.3,
+    "s0": 1.397,
+    "delay_s": 0.0
+   }
+  },
+  {
+   "id": "c030_1",
+   "level": 1,
+   "ahead_m": 2.5,
+   "lateral_m": 0.6447,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     2.5,
+     2.8
+    ],
+    "b": [
+     2.5,
+     -2.8
+    ],
+    "speed": 0.3,
+    "s0": 2.1553,
+    "delay_s": 0.0
+   }
+  }
+ ],
+ "jitter": {
+  "seed": 7013,
+  "xy_m": 0.05,
+  "yaw_deg": 3.0
+ },
+ "oracle": {
+  "start_lag_s": 0.6,
+  "time_slack_s": 0.25,
+  "buffer_m": 0.0,
+  "dt_s": 0.2,
+  "wall_clearance_m": 0.45
+ }
+}
