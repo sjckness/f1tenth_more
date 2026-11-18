@@ -226,6 +226,16 @@ class Session:
         stop_group(self.isaac, 'isaac', first=signal.SIGTERM, grace=60.0)
         self.isaac = None
         self.layout = None
+        # The stopped container is removed asynchronously; starting the next one before that
+        # finishes fails on the name ("Conflict. The container name /f1t_isaac is already in use",
+        # one A/B lost two variants to it): wait for it to go, then remove what is left.
+        for _ in range(60):
+            r = subprocess.run(['docker', 'ps', '-a', '-q', '-f', f'name=^{ISAAC_CONTAINER}$'],
+                               capture_output=True, text=True)
+            if not r.stdout.strip():
+                return
+            time.sleep(0.5)
+        subprocess.run(['docker', 'rm', '-f', ISAAC_CONTAINER], capture_output=True)
 
     def ensure_layout(self, layout: str) -> None:
         """Isaac running with `layout` (restarted, with the stack, when another layout is up)."""

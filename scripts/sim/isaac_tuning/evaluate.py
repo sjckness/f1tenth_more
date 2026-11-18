@@ -179,9 +179,15 @@ def main(argv=None) -> int:
             if i % 2 == 1:               # alternate the order: one layout switch per variant
                 fam = tuple(reversed(fam))
             log(f'variant {n}: {variants[n]}')
-            results.append(evaluate(session, n, variants[n] or {}, space, out, args.d_start,
-                                    args.d_max, args.m_repeat, args.s_repeat, seeds, fam, levels,
-                                    args.patience))
+            try:
+                results.append(evaluate(session, n, variants[n] or {}, space, out, args.d_start,
+                                        args.d_max, args.m_repeat, args.s_repeat, seeds, fam,
+                                        levels, args.patience))
+            except SystemExit as exc:
+                # one variant's Isaac / stack trouble must not cost the rest of the file
+                log(f'variant {n} aborted: {exc}; restarting Isaac for the next one')
+                session.stop_isaac()
+                continue
             write_table(results, out)
     finally:
         session.close()

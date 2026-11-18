@@ -48,7 +48,7 @@ from run_scenario import Session, log, run_reps  # noqa: E402
 from run_set import params_hash  # noqa: E402
 
 BEST = os.path.join(common.TUNING_DIR, 'dodge_best.yaml')
-TUNABLE = ('mpc_w_obs', 'mpc_w_corr', 'mpc_w_psi', 'mpc_w_term', 'mpc_w_du_delta', 'mpc_w_v',
+TUNABLE = ('mpc_obs_body_probes', 'mpc_w_obs', 'mpc_w_corr', 'mpc_w_psi', 'mpc_w_term', 'mpc_w_du_delta', 'mpc_w_v',
            'class_margin_unknown_m', 'mpc_prediction_dt_s', 'mission_speed_mps',
            'mpc_obs_vel_trust', 'mpc_obs_wake_weight', 'mpc_obs_wake_horizon_s',
            'mpc_obs_vel_lead_s', 'mpc_return_gain', 'mpc_return_lookahead_ratio',
@@ -115,7 +115,7 @@ def load_run_dirs(set_dir: str, prefix: str) -> list:
 
 
 def propose_claude(space_text: str, best: dict, d_fail, diag: str, history: str,
-                   timeout: float = 600.0) -> tuple[dict, str]:
+                   timeout: float = 240.0) -> tuple[dict, str]:
     prompt = PROMPT.format(tunable=', '.join(TUNABLE), space=space_text,
                            best=json.dumps(best, indent=1, sort_keys=True), d_fail=d_fail,
                            diag=diag, history=history or '(empty)')
