@@ -101,3 +101,6 @@ output/phase*/reports/*/*.log
 /logs/
 # tools/core/build is an f1t command group, not a colcon build dir
 !/tools/core/build/
+
+# sjck-graph run state (local tooling)
+.sjck/
