@@ -456,12 +456,12 @@ def main(argv=None) -> int:
     rec.recording = True
     lreq = LoadMission.Request()
     lreq.path = args.mission
-    res = rec.call(rec.cli_load, lreq, 20.0)
+    res = rec.call(rec.cli_load, lreq, 40.0, service_wait=30.0)   # slow to appear after a restart
     meta['load_mission'] = {'success': getattr(res, 'success', None),
                             'message': getattr(res, 'message', None)}
     if res is None or not res.success:
         return finish(4, f'load_mission failed: {meta["load_mission"]}')
-    res = rec.call(rec.cli_start, Trigger.Request(), 20.0)
+    res = rec.call(rec.cli_start, Trigger.Request(), 40.0, service_wait=30.0)
     meta['start_mission'] = {'success': getattr(res, 'success', None),
                              'message': getattr(res, 'message', None)}
     if res is None or not res.success:
