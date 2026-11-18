@@ -279,6 +279,8 @@ def fig_dfail(results: list[dict], out: str) -> str:
         ax.grid(axis='y', visible=False)
         top = max(v) if v else 1
         ax.set_xlim(0, max(1, top) * 1.25 + (0.5 if ns is None else 0))
+        from matplotlib.ticker import MaxNLocator
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     axes[0].set_yticks(range(len(names)))
     axes[0].set_yticklabels(names)
     fig.tight_layout()

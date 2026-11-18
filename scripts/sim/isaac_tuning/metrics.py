@@ -249,12 +249,94 @@ def compute(run_dir: str) -> dict:
     out['mission_final_state'] = final_state
     out['failure'] = failure_point(out, clearances, drive, t_run)
     out['return'] = return_metrics(window, along, obstacles, inst, (x0, y0, yaw0), t_run)
+    if any(ob.get('class') == 'person' for ob in obstacles):
+        out['perception'] = perception_metrics(run_dir, window, obstacles, movers, t_run, t_end)
     out.update(score_run(out, dist, speed, bool(obstacles)))
     out['nominal'] = {'distance_m': dist, 'speed_mps': speed, 'timeout_s': timeout}
     return out
 
 
 RETURN_TOL_M = 0.10
+CAMERA_HFOV_DEG = 101.0       # semantic_layer memory hfov (stack_params), the ZED left camera
+CAMERA_RANGE_M = (0.8, 5.0)   # its depth window
+DETECT_GATE_M = 0.6           # an obstacle disc centre this close to the person = the person
+
+
+def perception_metrics(run_dir, window, obstacles, movers, t_run, t_end):
+    """Phase 4: how the stack's perception sees a person (YOLO -> 3D -> tracker -> obstacle list).
+
+    For every recorded /costmap/semantic_obstacles message, the person counts as DETECTED when a
+    disc centre lies within DETECT_GATE_M of its true position at that time (base_link -> map_sim
+    through the ground-truth car pose). Reported: when it was first in the camera's view
+    (hfov, depth window), first detected, the latency between the two, the share of the in-view
+    messages that carried it, the share after it left the view (memory / LiDAR), and the mean
+    position error of the matching disc.
+    """
+    import bisect as _b
+    gt_t = [_f(r['t']) for r in window]
+    rows = [r for r in read_csv(os.path.join(run_dir, 'obstacles.csv'))
+            if t_run <= _f(r['t']) <= t_end]
+    msgs = {}
+    for r in rows:
+        msgs.setdefault(_f(r['t']), []).append(r)
+    out = {}
+    for ob in obstacles:
+        if ob.get('class') != 'person':
+            continue
+        track = sorted(movers.get(ob['id'], []))
+        times = [p[0] for p in track]
+
+        def where(t):
+            if not track:
+                return ob['x'], ob['y']
+            i = _b.bisect_right(times, t)
+            p = track[max(0, min(i, len(track)) - 1)]
+            return p[1], p[2]
+        t_view = t_det = None
+        in_view_n = in_view_det = after_n = after_det = 0
+        errs = []
+        for t in sorted(msgs):
+            k = min(len(window) - 1, _b.bisect_left(gt_t, t))
+            if k < 0 or not window:
+                continue
+            cx, cy, cyaw = _f(window[k]['x']), _f(window[k]['y']), _f(window[k]['yaw'])
+            px, py = where(t)
+            dx, dy = px - cx, py - cy
+            bx = math.cos(cyaw) * dx + math.sin(cyaw) * dy
+            by = -math.sin(cyaw) * dx + math.cos(cyaw) * dy
+            rng = math.hypot(bx, by)
+            visible = (bx > 0 and abs(math.degrees(math.atan2(by, bx))) <= CAMERA_HFOV_DEG / 2
+                       and CAMERA_RANGE_M[0] <= rng <= CAMERA_RANGE_M[1])
+            best = None
+            for r in msgs[t]:
+                if not r['x']:
+                    continue
+                ox, oy = _f(r['x']), _f(r['y'])
+                gx = cx + math.cos(cyaw) * ox - math.sin(cyaw) * oy
+                gy = cy + math.sin(cyaw) * ox + math.cos(cyaw) * oy
+                d = math.hypot(gx - px, gy - py)
+                best = d if best is None else min(best, d)
+            det = best is not None and best <= DETECT_GATE_M
+            if visible:
+                in_view_n += 1
+                in_view_det += int(det)
+                t_view = t if t_view is None else t_view
+            elif t_view is not None:
+                after_n += 1
+                after_det += int(det)
+            if det:
+                errs.append(best)
+                t_det = t if t_det is None else t_det
+        out[ob['id']] = {
+            't_first_in_view_s': None if t_view is None else t_view - t_run,
+            't_first_detected_s': None if t_det is None else t_det - t_run,
+            'latency_s': (None if t_view is None or t_det is None else t_det - t_view),
+            'detected_in_view_frac': (in_view_det / in_view_n) if in_view_n else None,
+            'detected_out_of_view_frac': (after_det / after_n) if after_n else None,
+            'mean_error_m': statistics.fmean(errs) if errs else None}
+    return out
+
+
 
 
 def return_metrics(window, along, obstacles, inst, start, t_run) -> dict | None:
