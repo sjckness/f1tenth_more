@@ -263,6 +263,10 @@ def on_line(r=R_CYL, ahead=1.5):
 
 
 DURATION = 12.0
+# Crossings timed to reach the car's line while the nose is already past: the cylinder closes in
+# on the flank (ahead m, start lateral m, speed m/s). Isaac phase 3 diagnosis: a third of the
+# dodge failures looked like this.
+FLANK_CASES = {'right_2.0': (2.0, -1.2, 0.3), 'left_1.8': (1.8, 1.4, 0.35)}
 # M4 in the rig: far enough ahead that the static MPC has not swerved yet when the cylinder stops
 # on the line (2.5 m ahead it reacts to the cylinder still walking in, and the stop is no longer
 # on the car's line, so no side rule applies).
@@ -283,6 +287,13 @@ def runs():
                                                        **FIXED_TRUST)
     out['from_right/trust1_invalid'] = drive(crossing(-1.0), DURATION, v_valid=False,
                                              **FIXED_TRUST)
+    for name, (ahead, lat, v) in FLANK_CASES.items():
+        side = -1.0 if lat < 0 else 1.0
+        out[f'flank/{name}/trust1'] = drive(
+            crossing(side, speed=v, ahead=ahead, start_lat=abs(lat)), DURATION, **FIXED_TRUST)
+        out[f'flank/{name}/trust1_body'] = drive(
+            crossing(side, speed=v, ahead=ahead, start_lat=abs(lat)), DURATION,
+            obs_body_probes=True, **FIXED_TRUST)
     out['return/free_offset'] = drive(lambda t: [], 14.0, x0=(0.0, 1.0, 0.0),
                                       line_origin=(0.0, 0.0), **RETURN_FLAGS)
     out['return/free_offset_today'] = drive(lambda t: [], 14.0, x0=(0.0, 1.0, 0.0),
@@ -384,3 +395,13 @@ def test_return_after_an_obstacle_on_the_line_comes_back_under_10_cm(runs, name)
     assert t_back is not None
     assert abs(run.states[-1, 1]) < RETURN_TOL_M
     assert overshoot <= 0.15 + 1e-6
+
+
+# ---- body probes ------------------------------------------------------------------------------
+
+@pytest.mark.parametrize('name', sorted(FLANK_CASES))
+def test_body_probes_keep_r_safe_when_a_crossing_obstacle_closes_on_the_flank(runs, name):
+    body = runs[f'flank/{name}/trust1_body']
+    assert body.min_margin() >= -TOL_M
+    assert body.min_margin() >= runs[f'flank/{name}/trust1'].min_margin()
+    assert body.states[-1, 0] > 4.0
