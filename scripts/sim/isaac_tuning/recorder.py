@@ -303,8 +303,8 @@ class Recorder(Node):
                 return True
         return cond()
 
-    def call(self, client, request, timeout_wall: float):
-        if not client.wait_for_service(timeout_sec=min(timeout_wall, 10.0)):
+    def call(self, client, request, timeout_wall: float, service_wait: float = 10.0):
+        if not client.wait_for_service(timeout_sec=min(timeout_wall, service_wait)):
             return None
         fut = client.call_async(request)
         self.spin_until(fut.done, timeout_wall)
@@ -434,7 +434,15 @@ def main(argv=None) -> int:
     # 4. reset
     t0 = time.time()
     if not args.skip_reset_all:
-        res = rec.call(rec.cli_reset_all, Trigger.Request(), 60.0)
+        # /reset_all can be slow to appear right after a stack start, and its ekf_global step
+        # sometimes fails (lost /ekf_global/set_pose): wait up to 40 s for the service, then
+        # retry once before calling the run's setup failed.
+        res = rec.call(rec.cli_reset_all, Trigger.Request(), 60.0, service_wait=40.0)
+        if res is None or not res.success:
+            meta['reset_all_first'] = {'success': getattr(res, 'success', None),
+                                       'message': getattr(res, 'message', None)}
+            rec.sim_sleep(1.0, 10.0)
+            res = rec.call(rec.cli_reset_all, Trigger.Request(), 60.0, service_wait=40.0)
         meta['reset_all'] = {'success': getattr(res, 'success', None),
                              'message': getattr(res, 'message', None)}
         if res is None or not res.success:
