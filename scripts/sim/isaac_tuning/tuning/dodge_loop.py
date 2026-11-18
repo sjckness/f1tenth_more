@@ -48,7 +48,8 @@ from run_scenario import Session, log, run_reps  # noqa: E402
 from run_set import params_hash  # noqa: E402
 
 BEST = os.path.join(common.TUNING_DIR, 'dodge_best.yaml')
-TUNABLE = ('mpc_obs_body_probes', 'mpc_w_obs', 'mpc_w_corr', 'mpc_w_psi', 'mpc_w_term', 'mpc_w_du_delta', 'mpc_w_v',
+TUNABLE = ('mpc_obs_body_probes', 'corridor_lateral_reanchor', 'mpc_obstacle_side_mode',
+           'mpc_w_obs', 'mpc_w_corr', 'mpc_w_psi', 'mpc_w_term', 'mpc_w_du_delta', 'mpc_w_v',
            'class_margin_unknown_m', 'mpc_prediction_dt_s', 'mission_speed_mps',
            'mpc_obs_vel_trust', 'mpc_obs_wake_weight', 'mpc_obs_wake_horizon_s',
            'mpc_obs_vel_lead_s', 'mpc_return_gain', 'mpc_return_lookahead_ratio',
