@@ -395,7 +395,7 @@ def main(argv=None) -> int:
     for node, want in expect.items():
         # A node can be in the graph before its parameter service answers (mpc_corr's
         # __init__ is long): ask again for up to 30 s while nothing comes back.
-        t_end = time.time() + 30.0
+        t_end = time.time() + 60.0
         got = rec.get_params(node, list(want))
         while (not got or any(v is None for v in got.values())) and time.time() < t_end:
             rec.spin_until(lambda: False, 2.0)
@@ -437,12 +437,18 @@ def main(argv=None) -> int:
         # /reset_all can be slow to appear right after a stack start, and its ekf_global step
         # sometimes fails (lost /ekf_global/set_pose): wait up to 40 s for the service, then
         # retry once before calling the run's setup failed.
-        res = rec.call(rec.cli_reset_all, Trigger.Request(), 60.0, service_wait=40.0)
-        if res is None or not res.success:
-            meta['reset_all_first'] = {'success': getattr(res, 'success', None),
-                                       'message': getattr(res, 'message', None)}
-            rec.sim_sleep(1.0, 10.0)
+        # Up to 3 attempts, 8 s apart in wall time: a timed-out call can leave its reset running
+        # ("a reset is already running; this call was refused" on an immediate retry), and a car
+        # still rolling after a hit fails the 'stop' step ("no standstill within 5 s").
+        attempts = []
+        for attempt in range(3):
             res = rec.call(rec.cli_reset_all, Trigger.Request(), 60.0, service_wait=40.0)
+            if res is not None and res.success:
+                break
+            attempts.append({'success': getattr(res, 'success', None),
+                             'message': getattr(res, 'message', None)})
+            rec.spin_until(lambda: False, 8.0)
+        meta['reset_all_failed_attempts'] = attempts
         meta['reset_all'] = {'success': getattr(res, 'success', None),
                              'message': getattr(res, 'message', None)}
         if res is None or not res.success:
@@ -461,7 +467,15 @@ def main(argv=None) -> int:
                             'message': getattr(res, 'message', None)}
     if res is None or not res.success:
         return finish(4, f'load_mission failed: {meta["load_mission"]}')
-    res = rec.call(rec.cli_start, Trigger.Request(), 40.0, service_wait=30.0)
+    # The mission manager's preflight liveness check can miss mpc_corr right after a stack start
+    # ("node 'mpc_corr' not found"): retry it twice, 5 s apart.
+    for attempt in range(3):
+        res = rec.call(rec.cli_start, Trigger.Request(), 40.0, service_wait=30.0)
+        if res is not None and res.success:
+            break
+        if res is not None and 'liveness' not in str(res.message):
+            break
+        rec.spin_until(lambda: False, 5.0)
     meta['start_mission'] = {'success': getattr(res, 'success', None),
                              'message': getattr(res, 'message', None)}
     if res is None or not res.success:
