@@ -2355,8 +2355,15 @@ mpc_obstacle_tie_side:
 # obstacle_motion.py, side_rule.py). Every one OFF by default: the QP and the side rule are today's.
 # They read the track id and the odom velocity semantic_layer_node puts on each Obstacle2D when its
 # semantic_track_velocity_enabled is true (without it no obstacle is v_valid and they do nothing).
+# CAR DEPLOY (mpc-dodge-car, 2026-11-18): mpc_obs_vel_trust 1.0, mpc_obs_wake_weight 150.0,
+# mpc_obs_body_probes true and semantic_track_velocity_enabled true -- docs/mpc_dodge/
+# mpc_params_tuned.yaml, the Isaac phase 2 A/B variant 'alpha + wake + body probes' (dodge 13/18
+# vs 5/18 baseline, M1-M4 8/12 vs 3/12, S1-S5 9/13 = baseline; docs/mpc_dodge/REPORT.md sec. 3).
+# The return (corridor_lateral_reanchor false + mpc_return_*) stays OFF: not measured together
+# with the wake and the body probes. On the car unknown_objects_mode is off, so only YOLO tracks
+# can be v_valid. mpc_solver_impl must stay py (rust ignores all of these).
 mpc_obs_vel_trust:
-  default: 0.0
+  default: 1.0
   description: "Predicted discs: trust alpha in [0, 1] in the obstacles' estimated velocity. The disc of a v_valid obstacle at stage k is centred at p + alpha * v * t_k (t_k = control period + k * prediction dt + mpc_obs_vel_lead_s, capped at mpc_obs_pred_max_s). 0 = today's static obstacles at every stage; 1 = full constant velocity. Needs mpc_solver_impl py."
 mpc_obs_vel_lead_s:
   default: 0.0
@@ -2365,13 +2372,13 @@ mpc_obs_pred_max_s:
   default: 2.0
   description: "Cap [s] on the prediction time of a moving obstacle's disc: a constant velocity is not a forecast further out (cylinders bounce off walls, people turn)."
 mpc_obs_wake_weight:
-  default: 0.0
+  default: 150.0
   description: "The wake: per-stage soft cost (like mpc_w_obs, same 7/20 stage scaling) on horizon states inside a half-ellipse AHEAD of an approaching obstacle's motion, semi-major |v| * mpc_obs_wake_horizon_s, semi-minor its radius (+ car_radius + margin through the cost). 'Not where it is going'; no term pushes the car in any direction. 0 = off. Needs mpc_solver_impl py."
 mpc_obs_wake_horizon_s:
   default: 1.0
   description: "Length of the wake in seconds of the obstacle's own motion (see mpc_obs_wake_weight)."
 mpc_obs_body_probes:
-  default: false
+  default: true
   description: "Body probes: the obstacle term of every stage also probes the rear bumper and the axle midpoint (base_link + offset * heading), not only points ahead of the nose. Isaac dodge runs (phase 3 diagnosis): about a third of the failures were a cylinder closing in on the flank or tail of a car moving at full speed, which the nose probes cannot see once the nose is past. Needs mpc_solver_impl py."
 mpc_obstacle_side_mode:
   default: fixed
@@ -3711,7 +3718,7 @@ unknown_objects_mode:
 # mpc-dodge 2026-11-18: per-track ground velocity (f1tenth_costmap/track_velocity.py) on
 # /costmap/semantic_obstacles (Obstacle2D id, vx, vy, v_valid ...) and /costmap/semantic_objects.
 semantic_track_velocity_enabled:
-  default: false
+  default: true
   description: "Estimate each semantic track's velocity in the LOCAL odom frame (constant-velocity Kalman filter on the raw LiDAR / camera measurements, each brought into odom at its own timestamp: no map -> odom jump, ego motion compensated) and publish it with the track id on the MPC's obstacle list and the object list. Off: the fields keep their defaults (id -1, v_valid false) and nothing else changes. mpc_corr uses it only with mpc_obs_vel_trust > 0, mpc_obs_wake_weight > 0 or mpc_obstacle_side_mode informed."
 unknown_rate_hz:
   default: 10.0
