@@ -1,0 +1,11 @@
+# Phase 2 A/B redo after the velocity gate fix (mpc-dodge-mpc 33c4119b): with the old gate only 1 %
+# of the disks on a moving cylinder were v_valid, so every velocity variant of the first A/B ran
+# (almost) the static MPC.
+baseline: {}
+alpha: {mpc_obs_vel_trust: 1.0}
+alpha_wake: {mpc_obs_vel_trust: 1.0, mpc_obs_wake_weight: 150.0, mpc_obs_wake_horizon_s: 1.0}
+informed: {mpc_obstacle_side_mode: informed}
+all: {mpc_obs_vel_trust: 1.0, mpc_obs_wake_weight: 150.0, mpc_obs_wake_horizon_s: 1.0,
+      mpc_obstacle_side_mode: informed}
+alpha_return: {mpc_obs_vel_trust: 1.0, corridor_lateral_reanchor: false, mpc_return_gain: 1.0,
+               mpc_return_lookahead_ratio: 2.5, mpc_return_psi_scale: 0.5}
