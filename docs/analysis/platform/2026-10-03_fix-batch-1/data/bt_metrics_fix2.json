@@ -1,0 +1,128 @@
+{
+  "input_bag_t0": 1790176693.1411204,
+  "threshold": 2.0,
+  "jazzy": [
+    {
+      "label": "jazzy_1",
+      "t_running": 39.50808906555176,
+      "t_hold": 42.16006088256836,
+      "t_crossing": 41.947537422180176,
+      "stop_delay_s": 0.2125234603881836,
+      "goal_drive": [
+        {
+          "t": 39.560065507888794,
+          "mode": "straight",
+          "turn_sign": 0.0,
+          "turn_mag_deg": 0.0,
+          "speed": 0.4000000059604645,
+          "d_safe": -1.0
+        }
+      ],
+      "outcome": [
+        {
+          "t": 42.26506280899048,
+          "mission_id": "llm_2b356aac445f",
+          "move_id": "move_0_straight",
+          "move_type": "drive",
+          "stop_reason": "stop_condition:front_clearance",
+          "outcome": "",
+          "duration_s": 2.653674602508545
+        }
+      ],
+      "status_sequence": [
+        "IDLE",
+        "LOADED",
+        "LOADED",
+        "RUNNING",
+        "COMPLETE"
+      ],
+      "post_stop_tree_sequence": [
+        [
+          "mission",
+          [
+            "FAILURE",
+            "SUCCESS",
+            "INVALID"
+          ]
+        ],
+        [
+          "",
+          [
+            "FAILURE",
+            "FAILURE",
+            "FAILURE"
+          ]
+        ]
+      ],
+      "n_tree_transitions": 4
+    },
+    {
+      "label": "fix2",
+      "t_running": 39.554054498672485,
+      "t_hold": 42.16105651855469,
+      "t_crossing": 41.947537422180176,
+      "stop_delay_s": 0.21351909637451172,
+      "goal_drive": [
+        {
+          "t": 39.561054944992065,
+          "mode": "straight",
+          "turn_sign": 0.0,
+          "turn_mag_deg": 0.0,
+          "speed": 0.4000000059604645,
+          "d_safe": -1.0
+        }
+      ],
+      "outcome": [
+        {
+          "t": 42.26005506515503,
+          "mission_id": "llm_2b356aac445f",
+          "move_id": "move_0_straight",
+          "move_type": "drive",
+          "stop_reason": "stop_condition:front_clearance",
+          "outcome": "",
+          "duration_s": 2.606577157974243
+        }
+      ],
+      "status_sequence": [
+        "IDLE",
+        "LOADED",
+        "LOADED",
+        "RUNNING",
+        "COMPLETE"
+      ],
+      "post_stop_tree_sequence": [
+        [
+          "mission",
+          [
+            "FAILURE",
+            "SUCCESS",
+            "INVALID"
+          ]
+        ],
+        [
+          "",
+          [
+            "FAILURE",
+            "FAILURE",
+            "FAILURE"
+          ]
+        ]
+      ],
+      "n_tree_transitions": 4
+    }
+  ],
+  "humble": [],
+  "jazzy_floor": [
+    {
+      "pair": "jazzy_1_vs_fix2",
+      "d_t_hold_s": -0.000995635986328125,
+      "d_stop_delay_s": -0.000995635986328125,
+      "outcome_equal": true,
+      "status_sequence_equal": true,
+      "post_stop_tree_sequence_equal": true,
+      "goal_drive_equal": true
+    }
+  ],
+  "humble_floor": [],
+  "jazzy_vs_humble": []
+}

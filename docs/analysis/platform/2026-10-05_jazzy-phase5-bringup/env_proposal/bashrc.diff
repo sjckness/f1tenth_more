@@ -1,0 +1,9 @@
+--- /home/andre/.bashrc
++++ ~/.bashrc (proposed)
+@@ -117,5 +117,5 @@
+     . /etc/bash_completion
+   fi
+ fi
+-source /opt/ros/jazzy/setup.bash
++source ~/dev_ws/f1tenth_more/scripts/env/jazzy.sh
+ export ZED_DIR=/usr/local/zed

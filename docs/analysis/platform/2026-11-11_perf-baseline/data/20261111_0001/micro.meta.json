@@ -1,0 +1,27 @@
+{
+ "host": "linus",
+ "machine": "x86_64",
+ "python": "3.12.3",
+ "numpy": "1.26.4",
+ "core": "3",
+ "warmup": 20,
+ "iters": 200,
+ "loadavg": [
+  4.58251953125,
+  7.31884765625,
+  10.84814453125
+ ],
+ "time": "2026-11-11T00:45:56",
+ "osqp_iterations": {
+  "p50": 25.0,
+  "p95": 50.0,
+  "max": 75.0
+ },
+ "profiled": [
+  "costmap.safe_corridor.build_safe_corridor",
+  "mpc.solve_mpc_step[forward rti N=20, offset-free, 2 walls, 2 obstacles]",
+  "doors.freespace_doors[scan_profile+occupancy_window+candidates]",
+  "camera.scene_mask.wall_points+wall_fusion.column_ranges+column_extent",
+  "walls.MultiWallTracker.step+update_roles+published"
+ ]
+}

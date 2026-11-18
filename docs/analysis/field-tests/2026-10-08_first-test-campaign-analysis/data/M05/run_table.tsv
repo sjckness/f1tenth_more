@@ -1,0 +1,6 @@
+mission	short_id	repetition	status	reason	test_id	auto_outcome	manual_success
+M05_turn_left_wall	M05	3	valid		P005-R003-20260924T140430	aborted	
+M05_turn_left_wall	M05	5	valid		P005-R005-20260924T141303	aborted	
+M05_turn_left_wall	M05	6	valid		P005-R006-20260924T141529	aborted	
+M05_turn_left_wall	M05	7	valid		P005-R007-20260924T141924	aborted	
+M05_turn_left_wall	M05	8	valid		P005-R008-20260924T142157	aborted	

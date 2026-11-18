@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>f1tenth_messages</name>
-  <version>0.0.1</version>
+  <version>0.1.0</version>
   <description>Message and service definitions for the F1TENTH stack: SystemStatus
   (f1tenth_diagnostics' system_observer_node), RestartComponent/ComponentControl
   (f1tenth_bringup's component_supervisor_node), LoadMission/MissionStatus

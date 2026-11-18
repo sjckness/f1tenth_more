@@ -1,0 +1,225 @@
+{
+ "meta": {
+  "git_head": "18202006+dirty",
+  "ros_domain_id": "0",
+  "rmw_implementation": "rmw_fastrtps_cpp",
+  "ros_discovery_server": "127.0.0.1:11811",
+  "fastdds_profile": "/opt/f1tenth_ws/src/f1tenth_bringup/config/fastdds_profile.xml",
+  "mode": "oneshot",
+  "planner_pythonpath": null,
+  "time": "2026-11-09T09:43:25",
+  "image_sources": [
+   "commit b6c00624d726509f69459ad759f244439fabdfcf",
+   "subject enter_door: Foxglove markers on /mpc/door_goal_debug (path, goals, back-up)",
+   "branch door-goal-debug",
+   "describe night-start/pwa-control-origin-219-gb6c00624d726"
+  ],
+  "llama_server_cmdline": "/opt/llama.cpp/bin/llama-server -m /home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf --port 8083 -ngl 999",
+  "ros2_daemon_running": false,
+  "llama_server_props": {
+   "model_path": "/home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf",
+   "total_slots": 4,
+   "build_info": "b1-42532af",
+   "n_ctx": 32768
+  },
+  "planner_module": "/opt/f1tenth_ws/install/lib/python3.12/site-packages/llm/llm_planner_node.py"
+ },
+ "runs": [
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 0,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.4371353090100456,
+    "t_server_ready": 2.664272638008697,
+    "t_ready": 2.6741667939932086,
+    "t_planned": 13.835011530987686,
+    "t_loaded_log": 13.848456289008027,
+    "t_start_returned": 13.852794248989085,
+    "t_loaded": 13.847129288013093,
+    "t_running": 13.850847668014467,
+    "t_exit": 14.22566185699543
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 11.161,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json"
+   },
+   "latency": null,
+   "error": null,
+   "state_before": "IDLE",
+   "deltas": {
+    "process_start": 2.6741667939932086,
+    "llm": 11.160844736994477,
+    "translate": null,
+    "services": 0.01778271800139919,
+    "start_to_running": -0.001946580974617973,
+    "total_to_start": 13.852794248989085,
+    "total_to_running": 13.850847668014467
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "[INFO] [1794213811.518709583] [llm_planner_node]: LLM Planner (llama-server @ http://127.0.0.1:8083/completion) pronto -- consegna via /mission/load_mission + /mission/start_mission.",
+    "",
+    "missione generata in 11.16s (v2), 1 move:",
+    "  0. vai dritto",
+    "       id       move_0_straight",
+    "       velocita 0.5 m/s",
+    "       fino a   muro entro 2.0 m per 3 tick consecutivi",
+    "       timeout  65 s -> abort",
+    "       note     TERMINALE",
+    "",
+    "JSON (llm_2b356aac445f):",
+    "{",
+    "  \"mission_id\": \"llm_2b356aac445f\",",
+    "  \"schema_version\": \"3.0\",",
+    "  \"moves\": [",
+    "    {",
+    "      \"id\": \"move_0_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"front_clearance\",",
+    "        \"distance\": 2.0,",
+    "        \"debounce_ticks\": 3",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794213822.682442431] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "[INFO] [1794213822.689077083] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=IDLE)",
+    "[INFO] [1794213822.693020901] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_2b356aac445f', 1 moves -- start_mission subito",
+    "[INFO] [1794213822.697353133] [llm_planner_node]: start_mission OK: started 'llm_2b356aac445f'",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"n_moves\": 1, \"plan_seconds\": 11.161, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 2.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json\"}"
+   ]
+  }
+ ],
+ "summary": {
+  "per_command": {
+   "vai dritto e fermati a due metri dal muro": {
+    "process_start": {
+     "n": 1,
+     "median": 2.6741667939932086,
+     "p95": 2.6741667939932086,
+     "max": 2.6741667939932086
+    },
+    "llm": {
+     "n": 1,
+     "median": 11.160844736994477,
+     "p95": 11.160844736994477,
+     "max": 11.160844736994477
+    },
+    "translate": null,
+    "services": {
+     "n": 1,
+     "median": 0.01778271800139919,
+     "p95": 0.01778271800139919,
+     "max": 0.01778271800139919
+    },
+    "start_to_running": {
+     "n": 1,
+     "median": -0.001946580974617973,
+     "p95": -0.001946580974617973,
+     "max": -0.001946580974617973
+    },
+    "total_to_start": {
+     "n": 1,
+     "median": 13.852794248989085,
+     "p95": 13.852794248989085,
+     "max": 13.852794248989085
+    },
+    "total_to_running": {
+     "n": 1,
+     "median": 13.850847668014467,
+     "p95": 13.850847668014467,
+     "max": 13.850847668014467
+    }
+   }
+  },
+  "overall": {
+   "process_start": {
+    "n": 1,
+    "median": 2.6741667939932086,
+    "p95": 2.6741667939932086,
+    "max": 2.6741667939932086
+   },
+   "llm": {
+    "n": 1,
+    "median": 11.160844736994477,
+    "p95": 11.160844736994477,
+    "max": 11.160844736994477
+   },
+   "translate": null,
+   "services": {
+    "n": 1,
+    "median": 0.01778271800139919,
+    "p95": 0.01778271800139919,
+    "max": 0.01778271800139919
+   },
+   "start_to_running": {
+    "n": 1,
+    "median": -0.001946580974617973,
+    "p95": -0.001946580974617973,
+    "max": -0.001946580974617973
+   },
+   "total_to_start": {
+    "n": 1,
+    "median": 13.852794248989085,
+    "p95": 13.852794248989085,
+    "max": 13.852794248989085
+   },
+   "total_to_running": {
+    "n": 1,
+    "median": 13.850847668014467,
+    "p95": 13.850847668014467,
+    "max": 13.850847668014467
+   }
+  },
+  "excluded": [],
+  "kept": 1
+ },
+ "complete": true,
+ "final_state": "ABORTED"
+}

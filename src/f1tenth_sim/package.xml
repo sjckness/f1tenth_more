@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>f1tenth_sim</name>
-  <version>0.0.0</version>
+  <version>0.1.0</version>
   <description>Gazebo Fortress (ignition) simulation for the F1TENTH vehicle.
   Spawns the f1tenth_description model in an empty world, bridges sim sensors to
   the real-stack topics, and drives it through ros2_control + an Ackermann

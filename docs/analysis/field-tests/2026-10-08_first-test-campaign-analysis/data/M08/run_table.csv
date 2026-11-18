@@ -1,0 +1,5 @@
+mission,short_id,repetition,status,reason,test_id,auto_outcome,manual_success
+M08_turn_right_wall_then_person,M08,1,valid,,P008-R001-20261027T133550,completed,
+M08_turn_right_wall_then_person,M08,2,valid,,P008-R002-20261027T133837,completed,
+M08_turn_right_wall_then_person,M08,3,valid,,P008-R003-20261027T134421,completed,
+M08_turn_right_wall_then_person,M08,4,valid,,P008-R004-20261027T134727,aborted,

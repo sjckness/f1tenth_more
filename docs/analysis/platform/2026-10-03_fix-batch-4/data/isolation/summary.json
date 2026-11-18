@@ -1,0 +1,1550 @@
+{
+  "baseline": {
+    "runs": 30,
+    "runs_with_isolation": 8,
+    "runs_slam_lifecycle_hang": 7,
+    "runs_other_isolation": [
+      "run_04"
+    ],
+    "cpu_busy_pct_mean": 20.7,
+    "cpu_busy_pct_with_isolation": [
+      17.4,
+      20.2,
+      20.5,
+      20.3,
+      19.1,
+      18.3,
+      19.4,
+      19.7
+    ],
+    "rows": [
+      {
+        "run": "run_01",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.2,
+        "load1": 3.46,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_02",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.6,
+        "load1": 4.46,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_03",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.8,
+        "load1": 3.73,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_04",
+        "isolated": {
+          "/costmap_boundary_node": [
+            "output: no message on /costmap/front_clearance in 8 s",
+            "starved: 2 \"no message ever received\" lines from feed start + 12 s on"
+          ],
+          "/ekf_filter_node": [
+            "output: no message on /odometry/filtered in 8 s"
+          ],
+          "/ekf_global/ekf_global_filter_node": [
+            "output: no message on /ekf_global/odometry/filtered in 8 s"
+          ],
+          "/joint_state_publisher": [
+            "output: no message on /joint_states in 8 s"
+          ],
+          "/mpc_corr": [
+            "starved: 95 \"ODOM non disponibile\" lines from feed start + 12 s on"
+          ],
+          "/slam_pose_relay_node": [
+            "output: no message on /slam/pose_calibrated in 8 s"
+          ],
+          "/slam_toolbox": [
+            "output: no message on /slam/pose in 8 s"
+          ]
+        },
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 17.4,
+        "load1": 3.0,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_05",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.0,
+        "load1": 4.71,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_06",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.2,
+        "load1": 4.91,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_07",
+        "isolated": {
+          "/costmap_boundary_node": [
+            "output: no message on /costmap/front_clearance in 8 s",
+            "starved: 2 \"no message ever received\" lines from feed start + 12 s on"
+          ],
+          "/slam_pose_relay_node": [
+            "output: no message on /slam/pose_calibrated in 8 s"
+          ],
+          "/slam_toolbox": [
+            "output: no message on /slam/pose in 8 s"
+          ]
+        },
+        "slam_lifecycle_hang": true,
+        "cpu_busy_pct": 20.2,
+        "load1": 5.03,
+        "matching_unexisting": 0,
+        "nodes_settled": 32
+      },
+      {
+        "run": "run_08",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.0,
+        "load1": 3.91,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_09",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.9,
+        "load1": 4.63,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_10",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.7,
+        "load1": 9.55,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_11",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.5,
+        "load1": 5.34,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_12",
+        "isolated": {
+          "/costmap_boundary_node": [
+            "output: no message on /costmap/front_clearance in 8 s",
+            "starved: 2 \"no message ever received\" lines from feed start + 12 s on"
+          ],
+          "/slam_pose_relay_node": [
+            "output: no message on /slam/pose_calibrated in 8 s"
+          ],
+          "/slam_toolbox": [
+            "output: no message on /slam/pose in 8 s"
+          ]
+        },
+        "slam_lifecycle_hang": true,
+        "cpu_busy_pct": 20.5,
+        "load1": 3.18,
+        "matching_unexisting": 0,
+        "nodes_settled": 32
+      },
+      {
+        "run": "run_13",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.8,
+        "load1": 4.54,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_14",
+        "isolated": {
+          "/costmap_boundary_node": [
+            "output: no message on /costmap/front_clearance in 8 s",
+            "starved: 2 \"no message ever received\" lines from feed start + 12 s on"
+          ],
+          "/slam_pose_relay_node": [
+            "output: no message on /slam/pose_calibrated in 8 s"
+          ],
+          "/slam_toolbox": [
+            "output: no message on /slam/pose in 8 s"
+          ]
+        },
+        "slam_lifecycle_hang": true,
+        "cpu_busy_pct": 20.3,
+        "load1": 4.57,
+        "matching_unexisting": 0,
+        "nodes_settled": 32
+      },
+      {
+        "run": "run_15",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.4,
+        "load1": 3.47,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_16",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 23.6,
+        "load1": 4.72,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_17",
+        "isolated": {
+          "/costmap_boundary_node": [
+            "output: no message on /costmap/front_clearance in 8 s",
+            "starved: 2 \"no message ever received\" lines from feed start + 12 s on"
+          ],
+          "/slam_pose_relay_node": [
+            "output: no message on /slam/pose_calibrated in 8 s"
+          ],
+          "/slam_toolbox": [
+            "output: no message on /slam/pose in 8 s"
+          ]
+        },
+        "slam_lifecycle_hang": true,
+        "cpu_busy_pct": 19.1,
+        "load1": 4.14,
+        "matching_unexisting": 0,
+        "nodes_settled": 32
+      },
+      {
+        "run": "run_18",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.4,
+        "load1": 4.0,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_19",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.7,
+        "load1": 4.92,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_20",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.1,
+        "load1": 4.47,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_21",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.0,
+        "load1": 3.09,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_22",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.7,
+        "load1": 2.56,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_23",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.7,
+        "load1": 3.48,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_24",
+        "isolated": {
+          "/costmap_boundary_node": [
+            "output: no message on /costmap/front_clearance in 8 s",
+            "starved: 2 \"no message ever received\" lines from feed start + 12 s on"
+          ],
+          "/slam_pose_relay_node": [
+            "output: no message on /slam/pose_calibrated in 8 s"
+          ],
+          "/slam_toolbox": [
+            "output: no message on /slam/pose in 8 s"
+          ]
+        },
+        "slam_lifecycle_hang": true,
+        "cpu_busy_pct": 18.3,
+        "load1": 2.59,
+        "matching_unexisting": 0,
+        "nodes_settled": 32
+      },
+      {
+        "run": "run_25",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.4,
+        "load1": 3.42,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_26",
+        "isolated": {
+          "/costmap_boundary_node": [
+            "output: no message on /costmap/front_clearance in 8 s",
+            "starved: 2 \"no message ever received\" lines from feed start + 12 s on"
+          ],
+          "/slam_pose_relay_node": [
+            "output: no message on /slam/pose_calibrated in 8 s"
+          ],
+          "/slam_toolbox": [
+            "output: no message on /slam/pose in 8 s"
+          ]
+        },
+        "slam_lifecycle_hang": true,
+        "cpu_busy_pct": 19.4,
+        "load1": 3.77,
+        "matching_unexisting": 0,
+        "nodes_settled": 32
+      },
+      {
+        "run": "run_27",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.4,
+        "load1": 4.32,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_28",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.8,
+        "load1": 4.54,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_29",
+        "isolated": {
+          "/costmap_boundary_node": [
+            "output: no message on /costmap/front_clearance in 8 s",
+            "starved: 2 \"no message ever received\" lines from feed start + 12 s on"
+          ],
+          "/slam_pose_relay_node": [
+            "output: no message on /slam/pose_calibrated in 8 s"
+          ],
+          "/slam_toolbox": [
+            "output: no message on /slam/pose in 8 s"
+          ]
+        },
+        "slam_lifecycle_hang": true,
+        "cpu_busy_pct": 19.7,
+        "load1": 3.9,
+        "matching_unexisting": 0,
+        "nodes_settled": 32
+      },
+      {
+        "run": "run_30",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.9,
+        "load1": 3.35,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      }
+    ]
+  },
+  "fresh": {
+    "runs": 30,
+    "runs_with_isolation": 0,
+    "runs_slam_lifecycle_hang": 0,
+    "runs_other_isolation": [],
+    "cpu_busy_pct_mean": 20.6,
+    "cpu_busy_pct_with_isolation": [],
+    "rows": [
+      {
+        "run": "run_01",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.5,
+        "load1": 5.19,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_02",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.2,
+        "load1": 4.03,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_03",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.8,
+        "load1": 3.73,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_04",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 18.8,
+        "load1": 3.44,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_05",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.1,
+        "load1": 4.92,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_06",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.3,
+        "load1": 4.08,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_07",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.7,
+        "load1": 3.45,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_08",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.8,
+        "load1": 4.05,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_09",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.4,
+        "load1": 3.55,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_10",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.4,
+        "load1": 5.51,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_11",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.5,
+        "load1": 3.21,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_12",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.1,
+        "load1": 2.57,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_13",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.4,
+        "load1": 3.89,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_14",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.8,
+        "load1": 3.36,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_15",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.2,
+        "load1": 3.1,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_16",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.9,
+        "load1": 7.07,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_17",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.2,
+        "load1": 6.26,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_18",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.1,
+        "load1": 7.55,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_19",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.2,
+        "load1": 4.4,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_20",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.3,
+        "load1": 2.48,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_21",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.1,
+        "load1": 4.95,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_22",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.7,
+        "load1": 4.09,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_23",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.8,
+        "load1": 3.86,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_24",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.4,
+        "load1": 3.76,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_25",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.9,
+        "load1": 3.27,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_26",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.5,
+        "load1": 3.84,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_27",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.6,
+        "load1": 3.43,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_28",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.6,
+        "load1": 2.51,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_29",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.6,
+        "load1": 3.23,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_30",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.3,
+        "load1": 3.19,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      }
+    ]
+  },
+  "udp": {
+    "runs": 30,
+    "runs_with_isolation": 3,
+    "runs_slam_lifecycle_hang": 3,
+    "runs_other_isolation": [],
+    "cpu_busy_pct_mean": 20.8,
+    "cpu_busy_pct_with_isolation": [
+      18.7,
+      19.9,
+      20.1
+    ],
+    "rows": [
+      {
+        "run": "run_01",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.7,
+        "load1": 3.91,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_02",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.3,
+        "load1": 2.79,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_03",
+        "isolated": {
+          "/costmap_boundary_node": [
+            "output: no message on /costmap/front_clearance in 8 s",
+            "starved: 2 \"no message ever received\" lines from feed start + 12 s on"
+          ],
+          "/slam_pose_relay_node": [
+            "output: no message on /slam/pose_calibrated in 8 s"
+          ],
+          "/slam_toolbox": [
+            "output: no message on /slam/pose in 8 s"
+          ]
+        },
+        "slam_lifecycle_hang": true,
+        "cpu_busy_pct": 18.7,
+        "load1": 3.19,
+        "matching_unexisting": 0,
+        "nodes_settled": 32
+      },
+      {
+        "run": "run_04",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.7,
+        "load1": 2.99,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_05",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.3,
+        "load1": 4.22,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_06",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.0,
+        "load1": 3.86,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_07",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.0,
+        "load1": 3.12,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_08",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.1,
+        "load1": 3.77,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_09",
+        "isolated": {
+          "/costmap_boundary_node": [
+            "output: no message on /costmap/front_clearance in 8 s",
+            "starved: 2 \"no message ever received\" lines from feed start + 12 s on"
+          ],
+          "/slam_pose_relay_node": [
+            "output: no message on /slam/pose_calibrated in 8 s"
+          ],
+          "/slam_toolbox": [
+            "output: no message on /slam/pose in 8 s"
+          ]
+        },
+        "slam_lifecycle_hang": true,
+        "cpu_busy_pct": 19.9,
+        "load1": 4.96,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_10",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.9,
+        "load1": 5.18,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_11",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.4,
+        "load1": 4.75,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_12",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.6,
+        "load1": 4.56,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_13",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.0,
+        "load1": 5.66,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_14",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.0,
+        "load1": 4.24,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_15",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.4,
+        "load1": 3.86,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_16",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.8,
+        "load1": 3.87,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_17",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.5,
+        "load1": 3.5,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_18",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.1,
+        "load1": 4.64,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_19",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.1,
+        "load1": 5.33,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_20",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.9,
+        "load1": 4.79,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_21",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.8,
+        "load1": 4.13,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_22",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.2,
+        "load1": 3.1,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_23",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.8,
+        "load1": 2.85,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_24",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.5,
+        "load1": 3.25,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_25",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.0,
+        "load1": 4.1,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_26",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.5,
+        "load1": 5.92,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_27",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.1,
+        "load1": 5.71,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_28",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.6,
+        "load1": 3.82,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_29",
+        "isolated": {
+          "/costmap_boundary_node": [
+            "output: no message on /costmap/front_clearance in 8 s",
+            "starved: 2 \"no message ever received\" lines from feed start + 12 s on"
+          ],
+          "/slam_pose_relay_node": [
+            "output: no message on /slam/pose_calibrated in 8 s"
+          ],
+          "/slam_toolbox": [
+            "output: no message on /slam/pose in 8 s"
+          ]
+        },
+        "slam_lifecycle_hang": true,
+        "cpu_busy_pct": 20.1,
+        "load1": 4.22,
+        "matching_unexisting": 0,
+        "nodes_settled": 32
+      },
+      {
+        "run": "run_30",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.7,
+        "load1": 6.41,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      }
+    ]
+  },
+  "gap": {
+    "runs": 30,
+    "runs_with_isolation": 0,
+    "runs_slam_lifecycle_hang": 0,
+    "runs_other_isolation": [],
+    "cpu_busy_pct_mean": 20.6,
+    "cpu_busy_pct_with_isolation": [],
+    "rows": [
+      {
+        "run": "run_01",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.2,
+        "load1": 4.38,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_02",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 23.6,
+        "load1": 4.45,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_03",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.0,
+        "load1": 4.13,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_04",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.8,
+        "load1": 2.65,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_05",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.2,
+        "load1": 2.28,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_06",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 18.9,
+        "load1": 3.35,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_07",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.6,
+        "load1": 3.02,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_08",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.0,
+        "load1": 3.22,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_09",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.8,
+        "load1": 2.92,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_10",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.6,
+        "load1": 2.31,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_11",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.9,
+        "load1": 2.68,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_12",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.7,
+        "load1": 2.56,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_13",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.8,
+        "load1": 3.42,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_14",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.6,
+        "load1": 2.28,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_15",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.1,
+        "load1": 1.55,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_16",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.7,
+        "load1": 2.43,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_17",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.1,
+        "load1": 2.67,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_18",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 18.6,
+        "load1": 3.21,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_19",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.6,
+        "load1": 4.77,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_20",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.0,
+        "load1": 2.36,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_21",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.7,
+        "load1": 3.46,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_22",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.2,
+        "load1": 4.06,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_23",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.3,
+        "load1": 4.59,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_24",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.2,
+        "load1": 3.23,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_25",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.4,
+        "load1": 2.12,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_26",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.9,
+        "load1": 1.93,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_27",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.8,
+        "load1": 1.87,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_28",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.4,
+        "load1": 2.98,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_29",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.5,
+        "load1": 3.46,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_30",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.1,
+        "load1": 3.24,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      }
+    ]
+  },
+  "lease": {
+    "runs": 30,
+    "runs_with_isolation": 0,
+    "runs_slam_lifecycle_hang": 0,
+    "runs_other_isolation": [],
+    "cpu_busy_pct_mean": 20.7,
+    "cpu_busy_pct_with_isolation": [],
+    "rows": [
+      {
+        "run": "run_01",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.9,
+        "load1": 2.0,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_02",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.5,
+        "load1": 2.06,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_03",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.8,
+        "load1": 3.17,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_04",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.6,
+        "load1": 3.21,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_05",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.3,
+        "load1": 4.99,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_06",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.2,
+        "load1": 4.66,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_07",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.2,
+        "load1": 4.07,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_08",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 18.9,
+        "load1": 3.48,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_09",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 23.1,
+        "load1": 4.35,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_10",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.7,
+        "load1": 3.49,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_11",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.2,
+        "load1": 3.6,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_12",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 24.4,
+        "load1": 2.89,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_13",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.2,
+        "load1": 2.84,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_14",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.3,
+        "load1": 4.11,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_15",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.1,
+        "load1": 3.68,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_16",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.8,
+        "load1": 4.68,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_17",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.7,
+        "load1": 3.42,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_18",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.4,
+        "load1": 4.38,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_19",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.0,
+        "load1": 4.19,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_20",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.5,
+        "load1": 3.15,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_21",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.0,
+        "load1": 2.93,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_22",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.4,
+        "load1": 3.93,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_23",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.3,
+        "load1": 2.89,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_24",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.7,
+        "load1": 3.6,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_25",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 18.5,
+        "load1": 3.88,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_26",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.0,
+        "load1": 2.75,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_27",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.2,
+        "load1": 4.3,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_28",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.6,
+        "load1": 4.1,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_29",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.8,
+        "load1": 4.09,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_30",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.4,
+        "load1": 3.43,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      }
+    ]
+  }
+}

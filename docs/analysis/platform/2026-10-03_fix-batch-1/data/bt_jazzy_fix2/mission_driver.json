@@ -1,0 +1,25 @@
+{
+  "mission_path": "/home/andre/dev_ws/f1tenth_more/output/fix_batch_1/bt_jazzy_fix2/llm_2b356aac445f.json",
+  "mission_id": "llm_2b356aac445f",
+  "start_at_bag_sec": 36.5,
+  "load_called": {
+    "bag_sec": 36.500055201,
+    "wall": 1791016163.122425
+  },
+  "load_response": {
+    "success": true,
+    "message": "loaded 'llm_2b356aac445f', 1 moves"
+  },
+  "load_returned": {
+    "bag_sec": 36.502070837000005,
+    "wall": 1791016163.125531
+  },
+  "start_response": {
+    "success": true,
+    "message": "starting in 3.0 s"
+  },
+  "start_returned": {
+    "bag_sec": 36.505067814,
+    "wall": 1791016163.1279995
+  }
+}

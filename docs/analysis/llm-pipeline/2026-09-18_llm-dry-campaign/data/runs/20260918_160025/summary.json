@@ -1,0 +1,60 @@
+{
+  "total": 3,
+  "per_status": {
+    "refused": 2,
+    "translator_error": 1
+  },
+  "per_status_cause_kind": {
+    "refused:-:ambiguous_after_rejection": 1,
+    "refused:-:unsupported_request": 1,
+    "translator_error:rejected_llm_output:retries_exhausted": 1
+  },
+  "per_category": {
+    "straight_then_turn": {
+      "refused": 1
+    },
+    "goal_door_opening": {
+      "refused": 1
+    },
+    "complex_landmarks": {
+      "translator_error": 1
+    }
+  },
+  "per_prompt": {
+    "straight_turn_01": {
+      "category": "straight_then_turn",
+      "prompt": "Go straight, then turn right",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "goal_01": {
+      "category": "goal_door_opening",
+      "prompt": "Go to the door",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "complex_01": {
+      "category": "complex_landmarks",
+      "prompt": "Go straight past the kitchen, then turn right at the lounge",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "translator_error": 1
+      },
+      "score": "0/1 ok"
+    }
+  },
+  "duration_s": {
+    "total": 101.4,
+    "mean": 33.8,
+    "max": 49.43
+  }
+}

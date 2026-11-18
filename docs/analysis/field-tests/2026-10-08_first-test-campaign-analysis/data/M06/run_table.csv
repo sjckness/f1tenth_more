@@ -1,0 +1,5 @@
+mission,short_id,repetition,status,reason,test_id,auto_outcome,manual_success
+M06_turn_left_wall_then_person,M06,1,valid,,P006-R001-20261027T140608,completed,
+M06_turn_left_wall_then_person,M06,2,valid,,P006-R002-20261027T141233,completed,
+M06_turn_left_wall_then_person,M06,3,valid,,P006-R003-20261027T141517,aborted,
+M06_turn_left_wall_then_person,M06,4,valid,,P006-R004-20261027T141736,completed,

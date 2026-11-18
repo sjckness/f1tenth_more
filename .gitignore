@@ -79,3 +79,5 @@ src/f1tenth_behavior/mission_reports/
 # the node's working directory, often the repo root. Covers any other CSV output
 # too. See docs/DIAGNOSTICS.md.
 *.csv
+# ...except the analysis database: INDEX.csv and the summary data of each report.
+!docs/analysis/**/*.csv

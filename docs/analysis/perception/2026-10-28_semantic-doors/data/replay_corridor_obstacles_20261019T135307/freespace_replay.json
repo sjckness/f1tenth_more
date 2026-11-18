@@ -1,0 +1,28 @@
+{
+  "bag": "/home/andreas/bags/corridor_obstacles_20261019T135307",
+  "method": "scan_jumps",
+  "pose_topic": "/ekf_global/odometry/filtered",
+  "grids": 9,
+  "scans": 1549,
+  "cycles": 340,
+  "rate_hz": 10.0,
+  "window_m": 8.0,
+  "ms_median": 16.55,
+  "ms_p95": 18.17,
+  "ms_max": 19.48,
+  "codes": {
+    "no_behind": 3350,
+    "ok": 3187,
+    "width": 2800,
+    "split": 1335,
+    "edge": 612,
+    "few_beams": 262,
+    "blocked": 9
+  },
+  "flags": {
+    "marginal": 2263,
+    "one_jamb": 1072
+  },
+  "strong_doors": 0,
+  "confirmed_doors": []
+}

@@ -1,0 +1,5 @@
+mission	short_id	repetition	status	reason	test_id	auto_outcome	manual_success
+M07_chair_then_straight_4m	M07	1	valid		P007-R001-20261027T165917	completed	
+M07_chair_then_straight_4m	M07	2	valid		P007-R002-20261027T170135	completed	
+M07_chair_then_straight_4m	M07	3	valid		P007-R003-20261027T170317	completed	
+M07_chair_then_straight_4m	M07	4	valid		P007-R004-20261027T171737	completed	

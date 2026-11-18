@@ -1,0 +1,176 @@
+355a356,361
+> # Consumed by: f1tenth_perception/detection.launch.py, forwarded to yolo_detector_node
+> # and detection_3d_node as their stage_timing param. Temporary measurement switch of
+> # the 2026-10-14 detection-latency audit (f1tenth_perception/stage_timing.py).
+> perception_stage_timing:
+>   default: false
+>   description: "Per-stage latency of the camera pipeline: yolo_detector_node and detection_3d_node log a STAGE_TIMING line (p50/p95/max per stage, ages from header.stamp) every 30 s. Off: no timestamps are taken."
+375c381
+<   description: "Lower bound [m] of obstacle_projector_node's height-band filter (base_link frame, base_link ~0.07m above ground) -- detections below this are dropped as ground-plane false positives. Untuned starting point."
+---
+>   description: "Lower bound [m] of obstacle_projector_node's height-band filter (base_link frame, z = 0 is the floor: base_link is on the ground per base.xacro) -- detections whose centre is below this are dropped as ground-plane false positives. Untuned starting point."
+380c386
+<   description: "Upper bound [m] of obstacle_projector_node's height-band filter (base_link frame) -- detections above this are dropped as overhead false positives (signage, gantries). Untuned starting point."
+---
+>   description: "Upper bound [m] of obstacle_projector_node's height-band filter (base_link frame, height above the floor) -- detections above this are dropped as overhead false positives (signage, gantries). Untuned starting point."
+588a595,633
+> # --- scene MASK (scene_mask.py, front_clearance_node) -------------------------
+> # The whole-frame, ROI-free per-pixel classification the rebuilt wall pipeline
+> # consumes: SELF > OBJECT > FLOOR > REFLECTION > CEILING > WALL > INVALID, in
+> # that priority. It exists because the ROI front distance reads whatever fills
+> # a fixed rectangle, and on an open corridor that is the FLOOR
+> # (/perception/front_distance sat at ~2.0 m with nothing ahead for 10 m,
+> # corridor_phantom 2026-10-15). Publishes /perception/scene_labels/image (only
+> # when subscribed), /perception/wall_points and /perception/scene_labels/stats.
+> front_clearance_scene_mask_enabled:
+>   default: true
+>   description: "Run the whole-frame scene mask (scene_mask.py) in front_clearance_node. Independent of enable_scene_labels, which still drives the older ROI stereo wall distance; the two coexist until the ROI path is retired."
+> front_clearance_scene_mask_rate_hz:
+>   default: 5.0
+>   description: "Rate [Hz] of the scene-mask tick. Measured 10.5 ms per 640x360 frame for classify + WALL points + stats (test_scene_mask.py), so 5 Hz is ~5% of one core; the depth stream itself runs at 30 Hz. 0 disables the tick."
+> front_clearance_scene_mask_floor_tol_m:
+>   default: 0.05
+>   description: "Half-height [m] of the band around z = 0 that is FLOOR; below -this is REFLECTION. base_link's z = 0 IS the floor (base.xacro), so this is pure measurement error: the ZED mount pitch is measured to 2.083 deg (camera.launch.py) and the height to 0.205 m, which at 3 m is about 1 cm of height error. 5 cm covers that plus floor unevenness without reaching a kerb. UNTUNED against a bag with depth."
+> front_clearance_scene_mask_ceiling_min_z_m:
+>   default: 2.0
+>   description: "Height [m] above which a point is CEILING. Matches front_clearance_scene_ceiling_min_m, the lower edge of the band the older CeilingTracker searches for the ceiling peak, so the two agree on what can possibly be ceiling. Well above the 1.0 m front_clearance_scene_max_relevant_height_m, so a door lintel or a shelf stays WALL rather than being written off as ceiling."
+> front_clearance_scene_mask_min_depth_m:
+>   default: 0.2
+>   description: "Depth [m] below which a pixel has no usable measurement. The ZED's minimum measurable range on this rig; nearer than this the driver publishes -Inf, which is a real 'something is right there' reading and is counted in the stats as too_close_frac rather than being merged into 'no data'."
+> front_clearance_scene_mask_max_depth_m:
+>   default: 20.0
+>   description: "Depth [m] above which a pixel is not a usable measurement. Matches the LiDAR's own measured ~20 m ceiling (99.9th pct 19.89 m), so stereo and LiDAR agree about where 'no reading' starts. Stereo noise grows with the square of range and is metres by 20 m; the floor far rows run past this and correctly become INVALID rather than a false FLOOR."
+> front_clearance_scene_mask_strip_half_width_m:
+>   default: 0.186
+>   description: "Half-width [m] of the car-width strip the scene-mask stats count WALL points in. MUST equal vehicle_frames.front_side_limit_m() (swept_clearance_body_half_width_m 0.136 + front_beside_body_margin_m 0.05): one strip for the whole pipeline, so 'the camera sees a wall in the way' and 'the LiDAR sees a wall in the way' mean the same geometry. Overridable only to test; the node's default IS the shared helper."
+> front_clearance_scene_mask_self_polygons:
+>   default: ""
+>   description: "SELF-mask polygons as JSON [[[x, y], ...], ...] in FRACTIONS of image width/height (a ROS parameter cannot hold a ragged nested list). EMPTY, the default, derives the one polygon from lidar_exclusion_x_min/_x_max/_y_min/_y_max, the car's-own-LiDAR-housing rectangle yolo_detector_node already applies to detections: one calibration, now three consumers, and no second copy of the numbers to drift. Set this only to override that rectangle with a real polygon once one has been traced on a frame."
+> front_clearance_scene_mask_occluded_polygons:
+>   default: '[[[0.0, 0.78], [0.16, 0.78], [0.16, 1.0], [0.0, 1.0]]]'
+>   description: "Further SELF-mask polygons, same JSON format, for the region where the housing occludes the RIGHT lens: the left image has scene there but no correct stereo match, so the depth is the housing's. Separate from front_clearance_scene_mask_self_polygons so the depth-only region can be tuned without touching the shared housing rectangle. UNTUNED placeholder: no bag with depth has been inspected for its real extent."
+> front_clearance_scene_mask_image_topic:
+>   default: "/camera/image_raw"
+>   description: "Left RGB image the scene-mask overlay is drawn on. Decoded ONLY when /perception/scene_labels/image has a subscriber, the same draw-when-watched discipline the annotated detection image follows."
+> 
+654c699
+< # Off: every node behaves exactly as before.
+---
+> # Off: every node behaves exactly as before. ON by default since 2026-10-14.
+657,658c702,715
+<   default: false
+<   description: "Scene labelling and the virtual wall (scene_labels.py). true: lidar_front_wall_node cuts detections out of its fit and publishes /perception/wall_planes and /perception/virtual_wall; front_clearance_node labels the depth cloud; detection_3d_node measures objects on OTHER pixels; the BT wall stop and the MPC wall_turn read /perception/virtual_wall and the MPC's private wall tracker is bypassed. Read with get_value, no launch override. FALSE until the stereo half is validated on recorded depth (the archived bags carry none)."
+---
+>   default: true
+>   description: "Scene labelling and the virtual wall (scene_labels.py). true: lidar_front_wall_node cuts detections out of its fit and publishes /perception/wall_planes and /perception/virtual_wall; front_clearance_node labels the depth cloud; detection_3d_node measures objects on OTHER pixels; the BT wall stop and the MPC wall_turn read /perception/virtual_wall and the MPC's private wall tracker is bypassed. Read with get_value, no launch override. TRUE since 2026-10-14: validated on the static calib clips of 2026-10-14 (raw ZED SVO2 + bag, square to a flat wall, bumper at 1.00 / 2.00 m, replayed with tools/replay_raw.launch.py, measured with tools/calib_wall_check.py): stereo wall 1.010 / 1.999 m, /perception/virtual_wall 0.996 / 1.990 m."
+> # Consumed by: f1tenth_perception/lidar_front_wall.launch.py (get_value, no launch
+> # override, like enable_scene_labels).
+> use_wall_tracker:
+>   default: true
+>   description: "Multi-wall tracker (multi_wall_tracker.py) in lidar_front_wall_node: up to 4 wall tracks in odom on /perception/walls; the front track (matched on this scan, or coasting for at most lidar_front_wall_wall_tracker_front_max_coast_sec) becomes the heading wall of the virtual wall, falling back to sequential_lines when there is none; a front track that coasts past that limit makes /perception/virtual_wall -1 until there is a front track again. REQUIRES enable_scene_labels: without it the node logs an ERROR and the tracker stays off. TRUE since 2026-10-14, with enable_scene_labels: the calib clips of 2026-10-14 (static, square to a flat wall, bumper at 1.00 / 2.00 m) gave stereo 1.010 / 1.999 m and /perception/virtual_wall 0.996 / 1.990 m, the latter with the tracker on."
+> # Consumed by: f1tenth_behavior/behavior_executor_node.py (CheckStopCondition).
+> wall_distance_max_age_s:
+>   default: 0.5
+>   description: "Mission wall stop (stop_condition type front_clearance): a wall distance (get_wall_distance_topic) older than this [s] by receipt time, never received, or not positive (-1.0 = no wall) HOLDS the car (/mpc/hold) with a WARN every 2 s instead of driving on the last value; the first fresh positive value releases it. The move's timeout_sec still runs. /perception/virtual_wall publishes once per processed scan (nominally the scan rate; ~6 Hz with up to 0.8 s per scan was measured live on 2026-10-14, with the tracker sharing core 5 with three other /scan nodes) and /perception/front_distance once per depth frame."
+> lidar_front_wall_wall_tracker_front_max_coast_sec:
+>   default: 0.3
+>   description: "Multi-wall tracker: the longest [s] a front track may go unmatched (COASTING, its line only predicted) and still be the heading wall of the virtual wall. Past it the track stops being the front wall and /perception/virtual_wall publishes -1.0 (no wall) until the tracker has a front track again, so the mission wall stop holds (check_stop_condition.py, WALL DISTANCE FRESHNESS) rather than run on a prediction. 0.3 s is ~10 scans at the nominal scan rate. The track itself lives on until wall_tracker_delete_after_sec (3 s)."
+766c823
+<   description: "Lowest base_link height [m] a depth point counts as an obstacle -- above floor noise and the ZED's unmeasured mount pitch. base_link is on the ground per the URDF (other docs say 0.07 m above). Obstacles lower than this are invisible to the camera path. Untuned."
+---
+>   description: "Lowest base_link height [m] a depth point counts as an obstacle -- above floor noise and the ZED's unmeasured mount pitch. base_link is on the ground per the URDF. Obstacles lower than this are invisible to the camera path. Untuned."
+769c826
+<   description: "Highest base_link height [m] a depth point counts as an obstacle: just above the car's top (LiDAR at 0.20 m plus housing), so overhead structure does not register. Untuned."
+---
+>   description: "Highest base_link height [m] a depth point counts as an obstacle: just above the car's top (LiDAR at 0.19 m plus housing), so overhead structure does not register. Untuned."
+2019a2077,2086
+> # Consumed by: f1tenth_logger/mission_logger.launch.py: starts the 5 Hz depth
+> # throttle (topic_tools) and forwards record_depth to mission_logger_node.
+> mission_logger_record_depth:
+>   default: true
+>   description: "Record ZED depth in mission bags: a topic_tools throttle republishes /zed2/zed_node/depth/depth_registered at 5 Hz on /zed2/zed_node/depth/depth_registered_5hz (~4.6 MB/s of 32FC1 640x360), recorded with /zed2/zed_node/depth/camera_info and /camera/camera_info. Needed to validate the stereo half of scene labels and the camera-vs-LiDAR wall distance offline. false: no throttle node, none of the three recorded."
+> # Consumed by: f1tenth_logger/mission_logger.launch.py, forwarded to
+> # mission_logger_node as record_annotated_image.
+> mission_logger_record_annotated_image:
+>   default: false
+>   description: "Record /camera/image_annotated (raw bgr8 at the detector rate, 134 of the 179 MB of the 2026-10-13 R007 bag) in mission bags. false: not recorded; the 5 Hz /camera/debug_image/compressed shows the same detections, and snapshots come from it."
+2583a2651,2729
+> 
+> # --- per-cycle wall fusion (wall_fusion.py, lidar_front_wall_node) -----------
+> # Step 3 of the wall pipeline: the LiDAR line fits and the stereo column
+> # profile (/perception/stereo_columns) are cross-checked column by column and
+> # emitted as stateless observations on /perception/wall_observations. The
+> # tracker consumes only those. Nothing here remembers anything.
+> front_clearance_scene_mask_cloud_stride:
+>   default: 4
+>   description: "Publish every Nth WALL point on /perception/wall_points. The cloud is for inspection, recording and the stereo-only line fits, NOT for any column decision (those are made on the full-resolution /perception/stereo_columns profile), so decimating it costs nothing real. The full set is ~50k points a frame, about 3 MB/s at 5 Hz straight into every recording."
+> front_clearance_scene_mask_column_percentile:
+>   default: 20.0
+>   description: "Which percentile of a column's WALL depths becomes that column's distance. A LiDAR beam reports its FIRST return, so the honest stereo counterpart is the NEAR end of the column, not its middle: in a column with a near wall low down and a far wall above it the median reports a surface that is not there. A percentile rather than the minimum keeps one bad pixel from deciding the column."
+> front_clearance_scene_mask_column_min_px:
+>   default: 5
+>   description: "Fewest WALL pixels in a column for it to have a stereo distance at all; below this the column reports NaN ('nothing to say'), which is a third state and never a distance."
+> lidar_front_wall_stereo_columns_max_age_s:
+>   default: 0.15
+>   description: "A /perception/stereo_columns profile is paired with a scan only when |t_scan - t_image| is under this [s], measured on the CAMERA IMAGE stamp the message carries, not its arrival. Unpaired, the profile is not used at all: those columns become LIDAR_ONLY or EMPTY and every line is emitted SOURCE_LIDAR, never a stale STEREO_ONLY -- a stereo-only span is the one path that can create a wall out of nothing, and it must never be built from a frame describing a different moment. 0.15 s is bounded by what motion compensation can still fix: at 0.5 m/s it is 7 cm of travel (harmless) but up to 7 deg of yaw at this car's 0.6 m minimum radius, which is a 32-column shift at fx 262 px and IS compensated from odometry (lidar_front_wall_node._compensate)."
+> lidar_front_wall_wall_obs_tol_base_m:
+>   default: 0.05
+>   description: "Constant part of the LiDAR/stereo agreement tolerance [m]: the part that does not come from stereo range noise (extrinsic error, the scan plane vs the column, timing). UNTUNED against a bag with depth."
+> lidar_front_wall_wall_obs_tol_quad_per_m2:
+>   default: 0.012
+>   description: "Range-squared part of the agreement tolerance [m/m^2]: tol = base + this * range^2, because stereo depth error IS quadratic (sigma_Z = Z^2 sigma_d / (fx b); on this rig, ZED 2i with a 0.12 m baseline and fx 262.4 at 640x360, half a pixel of disparity error is 1.6 cm at 1 m and 57 cm at 6 m). A FIXED tolerance would call every far column DISAGREE and every near one AGREE, which says more about the tolerance than about the sensors. 0.012 is ~0.4 px of disparity error."
+> lidar_front_wall_wall_obs_disagree_reject_frac:
+>   default: 0.5
+>   description: "Fraction of a wall's OPINIONATED columns (AGREE + DISAGREE) that must disagree before the whole observation is rejected and counted. Rejection is deliberate: when both sensors report a surface and they are too far apart to be the same one, the honest answer is that this cycle does not know, not that one of them wins. A run of rejections means the extrinsic or the depth is wrong, not that the wall moved, which is why it is published (WallObservationArray.n_rejected) and logged."
+> lidar_front_wall_wall_obs_stereo_min_columns:
+>   default: 8
+>   description: "Fewest CONTIGUOUS stereo-only columns that may become a stereo-sourced wall (glass, or a surface too dark for the LiDAR). One such column is noise: a stray pixel, a reflection edge. This is the one path where nothing cross-checks the result, so the bar is a shape the LiDAR could not plausibly have missed by accident."
+> lidar_front_wall_wall_default_height_m:
+>   default: 2.5
+>   description: "Height [m] above the floor a wall observation is assumed to have when the stereo measured no height for it (a wall outside the camera's view, or one the stereo never confirmed). Heights are only ever taken from the columns the stereo AGREED on; borrowing them for a wall it never saw would invent a measurement. 2.5 m is an indoor corridor wall, and the field is flagged (height_measured false) so a consumer can tell."
+> 
+> # --- the wall tracker's observation model and FRONT rule (step 4) ------------
+> # The tracker consumes ONLY /perception/wall_observations. An observation
+> # carries no covariance of its own, so the tracker synthesises one from the
+> # two things that determine the error: which sensor saw the wall and how far
+> # away it was (multi_wall_tracker.observation_covariance).
+> lidar_front_wall_lidar_sigma_base_m:
+>   default: 0.02
+>   description: "Constant part of a LIDAR observation's distance sigma [m]. The Hokuyo's own range error is millimetres; what this covers is the odometry the line is placed with and the extraction's own bias. Matches the existing meas_sigma_rho_min floor."
+> lidar_front_wall_lidar_sigma_per_m:
+>   default: 0.005
+>   description: "Range-proportional part of a LIDAR observation's sigma [m/m]: the beam footprint grows with range, so a far wall's line is placed slightly less well. LINEAR, not quadratic: unlike stereo, LiDAR range error does not blow up with distance, and at 6 m this is 5 cm against the stereo's 46 cm. That ratio is the honest difference between the sensors and is what makes a LiDAR wall win an argument."
+> lidar_front_wall_stereo_sigma_base_m:
+>   default: 0.03
+>   description: "Constant part of a STEREO observation's distance sigma [m]: the extrinsic and the column summary, before range noise."
+> lidar_front_wall_stereo_sigma_quad_per_m2:
+>   default: 0.012
+>   description: "Range-SQUARED part of a stereo observation's sigma [m/m^2], the same quadratic the cross-check tolerance uses and for the same reason (sigma_Z = Z^2 sigma_d / (fx b)). A wall both sensors agree on gets the inverse-variance combination of the two and is therefore TIGHTER than either alone, which is the whole point of having agreed."
+> lidar_front_wall_min_span_for_angle_m:
+>   default: 0.3
+>   description: "Shortest span [m] used when turning a distance sigma into an angle sigma (sigma_theta = sigma_rho / span). A 5 cm uncertainty on a 3 m wall pins the angle far better than the same 5 cm on a 40 cm stub, and a short segment's angle is exactly what must not be trusted. The floor stops a tiny segment producing an absurd angle sigma."
+> lidar_front_wall_stereo_confirm_hits:
+>   default: 5
+>   description: "Hits within lidar_front_wall_stereo_confirm_window that confirm a track the LiDAR has NEVER seen. Stricter than the ordinary 3-in-5 because stereo-only evidence is the weak kind: on this building's floor the stereo invents whole surfaces out of reflections, and a one-frame reflection must never leave a confirmed wall behind. A LiDAR or BOTH hit promotes the track to the ordinary rule immediately (it is no longer stereo-only); it does NOT confirm it on the spot, so one spurious line still cannot make a wall."
+> lidar_front_wall_stereo_confirm_window:
+>   default: 7
+>   description: "The window the stereo-only confirm rule counts over. Longer than the ordinary 5 so a wall must persist across more of the scene before anything acts on it."
+> lidar_front_wall_role_hysteresis_rad:
+>   default: 0.0873
+>   description: "How far past its 45 deg sector edge [rad, 5 deg] a wall keeps the role it already had. Without it a wall sitting on a boundary flips between front and left every scan as the car wobbles, and every consumer keyed on the role flips with it."
+> lidar_front_wall_stereo_front_max_normal_rad:
+>   default: 0.5236
+>   description: "A STEREO-ONLY wall may be the FRONT wall only when its normal is within this [rad, 30 deg] of the heading. Nothing cross-checks a stereo-only wall, so it may stop the car only when it is squarely across the path, never as a glancing surface. A wall the LiDAR has seen is not subject to this."
+> lidar_front_wall_front_strip_half_width_m:
+>   default: 0.186
+>   description: "Half-width [m] of the strip a track's segment must CROSS to be the FRONT wall, from the front bumper. MUST equal vehicle_frames.front_side_limit_m(). This is the test that separates 'a wall is in the way' from 'a wall's normal points roughly forwards': on an open corridor the side wall satisfies the latter for most of a turn and is nowhere near the car's path, which is how a phantom front wall appeared at 1.1 m (corridor_phantom, 2026-10-15)."
+> 
+> # --- the front wall output contract (step 5) ---------------------------------
+> wall_clear_distance_m:
+>   default: 50.0
+>   description: "The value the front wall topics carry when the sensors are working and there is NO wall in the way (wall_fusion.STATE_CLEAR). A large FINITE number, and it is not a wall at 50 m: it means 'nothing ahead'. SHARED -- every producer and consumer of a wall distance reads this one key, so 'clear' is the same number everywhere. It must stay far above any mission's stop threshold and any MPC trigger distance, and consumers must CAP or SKIP it rather than feed it into geometry (MPC_corr treats it as unknown). The state this expresses is what the old pipeline could not: with nothing in the strip the LiDAR reported too_few_returns and the stereo plane -- the SIDE wall -- became the front wall at 1.1 m (corridor_phantom, 2026-10-15)."
+> 
+> # --- wall visualisation and the semantic wall layer (step 7) -----------------
+> lidar_front_wall_wall_marker_thickness_m:
+>   default: 0.02
+>   description: "Thickness [m] of the vertical slab each confirmed wall is drawn as on /perception/walls/markers. A wall is a vertical PLANE, so it is drawn as one rather than as a line on the floor: the slab runs the wall's observed length and stands from z_min to z_max. A wall whose height was only assumed (height_measured false) is drawn fainter, so an assumed 2.5 m is visible at a glance."

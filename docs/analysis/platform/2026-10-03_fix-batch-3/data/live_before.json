@@ -1,0 +1,62 @@
+{
+  "ROS_SUPER_CLIENT": "<unset>",
+  "ROS_DISCOVERY_SERVER": "127.0.0.1:11811",
+  "ekf_cost_observer_diagnostics": {
+    "ekf_cost_observer: local EKF per-update cost": {
+      "level": 0,
+      "message": "0.12ms/tick, 0.00ms/meas, 0.00 meas/tick",
+      "cpu_ms_per_meas": "0",
+      "cpu_ms_per_tick": "0.119363",
+      "cpu_percent_of_core": "9.00461",
+      "meas_delivered": "0",
+      "meas_per_tick": "0",
+      "period_ms_max": "0",
+      "period_ms_p50": "0",
+      "period_ms_p90": "0",
+      "pid": "433149",
+      "tick_count_agreement": "0",
+      "tick_rate_hz": "754.386",
+      "ticks_inproc": "754",
+      "ticks_selfcount": "0",
+      "window_sec": "0.999488"
+    },
+    "ekf_cost_observer: global EKF per-update cost": {
+      "level": 0,
+      "message": "0.18ms/tick, 0.00ms/meas, 0.00 meas/tick",
+      "cpu_ms_per_meas": "0",
+      "cpu_ms_per_tick": "0.178571",
+      "cpu_percent_of_core": "9.00461",
+      "meas_delivered": "0",
+      "meas_per_tick": "0",
+      "period_ms_max": "0",
+      "period_ms_p50": "0",
+      "period_ms_p90": "0",
+      "pid": "433153",
+      "tick_count_agreement": "0",
+      "tick_rate_hz": "504.258",
+      "ticks_inproc": "504",
+      "ticks_selfcount": "0",
+      "window_sec": "0.999488"
+    }
+  },
+  "generic": {
+    "node_names": 31,
+    "topic_names_and_types": 5,
+    "foreign topic /odometry/filtered in get_topic_names_and_types": false,
+    "count_publishers(/odometry/filtered), no own endpoint": 0,
+    "count_subscribers(/calibration_drive), own publisher": 1,
+    "publisher.get_subscription_count() on /calibration_drive": 1,
+    "count_publishers(/safety_stop), no own endpoint": 0,
+    "service_names_and_types": 8,
+    "/restart_component in get_service_names_and_types": false,
+    "wait_for_service(/mission/start_mission, 5 s)": true,
+    "_unused": "/fb3_probe_own"
+  },
+  "steering_offset_calibration": {
+    "participants_visible": true,
+    "count_subscribers(/calibration_drive)": 1,
+    "count_publishers(/safety_stop)": 0,
+    "require_estop_publisher": true,
+    "_check_estop_path()": false
+  }
+}

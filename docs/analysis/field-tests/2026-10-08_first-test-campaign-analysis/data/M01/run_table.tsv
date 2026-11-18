@@ -1,0 +1,11 @@
+mission	short_id	repetition	status	reason	test_id	auto_outcome	manual_success
+M01_forward_3m	M01	1	valid		P001-R001-20260921T145508	completed	
+M01_forward_3m	M01	2	valid		P001-R002-20260921T145711	completed	
+M01_forward_3m	M01	3	valid		P001-R003-20260921T145854	completed	
+M01_forward_3m	M01	4	valid		P001-R004-20260921T150023	completed	
+M01_forward_3m	M01	5	valid		P001-R005-20260921T150157	completed	
+M01_forward_3m	M01	7	valid		P001-R007-20260930T173000	completed	
+M01_forward_3m	M01	8	valid		P001-R008-20260930T173125	aborted	
+M01_forward_3m	M01	9	valid		P001-R009-20260930T173424	completed	
+M01_forward_3m	M01	10	valid		P001-R010-20260930T173632	completed	
+M01_forward_3m	M01	11	valid		P001-R011-20260930T173814	completed	

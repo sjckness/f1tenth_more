@@ -1,0 +1,26 @@
+{
+ "n": 2,
+ "invalid": 0,
+ "success": 2,
+ "collision": 0,
+ "estop": 0,
+ "stuck": 0,
+ "timeout": 0,
+ "good": 2,
+ "score_mean": 88.56283636188607,
+ "score_std": 8.156499346151513,
+ "score_agg": 80.40633701573455,
+ "min_margin_m": 0.38344789688387126,
+ "max_lateral_m": 0.31530059571996344,
+ "max_sign_changes": 6,
+ "solve_failures": 0,
+ "time_to_goal_mean_s": 9.983333333000001,
+ "wall_total_s": 83.5,
+ "session": {
+  "isaac_start_s": 19.5,
+  "stack_stop_s": [
+   1.1
+  ]
+ },
+ "orphans": []
+}

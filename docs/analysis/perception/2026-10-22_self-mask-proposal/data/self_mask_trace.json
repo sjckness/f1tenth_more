@@ -1,0 +1,126 @@
+{
+  "bag": "/home/fabiocar/raw_data/corridor10m_20261015T171753",
+  "image_wh": [
+    640,
+    360
+  ],
+  "depth_topic": "/zed2/zed_node/depth/depth_registered_5hz",
+  "depth_frames": 155,
+  "rgb_frames": 28,
+  "margin_px": 8,
+  "why_not_depth": {
+    "frames": 155,
+    "near_m": 0.3,
+    "neg_inf_px_ever": 377,
+    "near_px_ever": 0,
+    "persistent_no_match_frac": 0.0996,
+    "persistent_usable_frac": 0.609
+  },
+  "current": {
+    "polygons": [
+      [
+        [
+          0.75,
+          0.55
+        ],
+        [
+          1.0,
+          0.55
+        ],
+        [
+          1.0,
+          1.0
+        ],
+        [
+          0.75,
+          1.0
+        ]
+      ],
+      [
+        [
+          0.0,
+          0.78
+        ],
+        [
+          0.16,
+          0.78
+        ],
+        [
+          0.16,
+          1.0
+        ],
+        [
+          0.0,
+          1.0
+        ]
+      ]
+    ],
+    "frac_of_frame": 0.1478,
+    "px": 34057,
+    "covers_hardware_frac_of_hardware": 1.0,
+    "covers_live_scene_frac_of_mask": 0.7442,
+    "covers_live_scene_frac_of_frame": 0.11,
+    "covers_no_match_frac_of_mask": 0.1502
+  },
+  "hardware": {
+    "frac_of_frame": 0.0361,
+    "px": 8321,
+    "method": "persistent saturated orange in the left image",
+    "outside_current_frac_of_frame": 0.0
+  },
+  "proposed": {
+    "n_polygons": 1,
+    "polygons": [
+      [
+        [
+          0.8172,
+          0.7833
+        ],
+        [
+          0.8125,
+          0.8028
+        ],
+        [
+          0.8156,
+          0.9
+        ],
+        [
+          0.8359,
+          0.95
+        ],
+        [
+          0.8703,
+          0.9972
+        ],
+        [
+          0.9984,
+          0.9972
+        ],
+        [
+          0.9984,
+          0.7611
+        ],
+        [
+          0.8812,
+          0.7444
+        ],
+        [
+          0.8359,
+          0.7583
+        ]
+      ]
+    ],
+    "frac_of_frame": 0.043,
+    "px": 9917,
+    "freed_frac_of_frame": 0.1048,
+    "newly_masked_frac_of_frame": 0.0,
+    "covers_hardware_frac_of_hardware": 1.0,
+    "covers_live_scene_frac_of_frame": 0.0414
+  },
+  "images": [
+    "self_mask_standstill_t+0.0s.png",
+    "self_mask_standstill_t+9.9s.png",
+    "self_mask_moving_t+34.5s.png",
+    "self_mask_footprint.png"
+  ]
+}

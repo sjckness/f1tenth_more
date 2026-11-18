@@ -1,0 +1,815 @@
+{
+  "recorded": {
+    "local": {
+      "n_windows": 37,
+      "ticks_inproc": {
+        "median": 504.0,
+        "p10": 502.0,
+        "p90": 505.0
+      },
+      "ticks_selfcount": {
+        "median": 48.0,
+        "p10": 46.0,
+        "p90": 50.0
+      },
+      "tick_count_agreement": {
+        "median": 10.5208,
+        "p10": 10.064,
+        "p90": 10.9783
+      },
+      "tick_rate_hz": {
+        "median": 503.748,
+        "p10": 500.5022,
+        "p90": 507.6136
+      },
+      "period_ms_p50": {
+        "median": 20.0067,
+        "p10": 19.9834,
+        "p90": 20.0483
+      },
+      "period_ms_p90": {
+        "median": 27.3986,
+        "p10": 23.04798,
+        "p90": 34.79412
+      },
+      "period_ms_max": {
+        "median": 37.7645,
+        "p10": 35.182460000000006,
+        "p90": 41.10133999999999
+      },
+      "meas_delivered": {
+        "median": 100.0,
+        "p10": 98.0,
+        "p90": 104.0
+      },
+      "meas_per_tick": {
+        "median": 0.198413,
+        "p10": 0.194059,
+        "p90": 0.205941
+      },
+      "pid": {
+        "median": 38903.0,
+        "p10": 38903.0,
+        "p90": 38903.0
+      },
+      "cpu_ms_per_tick": {
+        "median": 0.874751,
+        "p10": 0.7451358,
+        "p90": 0.9729952000000001
+      },
+      "cpu_ms_per_meas": {
+        "median": 4.4898,
+        "p10": 3.73,
+        "p90": 4.9
+      },
+      "cpu_percent_of_core": {
+        "median": 44.1555,
+        "p10": 37.73236,
+        "p90": 49.2267
+      },
+      "levels": [
+        0
+      ],
+      "message_examples": [
+        "0.69ms/tick, 3.50ms/meas, 0.20 meas/tick",
+        "0.72ms/tick, 3.56ms/meas, 0.20 meas/tick",
+        "0.72ms/tick, 3.60ms/meas, 0.20 meas/tick"
+      ]
+    },
+    "global": {
+      "n_windows": 37,
+      "ticks_inproc": {
+        "median": 503.0,
+        "p10": 502.0,
+        "p90": 504.0
+      },
+      "ticks_selfcount": {
+        "median": 47.0,
+        "p10": 45.0,
+        "p90": 49.4
+      },
+      "tick_count_agreement": {
+        "median": 10.7021,
+        "p10": 10.178939999999999,
+        "p90": 11.2
+      },
+      "tick_rate_hz": {
+        "median": 503.652,
+        "p10": 499.1866,
+        "p90": 506.8362
+      },
+      "period_ms_p50": {
+        "median": 20.0074,
+        "p10": 19.98352,
+        "p90": 20.04986
+      },
+      "period_ms_p90": {
+        "median": 33.4604,
+        "p10": 23.37418,
+        "p90": 34.953140000000005
+      },
+      "period_ms_max": {
+        "median": 39.9609,
+        "p10": 35.66526,
+        "p90": 55.23464
+      },
+      "meas_delivered": {
+        "median": 49.0,
+        "p10": 47.0,
+        "p90": 52.4
+      },
+      "meas_per_tick": {
+        "median": 0.0974155,
+        "p10": 0.0934769,
+        "p90": 0.1040522
+      },
+      "pid": {
+        "median": 38909.0,
+        "p10": 38909.0,
+        "p90": 38909.0
+      },
+      "cpu_ms_per_tick": {
+        "median": 0.856574,
+        "p10": 0.7460316,
+        "p90": 0.974155
+      },
+      "cpu_ms_per_meas": {
+        "median": 8.77551,
+        "p10": 7.5306120000000005,
+        "p90": 10.083319999999999
+      },
+      "cpu_percent_of_core": {
+        "median": 43.3492,
+        "p10": 37.66244,
+        "p90": 49.10614
+      },
+      "levels": [
+        0
+      ],
+      "message_examples": [
+        "0.50ms/tick, 5.00ms/meas, 0.10 meas/tick",
+        "0.70ms/tick, 6.60ms/meas, 0.11 meas/tick",
+        "0.72ms/tick, 7.35ms/meas, 0.10 meas/tick"
+      ]
+    }
+  },
+  "runs": {
+    "jazzy_1": {
+      "local": {
+        "n_windows": 40,
+        "ticks_inproc": {
+          "median": 504.0,
+          "p10": 502.0,
+          "p90": 505.0
+        },
+        "ticks_selfcount": {
+          "median": 47.0,
+          "p10": 45.9,
+          "p90": 49.1
+        },
+        "tick_count_agreement": {
+          "median": 10.70215,
+          "p10": 10.23041,
+          "p90": 11.002690000000001
+        },
+        "tick_rate_hz": {
+          "median": 503.997,
+          "p10": 502.00190000000003,
+          "p90": 505.0031
+        },
+        "period_ms_p50": {
+          "median": 20.0133,
+          "p10": 19.98569,
+          "p90": 20.058690000000002
+        },
+        "period_ms_p90": {
+          "median": 32.826899999999995,
+          "p10": 23.16827,
+          "p90": 34.942600000000006
+        },
+        "period_ms_max": {
+          "median": 38.45775,
+          "p10": 35.189840000000004,
+          "p90": 40.86716
+        },
+        "meas_delivered": {
+          "median": 50.0,
+          "p10": 48.9,
+          "p90": 50.0
+        },
+        "meas_per_tick": {
+          "median": 0.0992063,
+          "p10": 0.09704272,
+          "p90": 0.0996016
+        },
+        "pid": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_ms_per_tick": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_ms_per_meas": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_percent_of_core": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "levels": [
+          1
+        ],
+        "message_examples": [
+          "ekf_filter_node not found in /proc"
+        ]
+      },
+      "global": {
+        "n_windows": 40,
+        "ticks_inproc": {
+          "median": 503.0,
+          "p10": 502.0,
+          "p90": 504.0
+        },
+        "ticks_selfcount": {
+          "median": 47.0,
+          "p10": 44.8,
+          "p90": 49.0
+        },
+        "tick_count_agreement": {
+          "median": 10.7234,
+          "p10": 10.2449,
+          "p90": 11.25209
+        },
+        "tick_rate_hz": {
+          "median": 502.9995,
+          "p10": 501.997,
+          "p90": 504.004
+        },
+        "period_ms_p50": {
+          "median": 20.01715,
+          "p10": 19.98351,
+          "p90": 20.098889999999997
+        },
+        "period_ms_p90": {
+          "median": 34.4527,
+          "p10": 24.26798,
+          "p90": 35.26046
+        },
+        "period_ms_max": {
+          "median": 39.9748,
+          "p10": 35.42172,
+          "p90": 55.99695
+        },
+        "meas_delivered": {
+          "median": 49.0,
+          "p10": 47.0,
+          "p90": 51.0
+        },
+        "meas_per_tick": {
+          "median": 0.0976096,
+          "p10": 0.09342086000000001,
+          "p90": 0.1014122
+        },
+        "pid": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_ms_per_tick": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_ms_per_meas": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_percent_of_core": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "levels": [
+          1
+        ],
+        "message_examples": [
+          "ekf_global_filter_node not found in /proc"
+        ]
+      }
+    },
+    "jazzy_2": {
+      "local": {
+        "n_windows": 40,
+        "ticks_inproc": {
+          "median": 504.0,
+          "p10": 502.0,
+          "p90": 505.0
+        },
+        "ticks_selfcount": {
+          "median": 48.0,
+          "p10": 44.9,
+          "p90": 49.1
+        },
+        "tick_count_agreement": {
+          "median": 10.5208,
+          "p10": 10.23041,
+          "p90": 11.247710000000001
+        },
+        "tick_rate_hz": {
+          "median": 503.9975,
+          "p10": 502.001,
+          "p90": 505.003
+        },
+        "period_ms_p50": {
+          "median": 20.009999999999998,
+          "p10": 19.9809,
+          "p90": 20.12337
+        },
+        "period_ms_p90": {
+          "median": 32.678,
+          "p10": 23.16827,
+          "p90": 34.942600000000006
+        },
+        "period_ms_max": {
+          "median": 38.45775,
+          "p10": 35.189840000000004,
+          "p90": 40.86716
+        },
+        "meas_delivered": {
+          "median": 50.0,
+          "p10": 48.0,
+          "p90": 50.0
+        },
+        "meas_per_tick": {
+          "median": 0.0992063,
+          "p10": 0.0954274,
+          "p90": 0.0996016
+        },
+        "pid": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_ms_per_tick": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_ms_per_meas": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_percent_of_core": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "levels": [
+          1
+        ],
+        "message_examples": [
+          "ekf_filter_node not found in /proc"
+        ]
+      },
+      "global": {
+        "n_windows": 40,
+        "ticks_inproc": {
+          "median": 503.0,
+          "p10": 502.0,
+          "p90": 504.0
+        },
+        "ticks_selfcount": {
+          "median": 47.0,
+          "p10": 44.8,
+          "p90": 49.0
+        },
+        "tick_count_agreement": {
+          "median": 10.7234,
+          "p10": 10.2449,
+          "p90": 11.24744
+        },
+        "tick_rate_hz": {
+          "median": 503.0005,
+          "p10": 501.9968,
+          "p90": 504.002
+        },
+        "period_ms_p50": {
+          "median": 20.018349999999998,
+          "p10": 19.988770000000002,
+          "p90": 20.101229999999997
+        },
+        "period_ms_p90": {
+          "median": 34.536249999999995,
+          "p10": 24.26798,
+          "p90": 35.23003
+        },
+        "period_ms_max": {
+          "median": 39.9878,
+          "p10": 35.42172,
+          "p90": 55.99695
+        },
+        "meas_delivered": {
+          "median": 49.0,
+          "p10": 46.0,
+          "p90": 51.0
+        },
+        "meas_per_tick": {
+          "median": 0.0976096,
+          "p10": 0.09159713000000001,
+          "p90": 0.1014122
+        },
+        "pid": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_ms_per_tick": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_ms_per_meas": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_percent_of_core": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "levels": [
+          1
+        ],
+        "message_examples": [
+          "ekf_global_filter_node not found in /proc"
+        ]
+      }
+    },
+    "jazzy_3": {
+      "local": {
+        "n_windows": 40,
+        "ticks_inproc": {
+          "median": 504.0,
+          "p10": 502.0,
+          "p90": 505.0
+        },
+        "ticks_selfcount": {
+          "median": 47.5,
+          "p10": 45.0,
+          "p90": 49.0
+        },
+        "tick_count_agreement": {
+          "median": 10.60085,
+          "p10": 10.23041,
+          "p90": 11.2222
+        },
+        "tick_rate_hz": {
+          "median": 503.99350000000004,
+          "p10": 502.01030000000003,
+          "p90": 505.1232
+        },
+        "period_ms_p50": {
+          "median": 20.009549999999997,
+          "p10": 19.982660000000003,
+          "p90": 20.07299
+        },
+        "period_ms_p90": {
+          "median": 34.42315,
+          "p10": 22.778,
+          "p90": 35.20055
+        },
+        "period_ms_max": {
+          "median": 38.45775,
+          "p10": 35.14717,
+          "p90": 40.86716
+        },
+        "meas_delivered": {
+          "median": 50.0,
+          "p10": 49.0,
+          "p90": 51.0
+        },
+        "meas_per_tick": {
+          "median": 0.0991081,
+          "p10": 0.0970297,
+          "p90": 0.10119
+        },
+        "pid": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_ms_per_tick": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_ms_per_meas": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_percent_of_core": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "levels": [
+          1
+        ],
+        "message_examples": [
+          "ekf_filter_node not found in /proc"
+        ]
+      },
+      "global": {
+        "n_windows": 40,
+        "ticks_inproc": {
+          "median": 503.0,
+          "p10": 502.0,
+          "p90": 504.0
+        },
+        "ticks_selfcount": {
+          "median": 47.0,
+          "p10": 43.9,
+          "p90": 49.0
+        },
+        "tick_count_agreement": {
+          "median": 10.6915,
+          "p10": 10.2449,
+          "p90": 11.47649
+        },
+        "tick_rate_hz": {
+          "median": 502.995,
+          "p10": 501.9556,
+          "p90": 504.0338
+        },
+        "period_ms_p50": {
+          "median": 20.016199999999998,
+          "p10": 19.98228,
+          "p90": 20.074730000000002
+        },
+        "period_ms_p90": {
+          "median": 34.67635,
+          "p10": 24.23837,
+          "p90": 35.30623
+        },
+        "period_ms_max": {
+          "median": 39.9878,
+          "p10": 35.42014,
+          "p90": 55.99695
+        },
+        "meas_delivered": {
+          "median": 49.0,
+          "p10": 47.0,
+          "p90": 51.0
+        },
+        "meas_per_tick": {
+          "median": 0.09751255,
+          "p10": 0.09342086000000001,
+          "p90": 0.101409
+        },
+        "pid": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_ms_per_tick": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_ms_per_meas": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "cpu_percent_of_core": {
+          "median": 0.0,
+          "p10": 0.0,
+          "p90": 0.0
+        },
+        "levels": [
+          1
+        ],
+        "message_examples": [
+          "ekf_global_filter_node not found in /proc"
+        ]
+      }
+    }
+  },
+  "comparison": {
+    "local.ticks_inproc": {
+      "jazzy_medians": [
+        504.0,
+        504.0,
+        504.0
+      ],
+      "floor_spread": 0.0,
+      "recorded_median": 504.0,
+      "recorded_minus_jazzy_mean": 0.0
+    },
+    "local.ticks_selfcount": {
+      "jazzy_medians": [
+        47.0,
+        48.0,
+        47.5
+      ],
+      "floor_spread": 1.0,
+      "recorded_median": 48.0,
+      "recorded_minus_jazzy_mean": 0.5
+    },
+    "local.tick_count_agreement": {
+      "jazzy_medians": [
+        10.70215,
+        10.5208,
+        10.60085
+      ],
+      "floor_spread": 0.18135000000000012,
+      "recorded_median": 10.5208,
+      "recorded_minus_jazzy_mean": -0.08713333333333395
+    },
+    "local.tick_rate_hz": {
+      "jazzy_medians": [
+        503.997,
+        503.9975,
+        503.99350000000004
+      ],
+      "floor_spread": 0.003999999999962256,
+      "recorded_median": 503.748,
+      "recorded_minus_jazzy_mean": -0.2480000000000473
+    },
+    "local.period_ms_p50": {
+      "jazzy_medians": [
+        20.0133,
+        20.009999999999998,
+        20.009549999999997
+      ],
+      "floor_spread": 0.003750000000003695,
+      "recorded_median": 20.0067,
+      "recorded_minus_jazzy_mean": -0.004249999999998977
+    },
+    "local.period_ms_p90": {
+      "jazzy_medians": [
+        32.826899999999995,
+        32.678,
+        34.42315
+      ],
+      "floor_spread": 1.7451500000000024,
+      "recorded_median": 27.3986,
+      "recorded_minus_jazzy_mean": -5.910749999999997
+    },
+    "local.period_ms_max": {
+      "jazzy_medians": [
+        38.45775,
+        38.45775,
+        38.45775
+      ],
+      "floor_spread": 0.0,
+      "recorded_median": 37.7645,
+      "recorded_minus_jazzy_mean": -0.693249999999999
+    },
+    "local.meas_delivered": {
+      "jazzy_medians": [
+        50.0,
+        50.0,
+        50.0
+      ],
+      "floor_spread": 0.0,
+      "recorded_median": 100.0,
+      "recorded_minus_jazzy_mean": 50.0
+    },
+    "local.meas_per_tick": {
+      "jazzy_medians": [
+        0.0992063,
+        0.0992063,
+        0.0991081
+      ],
+      "floor_spread": 9.819999999999274e-05,
+      "recorded_median": 0.198413,
+      "recorded_minus_jazzy_mean": 0.09923943333333335
+    },
+    "global.ticks_inproc": {
+      "jazzy_medians": [
+        503.0,
+        503.0,
+        503.0
+      ],
+      "floor_spread": 0.0,
+      "recorded_median": 503.0,
+      "recorded_minus_jazzy_mean": 0.0
+    },
+    "global.ticks_selfcount": {
+      "jazzy_medians": [
+        47.0,
+        47.0,
+        47.0
+      ],
+      "floor_spread": 0.0,
+      "recorded_median": 47.0,
+      "recorded_minus_jazzy_mean": 0.0
+    },
+    "global.tick_count_agreement": {
+      "jazzy_medians": [
+        10.7234,
+        10.7234,
+        10.6915
+      ],
+      "floor_spread": 0.03190000000000026,
+      "recorded_median": 10.7021,
+      "recorded_minus_jazzy_mean": -0.010666666666667268
+    },
+    "global.tick_rate_hz": {
+      "jazzy_medians": [
+        502.9995,
+        503.0005,
+        502.995
+      ],
+      "floor_spread": 0.005499999999983629,
+      "recorded_median": 503.652,
+      "recorded_minus_jazzy_mean": 0.6536666666667088
+    },
+    "global.period_ms_p50": {
+      "jazzy_medians": [
+        20.01715,
+        20.018349999999998,
+        20.016199999999998
+      ],
+      "floor_spread": 0.0021500000000003183,
+      "recorded_median": 20.0074,
+      "recorded_minus_jazzy_mean": -0.009833333333332916
+    },
+    "global.period_ms_p90": {
+      "jazzy_medians": [
+        34.4527,
+        34.536249999999995,
+        34.67635
+      ],
+      "floor_spread": 0.22364999999999924,
+      "recorded_median": 33.4604,
+      "recorded_minus_jazzy_mean": -1.094699999999996
+    },
+    "global.period_ms_max": {
+      "jazzy_medians": [
+        39.9748,
+        39.9878,
+        39.9878
+      ],
+      "floor_spread": 0.012999999999998124,
+      "recorded_median": 39.9609,
+      "recorded_minus_jazzy_mean": -0.022566666666662627
+    },
+    "global.meas_delivered": {
+      "jazzy_medians": [
+        49.0,
+        49.0,
+        49.0
+      ],
+      "floor_spread": 0.0,
+      "recorded_median": 49.0,
+      "recorded_minus_jazzy_mean": 0.0
+    },
+    "global.meas_per_tick": {
+      "jazzy_medians": [
+        0.0976096,
+        0.0976096,
+        0.09751255
+      ],
+      "floor_spread": 9.70500000000013e-05,
+      "recorded_median": 0.0974155,
+      "recorded_minus_jazzy_mean": -0.00016175000000000217
+    }
+  },
+  "recorded_system_status": {
+    "n": 41,
+    "n_cores": 12,
+    "cpu_percent": [
+      87.30000305175781,
+      95.0999984741211
+    ],
+    "ram_total_mb": 62841.203125,
+    "cpu_temp_c": [
+      54.6870002746582,
+      55.28099822998047
+    ],
+    "gpu_percent": [
+      5.599999904632568,
+      99.19999694824219
+    ],
+    "gpu_temp_c": [
+      48.71799850463867,
+      49.25
+    ],
+    "emc_percent": [
+      0.0,
+      0.0
+    ]
+  }
+}

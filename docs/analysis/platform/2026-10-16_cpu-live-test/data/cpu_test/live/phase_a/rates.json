@@ -1,0 +1,63 @@
+{
+ "duration_s": 60.0,
+ "absent_from_the_graph": [
+  "/mpc/diagnostics"
+ ],
+ "rates": {
+  "/scan": {
+   "messages": 2185,
+   "hz": 39.9,
+   "span_s": 54.77
+  },
+  "/odometry/filtered": {
+   "messages": 2656,
+   "hz": 48.43,
+   "span_s": 54.84
+  },
+  "/zed2/zed_node/depth/camera_info": {
+   "messages": 0,
+   "hz": null,
+   "span_s": 0.0
+  },
+  "/perception/stereo_columns": {
+   "messages": 0,
+   "hz": null,
+   "span_s": 0.0
+  },
+  "/perception/scene_labels": {
+   "messages": 0,
+   "hz": null,
+   "span_s": 0.0
+  },
+  "/perception/walls": {
+   "messages": 547,
+   "hz": 9.98,
+   "span_s": 54.8
+  },
+  "/mpc/diagnostics": {
+   "messages": 0,
+   "hz": null,
+   "span_s": 0.0
+  },
+  "/diagnostics": {
+   "messages": 550,
+   "hz": 10.05,
+   "span_s": 54.75
+  },
+  "/perception/virtual_wall/debug": {
+   "messages": 2184,
+   "hz": 39.88,
+   "span_s": 54.76
+  },
+  "/perception/scene_labels/stats": {
+   "messages": 0,
+   "hz": null,
+   "span_s": 0.0
+  },
+  "/mpc/status": {
+   "messages": 0,
+   "hz": null,
+   "span_s": 0.0
+  }
+ }
+}

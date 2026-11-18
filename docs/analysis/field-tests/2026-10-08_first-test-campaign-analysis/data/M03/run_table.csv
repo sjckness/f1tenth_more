@@ -1,0 +1,8 @@
+mission,short_id,repetition,status,reason,test_id,auto_outcome,manual_success
+M03_bottle,M03,4,valid,,P003-R004-20260928T165409,completed,
+M03_bottle,M03,5,valid,,P003-R005-20260928T165545,completed,
+M03_bottle,M03,6,valid,,P003-R006-20260928T165817,completed,
+M03_bottle,M03,7,valid,,P003-R007-20260928T165947,aborted,
+M03_bottle,M03,8,valid,,P003-R008-20260928T170036,aborted,
+M03_bottle,M03,9,valid,,P003-R009-20260928T170138,completed,
+M03_bottle,M03,10,valid,,P003-R010-20260928T170337,completed,

@@ -1,0 +1,26 @@
+{
+  "load": {
+    "success": true,
+    "message": "loaded 'phase5_logger_hold', 1 moves",
+    "t": 3.551
+  },
+  "start": {
+    "success": true,
+    "message": "starting in 3.0 s",
+    "t": 3.646
+  },
+  "states": [
+    {
+      "t": 3.751,
+      "state": "LOADED"
+    },
+    {
+      "t": 6.647,
+      "state": "RUNNING"
+    },
+    {
+      "t": 18.871,
+      "state": "COMPLETE"
+    }
+  ]
+}

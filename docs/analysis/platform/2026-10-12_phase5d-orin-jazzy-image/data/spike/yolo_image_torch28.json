@@ -1,0 +1,21 @@
+guard: host clear (no Humble/ROS process, UDP 11811 free, no other f1tenth container)
+WARNING ⚠️ user config directory '/tmp/home/ultralytics/Ultralytics' is not writable, using '/tmp/Ultralytics'. Set YOLO_CONFIG_DIR to override.
+Creating new Ultralytics Settings v0.0.6 file ✅ 
+View Ultralytics Settings with 'yolo settings' or at '/tmp/Ultralytics/settings.json'
+Update Settings with 'yolo settings key=value', i.e. 'yolo settings runs_dir=path/to/dir'. For help see https://docs.ultralytics.com/quickstart/#ultralytics-settings.
+{
+ "python": "3.12.3",
+ "torch": "2.8.0",
+ "cuda": "12.9",
+ "cudnn": 91002,
+ "ultralytics": "8.4.90",
+ "cv2": "4.11.0",
+ "numpy": "1.26.4",
+ "model": "yolo26s-seg.pt",
+ "conf": 0.3,
+ "device": "cuda",
+ "images": 95,
+ "detections": 36,
+ "latency_ms_mean": 48.59,
+ "latency_ms_p95": 48.89
+}

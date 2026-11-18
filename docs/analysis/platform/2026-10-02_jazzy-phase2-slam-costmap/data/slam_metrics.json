@@ -1,0 +1,176 @@
+{
+  "layer": "slam",
+  "humble_bag": "/home/andre/bags/humble_reference/humble_obstacle_run/bag",
+  "jazzy_bags": [
+    "/home/andre/dev_ws/f1tenth_more/output/phase2/runs/jazzy_slam_1/bag",
+    "/home/andre/dev_ws/f1tenth_more/output/phase2/runs/jazzy_slam_2/bag",
+    "/home/andre/dev_ws/f1tenth_more/output/phase2/runs/jazzy_slam_3/bag"
+  ],
+  "humble_n": 73,
+  "jazzy_n": [
+    72,
+    72,
+    72
+  ],
+  "noise_floor_raw_event_match": [
+    {
+      "label": "jazzy_1_vs_jazzy_2",
+      "n_ref": 72,
+      "n_matched": 0,
+      "match_rate": 0.0
+    },
+    {
+      "label": "jazzy_1_vs_jazzy_3",
+      "n_ref": 72,
+      "n_matched": 72,
+      "match_rate": 1.0,
+      "pos_err_rms": 0.0,
+      "pos_err_p95": 0.0,
+      "pos_err_max": 0.0,
+      "yaw_err_rms_deg": 0.0,
+      "yaw_err_p95_deg": 0.0,
+      "yaw_err_max_deg": 0.0
+    },
+    {
+      "label": "jazzy_2_vs_jazzy_3",
+      "n_ref": 72,
+      "n_matched": 0,
+      "match_rate": 0.0
+    }
+  ],
+  "jazzy_vs_humble_raw_event_match": [
+    {
+      "label": "jazzy_1_vs_humble",
+      "n_ref": 72,
+      "n_matched": 0,
+      "match_rate": 0.0
+    },
+    {
+      "label": "jazzy_2_vs_humble",
+      "n_ref": 72,
+      "n_matched": 69,
+      "match_rate": 0.9583333333333334,
+      "pos_err_rms": 0.16319820630656015,
+      "pos_err_p95": 0.1737041096319364,
+      "pos_err_max": 0.17441533179740373,
+      "yaw_err_rms_deg": 0.10213151320140383,
+      "yaw_err_p95_deg": 0.1999622705006442,
+      "yaw_err_max_deg": 0.1999622705006442
+    },
+    {
+      "label": "jazzy_3_vs_humble",
+      "n_ref": 72,
+      "n_matched": 0,
+      "match_rate": 0.0
+    }
+  ],
+  "resampled_1hz": {
+    "period_sec": 1.0,
+    "n_samples": 42,
+    "noise_floor": [
+      {
+        "label": "jazzy_1_vs_jazzy_2",
+        "n": 41,
+        "pos_err_rms": 0.09331477079889294,
+        "pos_err_max": 0.13297698390281226,
+        "yaw_err_rms_deg": 1.2383192408920856,
+        "yaw_err_max_deg": 4.258925692941533
+      },
+      {
+        "label": "jazzy_1_vs_jazzy_3",
+        "n": 41,
+        "pos_err_rms": 0.0,
+        "pos_err_max": 0.0,
+        "yaw_err_rms_deg": 0.0,
+        "yaw_err_max_deg": 0.0
+      },
+      {
+        "label": "jazzy_2_vs_jazzy_3",
+        "n": 41,
+        "pos_err_rms": 0.09331477079889294,
+        "pos_err_max": 0.13297698390281226,
+        "yaw_err_rms_deg": 1.2383192408920856,
+        "yaw_err_max_deg": 4.258925692941533
+      }
+    ],
+    "jazzy_vs_humble": [
+      {
+        "label": "jazzy_1_vs_humble",
+        "n": 41,
+        "pos_err_rms": 0.17558811894481977,
+        "pos_err_max": 0.2827991666447759,
+        "yaw_err_rms_deg": 0.8024853244812045,
+        "yaw_err_max_deg": 3.2893510286660623
+      },
+      {
+        "label": "jazzy_2_vs_humble",
+        "n": 42,
+        "pos_err_rms": 0.16818530822023126,
+        "pos_err_max": 0.2507889408683723,
+        "yaw_err_rms_deg": 0.9820081391920661,
+        "yaw_err_max_deg": 4.431788292425974
+      },
+      {
+        "label": "jazzy_3_vs_humble",
+        "n": 41,
+        "pos_err_rms": 0.17558811894481977,
+        "pos_err_max": 0.2827991666447759,
+        "yaw_err_rms_deg": 0.8024853244812045,
+        "yaw_err_max_deg": 3.2893510286660623
+      }
+    ]
+  },
+  "humble_map_n": 10,
+  "jazzy_map_n": [
+    9,
+    9,
+    9
+  ],
+  "map_comparison": [
+    {
+      "run": 1,
+      "n_maps": 9,
+      "comparison": {
+        "ref_width": 510,
+        "ref_height": 356,
+        "other_width": 384,
+        "other_height": 355,
+        "ref_known_cells": 78518,
+        "other_known_cells": 70057,
+        "both_known_cells": 64121,
+        "occ_vs_free_agreement": 0.9608396625130613,
+        "mean_abs_occupancy_diff": 3.9160337486938754
+      }
+    },
+    {
+      "run": 2,
+      "n_maps": 9,
+      "comparison": {
+        "ref_width": 510,
+        "ref_height": 356,
+        "other_width": 390,
+        "other_height": 355,
+        "ref_known_cells": 78518,
+        "other_known_cells": 69552,
+        "both_known_cells": 63834,
+        "occ_vs_free_agreement": 0.9625278064981044,
+        "mean_abs_occupancy_diff": 3.747219350189554
+      }
+    },
+    {
+      "run": 3,
+      "n_maps": 9,
+      "comparison": {
+        "ref_width": 510,
+        "ref_height": 356,
+        "other_width": 384,
+        "other_height": 355,
+        "ref_known_cells": 78518,
+        "other_known_cells": 70057,
+        "both_known_cells": 64121,
+        "occ_vs_free_agreement": 0.9608396625130613,
+        "mean_abs_occupancy_diff": 3.9160337486938754
+      }
+    }
+  ]
+}

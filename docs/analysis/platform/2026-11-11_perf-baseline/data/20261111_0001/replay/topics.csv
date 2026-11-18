@@ -1,0 +1,65 @@
+topic,type,run,n,rate_hz,stamp_p50_ms,stamp_p95_ms,stamp_max_ms,rx_p50_ms,rx_p95_ms,lost,period_valid
+/behavior/tree_status,f1tenth_messages/msg/BehaviorTreeStatus,run1,520,10.0,100.0,102.3,178.65,100.32,149.21,0,yes
+/behavior/tree_status,f1tenth_messages/msg/BehaviorTreeStatus,run2,520,10.0,100.0,101.77,179.99,100.24,124.49,0,yes
+/camera/detections,vision_msgs/msg/Detection2DArray,run1,431,8.29,,,,,,7,no (probe lost messages)
+/camera/detections,vision_msgs/msg/Detection2DArray,run2,447,8.6,,,,,,20,no (probe lost messages)
+/camera/detections_3d,vision_msgs/msg/Detection3DArray,run1,405,7.79,100.01,319.66,980.28,86.09,395.47,0,yes
+/camera/detections_3d,vision_msgs/msg/Detection3DArray,run2,410,7.88,99.8,312.6,860.03,73.39,434.39,0,yes
+/costmap/boundaries,f1tenth_messages/msg/BoundaryConstraintArray,run1,520,10.0,100.0,101.69,108.02,100.23,143.18,0,yes
+/costmap/boundaries,f1tenth_messages/msg/BoundaryConstraintArray,run2,520,10.0,100.0,101.65,106.48,99.85,122.0,0,yes
+/costmap/front_clearance,std_msgs/msg/Float32,run1,520,10.0,,,,100.05,142.37,0,yes
+/costmap/front_clearance,std_msgs/msg/Float32,run2,516,9.92,,,,100.16,124.09,0,yes
+/costmap/semantic_objects,f1tenth_messages/msg/SemanticObjectArray,run1,520,10.0,100.0,101.69,108.02,100.83,145.31,0,yes
+/costmap/semantic_objects,f1tenth_messages/msg/SemanticObjectArray,run2,520,10.0,100.0,101.65,106.48,100.05,122.97,0,yes
+/costmap/semantic_obstacles,f1tenth_messages/msg/Obstacle2DArray,run1,520,10.0,100.0,101.69,108.02,100.79,146.3,0,yes
+/costmap/semantic_obstacles,f1tenth_messages/msg/Obstacle2DArray,run2,520,10.0,100.0,101.65,106.48,100.52,122.22,0,yes
+/diagnostics/system_status,f1tenth_messages/msg/SystemStatus,run1,52,1.0,1000.0,1001.08,1001.45,1000.16,1012.99,0,yes
+/diagnostics/system_status,f1tenth_messages/msg/SystemStatus,run2,52,1.0,1000.0,1000.55,1001.06,1000.91,1009.63,0,yes
+/drive,ackermann_msgs/msg/AckermannDriveStamped,run1,518,9.96,100.0,109.79,179.13,98.83,153.7,0,yes
+/drive,ackermann_msgs/msg/AckermannDriveStamped,run2,519,9.98,100.0,104.41,140.44,98.77,157.95,0,yes
+/ekf_global/odometry/filtered,nav_msgs/msg/Odometry,run1,1035,19.9,46.35,79.93,100.17,47.42,95.58,0,yes
+/ekf_global/odometry/filtered,nav_msgs/msg/Odometry,run2,1031,19.83,54.82,79.98,105.17,48.35,75.18,0,yes
+/mpc/solver_status,f1tenth_messages/msg/MpcSolverStatus,run1,493,9.48,100.0,117.34,179.13,98.61,133.81,0,yes
+/mpc/solver_status,f1tenth_messages/msg/MpcSolverStatus,run2,460,8.85,100.0,117.61,140.44,98.79,179.76,0,yes
+/mpc/speed_channel,f1tenth_messages/msg/SpeedChannelStatus,run1,518,9.96,100.0,109.79,179.13,98.41,157.36,0,yes
+/mpc/speed_channel,f1tenth_messages/msg/SpeedChannelStatus,run2,519,9.98,100.0,104.41,140.44,98.81,157.85,0,yes
+/odometry/filtered,nav_msgs/msg/Odometry,run1,2255,43.37,20.05,40.19,60.07,20.57,48.82,0,yes
+/odometry/filtered,nav_msgs/msg/Odometry,run2,2109,40.56,20.11,41.03,61.19,21.24,48.01,0,yes
+/perception/doors_semantic,f1tenth_messages/msg/DoorArray,run1,448,8.62,119.82,139.84,141.04,115.95,170.13,0,yes
+/perception/doors_semantic,f1tenth_messages/msg/DoorArray,run2,448,8.62,119.78,139.97,142.5,115.07,174.25,0,yes
+/perception/front_distance,std_msgs/msg/Float32,run1,552,10.62,,,,54.98,296.48,0,yes
+/perception/front_distance,std_msgs/msg/Float32,run2,577,11.1,,,,63.63,272.9,0,yes
+/perception/lidar_front_wall_virtual,f1tenth_messages/msg/WallEstimate,run1,2056,39.54,29.38,30.18,70.03,21.71,63.48,0,yes
+/perception/lidar_front_wall_virtual,f1tenth_messages/msg/WallEstimate,run2,2056,39.54,29.38,30.16,80.01,21.74,62.59,0,yes
+/perception/obstacles_2d,f1tenth_messages/msg/Obstacle2DArray,run1,405,7.79,100.01,319.66,980.28,85.48,397.05,0,yes
+/perception/obstacles_2d,f1tenth_messages/msg/Obstacle2DArray,run2,410,7.88,99.8,312.6,860.03,72.4,433.31,0,yes
+/perception/scene_labels,sensor_msgs/msg/Image,run1,191,3.67,250.13,438.65,599.13,254.41,429.4,0,yes
+/perception/scene_labels,sensor_msgs/msg/Image,run2,193,3.71,259.7,400.0,700.01,253.8,411.31,0,yes
+/perception/stereo_columns,f1tenth_messages/msg/StereoColumns,run1,191,3.67,250.13,438.65,599.13,255.09,433.42,0,yes
+/perception/stereo_columns,f1tenth_messages/msg/StereoColumns,run2,193,3.71,259.7,400.0,700.01,252.84,412.91,0,yes
+/perception/virtual_wall,std_msgs/msg/Float32,run1,512,9.85,,,,100.15,160.54,0,yes
+/perception/virtual_wall,std_msgs/msg/Float32,run2,514,9.88,,,,99.92,159.17,0,yes
+/perception/wall_observations,f1tenth_messages/msg/WallObservationArray,run1,514,9.88,100.01,110.04,169.99,100.25,158.83,0,yes
+/perception/wall_observations,f1tenth_messages/msg/WallObservationArray,run2,514,9.88,100.0,110.04,169.9,100.47,155.77,0,yes
+/perception/walls,f1tenth_messages/msg/MultiWallTrackArray,run1,514,9.88,100.01,110.04,169.99,100.06,160.16,0,yes
+/perception/walls,f1tenth_messages/msg/MultiWallTrackArray,run2,514,9.88,100.0,110.04,169.9,99.84,160.24,0,yes
+/scan,sensor_msgs/msg/LaserScan,run1,2074,39.88,,,,,,1,no (probe lost messages)
+/scan,sensor_msgs/msg/LaserScan,run2,2073,39.87,,,,,,2,no (probe lost messages)
+/tf,tf2_msgs/msg/TFMessage,run1,3809,73.25,,,,11.62,36.44,0,yes
+/tf,tf2_msgs/msg/TFMessage,run2,3660,70.38,,,,11.59,39.62,0,yes
+/tf[chassis->left_rear_wheel],tf edge,run1,520,10.0,100.0,101.69,108.02,,,0,yes
+/tf[chassis->left_rear_wheel],tf edge,run2,520,10.0,100.0,101.65,106.48,,,0,yes
+/tf[chassis->left_steering_hinge],tf edge,run1,520,10.0,100.0,101.69,108.02,,,0,yes
+/tf[chassis->left_steering_hinge],tf edge,run2,520,10.0,100.0,101.65,106.48,,,0,yes
+/tf[chassis->right_rear_wheel],tf edge,run1,520,10.0,100.0,101.69,108.02,,,0,yes
+/tf[chassis->right_rear_wheel],tf edge,run2,520,10.0,100.0,101.65,106.48,,,0,yes
+/tf[chassis->right_steering_hinge],tf edge,run1,520,10.0,100.0,101.69,108.02,,,0,yes
+/tf[chassis->right_steering_hinge],tf edge,run2,520,10.0,100.0,101.65,106.48,,,0,yes
+/tf[left_steering_hinge->left_front_wheel],tf edge,run1,520,10.0,100.0,101.69,108.02,,,0,yes
+/tf[left_steering_hinge->left_front_wheel],tf edge,run2,520,10.0,100.0,101.65,106.48,,,0,yes
+/tf[map->odom],tf edge,run1,1035,19.9,46.35,79.93,100.17,,,0,yes
+/tf[map->odom],tf edge,run2,1031,19.83,54.82,79.98,105.17,,,0,yes
+/tf[odom->base_link],tf edge,run1,2254,43.35,20.05,40.19,60.07,,,0,yes
+/tf[odom->base_link],tf edge,run2,2109,40.56,20.11,41.03,61.19,,,0,yes
+/tf[right_steering_hinge->right_front_wheel],tf edge,run1,520,10.0,100.0,101.69,108.02,,,0,yes
+/tf[right_steering_hinge->right_front_wheel],tf edge,run2,520,10.0,100.0,101.65,106.48,,,0,yes

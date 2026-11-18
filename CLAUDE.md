@@ -86,3 +86,10 @@ the terminal's Ctrl-C reaching the child through the process group.
 silently downgrades the package type to plain `python`, which then shows up as
 a runtime-only "package not found" crash long after the build reported success.
 Use a single hyphen in comment prose.
+
+## Analyses and module versions
+
+- Every test or analysis is a folder `docs/analysis/<area>/<id>/` (`report.md` with the front matter of `docs/analysis/_template/report.md`, `figures/`, `data/`), committed on `main` in a docs-only commit. Never leave results only on a feature branch; raw data (bags, videos) stays out of git, pointed to by `raw_data`.
+- Then run `python3 tools/analysis_index.py` (`--check` fails on missing fields or unknown module versions), update "Stato attuale" in the area README, and tag `exp/<id>` on the tested commit.
+- Every change to a module (ROS package) bumps `<version>` in its `package.xml` (SemVer: MAJOR breaks topics/params/interfaces, MINOR adds behaviour, PATCH fixes) and adds a `CHANGELOG.md` entry in the same commit, on the feature branch; no merge without it. Release tag: `<package>/vX.Y.Z`.
+- A report lists the module versions it tested in `modules:`. `docs/history/LOG.md` stays the commit diary.

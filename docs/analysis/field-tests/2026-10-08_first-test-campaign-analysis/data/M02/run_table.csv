@@ -1,0 +1,11 @@
+mission,short_id,repetition,status,reason,test_id,auto_outcome,manual_success
+M02_approach_wall,M02,1,valid,,P002-R001-20261008T132715,aborted,
+M02_approach_wall,M02,2,valid,,P002-R002-20261008T133423,aborted,
+M02_approach_wall,M02,3,valid,,P002-R003-20261008T133931,completed,
+M02_approach_wall,M02,4,valid,,P002-R004-20261008T135427,completed,
+M02_approach_wall,M02,5,valid,,P002-R005-20261008T135646,completed,
+M02_approach_wall,M02,23,incomplete,no meta.json,P002-R023-20261020T185108,aborted,
+M02_approach_wall,M02,24,incomplete,no meta.json,P002-R024-20261020T185329,aborted,
+M02_approach_wall,M02,25,incomplete,no meta.json,P002-R025-20261020T185553,aborted,
+M02_approach_wall,M02,26,incomplete,no meta.json,P002-R026-20261020T185812,aborted,
+M02_approach_wall,M02,27,incomplete,no meta.json,P002-R027-20261020T190051,aborted,

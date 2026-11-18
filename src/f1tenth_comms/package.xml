@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>f1tenth_comms</name>
-  <version>0.0.1</version>
+  <version>0.1.0</version>
   <description>The car side of the link to the base PC. link_manager sends a UDP
   heartbeat to the base (Tailscale first, the hotspot address as fallback),
   publishes OK/DEGRADED/LOST on /comms/link_status and, while LOST, asks

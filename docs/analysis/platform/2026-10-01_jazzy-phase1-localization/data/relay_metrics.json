@@ -1,0 +1,91 @@
+{
+  "layer": "relay",
+  "humble_bag": "/home/andre/bags/humble_reference/humble_obstacle_run/bag",
+  "jazzy_bags": [
+    "/home/andre/dev_ws/f1tenth_more/output/phase1/runs/jazzy_relay_1/bag",
+    "/home/andre/dev_ws/f1tenth_more/output/phase1/runs/jazzy_relay_2/bag",
+    "/home/andre/dev_ws/f1tenth_more/output/phase1/runs/jazzy_relay_3/bag"
+  ],
+  "humble_n": 73,
+  "jazzy_n": [
+    73,
+    73,
+    70
+  ],
+  "noise_floor": [
+    {
+      "label": "jazzy_1_vs_jazzy_2",
+      "n_ref": 73,
+      "n_matched": 73,
+      "match_rate": 1.0,
+      "pos_err_rms": 0.0,
+      "pos_err_p95": 0.0,
+      "pos_err_max": 0.0,
+      "yaw_err_rms_deg": 0.0,
+      "yaw_err_p95_deg": 0.0,
+      "yaw_err_max_deg": 0.0
+    },
+    {
+      "label": "jazzy_1_vs_jazzy_3",
+      "n_ref": 73,
+      "n_matched": 70,
+      "match_rate": 0.958904109589041,
+      "pos_err_rms": 0.0,
+      "pos_err_p95": 0.0,
+      "pos_err_max": 0.0,
+      "yaw_err_rms_deg": 0.0,
+      "yaw_err_p95_deg": 0.0,
+      "yaw_err_max_deg": 0.0
+    },
+    {
+      "label": "jazzy_2_vs_jazzy_3",
+      "n_ref": 73,
+      "n_matched": 70,
+      "match_rate": 0.958904109589041,
+      "pos_err_rms": 0.0,
+      "pos_err_p95": 0.0,
+      "pos_err_max": 0.0,
+      "yaw_err_rms_deg": 0.0,
+      "yaw_err_p95_deg": 0.0,
+      "yaw_err_max_deg": 0.0
+    }
+  ],
+  "jazzy_vs_humble": [
+    {
+      "label": "jazzy_1_vs_humble",
+      "n_ref": 73,
+      "n_matched": 73,
+      "match_rate": 1.0,
+      "pos_err_rms": 0.0,
+      "pos_err_p95": 0.0,
+      "pos_err_max": 0.0,
+      "yaw_err_rms_deg": 0.0,
+      "yaw_err_p95_deg": 0.0,
+      "yaw_err_max_deg": 0.0
+    },
+    {
+      "label": "jazzy_2_vs_humble",
+      "n_ref": 73,
+      "n_matched": 73,
+      "match_rate": 1.0,
+      "pos_err_rms": 0.0,
+      "pos_err_p95": 0.0,
+      "pos_err_max": 0.0,
+      "yaw_err_rms_deg": 0.0,
+      "yaw_err_p95_deg": 0.0,
+      "yaw_err_max_deg": 0.0
+    },
+    {
+      "label": "jazzy_3_vs_humble",
+      "n_ref": 70,
+      "n_matched": 70,
+      "match_rate": 1.0,
+      "pos_err_rms": 0.0,
+      "pos_err_p95": 0.0,
+      "pos_err_max": 0.0,
+      "yaw_err_rms_deg": 0.0,
+      "yaw_err_p95_deg": 0.0,
+      "yaw_err_max_deg": 0.0
+    }
+  ]
+}

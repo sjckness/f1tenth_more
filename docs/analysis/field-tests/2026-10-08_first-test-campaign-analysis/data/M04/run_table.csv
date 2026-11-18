@@ -1,0 +1,11 @@
+mission,short_id,repetition,status,reason,test_id,auto_outcome,manual_success
+M04_person,M04,7,valid,,P004-R007-20260924T134658,completed,
+M04_person,M04,8,valid,,P004-R008-20260924T134911,completed,
+M04_person,M04,9,valid,,P004-R009-20260924T135136,completed,
+M04_person,M04,10,valid,,P004-R010-20260924T135341,completed,
+M04_person,M04,11,valid,,P004-R011-20260924T135544,completed,
+M04_person,M04,14,valid,,P004-R014-20261001T112202,completed,
+M04_person,M04,15,valid,,P004-R015-20261001T112447,completed,
+M04_person,M04,16,valid,,P004-R016-20261001T112933,completed,
+M04_person,M04,17,valid,,P004-R017-20261001T113120,completed,
+M04_person,M04,18,valid,,P004-R018-20261001T113259,completed,

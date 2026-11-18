@@ -1,0 +1,4303 @@
+{
+ "meta": {
+  "git_head": "18202006+dirty",
+  "ros_domain_id": "0",
+  "rmw_implementation": "rmw_fastrtps_cpp",
+  "ros_discovery_server": "127.0.0.1:11811",
+  "fastdds_profile": "/opt/f1tenth_ws/src/f1tenth_bringup/config/fastdds_profile.xml",
+  "mode": "oneshot",
+  "planner_pythonpath": "/tmp/f1t_bench/llm_src",
+  "time": "2026-11-09T09:51:07",
+  "image_sources": [
+   "commit b6c00624d726509f69459ad759f244439fabdfcf",
+   "subject enter_door: Foxglove markers on /mpc/door_goal_debug (path, goals, back-up)",
+   "branch door-goal-debug",
+   "describe night-start/pwa-control-origin-219-gb6c00624d726"
+  ],
+  "llama_server_cmdline": "/opt/llama.cpp/bin/llama-server -m /home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf --port 8083 -ngl 999",
+  "ros2_daemon_running": false,
+  "llama_server_props": {
+   "model_path": "/home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf",
+   "total_slots": 4,
+   "build_info": "b1-42532af",
+   "n_ctx": 32768
+  },
+  "planner_module": "/tmp/f1t_bench/llm_src/llm/llm_planner_node.py"
+ },
+ "runs": [
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 0,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.354941206984222,
+    "t_server_ready": 3.248295400990173,
+    "t_ready": 5.851616611995269,
+    "t_planned": 6.377099868986988,
+    "t_loaded_log": 6.383481681987178,
+    "t_start_returned": 6.386345840001013,
+    "t_loaded": 6.382589052984258,
+    "t_running": 6.3854670980072115,
+    "t_exit": 6.708785288996296,
+    "t_llm_done": 6.361616611995268
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.525,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.505,
+     "translate_s": 0.02,
+     "services_s": 0.008,
+     "total_s": 0.535
+    }
+   },
+   "latency": {
+    "llm_s": 0.51,
+    "translate_s": 0.02,
+    "services_s": 0.01,
+    "total_s": 0.54
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 5.851616611995269,
+    "llm": 0.51,
+    "translate": 0.02,
+    "services": 0.00924597101402469,
+    "start_to_running": -0.0008787419938016683,
+    "total_to_start": 6.386345840001013,
+    "total_to_running": 6.3854670980072115
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "",
+    "missione generata in 0.53s (v2), 1 move:",
+    "  0. vai dritto",
+    "       id       move_0_straight",
+    "       velocita 0.5 m/s",
+    "       fino a   muro entro 2.0 m per 3 tick consecutivi",
+    "       timeout  65 s -> abort",
+    "       note     TERMINALE",
+    "",
+    "JSON (llm_2b356aac445f):",
+    "{",
+    "  \"mission_id\": \"llm_2b356aac445f\",",
+    "  \"schema_version\": \"3.0\",",
+    "  \"moves\": [",
+    "    {",
+    "      \"id\": \"move_0_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"front_clearance\",",
+    "        \"distance\": 2.0,",
+    "        \"debounce_ticks\": 3",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214278.888198450] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "[INFO] [1794214278.890281689] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214278.893457524] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_2b356aac445f', 1 moves -- start_mission subito",
+    "[INFO] [1794214278.896333745] [llm_planner_node]: start_mission OK: started 'llm_2b356aac445f'",
+    "[INFO] [1794214278.896911659] [llm_planner_node]: latenza: llm=0.51s traduzione=0.02s servizi=0.01s totale=0.54s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"n_moves\": 1, \"plan_seconds\": 0.525, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 2.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json\", \"latency\": {\"llm_s\": 0.505, \"translate_s\": 0.02, \"services_s\": 0.008, \"total_s\": 0.535}}"
+   ]
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 0,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3596413019986358,
+    "t_server_ready": 2.574850591016002,
+    "t_ready": 2.5842096479900647,
+    "t_planned": 3.0225256659905426,
+    "t_loaded_log": 4.7803306950081605,
+    "t_start_returned": 4.783836190006696,
+    "t_loaded": 4.779210996988695,
+    "t_running": 4.782436781999422,
+    "t_exit": 5.092411404999439,
+    "t_llm_done": 2.994209647990065
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_c4cca62260df",
+    "schema_version": "5.0",
+    "n_moves": 2,
+    "plan_seconds": 0.438,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_c4cca62260df",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_search",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "object_seen",
+        "class": "person",
+        "min_confidence": 0.5
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "latency": {
+     "llm_s": 0.41,
+     "translate_s": 0.028,
+     "services_s": 1.761,
+     "total_s": 2.2
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.03,
+    "services_s": 1.76,
+    "total_s": 2.2
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5842096479900647,
+    "llm": 0.41,
+    "translate": 0.03,
+    "services": 1.761310524016153,
+    "start_to_running": -0.0013994080072734505,
+    "total_to_start": 4.783836190006696,
+    "total_to_running": 4.782436781999422
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "    {",
+    "      \"id\": \"move_0_search\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_seen\",",
+    "        \"class\": \"person\",",
+    "        \"min_confidence\": 0.5",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_1_go_to\",",
+    "      \"go_to_object\": {",
+    "        \"target_class\": \"person\",",
+    "        \"gap_m\": 1.1,",
+    "        \"speed\": 0.5,",
+    "        \"acquire_timeout_sec\": 5.0,",
+    "        \"lost_grace_sec\": 1.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_reached\"",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "[INFO] [1794214284.048613192] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214284.052255836] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_c4cca62260df', 2 moves -- start_mission subito",
+    "[INFO] [1794214284.055795314] [llm_planner_node]: start_mission OK: started 'llm_c4cca62260df'",
+    "[INFO] [1794214284.056412171] [llm_planner_node]: latenza: llm=0.41s traduzione=0.03s servizi=1.76s totale=2.20s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"go_to\\\", \\\"target\\\": \\\"person\\\"}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"n_moves\": 2, \"plan_seconds\": 0.438, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"moves\": [{\"id\": \"move_0_search\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"object_seen\", \"class\": \"person\", \"min_confidence\": 0.5}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_go_to\", \"go_to_object\": {\"target_class\": \"person\", \"gap_m\": 1.1, \"speed\": 0.5, \"acquire_timeout_sec\": 5.0, \"lost_grace_sec\": 1.5}, \"stop_condition\": {\"type\": \"object_reached\"}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json\", \"latency\": {\"llm_s\": 0.41, \"translate_s\": 0.028, \"services_s\": 1.761, \"total_s\": 2.2}}"
+   ]
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 0,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3392957439937163,
+    "t_server_ready": 2.561273136001546,
+    "t_ready": 2.570544610003708,
+    "t_planned": 3.5722865409916267,
+    "t_loaded_log": 5.331172174977837,
+    "t_start_returned": 5.334170602989616,
+    "t_loaded": 5.329905310005415,
+    "t_running": 5.333791184006259,
+    "t_exit": 5.673573756997939,
+    "t_llm_done": 3.550544610003708
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 1.002,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.982,
+     "translate_s": 0.02,
+     "services_s": 1.761,
+     "total_s": 2.764
+    }
+   },
+   "latency": {
+    "llm_s": 0.98,
+    "translate_s": 0.02,
+    "services_s": 1.76,
+    "total_s": 2.76
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.570544610003708,
+    "llm": 0.98,
+    "translate": 0.02,
+    "services": 1.7618840619979892,
+    "start_to_running": -0.0003794189833570272,
+    "total_to_start": 5.334170602989616,
+    "total_to_running": 5.333791184006259
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "    {",
+    "      \"id\": \"move_1_turn\",",
+    "      \"drive\": {",
+    "        \"mode\": \"wall_turn\",",
+    "        \"turn_sign\": -1.0,",
+    "        \"turn_mag_deg\": 90.0,",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"orientation_delta\",",
+    "        \"value\": 90.0",
+    "      },",
+    "      \"timeout_sec\": 27,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_2_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"distance_reached\",",
+    "        \"distance\": 2.0",
+    "      },",
+    "      \"timeout_sec\": 17,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214288.019478902] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "[INFO] [1794214289.773552049] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214289.777129127] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_aea306d7f3c4', 3 moves -- start_mission subito",
+    "[INFO] [1794214289.780213538] [llm_planner_node]: start_mission OK: started 'llm_aea306d7f3c4'",
+    "[INFO] [1794214289.780830427] [llm_planner_node]: latenza: llm=0.98s traduzione=0.02s servizi=1.76s totale=2.76s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 3.0}, {\\\"mode\\\": \\\"turn\\\", \\\"dir\\\": \\\"right\\\"}, {\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"distance\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"n_moves\": 3, \"plan_seconds\": 1.002, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 3.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_turn\", \"drive\": {\"mode\": \"wall_turn\", \"turn_sign\": -1.0, \"turn_mag_deg\": 90.0, \"speed\": 0.5}, \"stop_condition\": {\"type\": \"orientation_delta\", \"value\": 90.0}, \"timeout_sec\": 27, \"on_timeout\": \"abort\"}, {\"id\": \"move_2_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"distance_reached\", \"distance\": 2.0}, \"timeout_sec\": 17, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json\", \"latency\": {\"llm_s\": 0.982, \"translate_s\": 0.02, \"services_s\": 1.761, \"total_s\": 2.764}}"
+   ]
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 1,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.350821540981997,
+    "t_server_ready": 2.5591471169900615,
+    "t_ready": 2.5687348099891096,
+    "t_planned": 3.0954459569766186,
+    "t_loaded_log": 4.104574115975993,
+    "t_start_returned": 4.107496864977293,
+    "t_loaded": 4.102043361985125,
+    "t_running": 4.106611658993643,
+    "t_exit": 4.444503104983596,
+    "t_llm_done": 3.0787348099891094
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.527,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.507,
+     "translate_s": 0.02,
+     "services_s": 1.011,
+     "total_s": 1.539
+    }
+   },
+   "latency": {
+    "llm_s": 0.51,
+    "translate_s": 0.02,
+    "services_s": 1.01,
+    "total_s": 1.54
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5687348099891096,
+    "llm": 0.51,
+    "translate": 0.02,
+    "services": 1.012050908000674,
+    "start_to_running": -0.0008852059836499393,
+    "total_to_start": 4.107496864977293,
+    "total_to_running": 4.106611658993643
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "",
+    "missione generata in 0.53s (v2), 1 move:",
+    "  0. vai dritto",
+    "       id       move_0_straight",
+    "       velocita 0.5 m/s",
+    "       fino a   muro entro 2.0 m per 3 tick consecutivi",
+    "       timeout  65 s -> abort",
+    "       note     TERMINALE",
+    "",
+    "JSON (llm_2b356aac445f):",
+    "{",
+    "  \"mission_id\": \"llm_2b356aac445f\",",
+    "  \"schema_version\": \"3.0\",",
+    "  \"moves\": [",
+    "    {",
+    "      \"id\": \"move_0_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"front_clearance\",",
+    "        \"distance\": 2.0,",
+    "        \"debounce_ticks\": 3",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214293.251758178] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "[INFO] [1794214294.255016711] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214294.259748206] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_2b356aac445f', 1 moves -- start_mission subito",
+    "[INFO] [1794214294.262677515] [llm_planner_node]: start_mission OK: started 'llm_2b356aac445f'",
+    "[INFO] [1794214294.263283556] [llm_planner_node]: latenza: llm=0.51s traduzione=0.02s servizi=1.01s totale=1.54s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"n_moves\": 1, \"plan_seconds\": 0.527, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 2.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json\", \"latency\": {\"llm_s\": 0.507, \"translate_s\": 0.02, \"services_s\": 1.011, \"total_s\": 1.539}}"
+   ]
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 1,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.341353024006821,
+    "t_server_ready": 2.549594304000493,
+    "t_ready": 2.558848176995525,
+    "t_planned": 3.0164233639952727,
+    "t_loaded_log": 4.023788307007635,
+    "t_start_returned": 4.026462515001185,
+    "t_loaded": 4.022759775980376,
+    "t_running": 4.025603741989471,
+    "t_exit": 4.360387117980281,
+    "t_llm_done": 2.9888481769955253
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_c4cca62260df",
+    "schema_version": "5.0",
+    "n_moves": 2,
+    "plan_seconds": 0.457,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_c4cca62260df",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_search",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "object_seen",
+        "class": "person",
+        "min_confidence": 0.5
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "latency": {
+     "llm_s": 0.431,
+     "translate_s": 0.026,
+     "services_s": 1.009,
+     "total_s": 1.468
+    }
+   },
+   "latency": {
+    "llm_s": 0.43,
+    "translate_s": 0.03,
+    "services_s": 1.01,
+    "total_s": 1.47
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.558848176995525,
+    "llm": 0.43,
+    "translate": 0.03,
+    "services": 1.0100391510059126,
+    "start_to_running": -0.00085877301171422,
+    "total_to_start": 4.026462515001185,
+    "total_to_running": 4.025603741989471
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "      \"id\": \"move_0_search\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_seen\",",
+    "        \"class\": \"person\",",
+    "        \"min_confidence\": 0.5",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_1_go_to\",",
+    "      \"go_to_object\": {",
+    "        \"target_class\": \"person\",",
+    "        \"gap_m\": 1.1,",
+    "        \"speed\": 0.5,",
+    "        \"acquire_timeout_sec\": 5.0,",
+    "        \"lost_grace_sec\": 1.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_reached\"",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214297.654093354] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "[INFO] [1794214298.656822097] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214298.660100905] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_c4cca62260df', 2 moves -- start_mission subito",
+    "[INFO] [1794214298.662977703] [llm_planner_node]: start_mission OK: started 'llm_c4cca62260df'",
+    "[INFO] [1794214298.663548736] [llm_planner_node]: latenza: llm=0.43s traduzione=0.03s servizi=1.01s totale=1.47s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"go_to\\\", \\\"target\\\": \\\"person\\\"}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"n_moves\": 2, \"plan_seconds\": 0.457, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"moves\": [{\"id\": \"move_0_search\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"object_seen\", \"class\": \"person\", \"min_confidence\": 0.5}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_go_to\", \"go_to_object\": {\"target_class\": \"person\", \"gap_m\": 1.1, \"speed\": 0.5, \"acquire_timeout_sec\": 5.0, \"lost_grace_sec\": 1.5}, \"stop_condition\": {\"type\": \"object_reached\"}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json\", \"latency\": {\"llm_s\": 0.431, \"translate_s\": 0.026, \"services_s\": 1.009, \"total_s\": 1.468}}"
+   ]
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 1,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.373486406984739,
+    "t_server_ready": 2.5953876760031562,
+    "t_ready": 2.604547149996506,
+    "t_planned": 3.6091587169794366,
+    "t_loaded_log": 4.116048875002889,
+    "t_start_returned": 4.147906251979293,
+    "t_loaded": 4.115132470004028,
+    "t_running": 4.118112017982639,
+    "t_exit": 4.472380297986092,
+    "t_llm_done": 3.584547149996506
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 1.004,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.985,
+     "translate_s": 0.02,
+     "services_s": 0.538,
+     "total_s": 1.543
+    }
+   },
+   "latency": {
+    "llm_s": 0.98,
+    "translate_s": 0.02,
+    "services_s": 0.54,
+    "total_s": 1.54
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.604547149996506,
+    "llm": 0.98,
+    "translate": 0.02,
+    "services": 0.5387475349998567,
+    "start_to_running": -0.02979423399665393,
+    "total_to_start": 4.147906251979293,
+    "total_to_running": 4.118112017982639
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "    {",
+    "      \"id\": \"move_1_turn\",",
+    "      \"drive\": {",
+    "        \"mode\": \"wall_turn\",",
+    "        \"turn_sign\": -1.0,",
+    "        \"turn_mag_deg\": 90.0,",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"orientation_delta\",",
+    "        \"value\": 90.0",
+    "      },",
+    "      \"timeout_sec\": 27,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_2_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"distance_reached\",",
+    "        \"distance\": 2.0",
+    "      },",
+    "      \"timeout_sec\": 17,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214302.648074438] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "[INFO] [1794214303.150544137] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214303.153817282] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_aea306d7f3c4', 3 moves -- start_mission subito",
+    "[INFO] [1794214303.185669058] [llm_planner_node]: start_mission OK: started 'llm_aea306d7f3c4'",
+    "[INFO] [1794214303.186280347] [llm_planner_node]: latenza: llm=0.98s traduzione=0.02s servizi=0.54s totale=1.54s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 3.0}, {\\\"mode\\\": \\\"turn\\\", \\\"dir\\\": \\\"right\\\"}, {\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"distance\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"n_moves\": 3, \"plan_seconds\": 1.004, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 3.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_turn\", \"drive\": {\"mode\": \"wall_turn\", \"turn_sign\": -1.0, \"turn_mag_deg\": 90.0, \"speed\": 0.5}, \"stop_condition\": {\"type\": \"orientation_delta\", \"value\": 90.0}, \"timeout_sec\": 27, \"on_timeout\": \"abort\"}, {\"id\": \"move_2_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"distance_reached\", \"distance\": 2.0}, \"timeout_sec\": 17, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json\", \"latency\": {\"llm_s\": 0.985, \"translate_s\": 0.02, \"services_s\": 0.538, \"total_s\": 1.543}}"
+   ]
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 2,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3526434039813466,
+    "t_server_ready": 2.5587373680027667,
+    "t_ready": 2.5679967439791653,
+    "t_planned": 3.090785350999795,
+    "t_loaded_log": 3.599174929986475,
+    "t_start_returned": 3.602633128000889,
+    "t_loaded": 3.5980566399812233,
+    "t_running": 3.601702899992233,
+    "t_exit": 3.9284386359795462,
+    "t_llm_done": 3.0679967439791653
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.523,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.503,
+     "translate_s": 0.02,
+     "services_s": 0.511,
+     "total_s": 1.035
+    }
+   },
+   "latency": {
+    "llm_s": 0.5,
+    "translate_s": 0.02,
+    "services_s": 0.51,
+    "total_s": 1.03
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5679967439791653,
+    "llm": 0.5,
+    "translate": 0.02,
+    "services": 0.5118477770010941,
+    "start_to_running": -0.0009302280086558312,
+    "total_to_start": 3.602633128000889,
+    "total_to_running": 3.601702899992233
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "",
+    "missione generata in 0.52s (v2), 1 move:",
+    "  0. vai dritto",
+    "       id       move_0_straight",
+    "       velocita 0.5 m/s",
+    "       fino a   muro entro 2.0 m per 3 tick consecutivi",
+    "       timeout  65 s -> abort",
+    "       note     TERMINALE",
+    "",
+    "JSON (llm_2b356aac445f):",
+    "{",
+    "  \"mission_id\": \"llm_2b356aac445f\",",
+    "  \"schema_version\": \"3.0\",",
+    "  \"moves\": [",
+    "    {",
+    "      \"id\": \"move_0_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"front_clearance\",",
+    "        \"distance\": 2.0,",
+    "        \"debounce_ticks\": 3",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214306.616426285] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "[INFO] [1794214307.119604152] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214307.123640295] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_2b356aac445f', 1 moves -- start_mission subito",
+    "[INFO] [1794214307.127110365] [llm_planner_node]: start_mission OK: started 'llm_2b356aac445f'",
+    "[INFO] [1794214307.127739893] [llm_planner_node]: latenza: llm=0.50s traduzione=0.02s servizi=0.51s totale=1.03s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"n_moves\": 1, \"plan_seconds\": 0.523, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 2.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json\", \"latency\": {\"llm_s\": 0.503, \"translate_s\": 0.02, \"services_s\": 0.511, \"total_s\": 1.035}}"
+   ]
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 2,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3610570179880597,
+    "t_server_ready": 2.56978899097885,
+    "t_ready": 2.5796346639981493,
+    "t_planned": 3.018545547995018,
+    "t_loaded_log": 5.776335302973166,
+    "t_start_returned": 6.530253431992605,
+    "t_loaded": 5.775270035985159,
+    "t_running": 6.529238499992061,
+    "t_exit": 6.862736407987541,
+    "t_llm_done": 2.9896346639981495
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_c4cca62260df",
+    "schema_version": "5.0",
+    "n_moves": 2,
+    "plan_seconds": 0.439,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_c4cca62260df",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_search",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "object_seen",
+        "class": "person",
+        "min_confidence": 0.5
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "latency": {
+     "llm_s": 0.411,
+     "translate_s": 0.028,
+     "services_s": 3.51,
+     "total_s": 3.951
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.03,
+    "services_s": 3.51,
+    "total_s": 3.95
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5796346639981493,
+    "llm": 0.41,
+    "translate": 0.03,
+    "services": 3.5117078839975875,
+    "start_to_running": -0.0010149320005439222,
+    "total_to_start": 6.530253431992605,
+    "total_to_running": 6.529238499992061
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "      \"id\": \"move_0_search\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_seen\",",
+    "        \"class\": \"person\",",
+    "        \"min_confidence\": 0.5",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_1_go_to\",",
+    "      \"go_to_object\": {",
+    "        \"target_class\": \"person\",",
+    "        \"gap_m\": 1.1,",
+    "        \"speed\": 0.5,",
+    "        \"acquire_timeout_sec\": 5.0,",
+    "        \"lost_grace_sec\": 1.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_reached\"",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214310.522353799] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "[INFO] [1794214312.524566690] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): /mission/abort_mission non disponibile (nessun server attivo?)",
+    "[INFO] [1794214313.278934801] [llm_planner_node]: load_mission OK in 0.75s: loaded 'llm_c4cca62260df', 2 moves -- start_mission subito",
+    "[INFO] [1794214314.032854721] [llm_planner_node]: start_mission OK: started 'llm_c4cca62260df'",
+    "[INFO] [1794214314.033451802] [llm_planner_node]: latenza: llm=0.41s traduzione=0.03s servizi=3.51s totale=3.95s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"go_to\\\", \\\"target\\\": \\\"person\\\"}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"n_moves\": 2, \"plan_seconds\": 0.439, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"moves\": [{\"id\": \"move_0_search\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"object_seen\", \"class\": \"person\", \"min_confidence\": 0.5}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_go_to\", \"go_to_object\": {\"target_class\": \"person\", \"gap_m\": 1.1, \"speed\": 0.5, \"acquire_timeout_sec\": 5.0, \"lost_grace_sec\": 1.5}, \"stop_condition\": {\"type\": \"object_reached\"}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json\", \"latency\": {\"llm_s\": 0.411, \"translate_s\": 0.028, \"services_s\": 3.51, \"total_s\": 3.951}}"
+   ]
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 2,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.409876999008702,
+    "t_server_ready": 2.631685889005894,
+    "t_ready": 2.6416487760143355,
+    "t_planned": 3.6484688320197165,
+    "t_loaded_log": 4.90634886501357,
+    "t_start_returned": 4.909349980996922,
+    "t_loaded": 4.905424204014707,
+    "t_running": 4.908402792003471,
+    "t_exit": 5.236122069996782,
+    "t_llm_done": 3.6316487760143357
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 1.007,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.986,
+     "translate_s": 0.02,
+     "services_s": 1.26,
+     "total_s": 2.268
+    }
+   },
+   "latency": {
+    "llm_s": 0.99,
+    "translate_s": 0.02,
+    "services_s": 1.26,
+    "total_s": 2.27
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.6416487760143355,
+    "llm": 0.99,
+    "translate": 0.02,
+    "services": 1.2608811489772052,
+    "start_to_running": -0.0009471889934502542,
+    "total_to_start": 4.909349980996922,
+    "total_to_running": 4.908402792003471
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "    {",
+    "      \"id\": \"move_1_turn\",",
+    "      \"drive\": {",
+    "        \"mode\": \"wall_turn\",",
+    "        \"turn_sign\": -1.0,",
+    "        \"turn_mag_deg\": 90.0,",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"orientation_delta\",",
+    "        \"value\": 90.0",
+    "      },",
+    "      \"timeout_sec\": 27,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_2_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"distance_reached\",",
+    "        \"distance\": 2.0",
+    "      },",
+    "      \"timeout_sec\": 17,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214318.058009226] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "[INFO] [1794214319.311177540] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214319.314573787] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_aea306d7f3c4', 3 moves -- start_mission subito",
+    "[INFO] [1794214319.317580918] [llm_planner_node]: start_mission OK: started 'llm_aea306d7f3c4'",
+    "[INFO] [1794214319.318273486] [llm_planner_node]: latenza: llm=0.99s traduzione=0.02s servizi=1.26s totale=2.27s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 3.0}, {\\\"mode\\\": \\\"turn\\\", \\\"dir\\\": \\\"right\\\"}, {\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"distance\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"n_moves\": 3, \"plan_seconds\": 1.007, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 3.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_turn\", \"drive\": {\"mode\": \"wall_turn\", \"turn_sign\": -1.0, \"turn_mag_deg\": 90.0, \"speed\": 0.5}, \"stop_condition\": {\"type\": \"orientation_delta\", \"value\": 90.0}, \"timeout_sec\": 27, \"on_timeout\": \"abort\"}, {\"id\": \"move_2_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"distance_reached\", \"distance\": 2.0}, \"timeout_sec\": 17, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json\", \"latency\": {\"llm_s\": 0.986, \"translate_s\": 0.02, \"services_s\": 1.26, \"total_s\": 2.268}}"
+   ]
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 3,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3544820200186223,
+    "t_server_ready": 2.5633267710218206,
+    "t_ready": 2.5724095400073566,
+    "t_planned": 3.100627550011268,
+    "t_loaded_log": 4.608957438002108,
+    "t_start_returned": 4.611327178019565,
+    "t_loaded": 4.6073930880229454,
+    "t_running": 4.610401476005791,
+    "t_exit": 4.930381972022587,
+    "t_llm_done": 3.0824095400073563
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.528,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.508,
+     "translate_s": 0.02,
+     "services_s": 1.51,
+     "total_s": 2.039
+    }
+   },
+   "latency": {
+    "llm_s": 0.51,
+    "translate_s": 0.02,
+    "services_s": 1.51,
+    "total_s": 2.04
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5724095400073566,
+    "llm": 0.51,
+    "translate": 0.02,
+    "services": 1.5106996280082967,
+    "start_to_running": -0.0009257020137738436,
+    "total_to_start": 4.611327178019565,
+    "total_to_running": 4.610401476005791
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "",
+    "missione generata in 0.53s (v2), 1 move:",
+    "  0. vai dritto",
+    "       id       move_0_straight",
+    "       velocita 0.5 m/s",
+    "       fino a   muro entro 2.0 m per 3 tick consecutivi",
+    "       timeout  65 s -> abort",
+    "       note     TERMINALE",
+    "",
+    "JSON (llm_2b356aac445f):",
+    "{",
+    "  \"mission_id\": \"llm_2b356aac445f\",",
+    "  \"schema_version\": \"3.0\",",
+    "  \"moves\": [",
+    "    {",
+    "      \"id\": \"move_0_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"front_clearance\",",
+    "        \"distance\": 2.0,",
+    "        \"debounce_ticks\": 3",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214322.796159775] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "[INFO] [1794214324.299546687] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214324.302753750] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_2b356aac445f', 1 moves -- start_mission subito",
+    "[INFO] [1794214324.305737595] [llm_planner_node]: start_mission OK: started 'llm_2b356aac445f'",
+    "[INFO] [1794214324.306333109] [llm_planner_node]: latenza: llm=0.51s traduzione=0.02s servizi=1.51s totale=2.04s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"n_moves\": 1, \"plan_seconds\": 0.528, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 2.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json\", \"latency\": {\"llm_s\": 0.508, \"translate_s\": 0.02, \"services_s\": 1.51, \"total_s\": 2.039}}"
+   ]
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 3,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3550862170231994,
+    "t_server_ready": 2.56410382600734,
+    "t_ready": 2.573459722014377,
+    "t_planned": 3.018359602021519,
+    "t_loaded_log": 5.776246913999785,
+    "t_start_returned": 6.530033629009267,
+    "t_loaded": 5.775324635003926,
+    "t_running": 6.529213328001788,
+    "t_exit": 6.852137884008698,
+    "t_llm_done": 2.993459722014377
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_c4cca62260df",
+    "schema_version": "5.0",
+    "n_moves": 2,
+    "plan_seconds": 0.445,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_c4cca62260df",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_search",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "object_seen",
+        "class": "person",
+        "min_confidence": 0.5
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "latency": {
+     "llm_s": 0.417,
+     "translate_s": 0.028,
+     "services_s": 3.51,
+     "total_s": 3.957
+    }
+   },
+   "latency": {
+    "llm_s": 0.42,
+    "translate_s": 0.03,
+    "services_s": 3.51,
+    "total_s": 3.96
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.573459722014377,
+    "llm": 0.42,
+    "translate": 0.03,
+    "services": 3.511674026987748,
+    "start_to_running": -0.0008203010074794292,
+    "total_to_start": 6.530033629009267,
+    "total_to_running": 6.529213328001788
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "      \"id\": \"move_0_search\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_seen\",",
+    "        \"class\": \"person\",",
+    "        \"min_confidence\": 0.5",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_1_go_to\",",
+    "      \"go_to_object\": {",
+    "        \"target_class\": \"person\",",
+    "        \"gap_m\": 1.1,",
+    "        \"speed\": 0.5,",
+    "        \"acquire_timeout_sec\": 5.0,",
+    "        \"lost_grace_sec\": 1.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_reached\"",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214327.653320442] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "[INFO] [1794214329.655387894] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): /mission/abort_mission non disponibile (nessun server attivo?)",
+    "[INFO] [1794214330.410033715] [llm_planner_node]: load_mission OK in 0.75s: loaded 'llm_c4cca62260df', 2 moves -- start_mission subito",
+    "[INFO] [1794214331.163827949] [llm_planner_node]: start_mission OK: started 'llm_c4cca62260df'",
+    "[INFO] [1794214331.164468710] [llm_planner_node]: latenza: llm=0.42s traduzione=0.03s servizi=3.51s totale=3.96s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"go_to\\\", \\\"target\\\": \\\"person\\\"}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"n_moves\": 2, \"plan_seconds\": 0.445, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"moves\": [{\"id\": \"move_0_search\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"object_seen\", \"class\": \"person\", \"min_confidence\": 0.5}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_go_to\", \"go_to_object\": {\"target_class\": \"person\", \"gap_m\": 1.1, \"speed\": 0.5, \"acquire_timeout_sec\": 5.0, \"lost_grace_sec\": 1.5}, \"stop_condition\": {\"type\": \"object_reached\"}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json\", \"latency\": {\"llm_s\": 0.417, \"translate_s\": 0.028, \"services_s\": 3.51, \"total_s\": 3.957}}"
+   ]
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 3,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3687228029884864,
+    "t_server_ready": 2.590746309986571,
+    "t_ready": 2.5999634039762896,
+    "t_planned": 3.6021763979806565,
+    "t_loaded_log": 5.6105453569907695,
+    "t_start_returned": 5.613584113976685,
+    "t_loaded": 5.609629764978308,
+    "t_running": 5.612713990994962,
+    "t_exit": 5.9388577029749285,
+    "t_llm_done": 3.5799634039762895
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 1.002,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.982,
+     "translate_s": 0.02,
+     "services_s": 2.01,
+     "total_s": 3.014
+    }
+   },
+   "latency": {
+    "llm_s": 0.98,
+    "translate_s": 0.02,
+    "services_s": 2.01,
+    "total_s": 3.01
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5999634039762896,
+    "llm": 0.98,
+    "translate": 0.02,
+    "services": 2.011407715996029,
+    "start_to_running": -0.000870122981723398,
+    "total_to_start": 5.613584113976685,
+    "total_to_running": 5.612713990994962
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "    {",
+    "      \"id\": \"move_1_turn\",",
+    "      \"drive\": {",
+    "        \"mode\": \"wall_turn\",",
+    "        \"turn_sign\": -1.0,",
+    "        \"turn_mag_deg\": 90.0,",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"orientation_delta\",",
+    "        \"value\": 90.0",
+    "      },",
+    "      \"timeout_sec\": 27,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_2_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"distance_reached\",",
+    "        \"distance\": 2.0",
+    "      },",
+    "      \"timeout_sec\": 17,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214335.144834681] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "[INFO] [1794214337.148448925] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214337.151963972] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_aea306d7f3c4', 3 moves -- start_mission subito",
+    "[INFO] [1794214337.155002025] [llm_planner_node]: start_mission OK: started 'llm_aea306d7f3c4'",
+    "[INFO] [1794214337.155615491] [llm_planner_node]: latenza: llm=0.98s traduzione=0.02s servizi=2.01s totale=3.01s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 3.0}, {\\\"mode\\\": \\\"turn\\\", \\\"dir\\\": \\\"right\\\"}, {\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"distance\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"n_moves\": 3, \"plan_seconds\": 1.002, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 3.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_turn\", \"drive\": {\"mode\": \"wall_turn\", \"turn_sign\": -1.0, \"turn_mag_deg\": 90.0, \"speed\": 0.5}, \"stop_condition\": {\"type\": \"orientation_delta\", \"value\": 90.0}, \"timeout_sec\": 27, \"on_timeout\": \"abort\"}, {\"id\": \"move_2_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"distance_reached\", \"distance\": 2.0}, \"timeout_sec\": 17, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json\", \"latency\": {\"llm_s\": 0.982, \"translate_s\": 0.02, \"services_s\": 2.01, \"total_s\": 3.014}}"
+   ]
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 4,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3628686040174216,
+    "t_server_ready": 2.571649891004199,
+    "t_ready": 2.580711703019915,
+    "t_planned": 3.1102556450059637,
+    "t_loaded_log": 3.618125217006309,
+    "t_start_returned": 3.6208208280149847,
+    "t_loaded": 3.6163319510233123,
+    "t_running": 3.6198956050211564,
+    "t_exit": 3.943864544009557,
+    "t_llm_done": 3.090711703019915
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.529,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.51,
+     "translate_s": 0.019,
+     "services_s": 0.509,
+     "total_s": 1.04
+    }
+   },
+   "latency": {
+    "llm_s": 0.51,
+    "translate_s": 0.02,
+    "services_s": 0.51,
+    "total_s": 1.04
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.580711703019915,
+    "llm": 0.51,
+    "translate": 0.02,
+    "services": 0.510565183009021,
+    "start_to_running": -0.0009252229938283563,
+    "total_to_start": 3.6208208280149847,
+    "total_to_running": 3.6198956050211564
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "",
+    "missione generata in 0.53s (v2), 1 move:",
+    "  0. vai dritto",
+    "       id       move_0_straight",
+    "       velocita 0.5 m/s",
+    "       fino a   muro entro 2.0 m per 3 tick consecutivi",
+    "       timeout  65 s -> abort",
+    "       note     TERMINALE",
+    "",
+    "JSON (llm_2b356aac445f):",
+    "{",
+    "  \"mission_id\": \"llm_2b356aac445f\",",
+    "  \"schema_version\": \"3.0\",",
+    "  \"moves\": [",
+    "    {",
+    "      \"id\": \"move_0_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"front_clearance\",",
+    "        \"distance\": 2.0,",
+    "        \"debounce_ticks\": 3",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214340.642281607] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "[INFO] [1794214341.145019621] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214341.148471730] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_2b356aac445f', 1 moves -- start_mission subito",
+    "[INFO] [1794214341.151819877] [llm_planner_node]: start_mission OK: started 'llm_2b356aac445f'",
+    "[INFO] [1794214341.152479836] [llm_planner_node]: latenza: llm=0.51s traduzione=0.02s servizi=0.51s totale=1.04s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"n_moves\": 1, \"plan_seconds\": 0.529, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 2.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json\", \"latency\": {\"llm_s\": 0.51, \"translate_s\": 0.019, \"services_s\": 0.509, \"total_s\": 1.04}}"
+   ]
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 4,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.367489027004922,
+    "t_server_ready": 2.5762563649914227,
+    "t_ready": 2.5858127090032212,
+    "t_planned": 3.0342841359961312,
+    "t_loaded_log": 4.54366148301051,
+    "t_start_returned": 4.546785579994321,
+    "t_loaded": 4.542344666988356,
+    "t_running": 4.545808360009687,
+    "t_exit": 4.876725064998027,
+    "t_llm_done": 3.005812709003221
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_c4cca62260df",
+    "schema_version": "5.0",
+    "n_moves": 2,
+    "plan_seconds": 0.448,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_c4cca62260df",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_search",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "object_seen",
+        "class": "person",
+        "min_confidence": 0.5
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "latency": {
+     "llm_s": 0.421,
+     "translate_s": 0.027,
+     "services_s": 1.511,
+     "total_s": 1.961
+    }
+   },
+   "latency": {
+    "llm_s": 0.42,
+    "translate_s": 0.03,
+    "services_s": 1.51,
+    "total_s": 1.96
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5858127090032212,
+    "llm": 0.42,
+    "translate": 0.03,
+    "services": 1.5125014439981896,
+    "start_to_running": -0.000977219984633848,
+    "total_to_start": 4.546785579994321,
+    "total_to_running": 4.545808360009687
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "      \"id\": \"move_0_search\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_seen\",",
+    "        \"class\": \"person\",",
+    "        \"min_confidence\": 0.5",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_1_go_to\",",
+    "      \"go_to_object\": {",
+    "        \"target_class\": \"person\",",
+    "        \"gap_m\": 1.1,",
+    "        \"speed\": 0.5,",
+    "        \"acquire_timeout_sec\": 5.0,",
+    "        \"lost_grace_sec\": 1.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_reached\"",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214344.564478193] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "[INFO] [1794214346.067766054] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214346.072615455] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_c4cca62260df', 2 moves -- start_mission subito",
+    "[INFO] [1794214346.075744640] [llm_planner_node]: start_mission OK: started 'llm_c4cca62260df'",
+    "[INFO] [1794214346.076511409] [llm_planner_node]: latenza: llm=0.42s traduzione=0.03s servizi=1.51s totale=1.96s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"go_to\\\", \\\"target\\\": \\\"person\\\"}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"n_moves\": 2, \"plan_seconds\": 0.448, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"moves\": [{\"id\": \"move_0_search\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"object_seen\", \"class\": \"person\", \"min_confidence\": 0.5}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_go_to\", \"go_to_object\": {\"target_class\": \"person\", \"gap_m\": 1.1, \"speed\": 0.5, \"acquire_timeout_sec\": 5.0, \"lost_grace_sec\": 1.5}, \"stop_condition\": {\"type\": \"object_reached\"}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json\", \"latency\": {\"llm_s\": 0.421, \"translate_s\": 0.027, \"services_s\": 1.511, \"total_s\": 1.961}}"
+   ]
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 4,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3466363520128652,
+    "t_server_ready": 2.567499669006793,
+    "t_ready": 2.576937944017118,
+    "t_planned": 3.5783412380260415,
+    "t_loaded_log": 3.5851263950171415,
+    "t_start_returned": 3.5887166730244644,
+    "t_loaded": 3.5842043709999416,
+    "t_running": 3.587885108019691,
+    "t_exit": 3.9023841900052503,
+    "t_llm_done": 3.556937944017118
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 1.001,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.981,
+     "translate_s": 0.02,
+     "services_s": 0.009,
+     "total_s": 1.012
+    }
+   },
+   "latency": {
+    "llm_s": 0.98,
+    "translate_s": 0.02,
+    "services_s": 0.01,
+    "total_s": 1.01
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.576937944017118,
+    "llm": 0.98,
+    "translate": 0.02,
+    "services": 0.010375434998422861,
+    "start_to_running": -0.000831565004773438,
+    "total_to_start": 3.5887166730244644,
+    "total_to_running": 3.587885108019691
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "    {",
+    "      \"id\": \"move_1_turn\",",
+    "      \"drive\": {",
+    "        \"mode\": \"wall_turn\",",
+    "        \"turn_sign\": -1.0,",
+    "        \"turn_mag_deg\": 90.0,",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"orientation_delta\",",
+    "        \"value\": 90.0",
+    "      },",
+    "      \"timeout_sec\": 27,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_2_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"distance_reached\",",
+    "        \"distance\": 2.0",
+    "      },",
+    "      \"timeout_sec\": 17,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214350.032014217] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "[INFO] [1794214350.034253505] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214350.037531738] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_aea306d7f3c4', 3 moves -- start_mission subito",
+    "[INFO] [1794214350.041169598] [llm_planner_node]: start_mission OK: started 'llm_aea306d7f3c4'",
+    "[INFO] [1794214350.041758458] [llm_planner_node]: latenza: llm=0.98s traduzione=0.02s servizi=0.01s totale=1.01s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 3.0}, {\\\"mode\\\": \\\"turn\\\", \\\"dir\\\": \\\"right\\\"}, {\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"distance\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"n_moves\": 3, \"plan_seconds\": 1.001, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 3.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_turn\", \"drive\": {\"mode\": \"wall_turn\", \"turn_sign\": -1.0, \"turn_mag_deg\": 90.0, \"speed\": 0.5}, \"stop_condition\": {\"type\": \"orientation_delta\", \"value\": 90.0}, \"timeout_sec\": 27, \"on_timeout\": \"abort\"}, {\"id\": \"move_2_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"distance_reached\", \"distance\": 2.0}, \"timeout_sec\": 17, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json\", \"latency\": {\"llm_s\": 0.981, \"translate_s\": 0.02, \"services_s\": 0.009, \"total_s\": 1.012}}"
+   ]
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 5,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3465790179907344,
+    "t_server_ready": 2.5557864340080414,
+    "t_ready": 2.5652276549953967,
+    "t_planned": 3.086457491008332,
+    "t_loaded_log": 5.093619005987421,
+    "t_start_returned": 5.597756003000541,
+    "t_loaded": 5.092444804991828,
+    "t_running": 5.596642789983889,
+    "t_exit": 5.911830356984865,
+    "t_llm_done": 3.0652276549953967
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.521,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.502,
+     "translate_s": 0.019,
+     "services_s": 2.51,
+     "total_s": 3.033
+    }
+   },
+   "latency": {
+    "llm_s": 0.5,
+    "translate_s": 0.02,
+    "services_s": 2.51,
+    "total_s": 3.03
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5652276549953967,
+    "llm": 0.5,
+    "translate": 0.02,
+    "services": 2.5112985119922087,
+    "start_to_running": -0.0011132130166515708,
+    "total_to_start": 5.597756003000541,
+    "total_to_running": 5.596642789983889
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "",
+    "missione generata in 0.52s (v2), 1 move:",
+    "  0. vai dritto",
+    "       id       move_0_straight",
+    "       velocita 0.5 m/s",
+    "       fino a   muro entro 2.0 m per 3 tick consecutivi",
+    "       timeout  65 s -> abort",
+    "       note     TERMINALE",
+    "",
+    "JSON (llm_2b356aac445f):",
+    "{",
+    "  \"mission_id\": \"llm_2b356aac445f\",",
+    "  \"schema_version\": \"3.0\",",
+    "  \"moves\": [",
+    "    {",
+    "      \"id\": \"move_0_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"front_clearance\",",
+    "        \"distance\": 2.0,",
+    "        \"debounce_ticks\": 3",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214353.473065704] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "[INFO] [1794214355.475249312] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): /mission/abort_mission non disponibile (nessun server attivo?)",
+    "[INFO] [1794214355.478925090] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_2b356aac445f', 1 moves -- start_mission subito",
+    "[INFO] [1794214355.983183296] [llm_planner_node]: start_mission OK: started 'llm_2b356aac445f'",
+    "[INFO] [1794214355.983798779] [llm_planner_node]: latenza: llm=0.50s traduzione=0.02s servizi=2.51s totale=3.03s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"n_moves\": 1, \"plan_seconds\": 0.521, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 2.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json\", \"latency\": {\"llm_s\": 0.502, \"translate_s\": 0.019, \"services_s\": 2.51, \"total_s\": 3.033}}"
+   ]
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 5,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3630481470027007,
+    "t_server_ready": 2.5712953960173763,
+    "t_ready": 2.5807558200031053,
+    "t_planned": 3.0249704400193878,
+    "t_loaded_log": 5.78251065601944,
+    "t_start_returned": 6.53749598300783,
+    "t_loaded": 5.781450847018277,
+    "t_running": 6.536615011020331,
+    "t_exit": 6.859683129005134,
+    "t_llm_done": 3.0007558200031053
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_c4cca62260df",
+    "schema_version": "5.0",
+    "n_moves": 2,
+    "plan_seconds": 0.444,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_c4cca62260df",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_search",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "object_seen",
+        "class": "person",
+        "min_confidence": 0.5
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "latency": {
+     "llm_s": 0.416,
+     "translate_s": 0.028,
+     "services_s": 3.511,
+     "total_s": 3.957
+    }
+   },
+   "latency": {
+    "llm_s": 0.42,
+    "translate_s": 0.03,
+    "services_s": 3.51,
+    "total_s": 3.96
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5807558200031053,
+    "llm": 0.42,
+    "translate": 0.03,
+    "services": 3.512525542988442,
+    "start_to_running": -0.0008809719874989241,
+    "total_to_start": 6.53749598300783,
+    "total_to_running": 6.536615011020331
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "      \"id\": \"move_0_search\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_seen\",",
+    "        \"class\": \"person\",",
+    "        \"min_confidence\": 0.5",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_1_go_to\",",
+    "      \"go_to_object\": {",
+    "        \"target_class\": \"person\",",
+    "        \"gap_m\": 1.1,",
+    "        \"speed\": 0.5,",
+    "        \"acquire_timeout_sec\": 5.0,",
+    "        \"lost_grace_sec\": 1.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_reached\"",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214359.341407641] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "[INFO] [1794214361.343497070] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): /mission/abort_mission non disponibile (nessun server attivo?)",
+    "[INFO] [1794214362.097719930] [llm_planner_node]: load_mission OK in 0.75s: loaded 'llm_c4cca62260df', 2 moves -- start_mission subito",
+    "[INFO] [1794214362.852713384] [llm_planner_node]: start_mission OK: started 'llm_c4cca62260df'",
+    "[INFO] [1794214362.853347107] [llm_planner_node]: latenza: llm=0.42s traduzione=0.03s servizi=3.51s totale=3.96s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"go_to\\\", \\\"target\\\": \\\"person\\\"}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"n_moves\": 2, \"plan_seconds\": 0.444, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"moves\": [{\"id\": \"move_0_search\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"object_seen\", \"class\": \"person\", \"min_confidence\": 0.5}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_go_to\", \"go_to_object\": {\"target_class\": \"person\", \"gap_m\": 1.1, \"speed\": 0.5, \"acquire_timeout_sec\": 5.0, \"lost_grace_sec\": 1.5}, \"stop_condition\": {\"type\": \"object_reached\"}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json\", \"latency\": {\"llm_s\": 0.416, \"translate_s\": 0.028, \"services_s\": 3.511, \"total_s\": 3.957}}"
+   ]
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 5,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.392899722995935,
+    "t_server_ready": 2.6149408530036453,
+    "t_ready": 2.624508892011363,
+    "t_planned": 3.6348775000078604,
+    "t_loaded_log": 5.642422989010811,
+    "t_start_returned": 6.146254024002701,
+    "t_loaded": 5.641385035007261,
+    "t_running": 6.14528105800855,
+    "t_exit": 6.468111521011451,
+    "t_llm_done": 3.6145088920113633
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 1.01,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.99,
+     "translate_s": 0.02,
+     "services_s": 2.51,
+     "total_s": 3.522
+    }
+   },
+   "latency": {
+    "llm_s": 0.99,
+    "translate_s": 0.02,
+    "services_s": 2.51,
+    "total_s": 3.52
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.624508892011363,
+    "llm": 0.99,
+    "translate": 0.02,
+    "services": 2.5113765239948407,
+    "start_to_running": -0.0009729659941513091,
+    "total_to_start": 6.146254024002701,
+    "total_to_running": 6.14528105800855
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "    {",
+    "      \"id\": \"move_1_turn\",",
+    "      \"drive\": {",
+    "        \"mode\": \"wall_turn\",",
+    "        \"turn_sign\": -1.0,",
+    "        \"turn_mag_deg\": 90.0,",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"orientation_delta\",",
+    "        \"value\": 90.0",
+    "      },",
+    "      \"timeout_sec\": 27,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_2_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"distance_reached\",",
+    "        \"distance\": 2.0",
+    "      },",
+    "      \"timeout_sec\": 17,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214366.824797359] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "[INFO] [1794214368.827149844] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): /mission/abort_mission non disponibile (nessun server attivo?)",
+    "[INFO] [1794214368.831104714] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_aea306d7f3c4', 3 moves -- start_mission subito",
+    "[INFO] [1794214369.334938085] [llm_planner_node]: start_mission OK: started 'llm_aea306d7f3c4'",
+    "[INFO] [1794214369.335554208] [llm_planner_node]: latenza: llm=0.99s traduzione=0.02s servizi=2.51s totale=3.52s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 3.0}, {\\\"mode\\\": \\\"turn\\\", \\\"dir\\\": \\\"right\\\"}, {\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"distance\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"n_moves\": 3, \"plan_seconds\": 1.01, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 3.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_turn\", \"drive\": {\"mode\": \"wall_turn\", \"turn_sign\": -1.0, \"turn_mag_deg\": 90.0, \"speed\": 0.5}, \"stop_condition\": {\"type\": \"orientation_delta\", \"value\": 90.0}, \"timeout_sec\": 27, \"on_timeout\": \"abort\"}, {\"id\": \"move_2_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"distance_reached\", \"distance\": 2.0}, \"timeout_sec\": 17, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json\", \"latency\": {\"llm_s\": 0.99, \"translate_s\": 0.02, \"services_s\": 2.51, \"total_s\": 3.522}}"
+   ]
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 6,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3650280849833507,
+    "t_server_ready": 2.573289309977554,
+    "t_ready": 2.5829835219774395,
+    "t_planned": 3.1099708520050626,
+    "t_loaded_log": 5.117163841990987,
+    "t_start_returned": 5.639413184981095,
+    "t_loaded": 5.116242168005556,
+    "t_running": 5.638355134986341,
+    "t_exit": 5.968375365977408,
+    "t_llm_done": 3.0929835219774393
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.527,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.507,
+     "translate_s": 0.02,
+     "services_s": 2.528,
+     "total_s": 3.056
+    }
+   },
+   "latency": {
+    "llm_s": 0.51,
+    "translate_s": 0.02,
+    "services_s": 2.53,
+    "total_s": 3.06
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5829835219774395,
+    "llm": 0.51,
+    "translate": 0.02,
+    "services": 2.529442332976032,
+    "start_to_running": -0.0010580499947536737,
+    "total_to_start": 5.639413184981095,
+    "total_to_running": 5.638355134986341
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "",
+    "missione generata in 0.53s (v2), 1 move:",
+    "  0. vai dritto",
+    "       id       move_0_straight",
+    "       velocita 0.5 m/s",
+    "       fino a   muro entro 2.0 m per 3 tick consecutivi",
+    "       timeout  65 s -> abort",
+    "       note     TERMINALE",
+    "",
+    "JSON (llm_2b356aac445f):",
+    "{",
+    "  \"mission_id\": \"llm_2b356aac445f\",",
+    "  \"schema_version\": \"3.0\",",
+    "  \"moves\": [",
+    "    {",
+    "      \"id\": \"move_0_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"front_clearance\",",
+    "        \"distance\": 2.0,",
+    "        \"debounce_ticks\": 3",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214372.824674783] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "[INFO] [1794214374.827003035] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): /mission/abort_mission non disponibile (nessun server attivo?)",
+    "[INFO] [1794214374.830663587] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_2b356aac445f', 1 moves -- start_mission subito",
+    "[INFO] [1794214375.352917474] [llm_planner_node]: start_mission OK: started 'llm_2b356aac445f'",
+    "[INFO] [1794214375.353526366] [llm_planner_node]: latenza: llm=0.51s traduzione=0.02s servizi=2.53s totale=3.06s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"n_moves\": 1, \"plan_seconds\": 0.527, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 2.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json\", \"latency\": {\"llm_s\": 0.507, \"translate_s\": 0.02, \"services_s\": 2.528, \"total_s\": 3.056}}"
+   ]
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 6,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3808060300070792,
+    "t_server_ready": 2.5876597170135938,
+    "t_ready": 2.597547843004577,
+    "t_planned": 3.038334336015396,
+    "t_loaded_log": 3.5454960690112785,
+    "t_start_returned": 3.549020055012079,
+    "t_loaded": 3.544562394992681,
+    "t_running": 3.5475223819958046,
+    "t_exit": 3.9004832570208237,
+    "t_llm_done": 3.007547843004577
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_c4cca62260df",
+    "schema_version": "5.0",
+    "n_moves": 2,
+    "plan_seconds": 0.441,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_c4cca62260df",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_search",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "object_seen",
+        "class": "person",
+        "min_confidence": 0.5
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "latency": {
+     "llm_s": 0.412,
+     "translate_s": 0.028,
+     "services_s": 0.509,
+     "total_s": 0.951
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.03,
+    "services_s": 0.51,
+    "total_s": 0.95
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.597547843004577,
+    "llm": 0.41,
+    "translate": 0.03,
+    "services": 0.5106857189966831,
+    "start_to_running": -0.001497673016274348,
+    "total_to_start": 3.549020055012079,
+    "total_to_running": 3.5475223819958046
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "      \"id\": \"move_0_search\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_seen\",",
+    "        \"class\": \"person\",",
+    "        \"min_confidence\": 0.5",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_1_go_to\",",
+    "      \"go_to_object\": {",
+    "        \"target_class\": \"person\",",
+    "        \"gap_m\": 1.1,",
+    "        \"speed\": 0.5,",
+    "        \"acquire_timeout_sec\": 5.0,",
+    "        \"lost_grace_sec\": 1.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_reached\"",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214378.778671774] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "[INFO] [1794214379.281171251] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214379.284464019] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_c4cca62260df', 2 moves -- start_mission subito",
+    "[INFO] [1794214379.288004228] [llm_planner_node]: start_mission OK: started 'llm_c4cca62260df'",
+    "[INFO] [1794214379.288676701] [llm_planner_node]: latenza: llm=0.41s traduzione=0.03s servizi=0.51s totale=0.95s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"go_to\\\", \\\"target\\\": \\\"person\\\"}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"n_moves\": 2, \"plan_seconds\": 0.441, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"moves\": [{\"id\": \"move_0_search\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"object_seen\", \"class\": \"person\", \"min_confidence\": 0.5}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_go_to\", \"go_to_object\": {\"target_class\": \"person\", \"gap_m\": 1.1, \"speed\": 0.5, \"acquire_timeout_sec\": 5.0, \"lost_grace_sec\": 1.5}, \"stop_condition\": {\"type\": \"object_reached\"}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json\", \"latency\": {\"llm_s\": 0.412, \"translate_s\": 0.028, \"services_s\": 0.509, \"total_s\": 0.951}}"
+   ]
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 6,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.358326384011889,
+    "t_server_ready": 2.580359823012259,
+    "t_ready": 2.5895279930264223,
+    "t_planned": 3.591359818005003,
+    "t_loaded_log": 5.618741605023388,
+    "t_start_returned": 5.621798068023054,
+    "t_loaded": 5.617486766015645,
+    "t_running": 5.6209451890026685,
+    "t_exit": 5.931536642019637,
+    "t_llm_done": 3.5695279930264223
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 1.002,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.982,
+     "translate_s": 0.02,
+     "services_s": 2.029,
+     "total_s": 3.032
+    }
+   },
+   "latency": {
+    "llm_s": 0.98,
+    "translate_s": 0.02,
+    "services_s": 2.03,
+    "total_s": 3.03
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5895279930264223,
+    "llm": 0.98,
+    "translate": 0.02,
+    "services": 2.030438250018051,
+    "start_to_running": -0.0008528790203854442,
+    "total_to_start": 5.621798068023054,
+    "total_to_running": 5.6209451890026685
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "    {",
+    "      \"id\": \"move_1_turn\",",
+    "      \"drive\": {",
+    "        \"mode\": \"wall_turn\",",
+    "        \"turn_sign\": -1.0,",
+    "        \"turn_mag_deg\": 90.0,",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"orientation_delta\",",
+    "        \"value\": 90.0",
+    "      },",
+    "      \"timeout_sec\": 27,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_2_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"distance_reached\",",
+    "        \"distance\": 2.0",
+    "      },",
+    "      \"timeout_sec\": 17,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214383.266531562] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "[INFO] [1794214385.289076765] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214385.292537013] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_aea306d7f3c4', 3 moves -- start_mission subito",
+    "[INFO] [1794214385.295847924] [llm_planner_node]: start_mission OK: started 'llm_aea306d7f3c4'",
+    "[INFO] [1794214385.296610440] [llm_planner_node]: latenza: llm=0.98s traduzione=0.02s servizi=2.03s totale=3.03s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 3.0}, {\\\"mode\\\": \\\"turn\\\", \\\"dir\\\": \\\"right\\\"}, {\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"distance\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"n_moves\": 3, \"plan_seconds\": 1.002, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 3.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_turn\", \"drive\": {\"mode\": \"wall_turn\", \"turn_sign\": -1.0, \"turn_mag_deg\": 90.0, \"speed\": 0.5}, \"stop_condition\": {\"type\": \"orientation_delta\", \"value\": 90.0}, \"timeout_sec\": 27, \"on_timeout\": \"abort\"}, {\"id\": \"move_2_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"distance_reached\", \"distance\": 2.0}, \"timeout_sec\": 17, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json\", \"latency\": {\"llm_s\": 0.982, \"translate_s\": 0.02, \"services_s\": 2.029, \"total_s\": 3.032}}"
+   ]
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 7,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.379644461994758,
+    "t_server_ready": 2.5886834829871077,
+    "t_ready": 2.598746325005777,
+    "t_planned": 3.125197527988348,
+    "t_loaded_log": 4.632539501006249,
+    "t_start_returned": 4.636970766005106,
+    "t_loaded": 4.631458858988481,
+    "t_running": 4.636125118006021,
+    "t_exit": 4.963772754010279,
+    "t_llm_done": 3.108746325005777
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.526,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.507,
+     "translate_s": 0.019,
+     "services_s": 1.511,
+     "total_s": 2.038
+    }
+   },
+   "latency": {
+    "llm_s": 0.51,
+    "translate_s": 0.02,
+    "services_s": 1.51,
+    "total_s": 2.04
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.598746325005777,
+    "llm": 0.51,
+    "translate": 0.02,
+    "services": 1.5117732380167581,
+    "start_to_running": -0.0008456479990854859,
+    "total_to_start": 4.636970766005106,
+    "total_to_running": 4.636125118006021
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "",
+    "missione generata in 0.53s (v2), 1 move:",
+    "  0. vai dritto",
+    "       id       move_0_straight",
+    "       velocita 0.5 m/s",
+    "       fino a   muro entro 2.0 m per 3 tick consecutivi",
+    "       timeout  65 s -> abort",
+    "       note     TERMINALE",
+    "",
+    "JSON (llm_2b356aac445f):",
+    "{",
+    "  \"mission_id\": \"llm_2b356aac445f\",",
+    "  \"schema_version\": \"3.0\",",
+    "  \"moves\": [",
+    "    {",
+    "      \"id\": \"move_0_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"front_clearance\",",
+    "        \"distance\": 2.0,",
+    "        \"debounce_ticks\": 3",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214388.750250546] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "[INFO] [1794214390.253202212] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214390.256458409] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_2b356aac445f', 1 moves -- start_mission subito",
+    "[INFO] [1794214390.260894953] [llm_planner_node]: start_mission OK: started 'llm_2b356aac445f'",
+    "[INFO] [1794214390.261505030] [llm_planner_node]: latenza: llm=0.51s traduzione=0.02s servizi=1.51s totale=2.04s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"n_moves\": 1, \"plan_seconds\": 0.526, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 2.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json\", \"latency\": {\"llm_s\": 0.507, \"translate_s\": 0.019, \"services_s\": 1.511, \"total_s\": 2.038}}"
+   ]
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 7,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.35805794398766,
+    "t_server_ready": 2.5673355529725086,
+    "t_ready": 2.576439029973699,
+    "t_planned": 3.02016102799098,
+    "t_loaded_log": 5.027394201984862,
+    "t_start_returned": 5.531135073979385,
+    "t_loaded": 5.026365684985649,
+    "t_running": 5.530205846996978,
+    "t_exit": 5.852885105996393,
+    "t_llm_done": 2.9964390299736987
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_c4cca62260df",
+    "schema_version": "5.0",
+    "n_moves": 2,
+    "plan_seconds": 0.444,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_c4cca62260df",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_search",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "object_seen",
+        "class": "person",
+        "min_confidence": 0.5
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "latency": {
+     "llm_s": 0.416,
+     "translate_s": 0.028,
+     "services_s": 2.51,
+     "total_s": 2.955
+    }
+   },
+   "latency": {
+    "llm_s": 0.42,
+    "translate_s": 0.03,
+    "services_s": 2.51,
+    "total_s": 2.96
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.576439029973699,
+    "llm": 0.42,
+    "translate": 0.03,
+    "services": 2.510974045988405,
+    "start_to_running": -0.0009292269824072719,
+    "total_to_start": 5.531135073979385,
+    "total_to_running": 5.530205846996978
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "      \"id\": \"move_0_search\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_seen\",",
+    "        \"class\": \"person\",",
+    "        \"min_confidence\": 0.5",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_1_go_to\",",
+    "      \"go_to_object\": {",
+    "        \"target_class\": \"person\",",
+    "        \"gap_m\": 1.1,",
+    "        \"speed\": 0.5,",
+    "        \"acquire_timeout_sec\": 5.0,",
+    "        \"lost_grace_sec\": 1.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_reached\"",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214393.660172010] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "[INFO] [1794214395.662427421] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): /mission/abort_mission non disponibile (nessun server attivo?)",
+    "[INFO] [1794214395.666180710] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_c4cca62260df', 2 moves -- start_mission subito",
+    "[INFO] [1794214396.169917998] [llm_planner_node]: start_mission OK: started 'llm_c4cca62260df'",
+    "[INFO] [1794214396.170549002] [llm_planner_node]: latenza: llm=0.42s traduzione=0.03s servizi=2.51s totale=2.96s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"go_to\\\", \\\"target\\\": \\\"person\\\"}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"n_moves\": 2, \"plan_seconds\": 0.444, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"moves\": [{\"id\": \"move_0_search\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"object_seen\", \"class\": \"person\", \"min_confidence\": 0.5}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_go_to\", \"go_to_object\": {\"target_class\": \"person\", \"gap_m\": 1.1, \"speed\": 0.5, \"acquire_timeout_sec\": 5.0, \"lost_grace_sec\": 1.5}, \"stop_condition\": {\"type\": \"object_reached\"}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json\", \"latency\": {\"llm_s\": 0.416, \"translate_s\": 0.028, \"services_s\": 2.51, \"total_s\": 2.955}}"
+   ]
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 7,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3433948309975676,
+    "t_server_ready": 2.565416751021985,
+    "t_ready": 2.5744566840003245,
+    "t_planned": 3.5755344820208848,
+    "t_loaded_log": 4.582893433020217,
+    "t_start_returned": 4.58619945202372,
+    "t_loaded": 4.581867347005755,
+    "t_running": 4.585273201024393,
+    "t_exit": 4.913385160005419,
+    "t_llm_done": 3.5544566840003244
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 1.001,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.981,
+     "translate_s": 0.02,
+     "services_s": 1.009,
+     "total_s": 2.012
+    }
+   },
+   "latency": {
+    "llm_s": 0.98,
+    "translate_s": 0.02,
+    "services_s": 1.01,
+    "total_s": 2.01
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5744566840003245,
+    "llm": 0.98,
+    "translate": 0.02,
+    "services": 1.0106649700028356,
+    "start_to_running": -0.000926250999327749,
+    "total_to_start": 4.58619945202372,
+    "total_to_running": 4.585273201024393
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "    {",
+    "      \"id\": \"move_1_turn\",",
+    "      \"drive\": {",
+    "        \"mode\": \"wall_turn\",",
+    "        \"turn_sign\": -1.0,",
+    "        \"turn_mag_deg\": 90.0,",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"orientation_delta\",",
+    "        \"value\": 90.0",
+    "      },",
+    "      \"timeout_sec\": 27,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_2_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"distance_reached\",",
+    "        \"distance\": 2.0",
+    "      },",
+    "      \"timeout_sec\": 17,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214400.092127422] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "[INFO] [1794214401.094872684] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214401.098284457] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_aea306d7f3c4', 3 moves -- start_mission subito",
+    "[INFO] [1794214401.101619532] [llm_planner_node]: start_mission OK: started 'llm_aea306d7f3c4'",
+    "[INFO] [1794214401.102216234] [llm_planner_node]: latenza: llm=0.98s traduzione=0.02s servizi=1.01s totale=2.01s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 3.0}, {\\\"mode\\\": \\\"turn\\\", \\\"dir\\\": \\\"right\\\"}, {\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"distance\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"n_moves\": 3, \"plan_seconds\": 1.001, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 3.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_turn\", \"drive\": {\"mode\": \"wall_turn\", \"turn_sign\": -1.0, \"turn_mag_deg\": 90.0, \"speed\": 0.5}, \"stop_condition\": {\"type\": \"orientation_delta\", \"value\": 90.0}, \"timeout_sec\": 27, \"on_timeout\": \"abort\"}, {\"id\": \"move_2_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"distance_reached\", \"distance\": 2.0}, \"timeout_sec\": 17, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json\", \"latency\": {\"llm_s\": 0.981, \"translate_s\": 0.02, \"services_s\": 1.009, \"total_s\": 2.012}}"
+   ]
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 8,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3662039470218588,
+    "t_server_ready": 2.5754867940268014,
+    "t_ready": 2.5848693340085447,
+    "t_planned": 3.1103888600191567,
+    "t_loaded_log": 3.116840142000001,
+    "t_start_returned": 3.120551804022398,
+    "t_loaded": 3.116238353017252,
+    "t_running": 3.1193308170186356,
+    "t_exit": 3.437914616020862,
+    "t_llm_done": 3.0948693340085445
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.525,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.505,
+     "translate_s": 0.02,
+     "services_s": 0.009,
+     "total_s": 0.536
+    }
+   },
+   "latency": {
+    "llm_s": 0.51,
+    "translate_s": 0.02,
+    "services_s": 0.01,
+    "total_s": 0.54
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5848693340085447,
+    "llm": 0.51,
+    "translate": 0.02,
+    "services": 0.010162944003241137,
+    "start_to_running": -0.001220987003762275,
+    "total_to_start": 3.120551804022398,
+    "total_to_running": 3.1193308170186356
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "",
+    "missione generata in 0.53s (v2), 1 move:",
+    "  0. vai dritto",
+    "       id       move_0_straight",
+    "       velocita 0.5 m/s",
+    "       fino a   muro entro 2.0 m per 3 tick consecutivi",
+    "       timeout  65 s -> abort",
+    "       note     TERMINALE",
+    "",
+    "JSON (llm_2b356aac445f):",
+    "{",
+    "  \"mission_id\": \"llm_2b356aac445f\",",
+    "  \"schema_version\": \"3.0\",",
+    "  \"moves\": [",
+    "    {",
+    "      \"id\": \"move_0_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"front_clearance\",",
+    "        \"distance\": 2.0,",
+    "        \"debounce_ticks\": 3",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214404.592910531] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "[INFO] [1794214404.595056746] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214404.598275443] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_2b356aac445f', 1 moves -- start_mission subito",
+    "[INFO] [1794214404.602002368] [llm_planner_node]: start_mission OK: started 'llm_2b356aac445f'",
+    "[INFO] [1794214404.602604734] [llm_planner_node]: latenza: llm=0.51s traduzione=0.02s servizi=0.01s totale=0.54s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"n_moves\": 1, \"plan_seconds\": 0.525, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 2.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json\", \"latency\": {\"llm_s\": 0.505, \"translate_s\": 0.02, \"services_s\": 0.009, \"total_s\": 0.536}}"
+   ]
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 8,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.357345083000837,
+    "t_server_ready": 2.566066191997379,
+    "t_ready": 2.575543544982793,
+    "t_planned": 3.012022734998027,
+    "t_loaded_log": 4.0197806090000086,
+    "t_start_returned": 4.0228923370013945,
+    "t_loaded": 4.018593635992147,
+    "t_running": 4.021864746988285,
+    "t_exit": 4.333539857005235,
+    "t_llm_done": 2.985543544982793
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_c4cca62260df",
+    "schema_version": "5.0",
+    "n_moves": 2,
+    "plan_seconds": 0.436,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_c4cca62260df",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_search",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "object_seen",
+        "class": "person",
+        "min_confidence": 0.5
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "latency": {
+     "llm_s": 0.408,
+     "translate_s": 0.028,
+     "services_s": 1.01,
+     "total_s": 1.447
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.03,
+    "services_s": 1.01,
+    "total_s": 1.45
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.575543544982793,
+    "llm": 0.41,
+    "translate": 0.03,
+    "services": 1.0108696020033676,
+    "start_to_running": -0.0010275900131091475,
+    "total_to_start": 4.0228923370013945,
+    "total_to_running": 4.021864746988285
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "      \"id\": \"move_0_search\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_seen\",",
+    "        \"class\": \"person\",",
+    "        \"min_confidence\": 0.5",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_1_go_to\",",
+    "      \"go_to_object\": {",
+    "        \"target_class\": \"person\",",
+    "        \"gap_m\": 1.1,",
+    "        \"speed\": 0.5,",
+    "        \"acquire_timeout_sec\": 5.0,",
+    "        \"lost_grace_sec\": 1.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_reached\"",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214407.943979202] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "[INFO] [1794214408.946753133] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214408.950553206] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_c4cca62260df', 2 moves -- start_mission subito",
+    "[INFO] [1794214408.953669127] [llm_planner_node]: start_mission OK: started 'llm_c4cca62260df'",
+    "[INFO] [1794214408.954266501] [llm_planner_node]: latenza: llm=0.41s traduzione=0.03s servizi=1.01s totale=1.45s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"go_to\\\", \\\"target\\\": \\\"person\\\"}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"n_moves\": 2, \"plan_seconds\": 0.436, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"moves\": [{\"id\": \"move_0_search\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"object_seen\", \"class\": \"person\", \"min_confidence\": 0.5}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_go_to\", \"go_to_object\": {\"target_class\": \"person\", \"gap_m\": 1.1, \"speed\": 0.5, \"acquire_timeout_sec\": 5.0, \"lost_grace_sec\": 1.5}, \"stop_condition\": {\"type\": \"object_reached\"}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json\", \"latency\": {\"llm_s\": 0.408, \"translate_s\": 0.028, \"services_s\": 1.01, \"total_s\": 1.447}}"
+   ]
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 8,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.371989790990483,
+    "t_server_ready": 2.5938529069826473,
+    "t_ready": 2.6030007769877557,
+    "t_planned": 3.615810124989366,
+    "t_loaded_log": 3.6224426809931174,
+    "t_start_returned": 3.6577100139984395,
+    "t_loaded": 3.6215592749940697,
+    "t_running": 3.624604543991154,
+    "t_exit": 3.9808628039900213,
+    "t_llm_done": 3.593000776987756
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 1.013,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.993,
+     "translate_s": 0.02,
+     "services_s": 0.041,
+     "total_s": 1.055
+    }
+   },
+   "latency": {
+    "llm_s": 0.99,
+    "translate_s": 0.02,
+    "services_s": 0.04,
+    "total_s": 1.05
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.6030007769877557,
+    "llm": 0.99,
+    "translate": 0.02,
+    "services": 0.04189988900907338,
+    "start_to_running": -0.033105470007285476,
+    "total_to_start": 3.6577100139984395,
+    "total_to_running": 3.624604543991154
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "    {",
+    "      \"id\": \"move_1_turn\",",
+    "      \"drive\": {",
+    "        \"mode\": \"wall_turn\",",
+    "        \"turn_sign\": -1.0,",
+    "        \"turn_mag_deg\": 90.0,",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"orientation_delta\",",
+    "        \"value\": 90.0",
+    "      },",
+    "      \"timeout_sec\": 27,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_2_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"distance_reached\",",
+    "        \"distance\": 2.0",
+    "      },",
+    "      \"timeout_sec\": 17,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214412.900145389] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "[INFO] [1794214412.902325330] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214412.905541054] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_aea306d7f3c4', 3 moves -- start_mission subito",
+    "[INFO] [1794214412.940801794] [llm_planner_node]: start_mission OK: started 'llm_aea306d7f3c4'",
+    "[INFO] [1794214412.941400129] [llm_planner_node]: latenza: llm=0.99s traduzione=0.02s servizi=0.04s totale=1.05s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 3.0}, {\\\"mode\\\": \\\"turn\\\", \\\"dir\\\": \\\"right\\\"}, {\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"distance\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"n_moves\": 3, \"plan_seconds\": 1.013, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 3.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_turn\", \"drive\": {\"mode\": \"wall_turn\", \"turn_sign\": -1.0, \"turn_mag_deg\": 90.0, \"speed\": 0.5}, \"stop_condition\": {\"type\": \"orientation_delta\", \"value\": 90.0}, \"timeout_sec\": 27, \"on_timeout\": \"abort\"}, {\"id\": \"move_2_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"distance_reached\", \"distance\": 2.0}, \"timeout_sec\": 17, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json\", \"latency\": {\"llm_s\": 0.993, \"translate_s\": 0.02, \"services_s\": 0.041, \"total_s\": 1.055}}"
+   ]
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 9,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3589838090119883,
+    "t_server_ready": 2.567121447995305,
+    "t_ready": 2.5768874300119933,
+    "t_planned": 3.098571400012588,
+    "t_loaded_log": 4.606761197006563,
+    "t_start_returned": 4.609945083007915,
+    "t_loaded": 4.605883070005802,
+    "t_running": 4.609046541998396,
+    "t_exit": 4.9246391899941955,
+    "t_llm_done": 3.0768874300119933
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.522,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.501,
+     "translate_s": 0.02,
+     "services_s": 1.51,
+     "total_s": 2.033
+    }
+   },
+   "latency": {
+    "llm_s": 0.5,
+    "translate_s": 0.02,
+    "services_s": 1.51,
+    "total_s": 2.03
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5768874300119933,
+    "llm": 0.5,
+    "translate": 0.02,
+    "services": 1.5113736829953268,
+    "start_to_running": -0.0008985410095192492,
+    "total_to_start": 4.609945083007915,
+    "total_to_running": 4.609046541998396
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "",
+    "missione generata in 0.52s (v2), 1 move:",
+    "  0. vai dritto",
+    "       id       move_0_straight",
+    "       velocita 0.5 m/s",
+    "       fino a   muro entro 2.0 m per 3 tick consecutivi",
+    "       timeout  65 s -> abort",
+    "       note     TERMINALE",
+    "",
+    "JSON (llm_2b356aac445f):",
+    "{",
+    "  \"mission_id\": \"llm_2b356aac445f\",",
+    "  \"schema_version\": \"3.0\",",
+    "  \"moves\": [",
+    "    {",
+    "      \"id\": \"move_0_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"front_clearance\",",
+    "        \"distance\": 2.0,",
+    "        \"debounce_ticks\": 3",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214416.419845684] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "[INFO] [1794214417.923330111] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214417.926878041] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_2b356aac445f', 1 moves -- start_mission subito",
+    "[INFO] [1794214417.930066151] [llm_planner_node]: start_mission OK: started 'llm_2b356aac445f'",
+    "[INFO] [1794214417.930679621] [llm_planner_node]: latenza: llm=0.50s traduzione=0.02s servizi=1.51s totale=2.03s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"n_moves\": 1, \"plan_seconds\": 0.522, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 2.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json\", \"latency\": {\"llm_s\": 0.501, \"translate_s\": 0.02, \"services_s\": 1.51, \"total_s\": 2.033}}"
+   ]
+  },
+  {
+   "command": "vai dalla persona",
+   "run": 9,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3479666790226474,
+    "t_server_ready": 2.557199399016099,
+    "t_ready": 2.567790587025229,
+    "t_planned": 3.0069862520031165,
+    "t_loaded_log": 5.76495574900764,
+    "t_start_returned": 6.518987407005625,
+    "t_loaded": 5.763581361010438,
+    "t_running": 6.517823951027822,
+    "t_exit": 6.859779120015446,
+    "t_llm_done": 2.977790587025229
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_c4cca62260df",
+    "schema_version": "5.0",
+    "n_moves": 2,
+    "plan_seconds": 0.439,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_c4cca62260df",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_search",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "object_seen",
+        "class": "person",
+        "min_confidence": 0.5
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "latency": {
+     "llm_s": 0.412,
+     "translate_s": 0.027,
+     "services_s": 3.511,
+     "total_s": 3.951
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.03,
+    "services_s": 3.51,
+    "total_s": 3.95
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.567790587025229,
+    "llm": 0.41,
+    "translate": 0.03,
+    "services": 3.5120011550025083,
+    "start_to_running": -0.0011634559778030962,
+    "total_to_start": 6.518987407005625,
+    "total_to_running": 6.517823951027822
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "      \"id\": \"move_0_search\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_seen\",",
+    "        \"class\": \"person\",",
+    "        \"min_confidence\": 0.5",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_1_go_to\",",
+    "      \"go_to_object\": {",
+    "        \"target_class\": \"person\",",
+    "        \"gap_m\": 1.1,",
+    "        \"speed\": 0.5,",
+    "        \"acquire_timeout_sec\": 5.0,",
+    "        \"lost_grace_sec\": 1.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"object_reached\"",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214421.266272420] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json",
+    "",
+    "[INFO] [1794214423.268434501] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): /mission/abort_mission non disponibile (nessun server attivo?)",
+    "[INFO] [1794214424.023064958] [llm_planner_node]: load_mission OK in 0.75s: loaded 'llm_c4cca62260df', 2 moves -- start_mission subito",
+    "[INFO] [1794214424.777107751] [llm_planner_node]: start_mission OK: started 'llm_c4cca62260df'",
+    "[INFO] [1794214424.777737764] [llm_planner_node]: latenza: llm=0.41s traduzione=0.03s servizi=3.51s totale=3.95s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"go_to\\\", \\\"target\\\": \\\"person\\\"}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"n_moves\": 2, \"plan_seconds\": 0.439, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_c4cca62260df\", \"schema_version\": \"5.0\", \"moves\": [{\"id\": \"move_0_search\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"object_seen\", \"class\": \"person\", \"min_confidence\": 0.5}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_go_to\", \"go_to_object\": {\"target_class\": \"person\", \"gap_m\": 1.1, \"speed\": 0.5, \"acquire_timeout_sec\": 5.0, \"lost_grace_sec\": 1.5}, \"stop_condition\": {\"type\": \"object_reached\"}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_c4cca62260df.json\", \"latency\": {\"llm_s\": 0.412, \"translate_s\": 0.027, \"services_s\": 3.511, \"total_s\": 3.951}}"
+   ]
+  },
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 9,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3687365030054934,
+    "t_server_ready": 2.5904997659963556,
+    "t_ready": 2.599891055986518,
+    "t_planned": 3.6099784940015525,
+    "t_loaded_log": 5.6187262639869004,
+    "t_start_returned": 5.62195789400721,
+    "t_loaded": 5.617864391009789,
+    "t_running": 5.6209804439859,
+    "t_exit": 5.933128486998612,
+    "t_llm_done": 3.5898910559865183
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 1.01,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 0.99,
+     "translate_s": 0.02,
+     "services_s": 2.011,
+     "total_s": 3.022
+    }
+   },
+   "latency": {
+    "llm_s": 0.99,
+    "translate_s": 0.02,
+    "services_s": 2.01,
+    "total_s": 3.02
+   },
+   "error": null,
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.599891055986518,
+    "llm": 0.99,
+    "translate": 0.02,
+    "services": 2.0119794000056572,
+    "start_to_running": -0.000977450021309778,
+    "total_to_start": 5.62195789400721,
+    "total_to_running": 5.6209804439859
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "    {",
+    "      \"id\": \"move_1_turn\",",
+    "      \"drive\": {",
+    "        \"mode\": \"wall_turn\",",
+    "        \"turn_sign\": -1.0,",
+    "        \"turn_mag_deg\": 90.0,",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"orientation_delta\",",
+    "        \"value\": 90.0",
+    "      },",
+    "      \"timeout_sec\": 27,",
+    "      \"on_timeout\": \"abort\"",
+    "    },",
+    "    {",
+    "      \"id\": \"move_2_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"distance_reached\",",
+    "        \"distance\": 2.0",
+    "      },",
+    "      \"timeout_sec\": 17,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794214428.768244303] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "",
+    "[INFO] [1794214430.772485825] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794214430.775847400] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_aea306d7f3c4', 3 moves -- start_mission subito",
+    "[INFO] [1794214430.779116980] [llm_planner_node]: start_mission OK: started 'llm_aea306d7f3c4'",
+    "[INFO] [1794214430.779710612] [llm_planner_node]: latenza: llm=0.99s traduzione=0.02s servizi=2.01s totale=3.02s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 3.0}, {\\\"mode\\\": \\\"turn\\\", \\\"dir\\\": \\\"right\\\"}, {\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"distance\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"n_moves\": 3, \"plan_seconds\": 1.01, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_aea306d7f3c4\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 3.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\"}, {\"id\": \"move_1_turn\", \"drive\": {\"mode\": \"wall_turn\", \"turn_sign\": -1.0, \"turn_mag_deg\": 90.0, \"speed\": 0.5}, \"stop_condition\": {\"type\": \"orientation_delta\", \"value\": 90.0}, \"timeout_sec\": 27, \"on_timeout\": \"abort\"}, {\"id\": \"move_2_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"distance_reached\", \"distance\": 2.0}, \"timeout_sec\": 17, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json\", \"latency\": {\"llm_s\": 0.99, \"translate_s\": 0.02, \"services_s\": 2.011, \"total_s\": 3.022}}"
+   ]
+  }
+ ],
+ "summary": {
+  "per_command": {
+   "vai dritto e fermati a due metri dal muro": {
+    "process_start": {
+     "n": 10,
+     "median": 2.578799566515954,
+     "p95": 5.851616611995269,
+     "max": 5.851616611995269
+    },
+    "llm": {
+     "n": 10,
+     "median": 0.51,
+     "p95": 0.51,
+     "max": 0.51
+    },
+    "translate": {
+     "n": 10,
+     "median": 0.02,
+     "p95": 0.02,
+     "max": 0.02
+    },
+    "services": {
+     "n": 10,
+     "median": 1.2613752680044854,
+     "p95": 2.529442332976032,
+     "max": 2.529442332976032
+    },
+    "start_to_running": {
+     "n": 10,
+     "median": -0.0009254625038011,
+     "p95": -0.0008456479990854859,
+     "max": -0.0008456479990854859
+    },
+    "total_to_start": {
+     "n": 10,
+     "median": 4.61063613051374,
+     "p95": 6.386345840001013,
+     "max": 6.386345840001013
+    },
+    "total_to_running": {
+     "n": 10,
+     "median": 4.609724009002093,
+     "p95": 6.3854670980072115,
+     "max": 6.3854670980072115
+    }
+   },
+   "vai dalla persona": {
+    "process_start": {
+     "n": 10,
+     "median": 2.578036846985924,
+     "p95": 2.597547843004577,
+     "max": 2.597547843004577
+    },
+    "llm": {
+     "n": 10,
+     "median": 0.415,
+     "p95": 0.43,
+     "max": 0.43
+    },
+    "translate": {
+     "n": 10,
+     "median": 0.03,
+     "p95": 0.03,
+     "max": 0.03
+    },
+    "services": {
+     "n": 10,
+     "median": 2.136142285002279,
+     "p95": 3.512525542988442,
+     "max": 3.512525542988442
+    },
+    "start_to_running": {
+     "n": 10,
+     "median": -0.0009960759925888851,
+     "p95": -0.0008203010074794292,
+     "max": -0.0008203010074794292
+    },
+    "total_to_start": {
+     "n": 10,
+     "median": 5.15748563199304,
+     "p95": 6.53749598300783,
+     "max": 6.53749598300783
+    },
+    "total_to_running": {
+     "n": 10,
+     "median": 5.1563213144982,
+     "p95": 6.536615011020331,
+     "max": 6.536615011020331
+    }
+   },
+   "vai dritto, al muro gira a destra e avanza 2 metri": {
+    "process_start": {
+     "n": 10,
+     "median": 2.599927229981404,
+     "p95": 2.6416487760143355,
+     "max": 2.6416487760143355
+    },
+    "llm": {
+     "n": 10,
+     "median": 0.98,
+     "p95": 0.99,
+     "max": 0.99
+    },
+    "translate": {
+     "n": 10,
+     "median": 0.02,
+     "p95": 0.02,
+     "max": 0.02
+    },
+    "services": {
+     "n": 10,
+     "median": 1.5113826054875972,
+     "p95": 2.5113765239948407,
+     "max": 2.5113765239948407
+    },
+    "start_to_running": {
+     "n": 10,
+     "median": -0.0009367199963890016,
+     "p95": -0.0003794189833570272,
+     "max": -0.0003794189833570272
+    },
+    "total_to_start": {
+     "n": 10,
+     "median": 5.121760291993269,
+     "p95": 6.146254024002701,
+     "max": 6.146254024002701
+    },
+    "total_to_running": {
+     "n": 10,
+     "median": 5.121096988004865,
+     "p95": 6.14528105800855,
+     "max": 6.14528105800855
+    }
+   }
+  },
+  "overall": {
+   "process_start": {
+    "n": 30,
+    "median": 2.5807337615115102,
+    "p95": 2.6416487760143355,
+    "max": 5.851616611995269
+   },
+   "llm": {
+    "n": 30,
+    "median": 0.51,
+    "p95": 0.99,
+    "max": 0.99
+   },
+   "translate": {
+    "n": 30,
+    "median": 0.02,
+    "p95": 0.03,
+    "max": 0.03
+   },
+   "services": {
+    "n": 30,
+    "median": 1.5115734605060425,
+    "p95": 3.5120011550025083,
+    "max": 3.512525542988442
+   },
+   "start_to_running": {
+    "n": 30,
+    "median": -0.0009297274955315515,
+    "p95": -0.0008203010074794292,
+    "max": -0.0003794189833570272
+   },
+   "total_to_start": {
+    "n": 30,
+    "median": 4.710403478005901,
+    "p95": 6.530253431992605,
+    "max": 6.53749598300783
+   },
+   "total_to_running": {
+    "n": 30,
+    "median": 4.7092809500027215,
+    "p95": 6.529238499992061,
+    "max": 6.536615011020331
+   }
+  },
+  "excluded": [],
+  "kept": 30
+ },
+ "complete": true,
+ "final_state": "ABORTED"
+}

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wall variants</title>
+<style>
+ :root { color-scheme: light dark;
+   --bg:#ffffff; --fg:#14171a; --muted:#5b6670; --line:#d8dee4; --card:#f6f8fa;
+   --accent:#8a5a00; }
+ @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+   --bg:#10131a; --fg:#e7ebf0; --muted:#9aa5b1; --line:#2a313c; --card:#171c25;
+   --accent:#f0c06a; } }
+ :root[data-theme="dark"] { --bg:#10131a; --fg:#e7ebf0; --muted:#9aa5b1;
+   --line:#2a313c; --card:#171c25; --accent:#f0c06a; }
+ body { background:var(--bg); color:var(--fg); margin:0 16px 64px;
+   font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+ .wrap { max-width:1100px; margin:0 auto; }
+ h1 { font-size:1.6rem; margin:28px 0 4px; }
+ h2 { font-size:1.15rem; margin:36px 0 6px; border-top:1px solid var(--line);
+   padding-top:18px; }
+ p.sub { color:var(--muted); margin:4px 0 18px; }
+ table { border-collapse:collapse; width:100%; margin:10px 0 18px; font-size:13.5px; }
+ th,td { border:1px solid var(--line); padding:5px 8px; text-align:right; }
+ th:first-child,td:first-child { text-align:left; }
+ thead th { background:var(--card); }
+ video { width:100%; background:#000; border:1px solid var(--line); border-radius:6px; }
+ .vids { display:grid; gap:14px; grid-template-columns:1fr; }
+ code { background:var(--card); padding:1px 5px; border-radius:4px; }
+ .note { color:var(--muted); font-size:13px; }
+ ul { padding-left:20px; }
+</style></head><body><div class="wrap">
+<h1>Wall pipeline variants</h1>
+
+<p class="sub">Generated 2026-10-19 09:18:50 by <code>tools/wall_variant_videos.py</code>. Every frame is the replay on the current code; the variant is named in the frame itself.</p>
+<h2>The variants</h2><table><thead><tr><th>variant</th><th>parameters</th><th>file</th></tr></thead><tbody>
+<tr><td><b>v1</b></td><td>HEAD: ray angle 25 deg, birth span 1.0 m</td><td><code>tools/wall_variants/v1_head.yaml</code></td></tr>
+<tr><td><b>v2</b></td><td>D7 alternative: ray angle OFF (0), birth span 0.5 m</td><td><code>tools/wall_variants/v2_d7_alternative.yaml</code></td></tr>
+<tr><td><b>v3</b></td><td>birth span 0.5 m alone, ray angle still 25 deg</td><td><code>tools/wall_variants/v3_birth_span_only.yaml</code></td></tr>
+</tbody></table>
+<h2>corridor10m_20261016T144537</h2>
+<p class="sub">164.5 s &middot; 14.93 m driven &middot; 22 % moving &middot; camera pass <code>rec</code> &middot; camera pitch -0.03635 rad</p>
+<table><thead><tr><th></th><th>v1</th><th>v2</th><th>v3</th></tr></thead><tbody>
+<tr><td>cycles measured</td><td>703</td><td>703</td><td>703</td></tr>
+<tr><td>cycles with a FRONT wall</td><td>77.4 %</td><td>78.1 %</td><td>78.1 %</td></tr>
+<tr><td>cycles with a LEFT wall</td><td>93.9 %</td><td>93.9 %</td><td>93.9 %</td></tr>
+<tr><td>cycles with a RIGHT wall</td><td>8 %</td><td>87.9 %</td><td>87.9 %</td></tr>
+<tr><td>cycles with an &#x27;other&#x27; wall</td><td>0 %</td><td>0 %</td><td>0 %</td></tr>
+<tr><td>published track instances</td><td>1287</td><td>2207</td><td>1989</td></tr>
+<tr><td>published tracks per cycle</td><td>1.83</td><td>3.14</td><td>2.83</td></tr>
+<tr><td>distinct published ids</td><td>11</td><td>21</td><td>25</td></tr>
+<tr><td>births per minute</td><td>4.01</td><td>7.66</td><td>9.12</td></tr>
+<tr><td>role switches (one id, two roles)</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>tracks held (published or not)</td><td>97</td><td>379</td><td>242</td></tr>
+<tr><td>of those, alive under 1 s</td><td>63</td><td>167</td><td>153</td></tr>
+<tr><td>published tracks never seen by the LiDAR</td><td>0</td><td>1</td><td>1</td></tr>
+<tr><td>published tracks within 0.5 m of the car</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>phantom FRONT episodes</td><td>1</td><td>0</td><td>0</td></tr>
+<tr><td>WALL episodes</td><td>14</td><td>13</td><td>13</td></tr>
+<tr><td>NO_DATA share of contract time</td><td>0 %</td><td>0 %</td><td>0 %</td></tr>
+<tr><td>tracker p50</td><td>23.65 ms</td><td>32.46 ms</td><td>29.73 ms</td></tr>
+<tr><td>tracker p95</td><td>32.79 ms</td><td>42.21 ms</td><td>38.48 ms</td></tr>
+</tbody></table><div class="vids">
+<div><p class="note">camera, V1 | V2 (moving window, 5 Hz)</p><video controls preload="metadata" src="corridor10m_20261016T144537/camera_v1_v2.mp4"></video></div>
+<div><p class="note">top-down, V1 | V2 (whole run, 10 Hz)</p><video controls preload="metadata" src="corridor10m_20261016T144537/topdown_v1_v2.mp4"></video></div>
+<div><p class="note">camera, v1 alone</p><video controls preload="metadata" src="corridor10m_20261016T144537/v1/corridor10m_20261016T144537.camera.mp4"></video></div>
+<div><p class="note">topdown, v1 alone</p><video controls preload="metadata" src="corridor10m_20261016T144537/v1/corridor10m_20261016T144537.topdown.mp4"></video></div>
+<div><p class="note">camera, v2 alone</p><video controls preload="metadata" src="corridor10m_20261016T144537/v2/corridor10m_20261016T144537.camera.mp4"></video></div>
+<div><p class="note">topdown, v2 alone</p><video controls preload="metadata" src="corridor10m_20261016T144537/v2/corridor10m_20261016T144537.topdown.mp4"></video></div>
+<div><p class="note">camera, v3 alone</p><video controls preload="metadata" src="corridor10m_20261016T144537/v3/corridor10m_20261016T144537.camera.mp4"></video></div>
+<div><p class="note">topdown, v3 alone</p><video controls preload="metadata" src="corridor10m_20261016T144537/v3/corridor10m_20261016T144537.topdown.mp4"></video></div>
+</div>
+<h2>2026-10-15T15-18-27_mission-llm_86cff518e42d</h2>
+<p class="sub">13.9 s &middot; 4.88 m driven &middot; 100 % moving &middot; camera pass <code>rec</code> &middot; camera pitch -0.03635 rad</p>
+<table><thead><tr><th></th><th>v1</th><th>v2</th><th>v3</th></tr></thead><tbody>
+<tr><td>cycles measured</td><td>51</td><td>51</td><td>51</td></tr>
+<tr><td>cycles with a FRONT wall</td><td>43.1 %</td><td>43.1 %</td><td>43.1 %</td></tr>
+<tr><td>cycles with a LEFT wall</td><td>80.4 %</td><td>84.3 %</td><td>84.3 %</td></tr>
+<tr><td>cycles with a RIGHT wall</td><td>0 %</td><td>64.7 %</td><td>60.8 %</td></tr>
+<tr><td>cycles with an &#x27;other&#x27; wall</td><td>0 %</td><td>0 %</td><td>0 %</td></tr>
+<tr><td>published track instances</td><td>63</td><td>106</td><td>104</td></tr>
+<tr><td>published tracks per cycle</td><td>1.24</td><td>2.08</td><td>2.04</td></tr>
+<tr><td>distinct published ids</td><td>3</td><td>5</td><td>5</td></tr>
+<tr><td>births per minute</td><td>12.98</td><td>21.63</td><td>21.63</td></tr>
+<tr><td>role switches (one id, two roles)</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>tracks held (published or not)</td><td>15</td><td>61</td><td>39</td></tr>
+<tr><td>of those, alive under 1 s</td><td>6</td><td>25</td><td>22</td></tr>
+<tr><td>published tracks never seen by the LiDAR</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>published tracks within 0.5 m of the car</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>phantom FRONT episodes</td><td>1</td><td>1</td><td>1</td></tr>
+<tr><td>WALL episodes</td><td>5</td><td>5</td><td>5</td></tr>
+<tr><td>NO_DATA share of contract time</td><td>0 %</td><td>0 %</td><td>0 %</td></tr>
+<tr><td>tracker p50</td><td>25.05 ms</td><td>35.44 ms</td><td>30.14 ms</td></tr>
+<tr><td>tracker p95</td><td>32.51 ms</td><td>48.08 ms</td><td>39.63 ms</td></tr>
+</tbody></table><div class="vids">
+<div><p class="note">camera, V1 | V2 (moving window, 5 Hz)</p><video controls preload="metadata" src="2026-10-15T15-18-27_mission-llm_86cff518e42d/camera_v1_v2.mp4"></video></div>
+<div><p class="note">top-down, V1 | V2 (whole run, 10 Hz)</p><video controls preload="metadata" src="2026-10-15T15-18-27_mission-llm_86cff518e42d/topdown_v1_v2.mp4"></video></div>
+<div><p class="note">camera, v1 alone</p><video controls preload="metadata" src="2026-10-15T15-18-27_mission-llm_86cff518e42d/v1/2026-10-15T15-18-27_mission-llm_86cff518e42d.camera.mp4"></video></div>
+<div><p class="note">topdown, v1 alone</p><video controls preload="metadata" src="2026-10-15T15-18-27_mission-llm_86cff518e42d/v1/2026-10-15T15-18-27_mission-llm_86cff518e42d.topdown.mp4"></video></div>
+<div><p class="note">camera, v2 alone</p><video controls preload="metadata" src="2026-10-15T15-18-27_mission-llm_86cff518e42d/v2/2026-10-15T15-18-27_mission-llm_86cff518e42d.camera.mp4"></video></div>
+<div><p class="note">topdown, v2 alone</p><video controls preload="metadata" src="2026-10-15T15-18-27_mission-llm_86cff518e42d/v2/2026-10-15T15-18-27_mission-llm_86cff518e42d.topdown.mp4"></video></div>
+<div><p class="note">camera, v3 alone</p><video controls preload="metadata" src="2026-10-15T15-18-27_mission-llm_86cff518e42d/v3/2026-10-15T15-18-27_mission-llm_86cff518e42d.camera.mp4"></video></div>
+<div><p class="note">topdown, v3 alone</p><video controls preload="metadata" src="2026-10-15T15-18-27_mission-llm_86cff518e42d/v3/2026-10-15T15-18-27_mission-llm_86cff518e42d.topdown.mp4"></video></div>
+</div>
+<h2>How to read the videos</h2><ul><li>Left half of a side-by-side is V1, right half V2; each frame carries its own <code>[variant]</code> label, so a single file is never ambiguous.</li><li>Camera view: the class mask tinted over the photo, the YOLO instance outlines, the scan projected and coloured by its column status, and every confirmed wall as a rectangle labelled <code>id role distance source state</code>. The bar under it carries the contract and the front distance.</li><li>Top-down: the scan, the walls with their ids, the car, the objects, the strip and the true nearest return in it.</li><li>The camera video covers the moving window only; the top-down covers the whole run.</li></ul>
+</div></body></html>

@@ -1,0 +1,40 @@
+{
+ "A": {
+  "python": "3.10.12",
+  "torch": "2.11.0",
+  "cuda": "12.6",
+  "cudnn": 90300,
+  "ultralytics": "8.4.90",
+  "cv2": "4.11.0",
+  "numpy": "1.26.4",
+  "detections": 35,
+  "latency_ms_mean": 47.44,
+  "latency_ms_p95": 47.49
+ },
+ "B": {
+  "python": "3.12.3",
+  "torch": "2.8.0",
+  "cuda": "12.9",
+  "cudnn": 91002,
+  "ultralytics": "8.4.90",
+  "cv2": "4.11.0",
+  "numpy": "1.26.4",
+  "detections": 36,
+  "latency_ms_mean": 48.59,
+  "latency_ms_p95": 48.89
+ },
+ "images": 95,
+ "matched": 35,
+ "unmatched": 1,
+ "images_with_count_mismatch": [
+  [
+   "frame_0006.png",
+   0,
+   1
+  ]
+ ],
+ "min_box_iou": 0.99935,
+ "max_conf_delta": 0.00168,
+ "max_corner_px": 0.107605,
+ "min_mask_iou": 0.993666
+}

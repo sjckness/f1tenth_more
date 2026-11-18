@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>f1tenth_gateway</name>
-  <version>0.0.1</version>
+  <version>0.1.0</version>
   <description>Gateway for the F1Tenth Lab Control PWA: REST and one WebSocket for the
   phone, manual driving on the ackermann_mux /teleop lane with a 250 ms watchdog,
   the e-stop on a node kept ready from start-up, missions planned and started

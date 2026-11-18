@@ -1,0 +1,79 @@
+{
+  "layer": "semantic_layer",
+  "humble_bag": "/home/andre/bags/humble_reference/humble_obstacle_run/bag",
+  "jazzy_bags": [
+    "/home/andre/dev_ws/f1tenth_more/output/phase2/runs/jazzy_semantic_layer_1/bag",
+    "/home/andre/dev_ws/f1tenth_more/output/phase2/runs/jazzy_semantic_layer_2/bag",
+    "/home/andre/dev_ws/f1tenth_more/output/phase2/runs/jazzy_semantic_layer_3/bag"
+  ],
+  "humble_n": 298,
+  "jazzy_n": [
+    266,
+    290,
+    290
+  ],
+  "noise_floor": [
+    {
+      "label": "jazzy_1_vs_jazzy_2",
+      "n_ref": 266,
+      "n_matched": 266,
+      "match_rate": 1.0,
+      "mean_count_diff": 0.0,
+      "pos_err_rms": 0.0,
+      "pos_err_max": 0.0,
+      "n_track_pairs": 86
+    },
+    {
+      "label": "jazzy_1_vs_jazzy_3",
+      "n_ref": 266,
+      "n_matched": 266,
+      "match_rate": 1.0,
+      "mean_count_diff": 0.0,
+      "pos_err_rms": 0.0,
+      "pos_err_max": 0.0,
+      "n_track_pairs": 86
+    },
+    {
+      "label": "jazzy_2_vs_jazzy_3",
+      "n_ref": 290,
+      "n_matched": 290,
+      "match_rate": 1.0,
+      "mean_count_diff": 0.0,
+      "pos_err_rms": 0.0,
+      "pos_err_max": 0.0,
+      "n_track_pairs": 86
+    }
+  ],
+  "jazzy_vs_humble": [
+    {
+      "label": "jazzy_1_vs_humble",
+      "n_ref": 266,
+      "n_matched": 266,
+      "match_rate": 1.0,
+      "mean_count_diff": 0.0,
+      "pos_err_rms": 0.0,
+      "pos_err_max": 0.0,
+      "n_track_pairs": 86
+    },
+    {
+      "label": "jazzy_2_vs_humble",
+      "n_ref": 290,
+      "n_matched": 290,
+      "match_rate": 1.0,
+      "mean_count_diff": 0.0,
+      "pos_err_rms": 0.0,
+      "pos_err_max": 0.0,
+      "n_track_pairs": 86
+    },
+    {
+      "label": "jazzy_3_vs_humble",
+      "n_ref": 290,
+      "n_matched": 290,
+      "match_rate": 1.0,
+      "mean_count_diff": 0.0,
+      "pos_err_rms": 0.0,
+      "pos_err_max": 0.0,
+      "n_track_pairs": 86
+    }
+  ]
+}

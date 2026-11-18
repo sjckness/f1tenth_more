@@ -1,0 +1,369 @@
+{
+ "meta": {
+  "git_head": "5802e16f+dirty",
+  "ros_domain_id": "0",
+  "rmw_implementation": "rmw_fastrtps_cpp",
+  "ros_discovery_server": "127.0.0.1:11811",
+  "fastdds_profile": "/opt/f1tenth_ws/src/f1tenth_bringup/config/fastdds_profile.xml",
+  "mode": "oneshot",
+  "planner_pythonpath": null,
+  "time": "2026-11-09T10:43:02",
+  "image_sources": [
+   "commit 5802e16fb500eedb4abbb8b86e8ea5d5f9348365",
+   "subject llm: planner llama-server -c 4096 (one slot, 144 MiB of KV instead of 1152)",
+   "branch door-goal-debug",
+   "describe night-start/pwa-control-origin-224-g5802e16fb500"
+  ],
+  "llama_server_cmdline": "/opt/llama.cpp/bin/llama-server -m /home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf --port 8083 -ngl 999 -np 1 -c 4096",
+  "ros2_daemon_running": false,
+  "llama_server_props": {
+   "model_path": "/home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf",
+   "total_slots": 1,
+   "build_info": "b1-42532af",
+   "n_ctx": 4096
+  },
+  "planner_module": "/opt/f1tenth_ws/install/lib/python3.12/site-packages/llm/llm_planner_node.py",
+  "flow": "production",
+  "image_ref": "f1tenth:jazzy-orin-5802e16-norust",
+  "planner_unit": {
+   "cmdline": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/llm/llm_planner_node --dry-run",
+   "dry_run": true,
+   "idle_s": 34.77337908744812
+  },
+  "ctl": "/opt/f1tenth_ws/src/f1tenth_ctl/bin/f1tenth_ctl",
+  "first_move": "first /ackermann_drive after RUNNING with |drive.speed| > 0.001 (|drive.steering_angle| when the first move is a turn)"
+ },
+ "runs": [
+  {
+   "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+   "run": 0,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 37.7995662689209,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.839766138989944,
+    "t_plan_done": 1.8361972190032247,
+    "t_plan_fetched": 2.685319515003357,
+    "t_load_call": 2.685559703008039,
+    "t_load_ret": 7.401332904002629,
+    "t_loaded": 7.162814081006218,
+    "t_start_call": 7.401514564990066,
+    "t_start_ret": 8.288531660014996
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 3.0}, {\"mode\": \"turn\", \"dir\": \"right\"}, {\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "n_moves": 3,
+    "plan_seconds": 1.01,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_aea306d7f3c4",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_1_turn",
+       "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+       },
+       "timeout_sec": 27,
+       "on_timeout": "abort"
+      },
+      {
+       "id": "move_2_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+       },
+       "timeout_sec": 17,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_aea306d7f3c4.json",
+    "latency": {
+     "llm_s": 1.004,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 1.012
+    }
+   },
+   "latency": {
+    "llm_s": 1.0,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 1.01
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T10:43:07+01:00",
+     "target": "planner",
+     "env_file": "/opt/f1tenth_ws/src/f1tenth_ctl/config/ctl_container.env",
+     "ok": true,
+     "sent": "vai dritto, al muro gira a destra e avanza 2 metri",
+     "cursor": 172552,
+     "running": true,
+     "elapsed_s": 0.74
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 4.61
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.78,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T104310-60fe55",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.839766138989944,
+    "llm_and_ctl": 1.8361972190032247,
+    "fetch_cli": 0.8491222960001323,
+    "pause": 0.00042184899211861193,
+    "load_cli": 4.477254377998179,
+    "start_cli": null,
+    "ready_cli": 0.8870170950249303,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null
+   }
+  }
+ ],
+ "flow": "production",
+ "summary": {
+  "per_command": {
+   "vai dritto, al muro gira a destra e avanza 2 metri": {
+    "llm_and_ctl": {
+     "n": 1,
+     "median": 1.8361972190032247,
+     "p95": 1.8361972190032247,
+     "max": 1.8361972190032247
+    },
+    "fetch_cli": {
+     "n": 1,
+     "median": 0.8491222960001323,
+     "p95": 0.8491222960001323,
+     "max": 0.8491222960001323
+    },
+    "load_cli": {
+     "n": 1,
+     "median": 4.477254377998179,
+     "p95": 4.477254377998179,
+     "max": 4.477254377998179
+    },
+    "start_cli": null,
+    "running_to_move": null,
+    "send_cli": {
+     "n": 1,
+     "median": 0.839766138989944,
+     "p95": 0.839766138989944,
+     "max": 0.839766138989944
+    },
+    "ready_cli": {
+     "n": 1,
+     "median": 0.8870170950249303,
+     "p95": 0.8870170950249303,
+     "max": 0.8870170950249303
+    },
+    "pause": {
+     "n": 1,
+     "median": 0.00042184899211861193,
+     "p95": 0.00042184899211861193,
+     "max": 0.00042184899211861193
+    },
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null
+   }
+  },
+  "overall": {
+   "llm_and_ctl": {
+    "n": 1,
+    "median": 1.8361972190032247,
+    "p95": 1.8361972190032247,
+    "max": 1.8361972190032247
+   },
+   "fetch_cli": {
+    "n": 1,
+    "median": 0.8491222960001323,
+    "p95": 0.8491222960001323,
+    "max": 0.8491222960001323
+   },
+   "load_cli": {
+    "n": 1,
+    "median": 4.477254377998179,
+    "p95": 4.477254377998179,
+    "max": 4.477254377998179
+   },
+   "start_cli": null,
+   "running_to_move": null,
+   "send_cli": {
+    "n": 1,
+    "median": 0.839766138989944,
+    "p95": 0.839766138989944,
+    "max": 0.839766138989944
+   },
+   "ready_cli": {
+    "n": 1,
+    "median": 0.8870170950249303,
+    "p95": 0.8870170950249303,
+    "max": 0.8870170950249303
+   },
+   "pause": {
+    "n": 1,
+    "median": 0.00042184899211861193,
+    "p95": 0.00042184899211861193,
+    "max": 0.00042184899211861193
+   },
+   "total_to_running": null,
+   "total_to_move": null,
+   "total_to_move_no_pause": null
+  },
+  "excluded": [],
+  "kept": 1
+ },
+ "summaries": {
+  "pause0": {
+   "per_command": {
+    "vai dritto, al muro gira a destra e avanza 2 metri": {
+     "llm_and_ctl": {
+      "n": 1,
+      "median": 1.8361972190032247,
+      "p95": 1.8361972190032247,
+      "max": 1.8361972190032247
+     },
+     "fetch_cli": {
+      "n": 1,
+      "median": 0.8491222960001323,
+      "p95": 0.8491222960001323,
+      "max": 0.8491222960001323
+     },
+     "load_cli": {
+      "n": 1,
+      "median": 4.477254377998179,
+      "p95": 4.477254377998179,
+      "max": 4.477254377998179
+     },
+     "start_cli": null,
+     "running_to_move": null,
+     "send_cli": {
+      "n": 1,
+      "median": 0.839766138989944,
+      "p95": 0.839766138989944,
+      "max": 0.839766138989944
+     },
+     "ready_cli": {
+      "n": 1,
+      "median": 0.8870170950249303,
+      "p95": 0.8870170950249303,
+      "max": 0.8870170950249303
+     },
+     "pause": {
+      "n": 1,
+      "median": 0.00042184899211861193,
+      "p95": 0.00042184899211861193,
+      "max": 0.00042184899211861193
+     },
+     "total_to_running": null,
+     "total_to_move": null,
+     "total_to_move_no_pause": null
+    }
+   },
+   "overall": {
+    "llm_and_ctl": {
+     "n": 1,
+     "median": 1.8361972190032247,
+     "p95": 1.8361972190032247,
+     "max": 1.8361972190032247
+    },
+    "fetch_cli": {
+     "n": 1,
+     "median": 0.8491222960001323,
+     "p95": 0.8491222960001323,
+     "max": 0.8491222960001323
+    },
+    "load_cli": {
+     "n": 1,
+     "median": 4.477254377998179,
+     "p95": 4.477254377998179,
+     "max": 4.477254377998179
+    },
+    "start_cli": null,
+    "running_to_move": null,
+    "send_cli": {
+     "n": 1,
+     "median": 0.839766138989944,
+     "p95": 0.839766138989944,
+     "max": 0.839766138989944
+    },
+    "ready_cli": {
+     "n": 1,
+     "median": 0.8870170950249303,
+     "p95": 0.8870170950249303,
+     "max": 0.8870170950249303
+    },
+    "pause": {
+     "n": 1,
+     "median": 0.00042184899211861193,
+     "p95": 0.00042184899211861193,
+     "max": 0.00042184899211861193
+    },
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null
+   },
+   "excluded": [],
+   "kept": 1
+  }
+ },
+ "complete": true,
+ "final_state": "ABORTED"
+}

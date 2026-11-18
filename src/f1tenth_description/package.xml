@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>f1tenth_description</name>
-  <version>0.0.0</version>
+  <version>0.1.0</version>
   <description>Robot description (URDF/xacro + meshes) for the F1TENTH vehicle. Owns the
   shared robot model and a robot_state_publisher-only launch reused by both the
   real bringup (f1tenth_bringup) and the simulation (f1tenth_sim).</description>

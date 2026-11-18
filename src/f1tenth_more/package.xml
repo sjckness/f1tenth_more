@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>f1tenth_more</name>
-  <version>0.0.1</version>
+  <version>0.1.0</version>
   <description>Top-level metapackage for the F1TENTH (roboracer) autonomous racing stack. Aggregates all first-party packages.</description>
   <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
   <license>MIT</license>

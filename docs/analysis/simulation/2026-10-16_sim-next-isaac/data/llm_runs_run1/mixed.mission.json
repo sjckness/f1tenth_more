@@ -1,0 +1,35 @@
+{
+  "mission_id": "llm_1361f9c561ee",
+  "schema_version": "5.0",
+  "moves": [
+    {
+      "id": "move_0_straight",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.5
+      },
+      "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+      },
+      "timeout_sec": 17,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "move_1_go_to",
+      "go_to_object": {
+        "target_class": "person",
+        "gap_m": 0.6,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+      },
+      "stop_condition": {
+        "type": "object_reached"
+      },
+      "timeout_sec": 65,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}

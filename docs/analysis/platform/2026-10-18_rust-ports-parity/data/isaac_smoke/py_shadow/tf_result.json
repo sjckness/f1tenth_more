@@ -1,0 +1,1 @@
+{"edges": 19, "odom_check": {"tf_msgs": 354, "ekf_msgs": 330, "stamp_offset_s": 0.05, "matched_stamps": 330, "value_mismatch": 0, "mismatch_samples": []}, "failures": ["pose base_link->laser: got [0.305, 0.0, 0.19] want [0.305, 0.0, 0.2]"]}

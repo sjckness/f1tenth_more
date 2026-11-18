@@ -1,0 +1,31 @@
+{
+  "total": 1,
+  "per_status": {
+    "llm_error": 1
+  },
+  "per_status_cause_kind": {
+    "llm_error:-:unreachable": 1
+  },
+  "per_category": {
+    "straight_then_turn": {
+      "llm_error": 1
+    }
+  },
+  "per_prompt": {
+    "straight_turn_06": {
+      "category": "straight_then_turn",
+      "prompt": "Continue straight, then turn left",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "llm_error": 1
+      },
+      "score": "0/1 ok"
+    }
+  },
+  "duration_s": {
+    "total": 91.9,
+    "mean": 91.9,
+    "max": 91.88
+  }
+}

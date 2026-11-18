@@ -1,0 +1,194 @@
+{
+ "meta": {
+  "git_head": "d9f0caa5+dirty",
+  "ros_domain_id": "0",
+  "rmw_implementation": "rmw_fastrtps_cpp",
+  "ros_discovery_server": "127.0.0.1:11811",
+  "fastdds_profile": "/opt/f1tenth_ws/src/f1tenth_bringup/config/fastdds_profile.xml",
+  "mode": "oneshot",
+  "planner_pythonpath": null,
+  "time": "2026-11-09T10:14:47",
+  "image_sources": [
+   "commit b6c00624d726509f69459ad759f244439fabdfcf",
+   "subject enter_door: Foxglove markers on /mpc/door_goal_debug (path, goals, back-up)",
+   "branch door-goal-debug",
+   "describe night-start/pwa-control-origin-219-gb6c00624d726"
+  ],
+  "llama_server_cmdline": "/opt/llama.cpp/bin/llama-server -m /home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf --port 8083 -ngl 999",
+  "ros2_daemon_running": false,
+  "llama_server_props": {
+   "model_path": "/home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf",
+   "total_slots": 4,
+   "build_info": "b1-42532af",
+   "n_ctx": 32768
+  },
+  "planner_module": "/opt/f1tenth_ws/install/lib/python3.12/site-packages/llm/llm_planner_node.py",
+  "flow": "production",
+  "image_ref": "f1tenth:jazzy-orin-b6c0062-norust",
+  "planner_unit": {
+   "cmdline": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/llm/llm_planner_node --dry-run",
+   "dry_run": true,
+   "idle_s": 400.3508915901184
+  },
+  "ctl": "/opt/f1tenth_ws/src/f1tenth_ctl/bin/f1tenth_ctl",
+  "first_move": "first /ackermann_drive after RUNNING with |drive.speed| > 0.001 (|drive.steering_angle| when the first move is a turn)"
+ },
+ "runs": [
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 0,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "cold",
+   "idle_s": 403.6359498500824,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.8692262019903865,
+    "t_plan_done": 11.912443682987941,
+    "t_plan_fetched": 12.75873955199495,
+    "t_load_call": 12.75895874699927,
+    "t_load_ret": 17.32508124000742,
+    "t_loaded": 17.087907765002456,
+    "t_start_call": 17.325258258992108,
+    "t_start_ret": 18.215943610004615
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 11.068,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json"
+   },
+   "latency": null,
+   "error": "never RUNNING",
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T10:14:52+01:00",
+     "target": "planner",
+     "env_file": "/opt/f1tenth_ws/src/f1tenth_ctl/config/ctl_container.env",
+     "ok": true,
+     "sent": "vai dritto e fermati a due metri dal muro",
+     "cursor": 2497,
+     "running": true,
+     "elapsed_s": 0.77
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 4.46
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, battery",
+     "refused": "not READY: odometry, scan, battery",
+     "elapsed_s": 0.79,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T101504-bf7938",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, battery",
+   "deltas": {
+    "send_cli": 0.8692262019903865,
+    "llm_and_ctl": 11.912443682987941,
+    "fetch_cli": 0.8462958690070082,
+    "pause": 0.0003962139890063554,
+    "load_cli": 4.328949018003186,
+    "start_cli": null,
+    "ready_cli": 0.8906853510125075,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null
+   }
+  }
+ ],
+ "flow": "production",
+ "summary": {
+  "per_command": {},
+  "overall": {
+   "llm_and_ctl": null,
+   "fetch_cli": null,
+   "load_cli": null,
+   "start_cli": null,
+   "running_to_move": null,
+   "send_cli": null,
+   "ready_cli": null,
+   "pause": null,
+   "total_to_running": null,
+   "total_to_move": null,
+   "total_to_move_no_pause": null
+  },
+  "excluded": [
+   {
+    "command": "vai dritto e fermati a due metri dal muro",
+    "run": 0,
+    "why": "never RUNNING"
+   }
+  ],
+  "kept": 0
+ },
+ "summaries": {
+  "pause0": {
+   "per_command": {},
+   "overall": {
+    "llm_and_ctl": null,
+    "fetch_cli": null,
+    "load_cli": null,
+    "start_cli": null,
+    "running_to_move": null,
+    "send_cli": null,
+    "ready_cli": null,
+    "pause": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null
+   },
+   "excluded": [
+    {
+     "command": "vai dritto e fermati a due metri dal muro",
+     "run": 0,
+     "why": "never RUNNING"
+    }
+   ],
+   "kept": 0
+  }
+ },
+ "complete": true,
+ "final_state": "ABORTED"
+}

@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>llm</name>
-  <version>0.0.1</version>
+  <version>0.1.0</version>
   <description>F1TENTH LLM-based tooling (natural-language mission planner) and the
   llama-server bringup (launch/llm.launch.py) that hosts it. The only package inside
   f1tenth_intelligence.</description>

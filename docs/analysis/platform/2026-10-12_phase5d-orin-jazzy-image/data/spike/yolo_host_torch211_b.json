@@ -1,0 +1,18 @@
+/home/fabiocar/.local/lib/python3.10/site-packages/matplotlib/projections/__init__.py:63: UserWarning: Unable to import Axes3D. This may be due to multiple versions of Matplotlib being installed (e.g. as a system package and as a pip package). As a result, the 3D projection is not available.
+  warnings.warn("Unable to import Axes3D. This may be due to multiple versions of "
+{
+ "python": "3.10.12",
+ "torch": "2.11.0",
+ "cuda": "12.6",
+ "cudnn": 90300,
+ "ultralytics": "8.4.90",
+ "cv2": "4.11.0",
+ "numpy": "1.26.4",
+ "model": "yolo26s-seg.pt",
+ "conf": 0.3,
+ "device": "cuda",
+ "images": 95,
+ "detections": 35,
+ "latency_ms_mean": 47.22,
+ "latency_ms_p95": 47.39
+}
