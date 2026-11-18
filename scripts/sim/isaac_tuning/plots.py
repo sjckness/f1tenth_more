@@ -30,6 +30,7 @@ from matplotlib.patches import Circle, Rectangle  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import common  # noqa: E402
+from metrics import CLASS_MARGIN_M  # noqa: E402
 
 # Reference palette (dataviz skill, light mode): surface, ink, categorical slots, status.
 SURFACE, INK, INK2, GRID = '#fcfcfb', '#0b0b0b', '#52514e', '#e4e3df'
@@ -47,13 +48,17 @@ SCN_TITLE = {'M1': 'M1  D0.5 crossing from the right, 0.4 m/s',
              'M4': 'M4  D0.5 walks in and stops on the line',
              **{'S1': 'S1  D0.5 on the line, 1.5 m', 'S2': 'S2  D1.0 on the line, 1.5 m',
              'S3': 'S3  D0.5, +-0.15 m off, 1.5 m', 'S4': 'S4  D0.5 on the line, 1.0 m',
-             'S5': 'S5  no obstacle'}}
+             'S5': 'S5  no obstacle',
+             'P1': 'P1  persona attraversa da destra, 1 m/s',
+             'P2': 'P2  persona verso l\'auto, 0.5 m/s',
+             'P3': 'P3  persona entra e si ferma',
+             'P4': 'P4  persona ferma sulla linea'}}
 
 
 def load_set(set_dir: str) -> list[dict]:
     """Every run of a set directory: run.json + its ground-truth path."""
     runs = []
-    for rj in sorted(glob.glob(os.path.join(set_dir, '[SM]?_r*', 'run.json'))):
+    for rj in sorted(glob.glob(os.path.join(set_dir, '[SMP]?*_r*', 'run.json'))):
         d = os.path.dirname(rj)
         with open(rj, encoding='utf-8') as fh:
             run = json.load(fh)
@@ -71,6 +76,9 @@ def load_set(set_dir: str) -> list[dict]:
                 for row in csv.DictReader(fh):
                     t = float(row['t'])
                     if t0 is None or (t0 - 0.2 <= t <= (t1 or 1e9) + 1.0):
+                        # stop at a physics blow-up after a hard contact (metrics.compute does too)
+                        if row['x'] == 'nan' or abs(float(row.get('v') or 0.0)) > 20.0:
+                            break
                         xs.append(float(row['x']))
                         ys.append(float(row['y']))
         run['path'] = (xs, ys)
@@ -86,10 +94,13 @@ def load_set(set_dir: str) -> list[dict]:
 
 
 def fig_map(sets: list[tuple[str, list]], out: str,
-            scenarios=common.SCENARIO_IDS + common.MOVING_IDS) -> str:
+            scenarios=common.SCENARIO_IDS + common.MOVING_IDS, xlim=(0.0, 5.6),
+            ylim=(1.2, 4.8)) -> str:
     """Top view per scenario, the sets overlaid (one color per set, fixed order)."""
     present = [s for s in scenarios if any(r['scenario'] == s for _, runs in sets for r in runs)]
-    fig, axes = plt.subplots(1, len(present), figsize=(4.0 * len(present), 4.4), squeeze=False)
+    tall = (ylim[1] - ylim[0]) > 4.5
+    fig, axes = plt.subplots(1, len(present), figsize=(4.0 * len(present), 5.4 if tall else 4.4),
+                             squeeze=False)
     for ax, sid in zip(axes[0], present):
         ax.add_patch(Rectangle((0, 0), 6, 6, fill=False, edgecolor=INK2, linewidth=1.5))
         drawn = False
@@ -111,7 +122,8 @@ def fig_map(sets: list[tuple[str, list]], out: str,
                                         arrowprops=dict(arrowstyle='->', color=INK2, lw=1.2))
                             continue
                         ax.add_patch(Circle((ob['x'], ob['y']), rr, color=OBST, alpha=0.55, zorder=2))
-                        ax.add_patch(Circle((ob['x'], ob['y']), rr + 0.32, fill=False, ls='--',
+                        ax.add_patch(Circle((ob['x'], ob['y']), rr + 0.32 + CLASS_MARGIN_M.get(
+                            ob.get('class'), 0.0), fill=False, ls='--',
                                             edgecolor=OBST, linewidth=1.0, zorder=2))
                     drawn = True
                 xs, ys = r['path']
@@ -122,8 +134,8 @@ def fig_map(sets: list[tuple[str, list]], out: str,
                 ax.plot(xs[0], ys[0], 'o', color=color, markersize=5, zorder=4)
                 if r.get('outcome') in ('collision', 'estop'):
                     ax.plot(xs[-1], ys[-1], 'x', color=CRITICAL, markersize=10, mew=2.5, zorder=5)
-        ax.set_xlim(0.0, 5.6)
-        ax.set_ylim(1.2, 4.8)
+        ax.set_xlim(*xlim)
+        ax.set_ylim(*ylim)
         ax.set_aspect('equal')
         ax.set_title(SCN_TITLE.get(sid, sid), loc='left')
         ax.set_xlabel('x [m]  (car drives +x)')
@@ -131,7 +143,7 @@ def fig_map(sets: list[tuple[str, list]], out: str,
     handles = [plt.Line2D([0], [0], color=SERIES[k % len(SERIES)], lw=2.5, label=label)
                for k, (label, _) in enumerate(sets)]
     handles += [Circle((0, 0), 1, color=OBST, alpha=0.55, label='obstacle'),
-                plt.Line2D([0], [0], color=OBST, ls='--', label='R_safe (r + 0.32 m)'),
+                plt.Line2D([0], [0], color=OBST, ls='--', label='R_safe (r + 0.32 m, + 0.5 persona)'),
                 plt.Line2D([0], [0], marker='x', color=CRITICAL, ls='', mew=2.5, label='collision / e-stop')]
     ncol = len(handles) if len(present) >= 4 else min(3, len(handles))
     rows = math.ceil(len(handles) / ncol)

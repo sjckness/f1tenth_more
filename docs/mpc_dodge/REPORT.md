@@ -24,6 +24,12 @@ Non ho toccato `origin/mpc-centerline-target`, `main`, `campaign-final` né il c
 - **Fase 4 fatta.** Persone mobili in Isaac, riconosciute da YOLO con gli oggetti LiDAR spenti come sull'auto. P1, P3 e P4 danno 3/3, P2 (frontale) 0/2. Rispetto alla modalità unknown, una persona in moto resta nella lista ostacoli per meno tempo (48 % contro 72 % in vista) e sparisce appena esce dal campo visivo.
 - **Resta aperto:** d = 2 è un muro per tutte le varianti (≤ 3/6), M3/S4 vanno in e-stop a margine ≈ 0, gli ostacoli frontali (M2/P2) restano un problema, e il loop è da rifare con un criterio che regga il rumore.
 
+**Il meccanismo in una figura** (rig closed-loop, cilindro che attraversa da destra). L'MPC di oggi vede ogni tick una "fotografia" dei dischi: scarta nel verso in cui il cilindro sta andando e gli finisce addosso. Con i dischi predetti (α = 1) passa dietro al cilindro scartando di 0.3 m invece di 2.4 m, con 0.32 m di margine sul R_safe.
+
+![rig: statico vs dischi predetti](../../output/isaac_tuning/figures/rig_attraversamento.png)
+
+![run buoni per livello e per variante](../../output/isaac_tuning/figures/dodge_livelli_varianti.png)
+
 ## 1. Fase 0 e Fase 1: baseline
 
 ### Fase 0: M1–M4 ×3 con l'MPC attuale
@@ -42,6 +48,16 @@ Gli **e-stop** di M1/M3 non sono collisioni. L'auto passa a ~0 dal R_safe, cioè
 ### Fase 1: d_fail di baseline
 
 **d_fail = 0.** Già al livello 0 (cilindri a 0.2 m/s, 2 livelli, niente diagonali) l'MPC di oggi non è affidabile. Su 6 seed per livello passano 3/6 a d0, 1/6 a d1 e 1/6 a d2, cioè 5/18. Il primo ramp a 3 seed aveva 1/3 a d0. Il meccanismo si vede bene in `dodge_baseline_d00.png`: l'MPC statico vede il cilindro come un disco fermo, scarta di 2 m dalla parte verso cui il cilindro sta andando e finisce sulla traiettoria del livello successivo. Il fallimento arriva al livello 1, a ~7 s, con la clearance del corpo a 0.
+
+Com'è uno scenario dodge (d = 3, tre livelli, uno diagonale; camera spettatore, run di prova con l'MPC di oggi):
+
+![dodge D03 dalla camera spettatore](../../output/isaac_tuning/figures/screen_dodge_D03_baseline.jpg)
+
+Baseline al livello 0 (primo ramp) e al livello 1 (6 seed); le linee grigie sono le corse dei cilindri, il disco è dove si trovano alla fine:
+
+![baseline, livello 0](../../output/isaac_tuning/figures/dodge_baseline_d00.png)
+
+![baseline, livello 1, seed 0-5](../../output/isaac_tuning/figures/dodge_d01_baseline.png)
 
 ## 2. Cosa è stato costruito
 
@@ -72,6 +88,10 @@ Gli **e-stop** di M1/M3 non sono collisioni. L'auto passa a ~0 dal R_safe, cioè
 **Messaggi.** `Obstacle2D`: `id` (default −1), `vx`, `vy` (odom), `speed`, `heading`, `v_sigma`, `vx_car`, `vy_car` (solo debug, assi dell'auto), `v_valid`. `SemanticObject`: `vx_odom`, `vy_odom`, `speed`, `heading_odom`, `v_cov[4]`, `vx_car`, `vy_car`, `v_valid`. `obstacle_projector_node` lascia i default. **Conseguenza:** le bag vecchie con `/perception/obstacles_2d` non si decodificano più con il nuovo typesupport (gli strumenti di replay in `tools/` e `mission_extract.py` usano quello installato); serve un decoder legacy come quello che `mission_extract.py` ha già per `MpcSolverStatus`.
 
 **Verifica in Isaac.** Su M1 con α = 1 il cilindro a +0.40 m/s laterali è stimato a (0.0 ± 0.08, 0.35–0.44) m/s, `v_valid` mentre si muove e non valido da fermo. Sui run dodge dopo la correzione del filtro, il 94 % dei dischi su un cilindro in moto è `v_valid`, con errore di velocità mediano 0.05 m/s (p90 0.20) e distanza mediana tra centro del disco e centro del cilindro di 0.18 m (è l'arco visibile, non il centro).
+
+![velocità stimata contro velocità vera, M1](../../output/isaac_tuning/figures/dodge_velocita_stimata.png)
+
+La stima segue i 0.4 m/s del cilindro e si spegne (non valida) quando si ferma. I primi ~0.5 s dopo la nascita della traccia non è valida per costruzione (`min_age_s`).
 
 ### 2.3 Dischi predetti e scia (Fase 2, punto 2)
 
@@ -131,6 +151,14 @@ S1–S5 sono stati misurati solo per le varianti candidate a partire il loop: la
 - **Le sonde sul corpo** (`mpc_obs_body_probes`) con α + scia danno 13/18 contro 12/18 e S invariato: sul dodge il guadagno sta nel rumore. Nell'analisi dei fallimenti, però, spariscono le collisioni "di coda/fianco in piena corsa" (§7). Il prezzo è uno scarto laterale più largo sugli statici (1.47 contro 1.10 m), perché anche la coda tiene il margine.
 - **d = 2** (cilindri a 0.4 m/s, 2 livelli) resta un muro per tutte le varianti: al massimo 3 run buoni su 6. d_fail non supera mai 1. L'obiettivo "salire nella rampa" non è raggiunto.
 - **M3** (attraversa da sinistra a 0.5 m/s) e **S4** (cilindro fermo a 1.0 m) restano quasi sempre e-stop. L'auto passa a ~0 dal R_safe del centro asse, gli spigoli sono a < 20 cm e scatta lo stop LiDAR (§7.1).
+
+Lo stesso livello 1 (6 seed) con "α + scia + sonde sul corpo": tutti successi, uno sotto la tolleranza di 5 cm (confronta con la baseline in §1):
+
+![α + scia + sonde, livello 1, seed 0-5](../../output/isaac_tuning/figures/dodge_d01_alpha_wake_body.png)
+
+M1–M4, baseline contro α + scia (3 ripetizioni ciascuno; la freccia è il moto del cilindro):
+
+![M1-M4 baseline vs alpha + scia](../../output/isaac_tuning/figures/dodge_mappa_M_baseline_vs_alpha_scia.png)
 
 ### Fase 2b: il ritorno
 
@@ -198,6 +226,14 @@ Il ritorno (`corridor_lateral_reanchor: false` + `mpc_return_*`) nel file è com
 - **VRAM**: con Isaac, YOLO dello stack e la camera spettatore il picco è stato 3.67 GB sugli 8 GB, con `freeparty-llm` fermo.
 - Le persone ferme (P3, P4) fanno scartare l'auto di ~2 m: è l'R_safe di 1.11 m.
 
+![P1-P4: modalità dell'auto contro unknown active](../../output/isaac_tuning/figures/persone_P1_P4.png)
+
+P1 (la persona attraversa da destra a 1 m/s) e P4 (ferma sulla linea) dalla camera spettatore:
+
+![P1 dalla camera spettatore](../../output/isaac_tuning/figures/screen_P1_persona.jpg)
+
+![P4 dalla camera spettatore](../../output/isaac_tuning/figures/screen_P4_persona.jpg)
+
 ## 7. Cause dei fallimenti
 
 Per ogni run dodge non buono, `scripts/sim/isaac_tuning/analysis/failure_modes.py` prende l'istante di minima clearance del corpo (il rettangolo dell'auto contro il cerchio del cilindro, ground truth). Lì guarda dove sta il cilindro rispetto all'auto, la velocità dell'auto, se il cilindro si muove verso il fianco e se lo stop LiDAR era già scattato.
@@ -211,6 +247,8 @@ Sui 42 run non buoni del primo A/B (tutti, di fatto, MPC statico):
 | coda / dietro il centro | sfioro (11), collisione (5) | 16 | **0.49 m/s**, in piena corsa |
 
 In 38 casi su 42 il cilindro si sta muovendo verso il fianco dell'auto. Nell'A/B rifatto, la baseline ha 10 run non buoni (7 collisioni, 7 con lo stop scattato). "α + scia + sonde sul corpo" ne ha 4: 2 e-stop e 2 sfiori sul fianco sotto la tolleranza, **nessuna collisione**.
+
+![modi di fallimento, baseline contro α + scia + sonde](../../output/isaac_tuning/figures/dodge_modi_di_fallimento.png)
 
 1. **Lo stop di sicurezza a 20 cm, poi il cilindro cinematico.** Il costo ostacolo tiene il centro asse a R_safe, ma gli spigoli del muso restano a ~0.07 m e scatta lo stop LiDAR (`IsProximityTooClose` / `hard_stop`). Da ferma, un cilindro che non reagisce le arriva addosso. È la causa di tutti gli M3 e S4 (e-stop in ogni variante, margine ≈ 0). Lo stop è un vincolo fisso, quindi la risposta sta nel margine (margine di classe `unknown`, `w_obs`, sonde sul corpo) o nel vedere prima (α, scia).
 2. **Il costo ostacolo guarda solo davanti al muso.** Un cilindro che si chiude sulla coda o sul fianco di un'auto a 0.5 m/s non costa nulla una volta che il muso è passato: sono i 16 casi "in piena corsa". → `mpc_obs_body_probes`. Con le sonde i casi "coda in piena corsa" non compaiono più nell'A/B rifatto.
@@ -264,4 +302,4 @@ scripts/docker_orin.sh pin f1tenth:jazzy-orin-<sha>-norust && scripts/docker_ori
 - **`isaac-mpc-tuning`** (pushato): harness (`dodge.py`, `ramp.py`, `evaluate.py`, `recompute.py`, `tuning/dodge_loop.py`, `analysis/`), merge di `mpc-dodge-mpc`, varianti in `tuning/variants_phase2*.yaml`, questo report, figure in `output/isaac_tuning/figures/`, run in `output/isaac_tuning/dodge/`.
 - **Dati dei run nel repo:** `run.json`, `meta.json`, `instance.json`, i riassunti degli A/B (`ab.md`, `ab.json`, `summary.json`), lo stato del loop, i log del recorder e dello stack. **Restano solo su linus:** i CSV per run (ignorati per regola del repo, `*.csv` in `.gitignore`), i frame della camera spettatore (1669 jpg, 54 MB: nel repo ci sono i fogli di contatto) e i log di Isaac (32 file, 700 MB, alcuni oltre il limite di 100 MB di GitHub).
 - **`~/isaac_ws` `mpc-tuning`** (pushato): `05341ed` (layout `dodge`, moto pingpong), `74b07dd` (persone mobili, waypoints, layout `people`).
-- **Figure:** `dodge_livelli_varianti.png`, `dodge_d01_baseline.png`, `dodge_d01_alpha_wake_body.png`, `dodge_baseline_d00.png`, `dodge_mappa_M_baseline_vs_alpha_scia.png`, `dodge_ritorno.png`, `screen_dodge_D03_baseline.jpg`, `screen_P4_persona.jpg`. Si rigenerano con `scripts/sim/isaac_tuning/analysis/report_figures.py`; tabelle e diagnosi con `analysis/ab_table.py`, `analysis/failure_modes.py`, `analysis/velocity_quality.py`.
+- **Figure** (`output/isaac_tuning/figures/`): `rig_attraversamento.png`, `dodge_livelli_varianti.png`, `dodge_d01_baseline.png`, `dodge_d01_alpha_wake_body.png`, `dodge_baseline_d00.png`, `dodge_velocita_stimata.png`, `dodge_mappa_M_baseline_vs_alpha_scia.png`, `dodge_ritorno.png`, `dodge_modi_di_fallimento.png`, `persone_P1_P4.png`, `screen_dodge_D03_baseline.jpg`, `screen_P1_persona.jpg`, `screen_P4_persona.jpg`. Si rigenerano con `scripts/sim/isaac_tuning/analysis/report_figures.py`, `report_figures_extra.py` e `rig_figure.py` (quest'ultimo nell'ambiente dei test di `mpc_controller`); tabelle e diagnosi con `analysis/ab_table.py`, `analysis/failure_modes.py`, `analysis/velocity_quality.py`.
