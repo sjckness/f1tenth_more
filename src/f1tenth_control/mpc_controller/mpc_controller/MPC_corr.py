@@ -8119,6 +8119,13 @@ class MPCController(Node):
         wake = getattr(self, 'obs_wake_weight', 0.0)
         if (trust <= 0.0 and wake <= 0.0) or not any(m is not None and m.valid for m in motions):
             return
+        if getattr(self, 'mpc_solver_impl', 'py') == 'rust':
+            # The Rust core takes one obstacle list for every stage (mpc_solver refuses the
+            # stage lists): the static obstacles of today, said loudly, rather than no solve.
+            self.get_logger().error(
+                'DODGE | mpc_obs_vel_trust / mpc_obs_wake_weight need mpc_solver_impl py: '
+                'solving with static obstacles', throttle_duration_sec=10.0)
+            return
         times = obstacle_motion.stage_times(
             self.N, getattr(self, 'ts_pred', self.ts), self.ts, self.obs_vel_lead_s,
             self.obs_pred_max_s)
