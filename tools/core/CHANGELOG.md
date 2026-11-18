@@ -7,6 +7,14 @@ nello stesso commit, su main.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-18
+
+### Fixed
+- `f1t deploy`: rifiuta prima di toccare l'Orin un'immagine senza label `f1tenth.car_sync.sha256`
+  (`docker_orin pin` la rifiuterebbe: oggi e' il caso delle immagini costruite dal docker/orin di main).
+- `f1t deploy`: se lo switch fallisce prima del restart e il container di prima e' ancora sano, rimette
+  il pin e si ferma, invece di un rollback con restart inutile.
+
 ## [1.0.0] - 2026-11-18
 
 ### Added

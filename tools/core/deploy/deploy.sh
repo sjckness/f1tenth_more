@@ -83,6 +83,11 @@ else
   if [ -n "$SHA" ] && [ "${IMG[revision]}" != "$SHA" ]; then
     check_record FAIL "revisione = commit" "label ${IMG[revision]:0:12}, commit ${SHA:0:12}"
   fi
+  # docker_orin pin rifiuta un'immagine senza questa label (build.sh della linea dell'auto la scrive;
+  # il docker/orin di main non ancora): meglio fermarsi qui che a meta' deploy.
+  if [ -z "${IMG[car_sync]:-}" ] || [ "${IMG[car_sync]}" = unknown ]; then
+    check_record FAIL "label f1tenth.car_sync.sha256" "assente: docker_orin pin la rifiuterebbe (docker/orin del commit troppo vecchio)"
+  fi
   if [ "${IMG[tested]:-}" = true ]; then check_record OK "testata (f1tenth.tested)" "${IMG[tested_at]:0:16} ${IMG[tests]:0:40}"
   elif [ "$FORCE_UNTESTED" = 1 ] || [ "$F1T_DEPLOY_REQUIRE_TESTED" = 0 ]; then check_record WARN "testata (f1tenth.tested)" "no: forzato"
   else check_record FAIL "testata (f1tenth.tested)" "no: f1t build la testa (o --force-untested)"; fi
@@ -155,7 +160,15 @@ health() {
 
 log_step "Deploy: pin + restart"
 rc=0; switch_to "$IMAGE" || rc=$?
-[ "$rc" = 0 ] || log_warn "switch terminato con exit $rc: controllo comunque lo stato"
+if [ "$rc" != 0 ]; then
+  log_warn "switch terminato con exit $rc: controllo lo stato"
+  # Se il container di prima gira ancora sano, il restart non e' avvenuto: rimetti il pin e basta.
+  if [ -n "$CUR_ID" ] && orin_script "$DCTL" health "$F1T_ORIN_CONTAINER" "$F1T_ORIN_DOCKER_ORIN" 5 "$CUR_ID" >/dev/null 2>&1; then
+    orin_script "$DCTL" pin "$CUR_IMAGE" "$F1T_ORIN_DOCKER_ORIN" >/dev/null 2>&1 || true
+    check_record FAIL "deploy" "switch fallito (exit $rc) prima del restart: l'auto e' rimasta su $CUR_IMAGE, pin ripristinato"
+    summary "f1t deploy"; exit 1
+  fi
+fi
 
 log_step "Health check (${F1T_HEALTH_TIMEOUT_S} s)"
 if out=$(health "${IMG[id]}" 2>&1); then

@@ -5,6 +5,7 @@
 #   orin_deploy.sh switch IMAGE DOCKER_ORIN UNIT [STACK_MODE]
 #                                                   docker_orin pin IMAGE + restart della unit; con
 #                                                   STACK_MODE e la unit spenta: stack_mode container
+#   orin_deploy.sh pin IMAGE DOCKER_ORIN            solo il pin (nessun restart)
 #   orin_deploy.sh health CONTAINER DOCKER_ORIN TIMEOUT_S EXPECTED_ID
 #   orin_deploy.sh write-json PATH FALLBACK         scrive stdin in PATH (o FALLBACK se PATH non e' scrivibile)
 set -euo pipefail
@@ -36,6 +37,7 @@ case "$cmd" in
       echo "la unit $unit non e' attiva (l'Orin non e' in modalita' container)" >&2
       exit 3
     fi ;;
+  pin) "$(exp "$2")" pin "$1" ;;
   health)
     ctr=$1 dorin=$(exp "$2") timeout=$3 want=$4
     t0=$(date +%s)
@@ -63,5 +65,5 @@ case "$cmd" in
       fi
     done
     rm -f "$tmp"; echo "nessuna destinazione scrivibile ($p, $f)" >&2; exit 1 ;;
-  *) echo "uso: orin_deploy.sh image-info|switch|health|write-json ..." >&2; exit 2 ;;
+  *) echo "uso: orin_deploy.sh image-info|switch|pin|health|write-json ..." >&2; exit 2 ;;
 esac
