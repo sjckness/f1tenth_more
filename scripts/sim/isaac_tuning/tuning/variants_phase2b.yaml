@@ -1,0 +1,8 @@
+# mpc-dodge phase 2b A/B, rerun after the drive-branch fix (the first A/B's fixed_line / return ran
+# today's corridor: the missions are 'drive: straight' moves). alpha_return = the best phase 2
+# variant (alpha) with the return.
+fixed_line: {corridor_lateral_reanchor: false}
+return: {corridor_lateral_reanchor: false, mpc_return_gain: 1.0, mpc_return_lookahead_ratio: 2.5,
+         mpc_return_psi_scale: 0.5}
+alpha_return: {mpc_obs_vel_trust: 1.0, corridor_lateral_reanchor: false, mpc_return_gain: 1.0,
+               mpc_return_lookahead_ratio: 2.5, mpc_return_psi_scale: 0.5}
