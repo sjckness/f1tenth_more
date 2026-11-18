@@ -1,0 +1,4 @@
+/tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r6/gate2/py/f1tenth_bringup/pytest.xml: 90 tests, 0 errors, 3 failures, 0 skipped
+/tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r6/gate2/py/f1tenth_perception/pytest.xml: 1319 tests, 0 errors, 0 failures, 0 skipped
+
+Summary: 1409 tests, 0 errors, 3 failures, 0 skipped

@@ -1,0 +1,68 @@
+{
+ "scenario": "S2",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 0,
+  "reason": "mission ABORTED"
+ },
+ "end_reason": "mission ABORTED",
+ "phases_wall_s": {
+  "ready": 1.821,
+  "params": 0.202,
+  "scenario": 0.009,
+  "reset": 14.525,
+  "start": 0.012,
+  "record": 23.355
+ },
+ "valid": true,
+ "start_pose_map_sim": {
+  "x": 0.466150125079037,
+  "y": 2.9886648473486903,
+  "yaw_deg": 1.3848793741542809
+ },
+ "progress_m": 0.7311895036250996,
+ "max_lateral_error_m": 0.22179220141090672,
+ "final_lateral_error_m": 0.20311683101071193,
+ "final_heading_error_rad": 0.6035986280731778,
+ "duration_s": 21.35000000000001,
+ "time_to_goal_s": null,
+ "obstacles": [
+  {
+   "id": "cyl100",
+   "r": 0.5,
+   "min_centre_dist_m": 0.7336431927895126,
+   "r_safe_ref_m": 0.82,
+   "margin_m": -0.08635680721048733
+  }
+ ],
+ "min_margin_m": -0.08635680721048733,
+ "min_body_clearance_m": 0.0023494517832358675,
+ "steer_sign_changes": 0,
+ "solver_ticks": 199,
+ "solve_failures": 0,
+ "max_n_obstacles_seen": 29,
+ "solve_time_ms_p95": 0.0,
+ "mpc_cpu_ms_per_tick": 70.40201005025128,
+ "perceived_r_max_m": 0.3715851604938507,
+ "safety": {
+  "hard_stop_engaged": true,
+  "bt_trip": false,
+  "mux_safety_lanes": [
+   "base_link/hard_stop"
+  ],
+  "contact_event": false,
+  "events": []
+ },
+ "outcome": "collision",
+ "mission_final_state": "ABORTED",
+ "score": 0.0,
+ "score_terms": null,
+ "nominal": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "recorder_code": 0,
+ "wall_recorder_s": 41.7,
+ "isaac_alive_after": true
+}

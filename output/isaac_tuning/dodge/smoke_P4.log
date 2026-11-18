@@ -1,0 +1,12 @@
+[isaac_tuning 05:53:59] preflight ok {'free_disk_gb': 15.9, 'free_vram_mib': 7012}
+[isaac_tuning 05:54:01] discovery server {'port': 11878, 'pgid': 3961059}
+[isaac_tuning 05:54:26] isaac up {'wall_s': 24.8}
+[isaac_tuning 05:54:26] stack starting {'pgid': 3962506, 'log': 'stack_P4_r0.log'}
+[isaac_tuning 05:55:01] P4 r0: success score=88.23360666456372 margin=0.06825906684367578 wall=34.5s
+[isaac_tuning 05:55:01] stopping stack: SIGTERM to process group 3962506
+[isaac_tuning 05:55:01] stopping stack: SIGTERM to what is left of process group 3962506
+[isaac_tuning 05:55:04] stack stopped {'wall_s': 3.5, 'leftovers': 0}
+[isaac_tuning 05:55:06] stopping isaac: SIGTERM to process group 3961168
+[isaac_tuning 05:55:06] stopping discovery server: SIGINT to process group 3961059
+[isaac_tuning 05:55:06] session closed {'container': False, 'leftovers': 0}
+[isaac_tuning 05:55:06] done: 1/1 success, score 88.2 +- 0.0, orphans 0, out output/isaac_tuning/dodge/smoke_P4

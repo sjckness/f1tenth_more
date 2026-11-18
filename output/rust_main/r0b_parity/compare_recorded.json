@@ -1,0 +1,287 @@
+{
+ "ok": true,
+ "rows": [
+  {
+   "section": "proximity",
+   "check": "synthetic group identical",
+   "ok": true,
+   "detail": "{'cases': 3184, 'py_trips': 444, 'rs_trips': 444, 'trip_diff': 0, 'stop_ne_py': 12}"
+  },
+  {
+   "section": "proximity",
+   "check": "bag: py trips == rust trips, 0 trip diffs, 0 stop != py",
+   "ok": true,
+   "detail": "{'cases': 145368, 'py_trips': 9841, 'rs_trips': 9841, 'trip_diff': 0, 'stop_ne_py': 0} (recorded {'cases': 145368, 'py_trips': 9841, 'rs_trips': 9841, 'trip_diff': 0, 'stop_ne_py': 0})"
+  },
+  {
+   "section": "proximity",
+   "check": "bag+obstacle: py trips == rust trips, 0 trip diffs, 0 stop != py",
+   "ok": true,
+   "detail": "{'cases': 101813, 'py_trips': 30858, 'rs_trips': 30858, 'trip_diff': 0, 'stop_ne_py': 0} (recorded {'cases': 101813, 'py_trips': 30858, 'rs_trips': 30858, 'trip_diff': 0, 'stop_ne_py': 0})"
+  },
+  {
+   "section": "proximity",
+   "check": "0 trip / presence / unexplained stop differences",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "section": "proximity",
+   "check": "min_front bit-identical on every compared case",
+   "ok": true,
+   "detail": "244462 / 244462 (recorded 244462 / 244462)"
+  },
+  {
+   "section": "proximity",
+   "check": "same fail-safe reasons as recorded",
+   "ok": true,
+   "detail": "{'invalid_beams': 7, 'too_close_unquantified': 3, 'empty_scan': 1, 'no_front_beams': 1}"
+  },
+  {
+   "section": "proximity",
+   "check": "bags in both runs: same case count",
+   "ok": true,
+   "detail": "238 bags now, 238 recorded, 238 common, 238 equal "
+  },
+  {
+   "section": "costmap_boundary",
+   "check": "synthetic group identical",
+   "ok": true,
+   "detail": "{'maps': 16, 'poses': 804, 'diffs': 0, 'py_raised': 0, 'constraints': 1975, 'empty': 48}"
+  },
+  {
+   "section": "costmap_boundary",
+   "check": "malformed group identical",
+   "ok": true,
+   "detail": "{'maps': 6, 'poses': 7, 'diffs': 0, 'py_raised': 5, 'constraints': 0, 'empty': 1, 'intended': 1}"
+  },
+  {
+   "section": "costmap_boundary",
+   "check": "bag group: 0 differences, 0 raised",
+   "ok": true,
+   "detail": "{'maps': 970, 'poses': 155353, 'diffs': 0, 'py_raised': 0, 'constraints': 464234, 'empty': 0} (recorded {'maps': 970, 'poses': 155353, 'diffs': 0, 'py_raised': 0, 'constraints': 464234, 'empty': 0})"
+  },
+  {
+   "section": "costmap_boundary",
+   "check": "0 differences beyond the tolerances",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "section": "costmap_boundary",
+   "check": "same Python exceptions and intended difference",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "section": "costmap_boundary",
+   "check": "front clearance 0 ulp",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "section": "costmap_boundary",
+   "check": "largest normal / offset difference not above the recorded",
+   "ok": true,
+   "detail": "2.22e-16 / 8.88e-16"
+  },
+  {
+   "section": "costmap_boundary",
+   "check": "bit-identical constraint share",
+   "ok": true,
+   "detail": "463062 / 466209 = 99.3250% (recorded 99.3250%)"
+  },
+  {
+   "section": "costmap_boundary",
+   "check": "bags in both runs: same maps and poses",
+   "ok": true,
+   "detail": "235 bags now, 235 recorded, 235 common, 235 equal "
+  },
+  {
+   "section": "hard_stop",
+   "check": "gate PASS, 0 differences",
+   "ok": true,
+   "detail": "1130585 ops (recorded 1130585)"
+  },
+  {
+   "section": "hard_stop",
+   "check": "group tests: same ops / stops / engages / scans",
+   "ok": true,
+   "detail": "ops 279 stops 19 (recorded 279 / 19)"
+  },
+  {
+   "section": "hard_stop",
+   "check": "group tests:committed_vs_python: same ops / stops / engages / scans",
+   "ok": true,
+   "detail": "ops 279 stops 0 (recorded 279 / 0)"
+  },
+  {
+   "section": "hard_stop",
+   "check": "group format: same ops / stops / engages / scans",
+   "ok": true,
+   "detail": "ops 392431 stops 0 (recorded 392431 / 0)"
+  },
+  {
+   "section": "hard_stop",
+   "check": "group functions: same ops / stops / engages / scans",
+   "ok": true,
+   "detail": "ops 76200 stops 0 (recorded 76200 / 0)"
+  },
+  {
+   "section": "hard_stop",
+   "check": "group sessions: same ops / stops / engages / scans",
+   "ok": true,
+   "detail": "ops 169403 stops 32740 (recorded 169403 / 32740)"
+  },
+  {
+   "section": "hard_stop",
+   "check": "group bags:default: same ops / stops / engages / scans",
+   "ok": true,
+   "detail": "ops 121093 stops 5335 (recorded 121093 / 5335)"
+  },
+  {
+   "section": "hard_stop",
+   "check": "group bags:no_reverse_gate: same ops / stops / engages / scans",
+   "ok": true,
+   "detail": "ops 121093 stops 5335 (recorded 121093 / 5335)"
+  },
+  {
+   "section": "hard_stop",
+   "check": "group bags:no_mask: same ops / stops / engages / scans",
+   "ok": true,
+   "detail": "ops 121093 stops 34438 (recorded 121093 / 34438)"
+  },
+  {
+   "section": "hard_stop",
+   "check": "group bags:injected: same ops / stops / engages / scans",
+   "ok": true,
+   "detail": "ops 125793 stops 21293 (recorded 125793 / 21293)"
+  },
+  {
+   "section": "hard_stop",
+   "check": "group bags:car_tick_phase: same ops / stops / engages / scans",
+   "ok": true,
+   "detail": "ops 2921 stops 1601 (recorded 2921 / 1601)"
+  },
+  {
+   "section": "mpc_solver",
+   "check": "every gate entry true, same entries",
+   "ok": true,
+   "detail": "26/26"
+  },
+  {
+   "section": "mpc_solver",
+   "check": "L1 counts equal to recorded",
+   "ok": true,
+   "detail": "{\"ticks\": 42909, \"pattern_identical\": 42909, \"bit_identical\": 42909, \"sha_checked\": 723, \"sha_equal\": 723, \"max_abs\": 0.0, \"max_ulp\": 0, \"z_guess_identical\": 42909, \"fail\": []}"
+  },
+  {
+   "section": "mpc_solver",
+   "check": "L2 counts equal to recorded",
+   "ok": true,
+   "detail": "{\"ticks\": 42909, \"x_bit_identical\": 42909, \"info_identical\": 42909, \"settings_identical\": 42909, \"fail\": []}"
+  },
+  {
+   "section": "mpc_solver",
+   "check": "L3 counts equal to recorded",
+   "ok": true,
+   "detail": "{\"fixture/matrix\": {\"ticks\": 523, \"bit_identical\": 523, \"within_tol\": 523, \"status_identical\": 523, \"recorded_bit_identical\": 523, \"recorded_checked\": 523, \"exceptions_matched\": 0, \"exceptions_mismatched\": 0, \"max_traj_diff\": 0.0, \"outliers\": [], \"statuses\": {\"1\": 262, \"2\": 175, \"7\": 67, \"3\": 19}}, "
+  },
+  {
+   "section": "mpc_solver",
+   "check": "same fixture, sweep and capture (paths normalised)",
+   "ok": true,
+   "detail": "{'fixture_ticks': 723, 'sweep': {'n': 3000, 'seed': 20261023}, 'capture_ticks': 39587}"
+  },
+  {
+   "section": "mpc_closed_loop",
+   "check": "runs / pass / bit-identical / golden counts equal",
+   "ok": true,
+   "detail": "{'n_runs': 32, 'pass_runs': 32, 'bit_identical_runs': 32, 'pass': True, 'golden': {'path': 'closed_loop_golden.json', 'runs': 20, 'equal_py': 20, 'equal_rust': 20, 'differing_rust': []}}"
+  },
+  {
+   "section": "mpc_closed_loop",
+   "check": "every run record equal to recorded",
+   "ok": true,
+   "detail": "[]"
+  },
+  {
+   "section": "corridor",
+   "check": "gate pass",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "section": "corridor",
+   "check": "rebuilds equal to recorded",
+   "ok": true,
+   "detail": "{\"geometry\": {\"cases\": 1344, \"identical\": 1344, \"within_tol\": 1344, \"failures\": 0, \"failure_examples\": [], \"values\": 2434944, \"values_bit_identical\": 2434944, \"values_nan_bits_differ\": 0, \"nan_bits_ca"
+  },
+  {
+   "section": "corridor",
+   "check": "sweep equal to recorded",
+   "ok": true,
+   "detail": "{\"count\": 10000, \"seed\": 20261023, \"geometry\": {\"cases\": 8937, \"identical\": 8907, \"within_tol\": 8937, \"failures\": 0, \"failure_examples\": [], \"values\": 14102307, \"values_bit_identical\": 14100764, \"valu"
+  },
+  {
+   "section": "corridor",
+   "check": "corpus replays equal to recorded",
+   "ok": true,
+   "detail": "['f1tenth_logger', 'f1tenth_params', 'mpc_controller']"
+  },
+  {
+   "section": "corridor_rigs",
+   "check": "same golden file, same run count, pass",
+   "ok": true,
+   "detail": "20 runs"
+  },
+  {
+   "section": "corridor_rigs",
+   "check": "py: solves, runs equal to the golden, corridor calls as recorded",
+   "ok": true,
+   "detail": "{'solves': 1218, 'runs_equal_to_golden': 20, 'differing_runs': [], 'corridor_calls_py': 138, 'corridor_calls_rust': 0}"
+  },
+  {
+   "section": "corridor_rigs",
+   "check": "rust: solves, runs equal to the golden, corridor calls as recorded",
+   "ok": true,
+   "detail": "{'solves': 1218, 'runs_equal_to_golden': 20, 'differing_runs': [], 'corridor_calls_py': 0, 'corridor_calls_rust': 138}"
+  },
+  {
+   "section": "wall_tracker",
+   "check": "numerics: 0 mismatches, same cases per primitive",
+   "ok": true,
+   "detail": "{'solve2': 200000, 'inv2': 200000, 'lsa': 20000, 'hypot': 200009, 'pow2': 200009, 'wrap_pi': 200007, 'sum': 50003, 'arange': 20000, 'searchsorted': 10000, 'svd_vt': 20000}"
+  },
+  {
+   "section": "wall_tracker",
+   "check": "fusion cases: 0 mismatches, same results and coverage",
+   "ok": true,
+   "detail": "{'robust_line': 3000, 'fusion': 3000, 'rectangles': 600}"
+  },
+  {
+   "section": "wall_tracker",
+   "check": "bags car: every run equal to recorded, 0 differences",
+   "ok": true,
+   "detail": "8 runs, 2859 steps, 19754 messages compared; bad []"
+  },
+  {
+   "section": "wall_tracker",
+   "check": "bags every: every run equal to recorded, 0 differences",
+   "ok": true,
+   "detail": "1 runs, 2292 steps, 14336 messages compared; bad []"
+  },
+  {
+   "section": "wall_tracker",
+   "check": "bags full: every run equal to recorded, 0 differences",
+   "ok": true,
+   "detail": "4 runs, 913 steps, 6386 messages compared; bad []"
+  },
+  {
+   "section": "wall_tracker",
+   "check": "bags doors: every run equal to recorded, 0 differences",
+   "ok": true,
+   "detail": "3 runs, 1277 steps, 10221 messages compared; bad []"
+  }
+ ]
+}

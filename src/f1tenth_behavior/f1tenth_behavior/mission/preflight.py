@@ -51,6 +51,8 @@ from typing import Callable, List, Optional
 
 from f1tenth_behavior.mission.mission_config import MissionConfig
 from f1tenth_params.param_defaults import get_value, get_wall_distance_topic
+from f1tenth_params.planner_modes import (
+    CONTROLLER_NODE_NAMES, validate_planner_controller_mode)
 from f1tenth_behavior.mission.runtime import (
     CURRENT_XY_KEY,
     FRONT_CLEARANCE_KEY,
@@ -85,6 +87,21 @@ class Requirement:
     # Blackboard key that must hold a non-None value (i.e. at least one real
     # message has arrived), or None if this requirement is node-existence-only.
     blackboard_key: Optional[str] = None
+
+
+#: Which NODE publishes /perception/doors_semantic, by door_source
+#: (stack_params.yaml). All three detectors publish the same topic -- which is
+#: why EnterDoor needs no branch at all -- but they live in three different
+#: nodes, so the preflight's "is the thing that feeds this mission actually
+#: up" question has three different answers. Duplicated here rather than
+#: imported because f1tenth_behavior does not depend on f1tenth_costmap and
+#: should not start to for one dict; stack_params' own door_source
+#: description carries the same list.
+DOOR_SOURCE_NODES = {
+    'freespace': 'freespace_door_node',      # f1tenth_costmap/freespace_doors.py
+    'semantic': 'semantic_layer_node',       # f1tenth_costmap/semantic_doors.py
+    'profile': 'lidar_front_wall_node',      # f1tenth_perception/door_detection.py
+}
 
 
 # Every move type (goal_distance/goal_pose/turn/drive) is driven through
@@ -138,6 +155,26 @@ def _uses_forward_only_obstacle_distance(config: MissionConfig) -> bool:
     return False
 
 
+def controller_requirement(planner_controller_mode: str = 'corridor_mpc') -> Requirement:
+    """Return the requirement for the node that drives every move in this mode.
+
+    corridor_mpc is _MPC_CORR itself, so its requirement and failure message
+    are unchanged; corridor_rrt and p2p_geometric (f1tenth_planners) take the
+    same goal topics and are required by their own node names
+    (f1tenth_params/planner_modes.py).
+    """
+    mode = validate_planner_controller_mode(planner_controller_mode)
+    if mode == 'corridor_mpc':
+        return _MPC_CORR
+    name = CONTROLLER_NODE_NAMES[mode]
+    return Requirement(
+        name=name,
+        reason=(f'every move type is driven through it (planner_controller_mode '
+                f'{mode})'),
+        node_name=name,
+    )
+
+
 # Default actuation node: the car's ackermann_to_vesc_node (_ACKERMANN_TO_VESC).
 DEFAULT_ACTUATION_NODE = 'ackermann_to_vesc_node'
 
@@ -185,11 +222,14 @@ def wall_distance_requirement(scene_labels: Optional[bool] = None) -> Requiremen
 
 def required_dependencies(config: MissionConfig,
                           actuation_node: str = DEFAULT_ACTUATION_NODE,
-                          scene_labels: Optional[bool] = None) -> List[Requirement]:
+                          scene_labels: Optional[bool] = None,
+                          planner_controller_mode: str = 'corridor_mpc'
+                          ) -> List[Requirement]:
     """Pure function: what must be alive for THIS mission, specifically --
     not a blanket "everything the stack could ever need" list. Testable
     without rclpy (see test/test_preflight.py)."""
-    reqs = [_MPC_CORR, _actuation_requirement(actuation_node), _LOCALIZATION]
+    reqs = [controller_requirement(planner_controller_mode),
+            _actuation_requirement(actuation_node), _LOCALIZATION]
 
     stop_condition_types = {m.stop_condition.type for m in config.moves}
     for m in config.moves:
@@ -244,6 +284,21 @@ def required_dependencies(config: MissionConfig,
         reqs.append(Requirement(
             name='global localization (/ekf_global/odometry/filtered)',
             reason='a go_to_object step acquires the track NEAREST the vehicle, in the map frame',
+            blackboard_key=GLOBAL_XY_KEY,
+        ))
+
+    if any(getattr(m, 'enter_door', None) is not None for m in config.moves):
+        source = str(get_value('door_source'))
+        reqs.append(Requirement(
+            name=DOOR_SOURCE_NODES.get(source, 'the door detector'),
+            reason=('an enter_door step drives at its /perception/doors_semantic '
+                    f'(door_source "{source}")'),
+            node_name=DOOR_SOURCE_NODES.get(source),
+        ))
+        reqs.append(Requirement(
+            name='global localization (/ekf_global/odometry/filtered)',
+            reason=('an enter_door step measures its arrival against the door frame '
+                    'in the map frame'),
             blackboard_key=GLOBAL_XY_KEY,
         ))
 

@@ -1,0 +1,159 @@
+{
+ "instance": {
+  "scenario": "M3",
+  "rep": 2,
+  "car": {
+   "x": 0.4985014091231542,
+   "y": 3.0429159282402862,
+   "yaw_deg": -0.27997620718627925
+  },
+  "obstacles": {
+   "cyl050": [
+    2.5,
+    4.6
+   ]
+  },
+  "motion": {
+   "cyl050": {
+    "v": [
+     0.0,
+     -0.5
+    ],
+    "delay_s": 0.0,
+    "duration_s": 6.4
+   }
+  },
+  "obstacle_info": [
+   {
+    "id": "cyl050",
+    "x": 2.5,
+    "y": 4.6,
+    "ahead_m": 2.0,
+    "lateral_m": 1.6,
+    "radius_m": 0.25,
+    "motion": {
+     "v": [
+      0.0,
+      -0.5
+     ],
+     "delay_s": 0.0,
+     "duration_s": 6.4
+    }
+   }
+  ],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "output/isaac_tuning/dodge/phase0_M/M3_r2/mission.json",
+ "wall_start": 1794960780.1364374,
+ "phases": {
+  "ready": 1.492,
+  "params": 0.37,
+  "scenario": 8.015,
+  "reset": 7.943,
+  "start": 0.008,
+  "record": 12.502
+ },
+ "exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64
+  },
+  "semantic_layer_node": {
+   "unknown_objects_mode": "active"
+  }
+ },
+ "scenario_applied": {
+  "seq": 6035008,
+  "ok": true,
+  "message": "reset #21: car and person at start poses",
+  "sim_time": 440.3333333333333,
+  "car": {
+   "x": 0.4985014091231542,
+   "y": 3.0429159282402862,
+   "yaw_deg": -0.27997620718627925
+  },
+  "obstacles": {
+   "cyl050": [
+    2.5,
+    4.6
+   ],
+   "cyl100": null
+  },
+  "motion": {
+   "cyl050": {
+    "v": [
+     0.0,
+     -0.5
+    ],
+    "delay_s": 0.0,
+    "duration_s": 6.4
+   }
+  }
+ },
+ "reset_all": {
+  "success": true,
+  "message": "reset done in 6.1 s: stop 0.9s, wheel_odom 0.0s, ekf_local 0.0s, slam 5.2s, ekf_global 0.0s, nav2 skipped, hooks 0.0s"
+ },
+ "load_mission": {
+  "success": true,
+  "message": "loaded 'isaac_tuning_M3_r2', 1 moves"
+ },
+ "start_mission": {
+  "success": true,
+  "message": "started 'isaac_tuning_M3_r2'"
+ },
+ "t_running": 448.283333333,
+ "t_go": 448.283333333,
+ "t_end": 458.8,
+ "end_reason": "mission COMPLETE",
+ "rows": {
+  "gt": 626,
+  "odom": 485,
+  "drive": 125,
+  "mux": 218,
+  "mission": 3,
+  "solver": 105,
+  "status": 105,
+  "hard_stop": 501,
+  "bt": 125,
+  "obstacles": 367,
+  "cpu": 62,
+  "movers": 250
+ },
+ "mission_states": [
+  [
+   426.8,
+   "COMPLETE"
+  ],
+  [
+   448.283333333,
+   "LOADED"
+  ],
+  [
+   448.283333333,
+   "RUNNING"
+  ],
+  [
+   458.8,
+   "COMPLETE"
+  ]
+ ],
+ "wall_end": 1794960810.5851595
+}

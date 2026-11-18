@@ -1,0 +1,373 @@
+{
+ "edges": 19,
+ "failures": [],
+ "odom_check": {
+  "tf_msgs": 347,
+  "ekf_msgs": 256,
+  "stamp_offset_s": 0.05,
+  "matched_stamps": 256,
+  "value_mismatch": 0,
+  "mismatch_samples": []
+ },
+ "tf_publishers": [
+  "/ekf_filter_node",
+  "/ekf_global/ekf_global_filter_node",
+  "/isaac_f1tenth_sim",
+  "/robot_state_publisher",
+  "/slam_toolbox",
+  "/slam_toolbox",
+  "/zed2/zed2_state_publisher"
+ ],
+ "tf_static_publishers": [
+  "/isaac_f1tenth_sim",
+  "/robot_state_publisher",
+  "/static_baselink_to_imu",
+  "/static_baselink_to_laser",
+  "/static_baselink_to_zed2",
+  "/zed2/zed2_state_publisher"
+ ],
+ "rows": [
+  {
+   "parent": "base_link",
+   "child": "base_front",
+   "static_msgs": 1,
+   "dyn_msgs": 0,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.405,
+    0.0,
+    0.0
+   ],
+   "q": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "parent": "base_link",
+   "child": "chassis",
+   "static_msgs": 1,
+   "dyn_msgs": 0,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.0,
+    0.0,
+    0.05
+   ],
+   "q": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "parent": "base_link",
+   "child": "imu",
+   "static_msgs": 1,
+   "dyn_msgs": 0,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "q": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "parent": "base_link",
+   "child": "laser",
+   "static_msgs": 1,
+   "dyn_msgs": 0,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.305,
+    0.0,
+    0.19
+   ],
+   "q": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "parent": "base_link",
+   "child": "zed2_camera_link",
+   "static_msgs": 1,
+   "dyn_msgs": 0,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.2399,
+    0.0,
+    0.205
+   ],
+   "q": [
+    0.0,
+    -0.01817399939,
+    0.0,
+    0.99983483923
+   ]
+  },
+  {
+   "parent": "chassis",
+   "child": "chassis_inertia",
+   "static_msgs": 1,
+   "dyn_msgs": 0,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "q": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "parent": "chassis",
+   "child": "left_rear_wheel",
+   "static_msgs": 0,
+   "dyn_msgs": 91,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.0,
+    0.1,
+    0.0
+   ],
+   "q": [
+    0.7071080798594738,
+    0.0,
+    0.0,
+    0.7071054825112363
+   ]
+  },
+  {
+   "parent": "chassis",
+   "child": "left_steering_hinge",
+   "static_msgs": 0,
+   "dyn_msgs": 91,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.305,
+    0.1,
+    0.0
+   ],
+   "q": [
+    0.0,
+    0.7071080798594738,
+    0.0,
+    0.7071054825112363
+   ]
+  },
+  {
+   "parent": "chassis",
+   "child": "right_rear_wheel",
+   "static_msgs": 0,
+   "dyn_msgs": 91,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.0,
+    -0.1,
+    0.0
+   ],
+   "q": [
+    0.7071080798594738,
+    0.0,
+    0.0,
+    0.7071054825112363
+   ]
+  },
+  {
+   "parent": "chassis",
+   "child": "right_steering_hinge",
+   "static_msgs": 0,
+   "dyn_msgs": 91,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.305,
+    -0.1,
+    0.0
+   ],
+   "q": [
+    0.0,
+    0.7071080798594738,
+    0.0,
+    0.7071054825112363
+   ]
+  },
+  {
+   "parent": "left_steering_hinge",
+   "child": "left_front_wheel",
+   "static_msgs": 0,
+   "dyn_msgs": 91,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "q": [
+    0.7071080798594738,
+    0.0,
+    0.0,
+    0.7071054825112363
+   ]
+  },
+  {
+   "parent": "map",
+   "child": "odom",
+   "static_msgs": 0,
+   "dyn_msgs": 181,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.24858428491741463,
+    0.07850589971632085,
+    0.0
+   ],
+   "q": [
+    0.0,
+    0.0,
+    0.16062937789384626,
+    0.9870147936872253
+   ]
+  },
+  {
+   "parent": "odom",
+   "child": "base_link",
+   "static_msgs": 0,
+   "dyn_msgs": 347,
+   "conflicting_stamps": 0,
+   "xyz": [
+    -0.5065297278908604,
+    0.08859970721816643,
+    0.0
+   ],
+   "q": [
+    0.0,
+    0.0,
+    -0.17320709178176155,
+    0.9848854265123961
+   ]
+  },
+  {
+   "parent": "right_steering_hinge",
+   "child": "right_front_wheel",
+   "static_msgs": 0,
+   "dyn_msgs": 91,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "q": [
+    0.7071080798594738,
+    0.0,
+    0.0,
+    0.7071054825112363
+   ]
+  },
+  {
+   "parent": "zed2_camera_center",
+   "child": "zed2_left_camera_frame",
+   "static_msgs": 1,
+   "dyn_msgs": 0,
+   "conflicting_stamps": 0,
+   "xyz": [
+    -0.01,
+    0.06,
+    0.0
+   ],
+   "q": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "parent": "zed2_camera_center",
+   "child": "zed2_right_camera_frame",
+   "static_msgs": 1,
+   "dyn_msgs": 0,
+   "conflicting_stamps": 0,
+   "xyz": [
+    -0.01,
+    -0.06,
+    0.0
+   ],
+   "q": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "parent": "zed2_camera_link",
+   "child": "zed2_camera_center",
+   "static_msgs": 1,
+   "dyn_msgs": 0,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.0,
+    0.0,
+    0.015
+   ],
+   "q": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "parent": "zed2_left_camera_frame",
+   "child": "zed2_left_camera_optical_frame",
+   "static_msgs": 1,
+   "dyn_msgs": 0,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "q": [
+    0.5,
+    -0.4999999999999999,
+    0.5,
+    -0.5000000000000001
+   ]
+  },
+  {
+   "parent": "zed2_right_camera_frame",
+   "child": "zed2_right_camera_optical_frame",
+   "static_msgs": 1,
+   "dyn_msgs": 0,
+   "conflicting_stamps": 0,
+   "xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "q": [
+    0.5,
+    -0.4999999999999999,
+    0.5,
+    -0.5000000000000001
+   ]
+  }
+ ]
+}

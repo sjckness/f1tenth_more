@@ -1,0 +1,10 @@
+## old build.rs md5 84f781501605
+old step 1 (AMENT_PREFIX_PATH=/opt/ros/jazzy): exit 0
+old step 2 AMENT_PREFIX_PATH entries: 38
+old step 2 (workspace sourced, same target dir): exit 101
+     10 unable to find library -lzed_msgs__rosidl_generator_c
+     10 unable to find library -lzed_msgs__rosidl_typesupport_c
+## new build.rs md5 0735898671c1
+new step 1 (AMENT_PREFIX_PATH=/opt/ros/jazzy): exit 0
+new step 2 AMENT_PREFIX_PATH entries: 38
+new step 2 (workspace sourced, same target dir): exit 0

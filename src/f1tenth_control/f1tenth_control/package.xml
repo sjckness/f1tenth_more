@@ -10,6 +10,10 @@
   <buildtool_depend>ament_python</buildtool_depend>
 
   <exec_depend>mpc_controller</exec_depend>
+  <!-- planner_controller_mode corridor_rrt / p2p_geometric: the two other
+       nodes that can back the drive lane (navigation.launch.py includes
+       their launch file the way it includes mpc_corr.launch.py). -->
+  <exec_depend>f1tenth_planners</exec_depend>
   <exec_depend>ackermann_mux</exec_depend>
   <exec_depend>joy</exec_depend>
   <exec_depend>joy_teleop</exec_depend>
@@ -29,6 +33,10 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>ackermann_msgs</exec_depend>
   <exec_depend>f1tenth_description</exec_depend>
+  <!-- hard_stop_impl:=rust launches f1tenth_hard_stop_rs (src/rust), deliberately NOT
+       declared here: a dependency on an ament_cargo package fails this package's build on
+       a colcon without colcon-ros-cargo (the Thor and the Orin image today; R1 decision for
+       f1tenth_mpc_core). With py, the default, nothing of it is needed. -->
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

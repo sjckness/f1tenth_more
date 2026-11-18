@@ -1,0 +1,32 @@
+component_supervisor_node:
+  ros__parameters:
+    sim_component_args:
+      diagnostics:
+        mission_logger_runs_dir: ~/f1tenth_sim_archive
+behavior_executor_node:
+  ros__parameters:
+    preflight_actuation_node: isaac_f1tenth_sim
+reset_manager:
+  ros__parameters:
+    wheel_odom:
+      method: service
+      service: /sim/reset
+mpc_corr:
+  ros__parameters:
+    corr_half_width_start_m: 0.64
+    mpc_obs_vel_trust: 1.0
+    mpc_obs_wake_weight: 150.0
+    mpc_obs_wake_horizon_s: 1.0
+    mpc_obs_vel_lead_s: 0.0
+    mpc_obstacle_side_mode: fixed
+    corridor_lateral_reanchor: true
+    mpc_return_gain: 0.0
+    mpc_return_lookahead_ratio: 0.0
+    mpc_return_psi_scale: 1.0
+    mpc_return_max_heading_deg: 35.0
+    mpc_return_overshoot_max_m: 0.15
+semantic_layer_node:
+  ros__parameters:
+    unknown_objects_mode: active
+    semantic_track_velocity_enabled: true
+    obstacle_class_margin_m: '{"person": 0.5, "unknown": 0.0}'

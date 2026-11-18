@@ -1,0 +1,1206 @@
+{
+ "groups": {
+  "synthetic": {
+   "maps": 16,
+   "poses": 804,
+   "diffs": 0,
+   "py_raised": 0,
+   "constraints": 1975,
+   "empty": 48
+  },
+  "malformed": {
+   "maps": 6,
+   "poses": 7,
+   "diffs": 0,
+   "py_raised": 5,
+   "constraints": 0,
+   "empty": 1,
+   "intended": 1
+  },
+  "bag": {
+   "maps": 841,
+   "poses": 144772,
+   "diffs": 0,
+   "py_raised": 0,
+   "constraints": 432934,
+   "empty": 0
+  }
+ },
+ "diffs": [],
+ "py_raised": [
+  {
+   "case": "data_too_short[0]",
+   "python": "ValueError: cannot reshape array of size 99 into shape (10,10)",
+   "rust": "grid data length != width * height"
+  },
+  {
+   "case": "data_too_long[0]",
+   "python": "ValueError: cannot reshape array of size 101 into shape (10,10)",
+   "rust": "grid data length != width * height"
+  },
+  {
+   "case": "resolution_zero[0]",
+   "python": "ZeroDivisionError: float division by zero",
+   "rust": "grid resolution not a positive finite number"
+  },
+  {
+   "case": "pose_nan[0]",
+   "python": "ValueError: cannot convert float NaN to integer",
+   "rust": "pose not finite"
+  },
+  {
+   "case": "pose_inf[0]",
+   "python": "OverflowError: cannot convert float infinity to integer",
+   "rust": "pose not finite"
+  }
+ ],
+ "intended": [
+  {
+   "case": "pose_nan[1]",
+   "pose": [
+    0.5,
+    0.5,
+    NaN
+   ],
+   "rust": "pose not finite",
+   "python": "no constraints, front_clearance 6.0"
+  }
+ ],
+ "max_normal_diff": 2.220446049250313e-16,
+ "max_offset_diff": 8.881784197001252e-16,
+ "max_clearance_ulps": 0,
+ "bitexact_constraints": 431964,
+ "compared_constraints": 434909,
+ "clearance_values": {
+  "synthetic": {
+   "n": 804,
+   "min": 0.01150491827381955,
+   "max": 6.0,
+   "n_clear": 324
+  },
+  "malformed": {
+   "n": 1,
+   "min": 6.0,
+   "max": 6.0,
+   "n_clear": 1
+  },
+  "bag": {
+   "n": 144772,
+   "min": 0.01,
+   "max": 6.0,
+   "n_clear": 59846
+  }
+ },
+ "rs_time_s": 46.267475553555414,
+ "params": {
+  "front_facing_max_deg": 35.0,
+  "side_window_min_deg": 45.0,
+  "side_window_max_deg": 135.0,
+  "occupied_threshold": 65.0,
+  "max_range_m": 5.0,
+  "front_x": 0.405,
+  "front_side_limit_m": 0.186,
+  "min_front_distance_m": 0.01
+ },
+ "bags": [
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T14-35-50_mission-test_01/bag",
+   "maps": 7,
+   "poses": 450
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-00-06_mission-llm_plan_1788274806/bag",
+   "maps": 5,
+   "poses": 820
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-03-07_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 295
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-04-45_mission-bottle_then_person/bag",
+   "maps": 5,
+   "poses": 1022
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-06-45_mission-llm_plan_1788275205/bag",
+   "maps": 3,
+   "poses": 513
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-08-12_mission-llm_plan_1788275291/bag",
+   "maps": 5,
+   "poses": 947
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-09-43_mission-bottle_then_person/bag",
+   "maps": 7,
+   "poses": 1392
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-11-29_mission-bottle_then_person/bag",
+   "maps": 5,
+   "poses": 704
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-33-43_mission-llm_plan_1788341623/bag",
+   "maps": 3,
+   "poses": 548
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-34-40_mission-llm_plan_1788341680/bag",
+   "maps": 5,
+   "poses": 904
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-35-04_mission-llm_plan_1788341702/bag",
+   "maps": 4,
+   "poses": 715
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-35-23_mission-llm_plan_1788341723/bag",
+   "maps": 2,
+   "poses": 325
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-37-08_mission-llm_plan_1788341827/bag",
+   "maps": 2,
+   "poses": 373
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-40-44_mission-bottle_then_person/bag",
+   "maps": 5,
+   "poses": 846
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-44-30_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 361
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-46-43_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 403
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-48-45_mission-bottle_then_person/bag",
+   "maps": 6,
+   "poses": 1039
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-51-30_mission-bottle_then_person/bag",
+   "maps": 4,
+   "poses": 570
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-54-30_mission-llm_plan_1788342870/bag",
+   "maps": 3,
+   "poses": 504
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-13-32_mission-bottle_then_person/bag",
+   "maps": 6,
+   "poses": 1113
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-15-50_mission-bottle_then_person/bag",
+   "maps": 6,
+   "poses": 1248
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-17-49_mission-bottle_then_person/bag",
+   "maps": 5,
+   "poses": 1125
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-19-52_mission-bottle_then_person/bag",
+   "maps": 4,
+   "poses": 641
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-21-57_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 563
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-24-27_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 414
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-26-23_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 466
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-27-43_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 422
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-29-24_mission-llm_plan_1788362958/bag",
+   "maps": 2,
+   "poses": 250
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-31-05_mission-llm_plan_1788363065/bag",
+   "maps": 2,
+   "poses": 211
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-34-45_mission-bottle_then_person/bag",
+   "maps": 4,
+   "poses": 725
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-36-16_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 414
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-37-53_mission-bottle_then_person/bag",
+   "maps": 4,
+   "poses": 568
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-03T12-45-06_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 479
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-03T12-48-40_mission-llm_plan_1788439720/bag",
+   "maps": 2,
+   "poses": 160
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-03T12-49-07_mission-llm_plan_1788439746/bag",
+   "maps": 1,
+   "poses": 28
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T13-22-23_mission-bottle_then_person/bag",
+   "maps": 4,
+   "poses": 508
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T14-12-39_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 293
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T14-15-16_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 319
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T14-31-49_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 500
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-18-08_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 318
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-21-20_mission-bottle_then_person/bag",
+   "maps": 4,
+   "poses": 754
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-23-48_mission-bottle_then_person/bag",
+   "maps": 5,
+   "poses": 841
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-55-27_mission-bottle_then_person/bag",
+   "maps": 7,
+   "poses": 1020
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-58-24_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 469
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T16-02-20_mission-bottle_then_person/bag",
+   "maps": 4,
+   "poses": 740
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T16-05-43_mission-bottle_then_person/bag",
+   "maps": 5,
+   "poses": 898
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T11-49-54_mission-bottle_then_person/bag",
+   "maps": 4,
+   "poses": 606
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-10-13_mission-bottle_then_person/bag",
+   "maps": 5,
+   "poses": 659
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-14-03_mission-bottle_then_person/bag",
+   "maps": 6,
+   "poses": 820
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-20-37_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 332
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-22-13_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 505
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-29-52_mission-bottle_then_person/bag",
+   "maps": 1,
+   "poses": 43
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-39-23_mission-bottle_then_person/bag",
+   "maps": 5,
+   "poses": 870
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-41-14_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 493
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-48-40_mission-bottle_then_person/bag",
+   "maps": 5,
+   "poses": 742
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T11-41-39_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 566
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T11-43-06_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 447
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T11-51-59_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 182
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T12-23-20_mission-bottle_then_person/bag",
+   "maps": 5,
+   "poses": 859
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T12-27-37_mission-bottle_then_person/bag",
+   "maps": 11,
+   "poses": 2429
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T12-36-28_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 291
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-09-57_mission-bottle_then_person/bag",
+   "maps": 1,
+   "poses": 110
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-22-34_mission-bottle_then_person/bag",
+   "maps": 4,
+   "poses": 876
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-27-00_mission-bottle_then_person/bag",
+   "maps": 6,
+   "poses": 1223
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-46-47_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 206
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-48-35_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 222
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-50-52_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 417
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T16-25-59_mission-bottle_then_person/bag",
+   "maps": 4,
+   "poses": 560
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-24-35_mission-bottle_then_person/bag",
+   "maps": 6,
+   "poses": 1185
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-25-04_mission-bottle_then_person/bag",
+   "maps": 6,
+   "poses": 1081
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-25-48_mission-bottle_then_person/bag",
+   "maps": 14,
+   "poses": 3066
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-34-24_mission-llm_plan_1788964463/bag",
+   "maps": 6,
+   "poses": 1197
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-49-58_mission-llm_plan_1788965397/bag",
+   "maps": 3,
+   "poses": 351
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-54-12_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 203
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-55-31_mission-test_04_turn_accuracy/bag",
+   "maps": 2,
+   "poses": 182
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T15-09-11_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 492
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T15-12-08_mission-test_04_turn_accuracy/bag",
+   "maps": 3,
+   "poses": 332
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-18-35_mission-bottle_then_person/bag",
+   "maps": 5,
+   "poses": 959
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-19-03_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 303
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-20-58_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 657
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-24-11_mission-bottle_then_person/bag",
+   "maps": 12,
+   "poses": 2861
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-25-45_mission-bottle_then_person/bag",
+   "maps": 4,
+   "poses": 635
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-09-41_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 243
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-09-54_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 289
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-18-28_mission-bottle_then_person/bag",
+   "maps": 1,
+   "poses": 29
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-25-17_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 550
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-33-01_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 193
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-34-38_mission-test_04_turn_accuracy/bag",
+   "maps": 3,
+   "poses": 443
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-35-05_mission-test_04_turn_accuracy/bag",
+   "maps": 1,
+   "poses": 46
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-44-55_mission-bottle_then_person/bag",
+   "maps": 4,
+   "poses": 520
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-45-34_mission-bottle_then_person/bag",
+   "maps": 3,
+   "poses": 378
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-46-06_mission-bottle_then_person/bag",
+   "maps": 1,
+   "poses": 5
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-46-38_mission-bottle_then_person/bag",
+   "maps": 1,
+   "poses": 68
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-47-08_mission-bottle_then_person/bag",
+   "maps": 1,
+   "poses": 63
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-48-19_mission-bottle_then_person/bag",
+   "maps": 2,
+   "poses": 151
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-07-04_mission-drive_turn_180/bag",
+   "maps": 2,
+   "poses": 245
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-10-58_mission-drive_turn_180/bag",
+   "maps": 1,
+   "poses": 28
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-31-58_mission-wall_turn/bag",
+   "maps": 2,
+   "poses": 201
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-34-09_mission-wall_turn/bag",
+   "maps": 3,
+   "poses": 290
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-35-06_mission-wall_turn/bag",
+   "maps": 1,
+   "poses": 58
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-39-04_mission-wall_turn/bag",
+   "maps": 3,
+   "poses": 372
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-57-23_mission-wall_turn/bag",
+   "maps": 2,
+   "poses": 258
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-33-46_mission-wall_turn/bag",
+   "maps": 4,
+   "poses": 857
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-35-24_mission-straight_then_wall_turn_3m/bag",
+   "maps": 5,
+   "poses": 1005
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-40-16_mission-drive_stop_2m_from_wall/bag",
+   "maps": 2,
+   "poses": 46
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-42-13_mission-drive_stop_2m_from_wall/bag",
+   "maps": 2,
+   "poses": 34
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-42-31_mission-drive_stop_2m_from_wall/bag",
+   "maps": 2,
+   "poses": 94
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-44-26_mission-drive_stop_2m_from_wall/bag",
+   "maps": 1,
+   "poses": 14
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-53-36_mission-drive_stop_2m_from_wall/bag",
+   "maps": 1,
+   "poses": 14
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-54-57_mission-drive_stop_2m_from_wall/bag",
+   "maps": 1,
+   "poses": 16
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-56-51_mission-wall_turn/bag",
+   "maps": 4,
+   "poses": 715
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T16-15-47_mission-drive_stop_2m_from_wall/bag",
+   "maps": 2,
+   "poses": 242
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T12-54-50_mission-drive_stop_2m_from_wall/bag",
+   "maps": 7,
+   "poses": 1377
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-30-26_mission-turn_90_left/bag",
+   "maps": 2,
+   "poses": 108
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-37-27_mission-drive_stop_2m_from_wall/bag",
+   "maps": 6,
+   "poses": 897
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-39-45_mission-drive_stop_2m_from_wall/bag",
+   "maps": 4,
+   "poses": 629
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-42-06_mission-drive_stop_2m_from_wall/bag",
+   "maps": 11,
+   "poses": 2095
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-49-54_mission-wall_turn/bag",
+   "maps": 12,
+   "poses": 2547
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-58-53_mission-drive_stop_2m_from_wall/bag",
+   "maps": 2,
+   "poses": 257
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T14-00-39_mission-drive_stop_2m_from_wall/bag",
+   "maps": 7,
+   "poses": 1238
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T14-03-25_mission-drive_stop_2m_from_wall/bag",
+   "maps": 8,
+   "poses": 1775
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T14-14-24_mission-llm_plan_1789136064/bag",
+   "maps": 16,
+   "poses": 3651
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T16-11-08_mission-drive_stop_2m_from_wall/bag",
+   "maps": 7,
+   "poses": 1502
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T16-16-35_mission-drive_stop_2m_from_wall/bag",
+   "maps": 5,
+   "poses": 851
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-26-04_mission-wall_turn/bag",
+   "maps": 12,
+   "poses": 2794
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-28-28_mission-wall_turn/bag",
+   "maps": 12,
+   "poses": 2708
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-32-08_mission-wall_turn/bag",
+   "maps": 12,
+   "poses": 2478
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-37-48_mission-drive_stop_2m_from_wall/bag",
+   "maps": 6,
+   "poses": 1059
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-54-42_mission-wall_turn/bag",
+   "maps": 4,
+   "poses": 511
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T14-05-47_mission-wall_turn/bag",
+   "maps": 3,
+   "poses": 355
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T14-07-58_mission-wall_turn/bag",
+   "maps": 4,
+   "poses": 775
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-20-04_mission-llm_d364fea9685e/bag",
+   "maps": 7,
+   "poses": 1232
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-22-38_mission-llm_d364fea9685e/bag",
+   "maps": 3,
+   "poses": 400
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-24-53_mission-llm_926f7913d041/bag",
+   "maps": 2,
+   "poses": 129
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-29-53_mission-llm_2b356aac445f/bag",
+   "maps": 2,
+   "poses": 276
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-32-12_mission-llm_d364fea9685e/bag",
+   "maps": 4,
+   "poses": 598
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-42-05_mission-llm_d364fea9685e/bag",
+   "maps": 7,
+   "poses": 1452
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-47-59_mission-llm_18fef65c3e62/bag",
+   "maps": 7,
+   "poses": 1417
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-17T12-44-24_mission-go_to_person/bag",
+   "maps": 1,
+   "poses": 62
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-17T12-59-58_mission-llm_f7c3305e21e1/bag",
+   "maps": 3,
+   "poses": 623
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-17T14-12-24_mission-llm_a32488caaaff/bag",
+   "maps": 2,
+   "poses": 296
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T11-32-15_mission-llm_fd5d8fd4f171/bag",
+   "maps": 4,
+   "poses": 849
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T11-37-16_mission-llm_fd5d8fd4f171/bag",
+   "maps": 1,
+   "poses": 132
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T11-38-24_mission-llm_fd5d8fd4f171/bag",
+   "maps": 1,
+   "poses": 8
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-24-55_mission-llm_86cff518e42d/bag",
+   "maps": 3,
+   "poses": 375
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-35-12_mission-llm_86cff518e42d/bag",
+   "maps": 8,
+   "poses": 1831
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-37-10_mission-llm_fd5d8fd4f171/bag",
+   "maps": 2,
+   "poses": 199
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-41-53_mission-llm_fd5d8fd4f171/bag",
+   "maps": 1,
+   "poses": 54
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-43-47_mission-llm_fd5d8fd4f171/bag",
+   "maps": 2,
+   "poses": 74
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-45-23_mission-llm_fd5d8fd4f171/bag",
+   "maps": 2,
+   "poses": 139
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-47-34_mission-llm_fd5d8fd4f171/bag",
+   "maps": 1,
+   "poses": 4
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-52-54_mission-llm_fd5d8fd4f171/bag",
+   "maps": 2,
+   "poses": 149
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-55-11_mission-llm_fd5d8fd4f171/bag",
+   "maps": 1,
+   "poses": 137
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-57-14_mission-llm_fd5d8fd4f171/bag",
+   "maps": 1,
+   "poses": 161
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-58-58_mission-llm_fd5d8fd4f171/bag",
+   "maps": 2,
+   "poses": 167
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T13-00-26_mission-llm_fd5d8fd4f171/bag",
+   "maps": 1,
+   "poses": 150
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T13-02-00_mission-llm_fd5d8fd4f171/bag",
+   "maps": 2,
+   "poses": 144
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-16-25_mission-llm_926f7913d041/bag",
+   "maps": 1,
+   "poses": 18
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-19-13_mission-llm_926f7913d041/bag",
+   "maps": 2,
+   "poses": 50
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-21-08_mission-llm_926f7913d041/bag",
+   "maps": 2,
+   "poses": 129
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-30-53_mission-llm_926f7913d041/bag",
+   "maps": 1,
+   "poses": 125
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-34-02_mission-llm_926f7913d041/bag",
+   "maps": 1,
+   "poses": 29
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-57-03_mission-llm_926f7913d041/bag",
+   "maps": 1,
+   "poses": 118
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-23-22_mission-llm_2b356aac445f/bag",
+   "maps": 2,
+   "poses": 242
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-25-27_mission-llm_2b356aac445f/bag",
+   "maps": 1,
+   "poses": 128
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-27-15_mission-llm_2b356aac445f/bag",
+   "maps": 2,
+   "poses": 51
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-29-02_mission-llm_2b356aac445f/bag",
+   "maps": 1,
+   "poses": 158
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-31-01_mission-llm_2b356aac445f/bag",
+   "maps": 1,
+   "poses": 79
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-32-48_mission-llm_2b356aac445f/bag",
+   "maps": 1,
+   "poses": 152
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-37-43_mission-llm_536cba700065/bag",
+   "maps": 1,
+   "poses": 119
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-38-59_mission-llm_536cba700065/bag",
+   "maps": 2,
+   "poses": 96
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-23T15-00-02_mission-llm_536cba700065/bag",
+   "maps": 2,
+   "poses": 37
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-23T15-12-28_mission-llm_2b356aac445f/bag",
+   "maps": 3,
+   "poses": 480
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-23T15-17-59_mission-llm_2b356aac445f/bag",
+   "maps": 9,
+   "poses": 1945
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-47-02_mission-llm_536cba700065/bag",
+   "maps": 2,
+   "poses": 158
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-49-14_mission-llm_536cba700065/bag",
+   "maps": 2,
+   "poses": 128
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-51-44_mission-llm_536cba700065/bag",
+   "maps": 1,
+   "poses": 20
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-53-44_mission-llm_536cba700065/bag",
+   "maps": 1,
+   "poses": 159
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-02-02_mission-llm_e8f5ca47b036/bag",
+   "maps": 4,
+   "poses": 929
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-04-33_mission-llm_e8f5ca47b036/bag",
+   "maps": 4,
+   "poses": 823
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-09-55_mission-llm_e8f5ca47b036/bag",
+   "maps": 4,
+   "poses": 625
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-13-06_mission-llm_e8f5ca47b036/bag",
+   "maps": 5,
+   "poses": 757
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-15-33_mission-llm_e8f5ca47b036/bag",
+   "maps": 5,
+   "poses": 930
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-19-28_mission-llm_e8f5ca47b036/bag",
+   "maps": 5,
+   "poses": 887
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-22-01_mission-llm_e8f5ca47b036/bag",
+   "maps": 4,
+   "poses": 705
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-24-22_mission-llm_e8f5ca47b036/bag",
+   "maps": 4,
+   "poses": 680
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-28-19_mission-llm_fd5d8fd4f171/bag",
+   "maps": 2,
+   "poses": 315
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-30-03_mission-llm_d467d7d7ba04/bag",
+   "maps": 2,
+   "poses": 341
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-31-28_mission-llm_d467d7d7ba04/bag",
+   "maps": 6,
+   "poses": 1169
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-34-28_mission-llm_d467d7d7ba04/bag",
+   "maps": 2,
+   "poses": 169
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-36-35_mission-llm_d467d7d7ba04/bag",
+   "maps": 2,
+   "poses": 363
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-38-17_mission-llm_d467d7d7ba04/bag",
+   "maps": 2,
+   "poses": 294
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-39-54_mission-llm_d467d7d7ba04/bag",
+   "maps": 2,
+   "poses": 300
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-16-37_mission-llm_536cba700065/bag",
+   "maps": 2,
+   "poses": 170
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-19-14_mission-llm_536cba700065/bag",
+   "maps": 3,
+   "poses": 348
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-22-05_mission-llm_536cba700065/bag",
+   "maps": 2,
+   "poses": 274
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-24-50_mission-llm_536cba700065/bag",
+   "maps": 3,
+   "poses": 312
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-29-36_mission-llm_536cba700065/bag",
+   "maps": 1,
+   "poses": 168
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-33-02_mission-llm_536cba700065/bag",
+   "maps": 2,
+   "poses": 344
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-36-57_mission-llm_536cba700065/bag",
+   "maps": 2,
+   "poses": 304
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-08T11-27-18_mission-llm_926f7913d041/bag",
+   "maps": 74,
+   "poses": 17832
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-08T11-34-26_mission-llm_926f7913d041/bag",
+   "maps": 16,
+   "poses": 3655
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-08T11-39-35_mission-llm_926f7913d041/bag",
+   "maps": 1,
+   "poses": 57
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-08T12-25-10_mission-llm_2b356aac445f/bag",
+   "maps": 1,
+   "poses": 39
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-08T12-29-44_mission-llm_2b356aac445f/bag",
+   "maps": 8,
+   "poses": 1627
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-13T11-10-47_mission-llm_2b356aac445f/bag",
+   "maps": 5,
+   "poses": 904
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-13T11-17-36_mission-llm_2b356aac445f/bag",
+   "maps": 4,
+   "poses": 676
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-13T11-33-21_mission-llm_2b356aac445f/bag",
+   "maps": 2,
+   "poses": 336
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-13T15-05-41_mission-llm_2b356aac445f/bag",
+   "maps": 4,
+   "poses": 715
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-13T15-13-56_mission-llm_2b356aac445f/bag",
+   "maps": 5,
+   "poses": 957
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-14T13-11-30_mission-llm_be55eb2392c4/bag",
+   "maps": 3,
+   "poses": 399
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-14T13-12-37_mission-llm_2b356aac445f/bag",
+   "maps": 2,
+   "poses": 180
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-14T13-15-20_mission-llm_2b356aac445f/bag",
+   "maps": 2,
+   "poses": 50
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-15T15-18-27_mission-llm_86cff518e42d/bag",
+   "maps": 4,
+   "poses": 405
+  }
+ ],
+ "tolerances": {
+  "normal": 1e-12,
+  "offset_m": 1e-12,
+  "clearance_f32_ulps": 0
+ },
+ "max_normal_case": {
+  "case": "room_walls[49]",
+  "pose": [
+   -1.0876960976135326,
+   -1.1409205331666445,
+   -0.6754078822762608
+  ],
+  "py": [
+   0.6288330643367238,
+   -0.7775403379869664,
+   2.734108944766901
+  ],
+  "rs": [
+   0.6288330643367237,
+   -0.7775403379869662,
+   2.7341089447669016
+  ]
+ },
+ "py_tick_ms": {
+  "p50": 3.5788979730568826,
+  "p95": 4.726202884921804,
+  "max": 31.235224043484777,
+  "n": 145583
+ }
+}

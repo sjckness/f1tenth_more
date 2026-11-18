@@ -1,0 +1,117 @@
+{
+ "instance": {
+  "scenario": "S5",
+  "rep": 0,
+  "car": {
+   "x": 0.4721311806197911,
+   "y": 2.996141835051646,
+   "yaw_deg": 1.1605596369812572
+  },
+  "obstacles": {},
+  "obstacle_info": [],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "/home/andreas/dev_ws/f1tenth_isaac_tuning/output/isaac_tuning/night_20261118_0039/it01_303f3e56f5/S5_r0/mission.json",
+ "wall_start": 1794959221.0009835,
+ "phases": {
+  "ready": 1.295,
+  "params": 0.191,
+  "scenario": 0.02,
+  "reset": 6.368,
+  "start": 0.007,
+  "record": 10.748
+ },
+ "exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64
+  },
+  "semantic_layer_node": {
+   "unknown_objects_mode": "active"
+  }
+ },
+ "scenario_applied": {
+  "seq": 5881712,
+  "ok": true,
+  "message": "reset #25: car and person at start poses",
+  "sim_time": 406.6,
+  "car": {
+   "x": 0.4721311806197911,
+   "y": 2.996141835051646,
+   "yaw_deg": 1.1605596369812572
+  },
+  "obstacles": {
+   "cyl050": null,
+   "cyl100": null
+  }
+ },
+ "reset_all": {
+  "success": true,
+  "message": "reset done in 4.4 s: stop 0.6s, wheel_odom 0.0s, ekf_local 0.0s, slam 3.7s, ekf_global 0.0s, nav2 skipped, hooks 0.0s"
+ },
+ "load_mission": {
+  "success": true,
+  "message": "loaded 'isaac_tuning_S5_r0', 1 moves"
+ },
+ "start_mission": {
+  "success": true,
+  "message": "started 'isaac_tuning_S5_r0'"
+ },
+ "t_running": 412.983333333,
+ "t_end": 421.7,
+ "end_reason": "mission COMPLETE",
+ "rows": {
+  "gt": 536,
+  "odom": 411,
+  "drive": 107,
+  "mux": 107,
+  "mission": 3,
+  "solver": 87,
+  "status": 87,
+  "hard_stop": 429,
+  "bt": 107,
+  "obstacles": 140,
+  "cpu": 54,
+  "movers": 0
+ },
+ "mission_states": [
+  [
+   379.133333333,
+   "RUNNING"
+  ],
+  [
+   406.4,
+   "ABORTED"
+  ],
+  [
+   412.983333333,
+   "LOADED"
+  ],
+  [
+   412.983333333,
+   "RUNNING"
+  ],
+  [
+   421.7,
+   "COMPLETE"
+  ]
+ ],
+ "wall_end": 1794959239.7589676
+}

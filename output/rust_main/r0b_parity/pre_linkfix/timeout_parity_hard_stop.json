@@ -1,0 +1,919 @@
+{
+ "domain": "197",
+ "recorded_ms": 260.0,
+ "rows": [
+  {
+   "kind": "scan",
+   "pre": "clear",
+   "clock": "running",
+   "gap_ms": 150.0,
+   "py_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "clear",
+   "clock": "running",
+   "gap_ms": 250.0,
+   "py_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "clear",
+   "clock": "running",
+   "gap_ms": 500.0,
+   "py_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "clear",
+   "clock": "running",
+   "gap_ms": 1000.0,
+   "py_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "clear",
+   "clock": "running",
+   "gap_ms": 260.0,
+   "py_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "clear",
+   "clock": "frozen",
+   "gap_ms": 150.0,
+   "py_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "clear",
+   "clock": "frozen",
+   "gap_ms": 250.0,
+   "py_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "clear",
+   "clock": "frozen",
+   "gap_ms": 500.0,
+   "py_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "clear",
+   "clock": "frozen",
+   "gap_ms": 1000.0,
+   "py_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "clear",
+   "clock": "frozen",
+   "gap_ms": 260.0,
+   "py_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 0,
+    "last_stop_ms": null,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "trip",
+   "clock": "running",
+   "gap_ms": 150.0,
+   "py_car": {
+    "gap_stops": 4,
+    "first_gap_stop_ms": 5.7,
+    "last_gap_stop_ms": 155.7,
+    "after_resume_stops": 19,
+    "last_stop_ms": 489.5,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 3,
+    "first_gap_stop_ms": 40.1,
+    "last_gap_stop_ms": 140.1,
+    "after_resume_stops": 20,
+    "last_stop_ms": 490.1,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 3,
+    "first_gap_stop_ms": 33.6,
+    "last_gap_stop_ms": 136.2,
+    "after_resume_stops": 20,
+    "last_stop_ms": 489.2,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 3,
+    "first_gap_stop_ms": 33.3,
+    "last_gap_stop_ms": 135.9,
+    "after_resume_stops": 20,
+    "last_stop_ms": 488.9,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "trip",
+   "clock": "running",
+   "gap_ms": 250.0,
+   "py_car": {
+    "gap_stops": 6,
+    "first_gap_stop_ms": 11.1,
+    "last_gap_stop_ms": 261.1,
+    "after_resume_stops": 13,
+    "last_stop_ms": 485.1,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 5,
+    "first_gap_stop_ms": 45.5,
+    "last_gap_stop_ms": 245.5,
+    "after_resume_stops": 14,
+    "last_stop_ms": 495.5,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 5,
+    "first_gap_stop_ms": 38.9,
+    "last_gap_stop_ms": 239.5,
+    "after_resume_stops": 14,
+    "last_stop_ms": 491.4,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 5,
+    "first_gap_stop_ms": 38.5,
+    "last_gap_stop_ms": 239.2,
+    "after_resume_stops": 14,
+    "last_stop_ms": 491.2,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "trip",
+   "clock": "running",
+   "gap_ms": 500.0,
+   "py_car": {
+    "gap_stops": 10,
+    "first_gap_stop_ms": 16.5,
+    "last_gap_stop_ms": 466.5,
+    "after_resume_stops": 0,
+    "last_stop_ms": 466.5,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 9,
+    "first_gap_stop_ms": 50.9,
+    "last_gap_stop_ms": 450.9,
+    "after_resume_stops": 0,
+    "last_stop_ms": 450.9,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 10,
+    "first_gap_stop_ms": 48.7,
+    "last_gap_stop_ms": 496.2,
+    "after_resume_stops": 0,
+    "last_stop_ms": 496.2,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 10,
+    "first_gap_stop_ms": 48.4,
+    "last_gap_stop_ms": 496.0,
+    "after_resume_stops": 0,
+    "last_stop_ms": 496.0,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "trip",
+   "clock": "running",
+   "gap_ms": 1000.0,
+   "py_car": {
+    "gap_stops": 10,
+    "first_gap_stop_ms": 21.3,
+    "last_gap_stop_ms": 471.3,
+    "after_resume_stops": 0,
+    "last_stop_ms": 471.3,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 10,
+    "first_gap_stop_ms": 5.7,
+    "last_gap_stop_ms": 455.7,
+    "after_resume_stops": 0,
+    "last_stop_ms": 455.7,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 9,
+    "first_gap_stop_ms": 50.8,
+    "last_gap_stop_ms": 452.5,
+    "after_resume_stops": 0,
+    "last_stop_ms": 452.5,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 9,
+    "first_gap_stop_ms": 50.5,
+    "last_gap_stop_ms": 452.2,
+    "after_resume_stops": 0,
+    "last_stop_ms": 452.2,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "trip",
+   "clock": "running",
+   "gap_ms": 260.0,
+   "py_car": {
+    "gap_stops": 6,
+    "first_gap_stop_ms": 27.4,
+    "last_gap_stop_ms": 277.4,
+    "after_resume_stops": 13,
+    "last_stop_ms": 495.2,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 6,
+    "first_gap_stop_ms": 11.7,
+    "last_gap_stop_ms": 261.7,
+    "after_resume_stops": 13,
+    "last_stop_ms": 494.7,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 6,
+    "first_gap_stop_ms": 7.9,
+    "last_gap_stop_ms": 259.7,
+    "after_resume_stops": 13,
+    "last_stop_ms": 495.4,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 6,
+    "first_gap_stop_ms": 7.6,
+    "last_gap_stop_ms": 259.4,
+    "after_resume_stops": 13,
+    "last_stop_ms": 494.9,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "trip",
+   "clock": "frozen",
+   "gap_ms": 150.0,
+   "py_car": {
+    "gap_stops": 4,
+    "first_gap_stop_ms": 22.8,
+    "last_gap_stop_ms": 172.7,
+    "after_resume_stops": 19,
+    "last_stop_ms": 489.2,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 4,
+    "first_gap_stop_ms": 7.1,
+    "last_gap_stop_ms": 157.1,
+    "after_resume_stops": 19,
+    "last_stop_ms": 488.6,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 28,
+    "last_stop_ms": 646.4,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 0,
+    "first_gap_stop_ms": null,
+    "last_gap_stop_ms": null,
+    "after_resume_stops": 28,
+    "last_stop_ms": 645.0,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "trip",
+   "clock": "frozen",
+   "gap_ms": 250.0,
+   "py_car": {
+    "gap_stops": 5,
+    "first_gap_stop_ms": 28.2,
+    "last_gap_stop_ms": 228.2,
+    "after_resume_stops": 14,
+    "last_stop_ms": 485.0,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 6,
+    "first_gap_stop_ms": 12.5,
+    "last_gap_stop_ms": 262.6,
+    "after_resume_stops": 13,
+    "last_stop_ms": 485.0,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 1,
+    "first_gap_stop_ms": 7.5,
+    "last_gap_stop_ms": 7.5,
+    "after_resume_stops": 28,
+    "last_stop_ms": 745.0,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 1,
+    "first_gap_stop_ms": 7.2,
+    "last_gap_stop_ms": 7.2,
+    "after_resume_stops": 28,
+    "last_stop_ms": 744.7,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "trip",
+   "clock": "frozen",
+   "gap_ms": 500.0,
+   "py_car": {
+    "gap_stops": 10,
+    "first_gap_stop_ms": 33.5,
+    "last_gap_stop_ms": 483.5,
+    "after_resume_stops": 0,
+    "last_stop_ms": 483.5,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 10,
+    "first_gap_stop_ms": 17.8,
+    "last_gap_stop_ms": 467.9,
+    "after_resume_stops": 0,
+    "last_stop_ms": 467.9,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 1,
+    "first_gap_stop_ms": 12.8,
+    "last_gap_stop_ms": 12.8,
+    "after_resume_stops": 28,
+    "last_stop_ms": 995.1,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 1,
+    "first_gap_stop_ms": 12.5,
+    "last_gap_stop_ms": 12.5,
+    "after_resume_stops": 28,
+    "last_stop_ms": 994.7,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "trip",
+   "clock": "frozen",
+   "gap_ms": 1000.0,
+   "py_car": {
+    "gap_stops": 10,
+    "first_gap_stop_ms": 38.0,
+    "last_gap_stop_ms": 488.1,
+    "after_resume_stops": 0,
+    "last_stop_ms": 488.1,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 10,
+    "first_gap_stop_ms": 22.3,
+    "last_gap_stop_ms": 472.4,
+    "after_resume_stops": 0,
+    "last_stop_ms": 472.4,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 1,
+    "first_gap_stop_ms": 17.3,
+    "last_gap_stop_ms": 17.3,
+    "after_resume_stops": 28,
+    "last_stop_ms": 1495.0,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 1,
+    "first_gap_stop_ms": 17.0,
+    "last_gap_stop_ms": 17.0,
+    "after_resume_stops": 28,
+    "last_stop_ms": 1494.6,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "scan",
+   "pre": "trip",
+   "clock": "frozen",
+   "gap_ms": 260.0,
+   "py_car": {
+    "gap_stops": 5,
+    "first_gap_stop_ms": 43.6,
+    "last_gap_stop_ms": 243.4,
+    "after_resume_stops": 14,
+    "last_stop_ms": 494.9,
+    "engaged_at_end": false
+   },
+   "rs_car": {
+    "gap_stops": 6,
+    "first_gap_stop_ms": 27.8,
+    "last_gap_stop_ms": 277.8,
+    "after_resume_stops": 13,
+    "last_stop_ms": 494.5,
+    "engaged_at_end": false
+   },
+   "py_sim": {
+    "gap_stops": 1,
+    "first_gap_stop_ms": 23.0,
+    "last_gap_stop_ms": 23.0,
+    "after_resume_stops": 28,
+    "last_stop_ms": 755.5,
+    "engaged_at_end": false
+   },
+   "rs_sim": {
+    "gap_stops": 1,
+    "first_gap_stop_ms": 22.8,
+    "last_gap_stop_ms": 22.8,
+    "after_resume_stops": 28,
+    "last_stop_ms": 755.0,
+    "engaged_at_end": false
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "lane",
+   "freeze_ms": 0,
+   "py_car": {
+    "claim_again_ms": 209.1
+   },
+   "rs_car": {
+    "claim_again_ms": 208.5
+   },
+   "py_sim": {
+    "claim_again_ms": 209.2
+   },
+   "rs_sim": {
+    "claim_again_ms": 208.6
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "lane",
+   "freeze_ms": 150,
+   "py_car": {
+    "claim_again_ms": 210.0
+   },
+   "rs_car": {
+    "claim_again_ms": 208.7
+   },
+   "py_sim": {
+    "claim_again_ms": 365.1
+   },
+   "rs_sim": {
+    "claim_again_ms": 364.7
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  },
+  {
+   "kind": "lane",
+   "freeze_ms": 400,
+   "py_car": {
+    "claim_again_ms": 209.9
+   },
+   "rs_car": {
+    "claim_again_ms": 208.5
+   },
+   "py_sim": {
+    "claim_again_ms": 626.7
+   },
+   "rs_sim": {
+    "claim_again_ms": 626.8
+   },
+   "agree": {
+    "py_car~rs_car": true,
+    "py_sim~rs_sim": true
+   }
+  }
+ ],
+ "alive_at_end": {
+  "py_car": true,
+  "rs_car": true,
+  "py_sim": true,
+  "rs_sim": true
+ },
+ "shutdown": {
+  "py_car": "SIGINT, exit 1",
+  "rs_car": "SIGINT, exit -2",
+  "py_sim": "SIGINT, exit 1",
+  "rs_sim": "SIGINT, exit -2"
+ },
+ "pass_": true
+}

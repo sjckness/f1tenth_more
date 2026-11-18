@@ -68,11 +68,24 @@ def test_config_defaults_and_errors():
         config.from_dict({'telegram': {'allowed_user_ids': ['@me']}})
 
 
-@pytest.mark.parametrize('name', ['telegram.yaml', 'telegram_sim.yaml'])
-def test_shipped_configs_load(name):
+@pytest.mark.parametrize('name,ctl_command', [
+    # The car: the wrapper that picks the native ctl or the Jazzy container's
+    # (docker/orin/host/f1tenth_ctl_car, installed by docker/orin/host/install.sh).
+    ('telegram.yaml', '~/.local/bin/f1tenth_ctl_car'),
+    ('telegram_sim.yaml', 'f1tenth_ctl/bin/f1tenth_ctl'),
+])
+def test_shipped_configs_load_with_their_ctl_command(name, ctl_command):
     cfg = config.load(os.path.join(PKG, 'config', name))
-    assert cfg.target.ctl_command.endswith('f1tenth_ctl/bin/f1tenth_ctl')
+    assert cfg.target.ctl_command.endswith(ctl_command)
     assert cfg.max_command_age_s == 10.0
+
+
+def test_car_config_calls_the_wrapper_without_an_env_file():
+    # The wrapper runs either side's f1tenth_ctl with that side's own env file;
+    # a --env path from linus would mean a different file on each side.
+    cfg = config.load(os.path.join(PKG, 'config', 'telegram.yaml'))
+    assert cfg.target.ctl_command == '~/.local/bin/f1tenth_ctl_car'
+    assert not cfg.target.ctl_env
 
 
 def test_token_from_environment_wins(tmp_path):

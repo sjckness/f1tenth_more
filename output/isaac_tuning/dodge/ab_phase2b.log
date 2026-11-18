@@ -1,0 +1,208 @@
+[isaac_tuning 03:53:36] preflight ok {'free_disk_gb': 16.5, 'free_vram_mib': 6865}
+[isaac_tuning 03:53:38] discovery server {'port': 11878, 'pgid': 3651596}
+[isaac_tuning 03:53:38] variant fixed_line: {'corridor_lateral_reanchor': False}
+[isaac_tuning 03:53:58] isaac up {'wall_s': 19.6}
+[isaac_tuning 03:53:58] stack starting {'pgid': 3653043, 'log': 'stack_D00_s0_r0.log'}
+[isaac_tuning 03:54:33] D00_s0 r0: collision score=0.0 margin=-0.11105657177574224 wall=35.2s
+[isaac_tuning 03:55:03] D00_s1 r0: collision score=0.0 margin=-0.10465615255327071 wall=30.2s
+[isaac_tuning 03:55:30] D00_s2 r0: success score=90.75726513989895 margin=0.46777735197269144 wall=26.9s
+[isaac_tuning 03:55:30] ramp d=0: 1/3 good FAIL
+[isaac_tuning 03:55:53] D01_s0 r0: success score=94.87945517043738 margin=1.2920663495653981 wall=22.7s
+[isaac_tuning 03:56:57] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/ab_phase2b/fixed_line/D01_s1_r0', 'code': 4}
+[isaac_tuning 03:56:57] stopping stack: SIGTERM to process group 3653043
+[isaac_tuning 03:56:57] stopping stack: SIGTERM to what is left of process group 3653043
+[isaac_tuning 03:56:59] stack stopped {'wall_s': 2.0, 'leftovers': 0}
+[isaac_tuning 03:56:59] stack starting {'pgid': 3661209, 'log': 'stack_D01_s1_r0.log'}
+[isaac_tuning 03:57:39] D01_s1 r0: success score=94.01797284070386 margin=0.7087788324616779 wall=40.1s
+[isaac_tuning 03:58:01] D01_s2 r0: collision score=0.0 margin=-0.14426874006226675 wall=22.0s
+[isaac_tuning 03:58:01] ramp d=1: 2/3 good FAIL
+[isaac_tuning 03:58:01] isaac layout change: restarting {'have': 'dodge', 'want': 'tuning'}
+[isaac_tuning 03:58:01] stopping stack: SIGTERM to process group 3661209
+[isaac_tuning 03:58:02] stopping stack: SIGTERM to what is left of process group 3661209
+[isaac_tuning 03:58:03] stack stopped {'wall_s': 2.0, 'leftovers': 0}
+[isaac_tuning 03:58:04] stopping isaac: SIGTERM to process group 3651710
+[isaac_tuning 03:58:24] isaac up {'wall_s': 19.6}
+[isaac_tuning 03:58:24] stack starting {'pgid': 3665831, 'log': 'stack_M1_r0.log'}
+[isaac_tuning 03:59:22] M1 r0: estop score=0.0 margin=-0.0019040346790220042 wall=58.2s
+[isaac_tuning 04:00:05] M1 r1: collision score=0.0 margin=-0.03531217484357674 wall=42.8s
+[isaac_tuning 04:00:44] M1 r2: estop score=0.0 margin=-0.005488030422838297 wall=39.0s
+[isaac_tuning 04:01:21] M2 r0: collision score=0.0 margin=-0.1983313687044687 wall=36.4s
+[isaac_tuning 04:01:42] M2 r1: collision score=0.0 margin=-0.12204799679952827 wall=21.3s
+[isaac_tuning 04:02:17] M2 r2: estop score=0.0 margin=-0.05319578851934148 wall=34.3s
+[isaac_tuning 04:03:00] M3 r0: estop score=0.0 margin=-0.0191119043413992 wall=43.1s
+[isaac_tuning 04:03:25] M3 r1: estop score=0.0 margin=-0.007387963663294861 wall=24.9s
+[isaac_tuning 04:03:50] M3 r2: estop score=0.0 margin=-0.013960275611066053 wall=24.8s
+[isaac_tuning 04:04:14] M4 r0: success score=82.10303423839747 margin=0.169428993227551 wall=24.4s
+[isaac_tuning 04:04:45] M4 r1: success score=70.26455026455018 margin=0.17355746380016968 wall=31.2s
+[isaac_tuning 04:05:08] M4 r2: success score=69.94232987370043 margin=0.10320354027826673 wall=22.5s
+[isaac_tuning 04:06:12] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/ab_phase2b/fixed_line/S1_r0', 'code': 4}
+[isaac_tuning 04:06:12] stopping stack: SIGTERM to process group 3665831
+[isaac_tuning 04:06:12] stopping stack: SIGTERM to what is left of process group 3665831
+[isaac_tuning 04:06:15] stack stopped {'wall_s': 3.5, 'leftovers': 0}
+[isaac_tuning 04:06:15] stack starting {'pgid': 3685473, 'log': 'stack_S1_r0.log'}
+[isaac_tuning 04:07:35] S1 r0: invalid score=None margin=None wall=79.4s
+[isaac_tuning 04:07:57] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/ab_phase2b/fixed_line/S1_r1', 'code': 4}
+[isaac_tuning 04:07:57] stopping stack: SIGTERM to process group 3685473
+[isaac_tuning 04:07:57] stopping stack: SIGTERM to what is left of process group 3685473
+[isaac_tuning 04:08:01] stack stopped {'wall_s': 4.1, 'leftovers': 0}
+[isaac_tuning 04:08:01] stack starting {'pgid': 3690157, 'log': 'stack_S1_r1.log'}
+[isaac_tuning 04:08:37] S1 r1: success score=67.5135401284347 margin=0.12663675841655897 wall=36.5s
+[isaac_tuning 04:09:09] S1 r2: success score=68.96851248693704 margin=0.23851533511255774 wall=32.2s
+[isaac_tuning 04:09:49] S2 r0: collision score=0.0 margin=-0.051196024498729065 wall=39.1s
+[isaac_tuning 04:10:14] S2 r1: success score=65.26176144869041 margin=-0.01178330822340734 wall=25.5s
+[isaac_tuning 04:10:48] S2 r2: success score=68.5637823373517 margin=0.02431197425430509 wall=33.6s
+[isaac_tuning 04:11:14] S3 r0: success score=69.2273730679063 margin=0.2183268925156182 wall=26.4s
+[isaac_tuning 04:11:39] S3 r1: success score=68.81720430157485 margin=0.1479663696669381 wall=24.6s
+[isaac_tuning 04:12:12] S3 r2: success score=67.32750242995115 margin=0.06050818078492415 wall=32.7s
+[isaac_tuning 04:12:48] S4 r0: collision score=0.0 margin=-0.03237407971118711 wall=35.7s
+[isaac_tuning 04:13:22] S4 r1: collision score=0.0 margin=-0.029251705002269812 wall=34.6s
+[isaac_tuning 04:13:57] S4 r2: collision score=0.0 margin=-0.02731807773449213 wall=34.3s
+[isaac_tuning 04:14:19] S5 r0: success score=81.39941093351078 margin=None wall=22.1s
+[isaac_tuning 04:14:19] stopping stack: SIGTERM to process group 3690157
+[isaac_tuning 04:14:19] stopping stack: SIGTERM to what is left of process group 3690157
+[isaac_tuning 04:14:24] stopping stack: SIGKILL to what is left of process group 3690157
+[isaac_tuning 04:14:24] stack stopped {'wall_s': 5.3, 'leftovers': 0}
+[isaac_tuning 04:14:24] variant return: {'corridor_lateral_reanchor': False, 'mpc_return_gain': 1.0, 'mpc_return_lookahead_ratio': 2.5, 'mpc_return_psi_scale': 0.5}
+[isaac_tuning 04:14:24] isaac layout change: restarting {'have': 'tuning', 'want': 'dodge'}
+[isaac_tuning 04:14:40] stopping isaac: SIGTERM to process group 3664585
+[isaac_tuning 04:15:01] isaac up {'wall_s': 21.4}
+[isaac_tuning 04:15:01] stack starting {'pgid': 3708620, 'log': 'stack_D00_s0_r0.log'}
+[isaac_tuning 04:15:38] D00_s0 r0: collision score=0.0 margin=-0.11136502751003652 wall=36.9s
+[isaac_tuning 04:15:59] D00_s1 r0: success score=69.182389937705 margin=0.3324949589688261 wall=20.4s
+[isaac_tuning 04:16:23] D00_s2 r0: success score=90.22500582682376 margin=0.44377837126892183 wall=24.6s
+[isaac_tuning 04:16:23] ramp d=0: 2/3 good FAIL
+[isaac_tuning 04:16:46] D01_s0 r0: success score=94.2818746895313 margin=1.2914641273291956 wall=22.1s
+[isaac_tuning 04:17:09] D01_s1 r0: success score=94.20462663367559 margin=0.7390308076951899 wall=23.0s
+[isaac_tuning 04:17:39] D01_s2 r0: collision score=0.0 margin=-0.23301682828431938 wall=30.0s
+[isaac_tuning 04:17:39] ramp d=1: 2/3 good FAIL
+[isaac_tuning 04:17:39] isaac layout change: restarting {'have': 'dodge', 'want': 'tuning'}
+[isaac_tuning 04:17:39] stopping stack: SIGTERM to process group 3708620
+[isaac_tuning 04:17:39] stopping stack: SIGTERM to what is left of process group 3708620
+[isaac_tuning 04:17:41] stack stopped {'wall_s': 2.5, 'leftovers': 0}
+[isaac_tuning 04:17:43] stopping isaac: SIGTERM to process group 3707320
+[isaac_tuning 04:18:03] isaac up {'wall_s': 19.6}
+[isaac_tuning 04:18:03] stack starting {'pgid': 3717418, 'log': 'stack_M1_r0.log'}
+[isaac_tuning 04:18:50] M1 r0: estop score=0.0 margin=-0.0019713409034800566 wall=47.0s
+[isaac_tuning 04:19:17] M1 r1: estop score=0.0 margin=0.06067734045650097 wall=27.3s
+[isaac_tuning 04:19:58] M1 r2: collision score=0.0 margin=-0.07252238158536806 wall=41.1s
+[isaac_tuning 04:20:24] M2 r0: collision score=0.0 margin=-0.22172880932188088 wall=25.6s
+[isaac_tuning 04:20:40] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/ab_phase2b/return/M2_r1', 'code': 4}
+[isaac_tuning 04:20:40] stopping stack: SIGTERM to process group 3717418
+[isaac_tuning 04:20:40] stopping stack: SIGTERM to what is left of process group 3717418
+[isaac_tuning 04:20:45] stopping stack: SIGKILL to what is left of process group 3717418
+[isaac_tuning 04:20:51] stack stopped {'wall_s': 11.3, 'leftovers': 0}
+[isaac_tuning 04:20:51] stack starting {'pgid': 3724907, 'log': 'stack_M2_r1.log'}
+[isaac_tuning 04:21:39] M2 r1: collision score=0.0 margin=-0.09249566594225372 wall=47.6s
+[isaac_tuning 04:23:12] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/ab_phase2b/return/M2_r2', 'code': 4}
+[isaac_tuning 04:23:12] stopping stack: SIGTERM to process group 3724907
+[isaac_tuning 04:23:12] stopping stack: SIGTERM to what is left of process group 3724907
+[isaac_tuning 04:23:17] stopping stack: SIGKILL to what is left of process group 3724907
+[isaac_tuning 04:23:23] stack stopped {'wall_s': 10.3, 'leftovers': 0}
+[isaac_tuning 04:23:23] stack starting {'pgid': 3731368, 'log': 'stack_M2_r2.log'}
+[isaac_tuning 04:23:56] M2 r2: success score=60.79700094155527 margin=-0.11665805409971125 wall=33.4s
+[isaac_tuning 04:24:28] M3 r0: collision score=0.0 margin=-0.03398699176322384 wall=31.8s
+[isaac_tuning 04:24:53] M3 r1: estop score=0.0 margin=0.012692225171736293 wall=25.4s
+[isaac_tuning 04:25:27] M3 r2: estop score=0.0 margin=-0.035149509853779404 wall=33.2s
+[isaac_tuning 04:25:48] M4 r0: success score=81.17602848281888 margin=0.16307170458453446 wall=21.7s
+[isaac_tuning 04:26:10] M4 r1: success score=60.54399970509547 margin=-0.07500378861332668 wall=21.8s
+[isaac_tuning 04:26:41] M4 r2: success score=70.10740020079191 margin=0.11121973240844363 wall=30.4s
+[isaac_tuning 04:27:05] S1 r0: success score=76.46655231504418 margin=0.1660849774735501 wall=23.9s
+[isaac_tuning 04:27:31] S1 r1: success score=68.2633488849686 margin=0.09787300311829217 wall=25.9s
+[isaac_tuning 04:27:55] S1 r2: success score=68.33333333286464 margin=0.14232477980923885 wall=23.9s
+[isaac_tuning 04:28:29] S2 r0: collision score=0.0 margin=-0.04150250280826151 wall=34.4s
+[isaac_tuning 04:28:58] S2 r1: success score=70.98398169311255 margin=0.020671660403222214 wall=28.5s
+[isaac_tuning 04:29:30] S2 r2: success score=68.4805653708749 margin=0.019166356979532728 wall=31.9s
+[isaac_tuning 04:29:52] S3 r0: success score=69.38684503848218 margin=0.22072243198761088 wall=22.4s
+[isaac_tuning 04:30:58] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/ab_phase2b/return/S3_r1', 'code': 4}
+[isaac_tuning 04:30:58] stopping stack: SIGTERM to process group 3731368
+[isaac_tuning 04:30:59] stopping stack: SIGTERM to what is left of process group 3731368
+[isaac_tuning 04:30:59] stack stopped {'wall_s': 1.0, 'leftovers': 0}
+[isaac_tuning 04:30:59] stack starting {'pgid': 3750915, 'log': 'stack_S3_r1.log'}
+[isaac_tuning 04:31:38] S3 r1: success score=75.07064364159903 margin=0.10449570496941318 wall=39.2s
+[isaac_tuning 04:32:11] S3 r2: success score=69.14881932951732 margin=0.17362524596514917 wall=32.2s
+[isaac_tuning 04:32:46] S4 r0: collision score=0.0 margin=-0.05047362970734104 wall=35.3s
+[isaac_tuning 04:33:21] S4 r1: estop score=0.0 margin=-0.08939814820341874 wall=34.3s
+[isaac_tuning 04:33:51] S4 r2: success score=50.454536712528885 margin=-0.09754505850943163 wall=30.1s
+[isaac_tuning 04:34:20] S5 r0: success score=87.39527452156621 margin=None wall=28.8s
+[isaac_tuning 04:34:20] stopping stack: SIGTERM to process group 3750915
+[isaac_tuning 04:34:20] stopping stack: SIGTERM to what is left of process group 3750915
+[isaac_tuning 04:34:21] stack stopped {'wall_s': 1.0, 'leftovers': 0}
+[isaac_tuning 04:34:21] variant alpha_return: {'mpc_obs_vel_trust': 1.0, 'corridor_lateral_reanchor': False, 'mpc_return_gain': 1.0, 'mpc_return_lookahead_ratio': 2.5, 'mpc_return_psi_scale': 0.5}
+[isaac_tuning 04:34:21] isaac layout change: restarting {'have': 'tuning', 'want': 'dodge'}
+[isaac_tuning 04:34:22] stopping isaac: SIGTERM to process group 3716204
+[isaac_tuning 04:34:41] isaac up {'wall_s': 19.6}
+[isaac_tuning 04:34:41] stack starting {'pgid': 3761240, 'log': 'stack_D00_s0_r0.log'}
+[isaac_tuning 04:35:58] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/ab_phase2b/alpha_return/D00_s0_r0', 'code': 4}
+[isaac_tuning 04:35:58] stopping stack: SIGTERM to process group 3761240
+[isaac_tuning 04:35:58] stopping stack: SIGTERM to what is left of process group 3761240
+[isaac_tuning 04:36:01] stack stopped {'wall_s': 3.0, 'leftovers': 0}
+[isaac_tuning 04:36:01] stack starting {'pgid': 3764929, 'log': 'stack_D00_s0_r0.log'}
+[isaac_tuning 04:36:45] D00_s0 r0: success score=33.3264474772467 margin=-0.10480843065788253 wall=44.3s
+[isaac_tuning 04:37:18] D00_s1 r0: collision score=0.0 margin=-0.07235086822091552 wall=33.1s
+[isaac_tuning 04:37:41] D00_s2 r0: success score=90.81801951494171 margin=0.4736517888651093 wall=22.6s
+[isaac_tuning 04:37:41] ramp d=0: 1/3 good FAIL
+[isaac_tuning 04:38:02] D01_s0 r0: success score=94.37223516188213 margin=1.2925805812456557 wall=20.7s
+[isaac_tuning 04:38:21] D01_s1 r0: success score=94.69450803314345 margin=0.7343851104320092 wall=19.7s
+[isaac_tuning 04:38:41] D01_s2 r0: collision score=0.0 margin=-0.23577563711495447 wall=19.1s
+[isaac_tuning 04:38:41] ramp d=1: 2/3 good FAIL
+[isaac_tuning 04:38:41] isaac layout change: restarting {'have': 'dodge', 'want': 'tuning'}
+[isaac_tuning 04:38:41] stopping stack: SIGTERM to process group 3764929
+[isaac_tuning 04:38:41] stopping stack: SIGTERM to what is left of process group 3764929
+[isaac_tuning 04:38:44] stack stopped {'wall_s': 3.3, 'leftovers': 0}
+[isaac_tuning 04:38:45] stopping isaac: SIGTERM to process group 3759921
+[isaac_tuning 04:39:05] isaac up {'wall_s': 19.8}
+[isaac_tuning 04:39:05] stack starting {'pgid': 3773886, 'log': 'stack_M1_r0.log'}
+[isaac_tuning 04:39:42] M1 r0: success score=84.29027400477699 margin=0.5640876058605624 wall=37.3s
+[isaac_tuning 04:40:20] M1 r1: collision score=0.0 margin=-0.06258601215241688 wall=37.9s
+[isaac_tuning 04:40:50] M1 r2: success score=59.84969743494095 margin=-0.011989966909141558 wall=30.1s
+[isaac_tuning 04:41:22] M2 r0: collision score=0.0 margin=-0.19770736932098093 wall=32.2s
+[isaac_tuning 04:41:52] M2 r1: collision score=0.0 margin=-0.17624648563021345 wall=30.0s
+[isaac_tuning 04:42:26] M2 r2: collision score=0.0 margin=-0.20294585972327095 wall=33.4s
+[isaac_tuning 04:42:59] M3 r0: estop score=0.0 margin=0.01908113275561385 wall=33.1s
+[isaac_tuning 04:43:24] M3 r1: estop score=0.0 margin=-0.010298347579300926 wall=25.2s
+[isaac_tuning 04:43:48] M3 r2: estop score=0.0 margin=-0.0175926107233505 wall=23.9s
+[isaac_tuning 04:44:12] M4 r0: success score=80.59083699762202 margin=0.1622496045046884 wall=23.1s
+[isaac_tuning 04:44:44] M4 r1: success score=76.30310808692639 margin=0.1920660640128956 wall=31.9s
+[isaac_tuning 04:45:09] M4 r2: success score=83.35140643642202 margin=0.11803953511933474 wall=25.3s
+[isaac_tuning 04:45:32] S1 r0: success score=76.02671118584394 margin=0.19244205558357974 wall=22.8s
+[isaac_tuning 04:45:57] S1 r1: success score=74.97659906442983 margin=0.09463020214539819 wall=24.6s
+[isaac_tuning 04:46:30] S1 r2: success score=74.97659906442983 margin=0.09747280097313404 wall=33.0s
+[isaac_tuning 04:47:03] S2 r0: success score=63.02892675767311 margin=-0.02163877488847843 wall=33.6s
+[isaac_tuning 04:48:07] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/ab_phase2b/alpha_return/S2_r1', 'code': 4}
+[isaac_tuning 04:48:07] stopping stack: SIGTERM to process group 3773886
+[isaac_tuning 04:48:07] stopping stack: SIGTERM to what is left of process group 3773886
+[isaac_tuning 04:48:10] stack stopped {'wall_s': 2.8, 'leftovers': 0}
+[isaac_tuning 04:48:10] stack starting {'pgid': 3796916, 'log': 'stack_S2_r1.log'}
+[isaac_tuning 04:48:49] S2 r1: success score=70.46892039281288 margin=0.041957869900205225 wall=38.9s
+[isaac_tuning 04:49:23] S2 r2: success score=68.58676207528778 margin=0.017346179237152204 wall=34.5s
+[isaac_tuning 04:50:37] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/ab_phase2b/alpha_return/S3_r0', 'code': 4}
+[isaac_tuning 04:50:37] stopping stack: SIGTERM to process group 3796916
+[isaac_tuning 04:50:38] stopping stack: SIGTERM to what is left of process group 3796916
+[isaac_tuning 04:50:38] stack stopped {'wall_s': 1.0, 'leftovers': 0}
+[isaac_tuning 04:50:38] stack starting {'pgid': 3803318, 'log': 'stack_S3_r0.log'}
+[isaac_tuning 04:51:25] S3 r0: success score=37.961759907513645 margin=-0.08856921457979289 wall=47.1s
+[isaac_tuning 04:51:52] S3 r1: success score=62.57087490228348 margin=-0.04851753898531752 wall=26.3s
+[isaac_tuning 04:52:18] S3 r2: success score=69.46778711430368 margin=0.15334464162521422 wall=26.0s
+[isaac_tuning 04:53:01] S4 r0: estop score=0.0 margin=-0.013966496465588674 wall=43.1s
+[isaac_tuning 04:53:37] S4 r1: estop score=0.0 margin=-0.013023928191375878 wall=36.3s
+[isaac_tuning 04:54:44] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/ab_phase2b/alpha_return/S4_r2', 'code': 4}
+[isaac_tuning 04:54:44] stopping stack: SIGTERM to process group 3803318
+[isaac_tuning 04:54:44] stopping stack: SIGTERM to what is left of process group 3803318
+[isaac_tuning 04:54:46] stack stopped {'wall_s': 2.8, 'leftovers': 0}
+[isaac_tuning 04:54:46] stack starting {'pgid': 3813935, 'log': 'stack_S4_r2.log'}
+[isaac_tuning 04:55:34] S4 r2: estop score=0.0 margin=-0.09184971660467561 wall=47.6s
+[isaac_tuning 04:56:41] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/ab_phase2b/alpha_return/S5_r0', 'code': 4}
+[isaac_tuning 04:56:41] stopping stack: SIGTERM to process group 3813935
+[isaac_tuning 04:56:41] stopping stack: SIGTERM to what is left of process group 3813935
+[isaac_tuning 04:56:46] stopping stack: SIGKILL to what is left of process group 3813935
+[isaac_tuning 04:56:48] stack stopped {'wall_s': 6.3, 'leftovers': 0}
+[isaac_tuning 04:56:48] stack starting {'pgid': 3819280, 'log': 'stack_S5_r0.log'}
+[isaac_tuning 04:57:30] S5 r0: success score=87.02694514078661 margin=None wall=42.7s
+[isaac_tuning 04:57:30] stopping stack: SIGTERM to process group 3819280
+[isaac_tuning 04:57:31] stopping stack: SIGTERM to what is left of process group 3819280
+[isaac_tuning 04:57:36] stopping stack: SIGKILL to what is left of process group 3819280
+[isaac_tuning 04:57:36] stack stopped {'wall_s': 5.8, 'leftovers': 0}
+[isaac_tuning 04:57:37] stopping isaac: SIGTERM to process group 3772607
+[isaac_tuning 04:57:37] stopping discovery server: SIGINT to process group 3651596
+[isaac_tuning 04:57:37] session closed {'container': False, 'leftovers': 0}
+[isaac_tuning 04:57:37] A/B done: output/isaac_tuning/dodge/ab_phase2b/ab.md

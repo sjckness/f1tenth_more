@@ -1,0 +1,11 @@
+NATIVE tests building a native tracker: 201
+NATIVE   test_camera_gates.py 17
+NATIVE   test_door_detection.py 10
+NATIVE   test_lidar_front_wall_node.py 64
+NATIVE   test_multi_wall_tracker.py 76
+NATIVE   test_wall_confidence_range.py 3
+NATIVE   test_wall_confirm_level.py 23
+NATIVE   test_wall_tracker_backend.py 8
+NATIVE fusion_cycle: 3 tests, 4 calls
+NATIVE verify_rectangles: 1 tests, 1 calls
+1319 passed in 20.66s

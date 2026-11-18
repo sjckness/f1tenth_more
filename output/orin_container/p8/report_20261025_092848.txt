@@ -1,0 +1,223 @@
+== docker_orin.sh report 2026-10-25T09:28:48+01:00 on jetson-orin
+pinned:    f1tenth:jazzy-orin-a996f47-norust 519074dd08d2 (pinned 2026-10-25T09:22:47+01:00)
+container: f1tenth_car running, health healthy, role car, image f1tenth:jazzy-orin-a996f47-norust sha256:519074dd08d2ecc3eb928061410723757668a76
+started:   2026-10-25T08:22:59.348188703Z
+health:    healthy: discovery server UDP 11811 (pid 102), gateway TCP 8770 (pid 111)
+== labels
+  f1tenth.branch=main-jazzy-rust
+  f1tenth.car_sync.native_head=6c329992609d3e6c38939c8da1d240393af718aa
+  f1tenth.car_sync.sha256=bb2d9d7c579ea0e43510f3ca0f8129dbc6fb8656fb7f3f7fa0ca6cae03f4ec63
+  f1tenth.gid.dialout=20
+  f1tenth.gid.input=101
+  f1tenth.gid.jtop=1003
+  f1tenth.gid.render=104
+  f1tenth.gid.video=44
+  f1tenth.gid.zed=1005
+  f1tenth.ros_snapshot=2026-09-11
+  f1tenth.rust=skip
+  f1tenth.sources_tree=5748ad97137a06de74f25dbbdcf4b8b82590c550486380e8080c81ca8dd9496f
+  f1tenth.tensorrt=10.3.0.26
+  f1tenth.ubuntu_snapshot=20261024T000000Z
+  org.opencontainers.image.revision=a996f477c09c19c0e442e8ee1b665a8407843af8
+  org.opencontainers.image.version=orin-before-pull-2026-10-22-189-ga996f477c09c
+== docker diff f1tenth_car (expected: /tmp, /run, /var/tmp, the user's ~/.config ~/.cache ~/.local outside the mounts, Ultralytics settings)
+  ok         A /home/fabiocar/.cache/matplotlib
+  ok         A /home/fabiocar/.cache/matplotlib/fontlist-v330.json
+  ok         A /home/fabiocar/.config/f1tenth_gateway/env
+  ok         A /home/fabiocar/.config/matplotlib
+  ok         A /home/fabiocar/.config/Ultralytics
+  ok         A /home/fabiocar/.config/Ultralytics/persistent_cache.json
+  ok         A /home/fabiocar/.config/Ultralytics/settings.json
+  ok         A /home/fabiocar/.nv
+  ok         A /home/fabiocar/.nv/ComputeCache
+  ok         A /run/jtop.sock
+  ok         A /tmp/component_supervisor.lock
+  ok         A /tmp/launch_params_22deerab
+  ok         A /tmp/launch_params_25v3zm9g
+  ok         A /tmp/launch_params_2e5rmyh6
+  ok         A /tmp/launch_params_366ce5v6
+  ok         A /tmp/launch_params_3bl40cng
+  ok         A /tmp/launch_params_3q9utw2e
+  ok         A /tmp/launch_params_59c0puiv
+  ok         A /tmp/launch_params_5apvif56
+  ok         A /tmp/launch_params_6mqu2t5d
+  ok         A /tmp/launch_params_7uqzgfg2
+  ok         A /tmp/launch_params_897cpzvw
+  ok         A /tmp/launch_params__bv3s4a1
+  ok         A /tmp/launch_params_bv5fk_gf
+  ok         A /tmp/launch_params_bxm5qjrs
+  ok         A /tmp/launch_params_c52g3lc0
+  ok         A /tmp/launch_params_ckuz3qda
+  ok         A /tmp/launch_params_ctiozk24
+  ok         A /tmp/launch_params_f5nohxj9
+  ok         A /tmp/launch_params_giq9a9gh
+  ok         A /tmp/launch_params_gis_9j1y
+  ok         A /tmp/launch_params_iamusla5
+  ok         A /tmp/launch_params_k1_5szjc
+  ok         A /tmp/launch_params_lgqnasso
+  ok         A /tmp/launch_params_lhdt4hoj
+  ok         A /tmp/launch_params_lxc_l3a1
+  ok         A /tmp/launch_params_o1ns6d9e
+  ok         A /tmp/launch_params_o6qem3_f
+  ok         A /tmp/launch_params_ostl03zw
+  ok         A /tmp/launch_params_qqturrym
+  ok         A /tmp/launch_params_rjb60pmk
+  ok         A /tmp/launch_params_t18h0g5d
+  ok         A /tmp/launch_params_th7fa6jw
+  ok         A /tmp/launch_params_v7kdwira
+  ok         A /tmp/launch_params_vbaeyrk9
+  ok         A /tmp/launch_params_wzhptoc6
+  ok         A /tmp/launch_params_xgfd4w7o
+  ok         A /tmp/launch_params_xhd_tlad
+  ok         A /tmp/launch_params_y7r84d6l
+  ok         A /tmp/launch_params_yibm6x5s
+  ok         A /tmp/launch_params_z2_xsa1x
+  ok         A /tmp/launch_params_z5g6qm7t
+  ok         A /tmp/mission_logger.lock
+  ok         A /tmp/tmp968kfd5p
+  ok         A /tmp/.zed_enum_lock
+  ok         A /tmp/.zed_gmsl_list_lock
+  ok         C /home
+  ok         C /home/fabiocar
+  ok         C /home/fabiocar/.cache
+  ok         C /home/fabiocar/.config
+  ok         C /home/fabiocar/.config/f1tenth_gateway
+  ok         C /run
+  ok         C /tmp
+  ok         C /var
+  UNEXPECTED A /etc/ld.so.conf.d/00-nvcr-3497973654.conf
+  UNEXPECTED A /etc/nv_tegra_release
+  UNEXPECTED A /etc/vulkan/icd.d/nvidia_icd.json
+  UNEXPECTED A /etc/vulkansc
+  UNEXPECTED A /etc/vulkansc/icd.d
+  UNEXPECTED A /etc/vulkansc/icd.d/nvidia_icd_vksc.json
+  UNEXPECTED A /usr/bin/nvidia-cuda-mps-control
+  UNEXPECTED A /usr/bin/nvidia-cuda-mps-server
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gbm/nvidia-drm_gbm.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gbm/tegra_gbm.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gbm/tegra-udrm_gbm.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnvarguscamerasrc.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnvcompositor.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnvdrmvideosink.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnveglglessink.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnveglstreamsrc.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnvegltransform.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnvipcpipeline.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnvivafilter.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnvjpeg.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnvtee.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnvunixfd.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnvv4l2camerasrc.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnvvidconv.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnvvideo4linux2.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnvvideosink.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstnvvideosinks.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/nvgstcapture-1.0_README.txt
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/nvgstipctestapp-1.0_README.txt
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/gstreamer-1.0/nvgstplayer-1.0_README.txt
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/libcuda.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/libgstnvegl-1.0.so.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/libgstnvexifmeta.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/libgstnvivameta.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/libnvcucompat.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/libnvcudla.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/libnvsample_cudaprocess.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/libv4l2.so.0.0.999999
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/libv4lconvert.so.0.0.999999
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/libv4l/plugins/nv
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/libv4l/plugins/nv/libv4l2_nvargus.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/libv4l/plugins/nv/libv4l2_nvcuvidvideocodec.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/libv4l/plugins/nv/libv4l2_nvvideocodec.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/ld.so.conf
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libcuda.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libcuda.so.1
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libcuda.so.1.1
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libGLX_indirect.so.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libGLX_nvidia.so.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libgstnvcustomhelper.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libgstnvcustomhelper.so.1.0.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libgstnvdsseimeta.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libgstnvdsseimeta.so.1.0.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libjetsonpower.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvargus.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvargus_socketclient.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvargus_socketserver.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvbuf_fdmap.so.1.0.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvbufsurface.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvbufsurface.so.1.0.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvbufsurftransform.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvbufsurftransform.so.1.0.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvcameratools.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvcamerautils.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvcam_imageencoder.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvcamlog.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvcamv4l2.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvcapture.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvcolorutil.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvcucompat.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvcudla.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvcuvidv4l2.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvdc.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvddk_2d_v2.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvddk_vic.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvdecode2eglimage.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvdla_compiler.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvdla_runtime.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvdsbufferpool.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvdsbufferpool.so.1.0.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnveglstreamproducer.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnveventlib.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvexif.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvfnet.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvfnetstoredefog.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvfnetstorehdfx.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvfusacapinterface.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvfusacap.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvgov_boot.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvgov_camera.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvgov_force.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvgov_generic.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvgov_gpucompute.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvgov_graphics.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvgov_il.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvgov_spincircle.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvgov_tbc.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvgov_ui.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-allocator.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-allocator.so.1
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-eglcore.so.540.5.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-egl-gbm.so.1
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-egl-gbm.so.1.1.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-egl-wayland.so.1
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-egl-wayland.so.1.1.11
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-glcore.so.540.5.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-glsi.so.540.5.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-glvkspirv.so.540.5.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-gpucomp.so.540.5.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-kms.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-kms.so.540.5.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-ml.so.1
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-nvvm.so.4
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-nvvm.so.540.5.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-ptxjitcompiler.so.1
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-ptxjitcompiler.so.540.5.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-rmapi-tegra.so.540.5.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-rtcore.so.540.5.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-tls.so.540.5.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-vksc-core.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-vksc-core.so.1
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvidia-vksc-core.so.540.5.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvid_mapper.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvid_mapper.so.1.0.0
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvimp.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvisppg.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvisp.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvisp_utils.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvjpeg.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvmedia_2d.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvmedia2d.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvmedia_dla.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvmedia_eglstream.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvmedia_ide_parser.so
+  UNEXPECTED A /usr/lib/aarch64-linux-gnu/nvidia/libnvmedia_ide_sci.so

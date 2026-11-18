@@ -1,0 +1,155 @@
+{
+ "instance": {
+  "scenario": "M1",
+  "rep": 0,
+  "car": {
+   "x": 0.48143815149311414,
+   "y": 2.972741768780322,
+   "yaw_deg": -2.2765795692983892
+  },
+  "obstacles": {
+   "cyl050": [
+    3.0,
+    1.8
+   ]
+  },
+  "motion": {
+   "cyl050": {
+    "v": [
+     0.0,
+     0.4
+    ],
+    "delay_s": 0.0,
+    "duration_s": 6.0
+   }
+  },
+  "obstacle_info": [
+   {
+    "id": "cyl050",
+    "x": 3.0,
+    "y": 1.8,
+    "ahead_m": 2.5,
+    "lateral_m": -1.2,
+    "radius_m": 0.25,
+    "motion": {
+     "v": [
+      0.0,
+      0.4
+     ],
+     "delay_s": 0.0,
+     "duration_s": 6.0
+    }
+   }
+  ],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "output/isaac_tuning/moving_M1/M1_r0/mission.json",
+ "wall_start": 1794959342.0206242,
+ "phases": {
+  "ready": 14.18,
+  "params": 0.955,
+  "scenario": 0.013,
+  "reset": 7.143,
+  "start": 0.014,
+  "record": 23.596
+ },
+ "exit": {
+  "code": 0,
+  "reason": "sim timeout (mission still running)"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64
+  },
+  "semantic_layer_node": {
+   "unknown_objects_mode": "active"
+  }
+ },
+ "scenario_applied": {
+  "seq": 1,
+  "ok": true,
+  "message": "reset #1: car and person at start poses",
+  "sim_time": 16.483333333333334,
+  "car": {
+   "x": 0.48143815149311414,
+   "y": 2.972741768780322,
+   "yaw_deg": -2.2765795692983892
+  },
+  "obstacles": {
+   "cyl050": [
+    3.0,
+    1.8
+   ],
+   "cyl100": null
+  },
+  "motion": {
+   "cyl050": {
+    "v": [
+     0.0,
+     0.4
+    ],
+    "delay_s": 0.0,
+    "duration_s": 6.0
+   }
+  }
+ },
+ "reset_all": {
+  "success": true,
+  "message": "reset done in 5.3 s: stop 0.5s, wheel_odom 0.1s, ekf_local 0.0s, slam 4.6s, ekf_global 0.0s, nav2 skipped, hooks 0.0s"
+ },
+ "load_mission": {
+  "success": true,
+  "message": "loaded 'isaac_tuning_M1_r0', 1 moves"
+ },
+ "start_mission": {
+  "success": true,
+  "message": "started 'isaac_tuning_M1_r0'"
+ },
+ "t_running": 23.683333333,
+ "t_go": 23.683333333,
+ "t_end": 45.7,
+ "end_reason": "sim timeout (mission still running)",
+ "rows": {
+  "gt": 1201,
+  "odom": 900,
+  "drive": 227,
+  "mux": 1439,
+  "mission": 2,
+  "solver": 226,
+  "status": 226,
+  "hard_stop": 962,
+  "bt": 236,
+  "obstacles": 690,
+  "cpu": 118,
+  "movers": 480
+ },
+ "mission_states": [
+  [
+   15.45,
+   "IDLE"
+  ],
+  [
+   23.683333333,
+   "LOADED"
+  ],
+  [
+   23.683333333,
+   "RUNNING"
+  ]
+ ],
+ "wall_end": 1794959388.013364
+}

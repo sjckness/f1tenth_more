@@ -1,0 +1,56 @@
+# R0b offline QDLDL evidence, 2026-10-24T23:48:31+02:00
+# every build below ran with GIT_ALLOW_PROTOCOL=file (git refuses https)
+
+## /home/andreas/dev_ws/f1tenth_more_r0b/build/f1tenth_mpc_core/debug/build/osqp-sys-a5b8dc4c1ecec3c4/out/build
+_deps: qdldl-build 
+CMAKE_BUILD_TYPE:STRING=RelWithDebInfo
+CMAKE_C_COMPILER:FILEPATH=/usr/bin/cc
+CMAKE_C_FLAGS:STRING= -ffunction-sections -fdata-sections -fPIC -m64 -w
+CMAKE_TOOLCHAIN_FILE:FILEPATH=/home/andreas/dev_ws/f1tenth_more_r0b/src/rust/third_party/osqp_offline.cmake
+FETCHCONTENT_FULLY_DISCONNECTED:BOOL=ON
+FETCHCONTENT_SOURCE_DIR_QDLDL:PATH=/home/andreas/dev_ws/f1tenth_more_r0b/src/rust/third_party/qdldl
+qdldl_SOURCE_DIR:STATIC=/home/andreas/dev_ws/f1tenth_more_r0b/src/rust/third_party/qdldl
+
+## /home/andreas/dev_ws/f1tenth_more_r0b/src/rust/target/debug/build/osqp-sys-a5b8dc4c1ecec3c4/out/build
+_deps: qdldl-build 
+CMAKE_BUILD_TYPE:STRING=RelWithDebInfo
+CMAKE_C_COMPILER:FILEPATH=/usr/bin/cc
+CMAKE_C_FLAGS:STRING= -ffunction-sections -fdata-sections -fPIC -m64 -w
+CMAKE_TOOLCHAIN_FILE:FILEPATH=/home/andreas/dev_ws/f1tenth_more_r0b/src/rust/third_party/osqp_offline.cmake
+FETCHCONTENT_FULLY_DISCONNECTED:BOOL=ON
+FETCHCONTENT_SOURCE_DIR_QDLDL:PATH=/home/andreas/dev_ws/f1tenth_more_r0b/src/rust/third_party/qdldl
+qdldl_SOURCE_DIR:STATIC=/home/andreas/dev_ws/f1tenth_more_r0b/src/rust/third_party/qdldl
+
+## /tmp/claude-1000/r0b_mirror/build/f1tenth_mpc_core/debug/build/osqp-sys-a5b8dc4c1ecec3c4/out/build
+_deps: qdldl-build 
+CMAKE_BUILD_TYPE:STRING=RelWithDebInfo
+CMAKE_C_COMPILER:FILEPATH=/usr/bin/cc
+CMAKE_C_FLAGS:STRING= -ffunction-sections -fdata-sections -fPIC -m64 -w
+CMAKE_TOOLCHAIN_FILE:FILEPATH=/tmp/claude-1000/r0b_mirror/src/rust/third_party/osqp_offline.cmake
+FETCHCONTENT_FULLY_DISCONNECTED:BOOL=ON
+FETCHCONTENT_SOURCE_DIR_QDLDL:PATH=/tmp/claude-1000/r0b_mirror/src/rust/third_party/qdldl
+qdldl_SOURCE_DIR:STATIC=/tmp/claude-1000/r0b_mirror/src/rust/third_party/qdldl
+
+## reference: the online build before R0b (main-jazzy-rust worktree, read only)
+_deps: qdldl-build qdldl-src qdldl-subbuild 
+CMAKE_BUILD_TYPE:STRING=RelWithDebInfo
+CMAKE_C_COMPILER:STRING=/usr/bin/cc
+CMAKE_C_FLAGS:STRING= -ffunction-sections -fdata-sections -fPIC -m64 -w
+FETCHCONTENT_FULLY_DISCONNECTED:BOOL=OFF
+FETCHCONTENT_SOURCE_DIR_QDLDL:PATH=
+qdldl-src commit: 138fdac58b9cd1c4137ff1b99152c8108a6cff5b
+
+## negative control: cargo build -p f1tenth_mpc_core WITHOUT build_env.sh, GIT_ALLOW_PROTOCOL=file
+## (fresh target dir /tmp/claude-1000/r0b_negctl): exit 101
+    [ 11%] Creating directories for 'qdldl-populate'
+    [ 22%] Performing download step (git clone) for 'qdldl-populate'
+    Cloning into 'qdldl-src'...
+    fatal: transport 'https' not allowed
+    Cloning into 'qdldl-src'...
+    fatal: transport 'https' not allowed
+    Cloning into 'qdldl-src'...
+    fatal: transport 'https' not allowed
+    CMake Error at qdldl-subbuild/qdldl-populate-prefix/tmp/qdldl-populate-gitclone.cmake:39 (message):
+    gmake[2]: *** [CMakeFiles/qdldl-populate.dir/build.make:102: qdldl-populate-prefix/src/qdldl-populate-stamp/qdldl-populate-download] Error 1
+    gmake[1]: *** [CMakeFiles/Makefile2:83: CMakeFiles/qdldl-populate.dir/all] Error 2
+_deps: qdldl-build qdldl-subbuild 

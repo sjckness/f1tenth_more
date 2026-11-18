@@ -1,0 +1,342 @@
+{
+ "meta": {
+  "git_head": "5802e16f+dirty",
+  "ros_domain_id": "0",
+  "rmw_implementation": "rmw_fastrtps_cpp",
+  "ros_discovery_server": "127.0.0.1:11811",
+  "fastdds_profile": "/opt/f1tenth_ws/src/f1tenth_bringup/config/fastdds_profile.xml",
+  "mode": "oneshot",
+  "planner_pythonpath": null,
+  "time": "2026-11-09T10:42:23",
+  "image_sources": [
+   "commit 5802e16fb500eedb4abbb8b86e8ea5d5f9348365",
+   "subject llm: planner llama-server -c 4096 (one slot, 144 MiB of KV instead of 1152)",
+   "branch door-goal-debug",
+   "describe night-start/pwa-control-origin-224-g5802e16fb500"
+  ],
+  "llama_server_cmdline": "/opt/llama.cpp/bin/llama-server -m /home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf --port 8083 -ngl 999 -np 1 -c 4096",
+  "ros2_daemon_running": false,
+  "llama_server_props": {
+   "model_path": "/home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf",
+   "total_slots": 1,
+   "build_info": "b1-42532af",
+   "n_ctx": 4096
+  },
+  "planner_module": "/opt/f1tenth_ws/install/lib/python3.12/site-packages/llm/llm_planner_node.py",
+  "flow": "production",
+  "image_ref": "f1tenth:jazzy-orin-5802e16-norust",
+  "planner_unit": {
+   "cmdline": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/llm/llm_planner_node --dry-run",
+   "dry_run": true,
+   "idle_s": 36.060253381729126
+  },
+  "ctl": "/opt/f1tenth_ws/src/f1tenth_ctl/bin/f1tenth_ctl",
+  "first_move": "first /ackermann_drive after RUNNING with |drive.speed| > 0.001 (|drive.steering_angle| when the first move is a turn)"
+ },
+ "runs": [
+  {
+   "command": "vai dalla persona",
+   "run": 0,
+   "variant": "pause0",
+   "flow": "production",
+   "tag": "warm",
+   "idle_s": 39.58546829223633,
+   "t": {
+    "t_cmd": 0.0,
+    "t_send_ret": 0.8357064629963133,
+    "t_plan_done": 1.240792530006729,
+    "t_plan_fetched": 2.0772752320044674,
+    "t_load_call": 2.0775008919881657,
+    "t_load_ret": 5.281525083002634,
+    "t_loaded": 5.042778161994647,
+    "t_start_call": 5.281704760011053,
+    "t_start_ret": 6.172402413008967
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}",
+    "mission_id": "llm_5e38c1a86f41",
+    "schema_version": "5.0",
+    "n_moves": 1,
+    "plan_seconds": 0.42,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_5e38c1a86f41",
+     "schema_version": "5.0",
+     "moves": [
+      {
+       "id": "move_0_go_to",
+       "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.1,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+       },
+       "stop_condition": {
+        "type": "object_reached"
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_5e38c1a86f41.json",
+    "latency": {
+     "llm_s": 0.414,
+     "translate_s": 0.006,
+     "services_s": 0.0,
+     "total_s": 0.422
+    }
+   },
+   "latency": {
+    "llm_s": 0.41,
+    "translate_s": 0.01,
+    "services_s": 0.0,
+    "total_s": 0.42
+   },
+   "error": null,
+   "ctl": {
+    "send": {
+     "cmd": "send",
+     "host": "jetson-orin",
+     "time": "2026-11-09T10:42:28+01:00",
+     "target": "planner",
+     "env_file": "/opt/f1tenth_ws/src/f1tenth_ctl/config/ctl_container.env",
+     "ok": true,
+     "sent": "vai dalla persona",
+     "cursor": 170404,
+     "running": true,
+     "elapsed_s": 0.73
+    },
+    "load": {
+     "ok": true,
+     "error": null,
+     "refused": null,
+     "elapsed_s": 3.1
+    },
+    "start": {
+     "ok": false,
+     "error": "not READY: odometry, scan, tf_map_base_link, battery",
+     "refused": "not READY: odometry, scan, tf_map_base_link, battery",
+     "elapsed_s": 0.79,
+     "countdown_s": null
+    }
+   },
+   "attempts": 1,
+   "status": "ok",
+   "stored_id": "20261109T104230-2661d2",
+   "first_move_rule": "speed",
+   "end": "ready_refused: not READY: odometry, scan, tf_map_base_link, battery",
+   "deltas": {
+    "send_cli": 0.8357064629963133,
+    "llm_and_ctl": 1.240792530006729,
+    "fetch_cli": 0.8364827019977383,
+    "pause": 0.000405336992116645,
+    "load_cli": 2.9652772700064816,
+    "start_cli": null,
+    "ready_cli": 0.8906976529979147,
+    "running_to_move": null,
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null
+   }
+  }
+ ],
+ "flow": "production",
+ "summary": {
+  "per_command": {
+   "vai dalla persona": {
+    "llm_and_ctl": {
+     "n": 1,
+     "median": 1.240792530006729,
+     "p95": 1.240792530006729,
+     "max": 1.240792530006729
+    },
+    "fetch_cli": {
+     "n": 1,
+     "median": 0.8364827019977383,
+     "p95": 0.8364827019977383,
+     "max": 0.8364827019977383
+    },
+    "load_cli": {
+     "n": 1,
+     "median": 2.9652772700064816,
+     "p95": 2.9652772700064816,
+     "max": 2.9652772700064816
+    },
+    "start_cli": null,
+    "running_to_move": null,
+    "send_cli": {
+     "n": 1,
+     "median": 0.8357064629963133,
+     "p95": 0.8357064629963133,
+     "max": 0.8357064629963133
+    },
+    "ready_cli": {
+     "n": 1,
+     "median": 0.8906976529979147,
+     "p95": 0.8906976529979147,
+     "max": 0.8906976529979147
+    },
+    "pause": {
+     "n": 1,
+     "median": 0.000405336992116645,
+     "p95": 0.000405336992116645,
+     "max": 0.000405336992116645
+    },
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null
+   }
+  },
+  "overall": {
+   "llm_and_ctl": {
+    "n": 1,
+    "median": 1.240792530006729,
+    "p95": 1.240792530006729,
+    "max": 1.240792530006729
+   },
+   "fetch_cli": {
+    "n": 1,
+    "median": 0.8364827019977383,
+    "p95": 0.8364827019977383,
+    "max": 0.8364827019977383
+   },
+   "load_cli": {
+    "n": 1,
+    "median": 2.9652772700064816,
+    "p95": 2.9652772700064816,
+    "max": 2.9652772700064816
+   },
+   "start_cli": null,
+   "running_to_move": null,
+   "send_cli": {
+    "n": 1,
+    "median": 0.8357064629963133,
+    "p95": 0.8357064629963133,
+    "max": 0.8357064629963133
+   },
+   "ready_cli": {
+    "n": 1,
+    "median": 0.8906976529979147,
+    "p95": 0.8906976529979147,
+    "max": 0.8906976529979147
+   },
+   "pause": {
+    "n": 1,
+    "median": 0.000405336992116645,
+    "p95": 0.000405336992116645,
+    "max": 0.000405336992116645
+   },
+   "total_to_running": null,
+   "total_to_move": null,
+   "total_to_move_no_pause": null
+  },
+  "excluded": [],
+  "kept": 1
+ },
+ "summaries": {
+  "pause0": {
+   "per_command": {
+    "vai dalla persona": {
+     "llm_and_ctl": {
+      "n": 1,
+      "median": 1.240792530006729,
+      "p95": 1.240792530006729,
+      "max": 1.240792530006729
+     },
+     "fetch_cli": {
+      "n": 1,
+      "median": 0.8364827019977383,
+      "p95": 0.8364827019977383,
+      "max": 0.8364827019977383
+     },
+     "load_cli": {
+      "n": 1,
+      "median": 2.9652772700064816,
+      "p95": 2.9652772700064816,
+      "max": 2.9652772700064816
+     },
+     "start_cli": null,
+     "running_to_move": null,
+     "send_cli": {
+      "n": 1,
+      "median": 0.8357064629963133,
+      "p95": 0.8357064629963133,
+      "max": 0.8357064629963133
+     },
+     "ready_cli": {
+      "n": 1,
+      "median": 0.8906976529979147,
+      "p95": 0.8906976529979147,
+      "max": 0.8906976529979147
+     },
+     "pause": {
+      "n": 1,
+      "median": 0.000405336992116645,
+      "p95": 0.000405336992116645,
+      "max": 0.000405336992116645
+     },
+     "total_to_running": null,
+     "total_to_move": null,
+     "total_to_move_no_pause": null
+    }
+   },
+   "overall": {
+    "llm_and_ctl": {
+     "n": 1,
+     "median": 1.240792530006729,
+     "p95": 1.240792530006729,
+     "max": 1.240792530006729
+    },
+    "fetch_cli": {
+     "n": 1,
+     "median": 0.8364827019977383,
+     "p95": 0.8364827019977383,
+     "max": 0.8364827019977383
+    },
+    "load_cli": {
+     "n": 1,
+     "median": 2.9652772700064816,
+     "p95": 2.9652772700064816,
+     "max": 2.9652772700064816
+    },
+    "start_cli": null,
+    "running_to_move": null,
+    "send_cli": {
+     "n": 1,
+     "median": 0.8357064629963133,
+     "p95": 0.8357064629963133,
+     "max": 0.8357064629963133
+    },
+    "ready_cli": {
+     "n": 1,
+     "median": 0.8906976529979147,
+     "p95": 0.8906976529979147,
+     "max": 0.8906976529979147
+    },
+    "pause": {
+     "n": 1,
+     "median": 0.000405336992116645,
+     "p95": 0.000405336992116645,
+     "max": 0.000405336992116645
+    },
+    "total_to_running": null,
+    "total_to_move": null,
+    "total_to_move_no_pause": null
+   },
+   "excluded": [],
+   "kept": 1
+  }
+ },
+ "complete": true,
+ "final_state": "ABORTED"
+}

@@ -211,6 +211,14 @@ WALL_CONFIRM_ARGS = [
     ('wall_confirm_require_lidar', bool),
 ]
 
+# WHICH DOOR DETECTOR THE STACK RUNS (stack_params.yaml, door_source). Read by
+# this node and by semantic_layer_node, so it has no package prefix and is
+# passed under its own full name, the same way WALL_CONFIRM_ARGS are. This
+# node runs door_detection.py only when it says 'profile'.
+STACK_WIDE_ARGS = [
+    ('door_source', str),
+]
+
 
 def generate_launch_description():
     use_lidar_default, use_lidar_desc = get_default('use_lidar')
@@ -225,7 +233,7 @@ def generate_launch_description():
             description=description))
         params[name] = ParameterValue(
             LaunchConfiguration('lidar_front_wall_' + name), value_type=value_type)
-    for name, value_type in WALL_CONFIRM_ARGS:
+    for name, value_type in WALL_CONFIRM_ARGS + STACK_WIDE_ARGS:
         default, description = get_default(name)
         declared.append(DeclareLaunchArgument(
             name, default_value=str(default), description=description))
@@ -247,6 +255,17 @@ def generate_launch_description():
     # the BT read it, so the producer and its consumers cannot disagree.
     params['enable_scene_labels'] = bool(get_value('enable_scene_labels'))
     params['use_wall_tracker'] = bool(get_value('use_wall_tracker'))
+    # Rust port R6 (f1tenth_perception/wall_tracker_backend.py): which
+    # implementation runs the wall tracker. Unprefixed, like corridor_impl,
+    # because component_supervisor_node writes it under this name
+    # (wall_tracker_impl:= on supervisor_bringup.launch.py). value_type=str:
+    # launch_ros would read an untyped value back as YAML.
+    impl_default, impl_desc = get_default('wall_tracker_impl')
+    declared.append(DeclareLaunchArgument(
+        'wall_tracker_impl', default_value=str(impl_default), choices=['py', 'rust'],
+        description=impl_desc))
+    params['wall_tracker_impl'] = ParameterValue(
+        LaunchConfiguration('wall_tracker_impl'), value_type=str)
 
     node = Node(
         condition=IfCondition(LaunchConfiguration('use_lidar')),

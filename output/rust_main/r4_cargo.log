@@ -1,0 +1,81 @@
+## cd src/rust && cargo fmt --all --check   (2026-10-23T23:03:02+02:00, final)
+exit 0
+## cargo clippy --all-targets -- -D warnings
+warning: patch `f1tenth_costmap_boundary_rs v0.1.0 (/home/andreas/dev_ws/f1tenth_more_r4/install/f1tenth_costmap_boundary_rs/share/f1tenth_costmap_boundary_rs/rust)` was not used in the crate graph
+warning: patch `f1tenth_hard_stop_rs v0.1.0 (/home/andreas/dev_ws/f1tenth_more_r4/install/f1tenth_hard_stop_rs/share/f1tenth_hard_stop_rs/rust)` was not used in the crate graph
+warning: patch `f1tenth_mpc_core v0.1.0 (/home/andreas/dev_ws/f1tenth_more_r4/install/f1tenth_mpc_core/share/f1tenth_mpc_core/rust)` was not used in the crate graph
+warning: patch `f1tenth_proximity_guard v0.1.0 (/home/andreas/dev_ws/f1tenth_more_r4/install/f1tenth_proximity_guard/share/f1tenth_proximity_guard/rust)` was not used in the crate graph
+warning: patch `action_tutorials_interfaces v0.33.10 (/opt/ros/jazzy/share/action_tutorials_interfaces/rust)` was not used in the crate graph
+warning: patch `actionlib_msgs v5.3.7 (/opt/ros/jazzy/share/actionlib_msgs/rust)` was not used in the crate graph
+warning: patch `actuator_msgs v0.0.1 (/opt/ros/jazzy/share/actuator_msgs/rust)` was not used in the crate graph
+warning: patch `bond v4.2.0 (/opt/ros/jazzy/share/bond/rust)` was not used in the crate graph
+warning: patch `composition_interfaces v2.0.3 (/opt/ros/jazzy/share/composition_interfaces/rust)` was not used in the crate graph
+warning: patch `control_msgs v5.9.0 (/opt/ros/jazzy/share/control_msgs/rust)` was not used in the crate graph
+warning: patch `controller_manager_msgs v4.44.0 (/opt/ros/jazzy/share/controller_manager_msgs/rust)` was not used in the crate graph
+warning: patch `dwb_msgs v1.3.11 (/opt/ros/jazzy/share/dwb_msgs/rust)` was not used in the crate graph
+warning: patch `geographic_msgs v1.0.6 (/opt/ros/jazzy/share/geographic_msgs/rust)` was not used in the crate graph
+warning: patch `gps_msgs v2.1.2 (/opt/ros/jazzy/share/gps_msgs/rust)` was not used in the crate graph
+warning: patch `lifecycle_msgs v2.0.3 (/opt/ros/jazzy/share/lifecycle_msgs/rust)` was not used in the crate graph
+warning: patch `logging_demo v0.33.10 (/opt/ros/jazzy/share/logging_demo/rust)` was not used in the crate graph
+warning: patch `map_msgs v2.4.1 (/opt/ros/jazzy/share/map_msgs/rust)` was not used in the crate graph
+warning: patch `marine_acoustic_msgs v2.1.0 (/opt/ros/jazzy/share/marine_acoustic_msgs/rust)` was not used in the crate graph
+warning: patch `moveit_msgs v2.6.0 (/opt/ros/jazzy/share/moveit_msgs/rust)` was not used in the crate graph
+warning: patch `nav2_msgs v1.3.11 (/opt/ros/jazzy/share/nav2_msgs/rust)` was not used in the crate graph
+warning: patch `nav_2d_msgs v1.3.11 (/opt/ros/jazzy/share/nav_2d_msgs/rust)` was not used in the crate graph
+warning: patch `object_recognition_msgs v2.0.0 (/opt/ros/jazzy/share/object_recognition_msgs/rust)` was not used in the crate graph
+warning: patch `octomap_msgs v2.0.1 (/opt/ros/jazzy/share/octomap_msgs/rust)` was not used in the crate graph
+warning: patch `pal_statistics_msgs v2.7.0 (/opt/ros/jazzy/share/pal_statistics_msgs/rust)` was not used in the crate graph
+warning: patch `pcl_msgs v1.0.0 (/opt/ros/jazzy/share/pcl_msgs/rust)` was not used in the crate graph
+warning: patch `pendulum_msgs v0.33.10 (/opt/ros/jazzy/share/pendulum_msgs/rust)` was not used in the crate graph
+warning: patch `py_trees_ros_interfaces v2.1.2 (/home/andreas/dev_ws/jc_deps_ws/install/py_trees_ros_interfaces/share/py_trees_ros_interfaces/rust)` was not used in the crate graph
+warning: patch `rcl_interfaces v2.0.3 (/opt/ros/jazzy/share/rcl_interfaces/rust)` was not used in the crate graph
+warning: patch `rmw_dds_common v3.1.1 (/opt/ros/jazzy/share/rmw_dds_common/rust)` was not used in the crate graph
+warning: patch `robot_localization v3.8.3 (/opt/ros/jazzy/share/robot_localization/rust)` was not used in the crate graph
+warning: patch `ros_gz_interfaces v1.0.22 (/opt/ros/jazzy/share/ros_gz_interfaces/rust)` was not used in the crate graph
+warning: patch `rosbag2_interfaces v0.26.10 (/opt/ros/jazzy/share/rosbag2_interfaces/rust)` was not used in the crate graph
+warning: patch `rosgraph_msgs v2.0.3 (/opt/ros/jazzy/share/rosgraph_msgs/rust)` was not used in the crate graph
+warning: patch `shape_msgs v5.3.7 (/opt/ros/jazzy/share/shape_msgs/rust)` was not used in the crate graph
+warning: patch `simulation_interfaces v1.5.0 (/opt/ros/jazzy/share/simulation_interfaces/rust)` was not used in the crate graph
+warning: patch `slam_toolbox v2.8.5 (/home/andreas/dev_ws/jc_deps_ws/install/slam_toolbox/share/slam_toolbox/rust)` was not used in the crate graph
+warning: patch `statistics_msgs v2.0.3 (/opt/ros/jazzy/share/statistics_msgs/rust)` was not used in the crate graph
+warning: patch `std_srvs v5.3.7 (/opt/ros/jazzy/share/std_srvs/rust)` was not used in the crate graph
+warning: patch `stereo_msgs v5.3.7 (/opt/ros/jazzy/share/stereo_msgs/rust)` was not used in the crate graph
+warning: patch `teleop_tools_msgs v1.2.1 (/home/andreas/dev_ws/f1tenth_more_r4/install/teleop_tools_msgs/share/teleop_tools_msgs/rust)` was not used in the crate graph
+warning: patch `theora_image_transport v4.0.6 (/opt/ros/jazzy/share/theora_image_transport/rust)` was not used in the crate graph
+warning: patch `topic_tools_interfaces v1.3.4 (/home/andreas/dev_ws/jc_deps_ws/install/topic_tools_interfaces/share/topic_tools_interfaces/rust)` was not used in the crate graph
+warning: patch `trajectory_msgs v5.3.7 (/opt/ros/jazzy/share/trajectory_msgs/rust)` was not used in the crate graph
+warning: patch `turtlesim v1.8.3 (/opt/ros/jazzy/share/turtlesim/rust)` was not used in the crate graph
+warning: patch `type_description_interfaces v2.0.3 (/opt/ros/jazzy/share/type_description_interfaces/rust)` was not used in the crate graph
+warning: patch `vesc_msgs v1.1.0 (/home/andreas/dev_ws/f1tenth_more_r4/install/vesc_msgs/share/vesc_msgs/rust)` was not used in the crate graph
+warning: patch `vision_msgs v4.1.1 (/opt/ros/jazzy/share/vision_msgs/rust)` was not used in the crate graph
+warning: patch `visualization_msgs v5.3.7 (/opt/ros/jazzy/share/visualization_msgs/rust)` was not used in the crate graph
+warning: patch `zed_msgs v5.3.0 (/home/andreas/dev_ws/f1tenth_more_r4/install/zed_msgs/share/zed_msgs/rust)` was not used in the crate graph
+exit 0
+## cargo test
+     Running unittests src/lib.rs (target/debug/deps/f1tenth_costmap_boundary_rs-ffee00404dacf9b6)
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/main.rs (target/debug/deps/costmap_boundary_node-a92833513b6e6cea)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/bin/costmap_boundary_replay.rs (target/debug/deps/costmap_boundary_replay-f4803410d228ca2f)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/f1tenth_hard_stop_rs-8ecb9e813871436b)
+test result: ok. 57 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/main.rs (target/debug/deps/hard_stop_node-fe132eee27a8d2c0)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/bin/hard_stop_replay.rs (target/debug/deps/hard_stop_replay-679c3dd4dd537409)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/test_cases.rs (target/debug/deps/test_cases-5dc8a007364575ab)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running unittests src/lib.rs (target/debug/deps/f1tenth_mpc_core-856a8ab0616fc766)
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/f1tenth_proximity_guard-c99a1ce87b6d6c5e)
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/main.rs (target/debug/deps/proximity_guard_node-73792126a8c50db7)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/bin/proximity_guard_replay.rs (target/debug/deps/proximity_guard_replay-b925876c2b1055f4)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+exit 0

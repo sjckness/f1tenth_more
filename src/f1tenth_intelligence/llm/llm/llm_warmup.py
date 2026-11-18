@@ -10,8 +10,8 @@ booted Thor) and leaves the prompt prefix in the server's slot cache, so the
 operator's first `ros2 run llm llm_planner_node "..."` gets the same ~2 s
 answer as every later one instead of racing LLAMA_TIMEOUT.
 
-The request is the planner's own shape (raw prompt, temperature 0.0, see
-llm_planner_node._completion); only n_predict differs. It never touches the
+The request is the planner's own shape (raw prompt, temperature 0.0,
+cache_prompt, see llm_planner_node._completion); only n_predict differs. It never touches the
 mission services. Exit code 0 when warm, 1 when the server did not get ready
 within --max-wait (the server itself is left alone either way).
 
@@ -56,10 +56,14 @@ def wait_healthy(base_url: str, max_wait_s: float, poll_s: float = 0.5) -> float
 
 def warm_up(base_url: str, system_prompt: str, timeout_s: float) -> dict:
     """One planner-shaped /completion (n_predict 1); returns the server's timings."""
+    # Byte-identical to llm_planner_node._build_prompt(system_prompt, 'vai dritto')
+    # (test_llm_planner_request checks it), so the planner's own warm-up and
+    # its first command find this prefix in the server's single slot (-np 1).
     prompt = system_prompt + f'\ncomando: "{WARMUP_COMMAND}"\nrisposta:'
     t0 = time.monotonic()
     r = requests.post(f'{base_url}/completion',
-                      json={'prompt': prompt, 'n_predict': 1, 'temperature': 0.0},
+                      json={'prompt': prompt, 'n_predict': 1, 'temperature': 0.0,
+                            'cache_prompt': True},
                       timeout=timeout_s)
     r.raise_for_status()
     timings = r.json().get('timings', {}) or {}

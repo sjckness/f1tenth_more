@@ -1,0 +1,47 @@
+{
+ "runs": [
+  {
+   "bag": "/home/andreas/bags/yolo_gpu/corridor10m_20261015T171753",
+   "cycles_mode": "every",
+   "stereo": "rec",
+   "doors": false,
+   "cycles": 2292,
+   "stepped": 2292,
+   "cycles_with_diff": 0,
+   "state_diffs": 0,
+   "message_diffs": 0,
+   "debug_diffs": 0,
+   "max_abs_diff": 0.0,
+   "bit_only_equal": 0,
+   "first_diffs": [],
+   "messages_compared": 14336,
+   "tracks_compared": 11477,
+   "max_tracks": 9,
+   "confirmed_track_steps": 10770,
+   "front_steps": 19,
+   "rect_cycles": 0,
+   "door_cycles": 0,
+   "doors_seen": 0,
+   "roles": {
+    "unknown": 8317,
+    "left": 2656,
+    "right": 327,
+    "front": 177
+   },
+   "tracker_ms": {
+    "py": {
+     "n": 2292,
+     "p50": 9.6431,
+     "p95": 11.7567
+    },
+    "rust": {
+     "n": 2292,
+     "p50": 4.3506,
+     "p95": 5.1528
+    }
+   },
+   "wall_s": 44.8,
+   "identical": true
+  }
+ ]
+}

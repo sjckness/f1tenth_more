@@ -12,11 +12,25 @@
   },
   "requires_confirmation": false,
   "mission": {
-    "mission_id": "llm_7432cac1b4c9",
+    "mission_id": "llm_275650c4eb64",
     "schema_version": "5.0",
     "moves": [
       {
-        "id": "move_0_go_to",
+        "id": "move_0_search",
+        "drive": {
+          "mode": "straight",
+          "speed": 0.5
+        },
+        "stop_condition": {
+          "type": "object_seen",
+          "class": "chair",
+          "min_confidence": 0.5
+        },
+        "timeout_sec": 65,
+        "on_timeout": "abort"
+      },
+      {
+        "id": "move_1_go_to",
         "go_to_object": {
           "target_class": "chair",
           "gap_m": 1.0,

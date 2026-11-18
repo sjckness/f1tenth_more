@@ -1,0 +1,36 @@
+[package]
+name = "f1tenth_proximity_guard"
+version = "0.1.0"
+description = "Front-proximity guard (rclrs): shadow or active e-stop on the safety_stop mux lane"
+edition = "2021"
+license = "Apache-2.0"
+rust-version = "1.85"
+
+[[bin]]
+name = "proximity_guard_node"
+path = "src/main.rs"
+
+# tools/rust_parity/proximity: the same decision on recorded/synthetic cases.
+[[bin]]
+name = "proximity_guard_replay"
+path = "src/bin/proximity_guard_replay.rs"
+
+[dependencies]
+# See ../Cargo.toml for these two pins.
+rclrs = "=0.8.0"
+# Every message type (builtin_interfaces, sensor_msgs, tf2_msgs,
+# ackermann_msgs, diagnostic_msgs), as ros_env::<package>::msg::<Type>.
+ros-env = "=0.3.0"
+# Parity harness case files (JSON lines).
+serde = { version = "1", features = ["derive"] }
+# float_roundtrip: correctly rounded float parsing. The default parser can be
+# 1 ulp off, which the parity harness would read as an extraction difference.
+serde_json = { version = "1", features = ["float_roundtrip"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"

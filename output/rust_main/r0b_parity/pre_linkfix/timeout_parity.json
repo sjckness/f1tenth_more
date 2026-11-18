@@ -1,0 +1,505 @@
+{
+ "recorded_ms": 260.0,
+ "results": [
+  {
+   "pre": "clear",
+   "clock": "running",
+   "gap_ms": 150.0,
+   "rs_car_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "rs_sim_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   }
+  },
+  {
+   "pre": "clear",
+   "clock": "running",
+   "gap_ms": 250.0,
+   "rs_car_stop": {
+    "gap_stops": 1,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 238.8
+   },
+   "rs_sim_stop": {
+    "gap_stops": 1,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 229.8
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   }
+  },
+  {
+   "pre": "clear",
+   "clock": "running",
+   "gap_ms": 500.0,
+   "rs_car_stop": {
+    "gap_stops": 7,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 202.7
+   },
+   "rs_sim_stop": {
+    "gap_stops": 6,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 243.7
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   }
+  },
+  {
+   "pre": "clear",
+   "clock": "running",
+   "gap_ms": 1000.0,
+   "rs_car_stop": {
+    "gap_stops": 16,
+    "after_resume_stops": 1,
+    "first_gap_stop_ms": 225.4
+   },
+   "rs_sim_stop": {
+    "gap_stops": 16,
+    "after_resume_stops": 1,
+    "first_gap_stop_ms": 216.5
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   }
+  },
+  {
+   "pre": "clear",
+   "clock": "running",
+   "gap_ms": 260.0,
+   "rs_car_stop": {
+    "gap_stops": 1,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 247.7
+   },
+   "rs_sim_stop": {
+    "gap_stops": 1,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 238.8
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   }
+  },
+  {
+   "pre": "clear",
+   "clock": "frozen",
+   "gap_ms": 150.0,
+   "rs_car_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "rs_sim_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   }
+  },
+  {
+   "pre": "clear",
+   "clock": "frozen",
+   "gap_ms": 250.0,
+   "rs_car_stop": {
+    "gap_stops": 1,
+    "after_resume_stops": 1,
+    "first_gap_stop_ms": 222.8
+   },
+   "rs_sim_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   }
+  },
+  {
+   "pre": "clear",
+   "clock": "frozen",
+   "gap_ms": 500.0,
+   "rs_car_stop": {
+    "gap_stops": 6,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 250.2
+   },
+   "rs_sim_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   }
+  },
+  {
+   "pre": "clear",
+   "clock": "frozen",
+   "gap_ms": 1000.0,
+   "rs_car_stop": {
+    "gap_stops": 16,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 227.9
+   },
+   "rs_sim_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   }
+  },
+  {
+   "pre": "clear",
+   "clock": "frozen",
+   "gap_ms": 260.0,
+   "rs_car_stop": {
+    "gap_stops": 2,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 203.7
+   },
+   "rs_sim_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   }
+  },
+  {
+   "pre": "trip",
+   "clock": "running",
+   "gap_ms": 150.0,
+   "rs_car_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "rs_sim_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 1,
+    "after_resume_stops": 1,
+    "first_gap_stop_ms": 77.3
+   }
+  },
+  {
+   "pre": "trip",
+   "clock": "running",
+   "gap_ms": 250.0,
+   "rs_car_stop": {
+    "gap_stops": 1,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 247.0
+   },
+   "rs_sim_stop": {
+    "gap_stops": 1,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 238.0
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 2,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 104.8
+   }
+  },
+  {
+   "pre": "trip",
+   "clock": "running",
+   "gap_ms": 500.0,
+   "rs_car_stop": {
+    "gap_stops": 6,
+    "after_resume_stops": 1,
+    "first_gap_stop_ms": 224.3
+   },
+   "rs_sim_stop": {
+    "gap_stops": 6,
+    "after_resume_stops": 1,
+    "first_gap_stop_ms": 215.2
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 5,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 32.0
+   }
+  },
+  {
+   "pre": "trip",
+   "clock": "running",
+   "gap_ms": 1000.0,
+   "rs_car_stop": {
+    "gap_stops": 17,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 201.0
+   },
+   "rs_sim_stop": {
+    "gap_stops": 16,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 241.9
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 10,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 108.7
+   }
+  },
+  {
+   "pre": "trip",
+   "clock": "running",
+   "gap_ms": 260.0,
+   "rs_car_stop": {
+    "gap_stops": 1,
+    "after_resume_stops": 1,
+    "first_gap_stop_ms": 228.2
+   },
+   "rs_sim_stop": {
+    "gap_stops": 2,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 219.3
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 2,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 86.0
+   }
+  },
+  {
+   "pre": "trip",
+   "clock": "frozen",
+   "gap_ms": 150.0,
+   "rs_car_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "rs_sim_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 1,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 102.4
+   }
+  },
+  {
+   "pre": "trip",
+   "clock": "frozen",
+   "gap_ms": 250.0,
+   "rs_car_stop": {
+    "gap_stops": 1,
+    "after_resume_stops": 1,
+    "first_gap_stop_ms": 221.7
+   },
+   "rs_sim_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 3,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 29.4
+   }
+  },
+  {
+   "pre": "trip",
+   "clock": "frozen",
+   "gap_ms": 500.0,
+   "rs_car_stop": {
+    "gap_stops": 6,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 249.1
+   },
+   "rs_sim_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 5,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 56.9
+   }
+  },
+  {
+   "pre": "trip",
+   "clock": "frozen",
+   "gap_ms": 1000.0,
+   "rs_car_stop": {
+    "gap_stops": 16,
+    "after_resume_stops": 1,
+    "first_gap_stop_ms": 225.5
+   },
+   "rs_sim_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 10,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 33.3
+   }
+  },
+  {
+   "pre": "trip",
+   "clock": "frozen",
+   "gap_ms": 260.0,
+   "rs_car_stop": {
+    "gap_stops": 2,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 202.1
+   },
+   "rs_sim_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_event_stop": {
+    "gap_stops": 0,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": null
+   },
+   "py_tick_stop": {
+    "gap_stops": 2,
+    "after_resume_stops": 0,
+    "first_gap_stop_ms": 109.8
+   }
+  }
+ ]
+}

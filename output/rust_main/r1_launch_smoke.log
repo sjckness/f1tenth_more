@@ -1,0 +1,17 @@
+== ros2 launch f1tenth_control mpc_corr.launch.py corridor_impl:=py cpu_affinity:=0-7
+   exit 124
+[taskset-1] [INFO] [1792780010.268030432] [mpc_corr]: CORR/impl | corridor geometry: py (f1tenth_params.corridor_geometry)
+[taskset-1] Traceback (most recent call last):
+== ros2 launch f1tenth_control mpc_corr.launch.py corridor_impl:=rust cpu_affinity:=0-7
+   exit 124
+[taskset-1] [INFO] [1792780022.373379159] [mpc_corr]: CORR/impl | corridor geometry: rust (f1tenth_mpc_core 0.1.0, /home/andreas/dev_ws/f1tenth_more_rust/install/f1tenth_mpc_core/lib/f1tenth_mpc_core/libf1tenth_mpc_core.so, build: cargo profile debug, opt-level 3, debug_assertions on)
+[taskset-1] Traceback (most recent call last):
+== corridor_impl:=rust with the library hidden (F1TENTH_MPC_CORE_LIB=/nonexistent.so)
+   exit 0
+[taskset-1]     raise RuntimeError(
+[taskset-1] RuntimeError: corridor_impl:=rust but the Rust corridor library is not usable: OSError: /nonexistent/libf1tenth_mpc_core.so: cannot open shared object file: No such file or directory. Build it (colcon build --packages-select f1tenth_mpc_core) or run corridor_impl:=py.
+[ERROR] [taskset-1]: process has died [pid 2355172, exit code 1, cmd 'taskset -c 0-7 /home/andreas/dev_ws/f1tenth_more_rust/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr --params-file /tmp/launch_params_77f2k06e --params-file /tmp/launch_params_1ce0ddcs'].
+== corridor_impl:=cpp (refused by the launch choices)
+   exit 1
+[ERROR] [launch.actions.declare_launch_argument]: Argument "corridor_impl" provided value "cpp" is not valid. Valid options are: ['py', 'rust']
+[ERROR] [launch]: Caught exception in launch (see debug for traceback): Argument "corridor_impl" provided value "cpp" is not valid. Valid options are: ['py', 'rust']

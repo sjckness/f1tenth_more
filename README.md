@@ -6,36 +6,41 @@ MPC, a behavior tree that runs JSON missions, layered safety stops, and the
 tools around them (process manager, phone app, Telegram bot, mission logger,
 replay and analysis).
 
-> **This is `main-jazzy`: `main` ported to ROS 2 Jazzy (Ubuntu 24.04), plus the
-> Isaac Sim mode.** It replaces `main` once it has passed on the Thor and in the
-> car's Jazzy container. Until then the car runs Humble (`main`).
+> **This is `main-jazzy-rust`: `main-jazzy` (ROS 2 Jazzy, Ubuntu 24.04) plus
+> Rust ports of the hot paths and the car's Jazzy Docker image.** Every Rust
+> switch defaults to the Python implementation: with no switch set, the stack
+> behaves exactly like `main-jazzy`. The car's image is built from this branch.
 
 ## Branches
 
 | Branch | ROS 2 | What it holds |
 |---|---|---|
 | `main` | Humble, Ubuntu 22.04 | The consolidated stack: `campaign-final` plus the LLM2 parameter node, the YOLO GPU pipeline, the comms link and the fixes made on the car (car-sync). Humble fixes land there. |
-| **`main-jazzy`** (this one) | Jazzy, Ubuntu 24.04 | `main` ported to Jazzy, plus the Isaac Sim mode. |
-| `main-jazzy-rust` | Jazzy, Ubuntu 24.04 | `main-jazzy` plus Rust ports of the hot paths (every switch defaults to Python) and the Docker image for the car. |
+| `main-jazzy` | Jazzy, Ubuntu 24.04 | `main` ported to Jazzy, plus the Isaac Sim mode. It replaces `main` once it has passed on the Thor and in the car's Jazzy container. |
+| **`main-jazzy-rust`** (this one) | Jazzy, Ubuntu 24.04 | `main-jazzy` plus Rust ports of the hot paths (every switch defaults to Python) and the Docker image for the car. |
 | `campaign-final` | Humble | The code the first test campaign ran on. **Frozen**: never commit to it, merge into it or rebase it. |
 
 Each branch contains the one above it: `main` is merged into `main-jazzy`, and
 `main-jazzy` into `main-jazzy-rust`. A Humble fix goes on `main` and is merged
-forward; Jazzy-only work goes here. This branch is never merged into `main`:
-at the cutover it replaces it.
+forward, a Jazzy fix on `main-jazzy`; the Rust ports and the container work go
+here. Merge `main-jazzy` in before building a new car image.
 
 ## Status (2026-10-25)
 
 | Step | State |
 |---|---|
-| Build and tests on linus | Done. Every failing test is in the recorded baseline ([output/jazzy_main/report.md](output/jazzy_main/report.md)). |
-| Isaac Sim end-to-end on one machine | `tools/e2e_test.sh`, passed 9/9 on the port ([output/jazzy_port/report.md](output/jazzy_port/report.md)) |
-| The car's Jazzy container | Image built on the Orin and checked without actuation; built from `main-jazzy-rust` ([report](https://github.com/sjckness/f1tenth_more/blob/main-jazzy-rust/output/orin_container/report.md) on that branch) |
-| Open | The run on the Thor; container parity with sensors; wheels-up and floor tests on the car; the cutover |
+| Rust ports R0-R4, R6 | Done and gated on linus: bit-identical to Python on x86, every test gives the same result with either implementation ([output/rust_main/report.md](output/rust_main/report.md)) |
+| R5, depth ingest | Not finished, parked on branch `r5-depth-ingest-wip` |
+| The car's image | `f1tenth:jazzy-orin-e257b03` built on the Orin; runtime checks pass without actuation ([output/orin_container/report.md](output/orin_container/report.md)) |
+| Rust on aarch64 | Corridor and hard stop bit-exact; MPC and wall tracker within about 1e-6, because numpy's aarch64 kernels differ from x86. Tolerance analysis and bag replays on the Orin are open, so every switch stays `py` on the car |
+| Open | The Thor; container parity with camera and LiDAR; wheels-up and floor tests; the cutover |
+
+The `main-jazzy` side (port, Isaac sim, test baseline) is described in
+[output/jazzy_main/report.md](output/jazzy_main/report.md).
 
 ## What differs from `main`
 
-| Area | `main` (Humble) | `main-jazzy` |
+| Area | `main` (Humble) | `main-jazzy` and this branch |
 |---|---|---|
 | ZED wrapper | humble-v4.2.5 | v5.4.1, topic remaps for v5 |
 | VESC serial library | `transport_drivers` submodule | `serial_driver` from apt |
@@ -43,7 +48,8 @@ at the cutover it replaces it.
 | Simulation | `f1tenth_sim` (Gazebo Fortress), separate bringup | `supervisor_bringup.launch.py sim:=isaac` against Isaac Sim. `f1tenth_sim` has a `COLCON_IGNORE` (Gazebo Harmonic port deferred) |
 | Defaults | — | `detection_3d` and `obstacle_projector` read TF from `/tf_static` only; `swept_clearance` starts only on demand (`enable_swept_clearance: false`) |
 | Static checks | Python 3.10 (the car) | Python 3.12 |
-| Car tooling | — | `f1tenth_ctl` profiles for the container and the Isaac sim; `docker/orin/` for the car's image |
+| Car tooling | — | `f1tenth_ctl` profiles for the container and the Isaac sim; the car's Docker image (see below) |
+| Rust | — | Five Rust packages behind launch switches, all defaulting to Python (this branch only) |
 
 ## The car and the machines
 
@@ -122,6 +128,16 @@ publishes on the highest-priority mux lane.
 | `f1tenth_telegram` | Telegram control panel. Runs on linus and reaches the car only over ssh and `f1tenth_ctl`. |
 | `f1tenth_comms` | Car-to-base link monitor (heartbeat, hotspot reconnect) and Wi-Fi coverage maps. Off by default (`enable_comms`). |
 
+**Rust ports** (`src/rust`, build type `ament_cargo`; see [Rust ports](#rust-ports))
+
+| Package | What it does | Switch |
+|---|---|---|
+| `f1tenth_mpc_core` | `mpc_corr`'s corridor geometry and RTI solver core (OSQP C 1.0 linked in). A ROS-free C-ABI library that `mpc_controller` loads with ctypes | `corridor_impl`, `mpc_solver_impl` |
+| `f1tenth_wall_tracker_core` | The multi-wall tracker and per-cycle wall fusion of `lidar_front_wall_node`, a ROS-free C-ABI library | `wall_tracker_impl` |
+| `f1tenth_hard_stop_rs` | `hard_stop_node` in Rust (rclrs): same topics, parameters and decisions | `hard_stop_impl` |
+| `f1tenth_costmap_boundary_rs` | `costmap_boundary_node` in Rust (rclrs) | `costmap_boundary_impl` |
+| `f1tenth_proximity_guard` | The front check of `IsProximityTooClose` as its own node (rclrs) | `proximity_guard` |
+
 **Submodules** (not first-party): `vesc` (fork, branch `jazzy`), `ackermann_mux`
 (fork), `teleop_tools`, `zed_ros2_wrapper` (v5.4.1), `zed-ros2-interfaces`.
 
@@ -130,29 +146,46 @@ publishes on the highest-priority mux lane.
 ```
 src/                  ROS 2 packages; submodules in src/f1tenth_external/ and src/f1tenth_hardware/vesc
 apps/pwa/             the phone app
-docker/orin/          the car's Jazzy image (built from main-jazzy-rust)
+src/rust/             the Rust ports: Cargo workspace, build_env.sh, third_party/ (QDLDL, for an offline OSQP build)
+docker/orin/          the car's Jazzy image: Dockerfile, build.sh, compose, host/ (units, stack_mode), checks/
 docker/, .devcontainer/  the older Humble dev images: cpu and gpu (x86_64), jetson-thor (arm64)
 scripts/              operational scripts: env/jazzy.sh, sim/ (Isaac), jazzy_parity/ (Humble vs Jazzy
                       parity harness), stackctl.py, kill_ros2.py, YOLO engine export, base/, orin/
+scripts/docker_orin.sh, scripts/orin_stack_guard.sh   run the car's container; keep one stack at a time
 tools/                offline replay and analysis, tools/sim/ (e2e checks), tools/e2e_test.sh,
-                      tools/car_sync/ (capture what the car runs)
+                      tools/car_sync/ (capture what the car runs), tools/rust_parity/ (Python vs Rust)
 docs/                 setup, procedures, analyses, the project log (docs/history/LOG.md), the PWA spec
 first_test_campaign/  missions M01-M05 and the results of the first test campaign
-output/               reports and evidence from work sessions: jazzy_port/, jazzy_main/, consolidation/, ...
+output/               reports and evidence from work sessions: rust_main/, rust/, orin_container/, jazzy_main/, ...
 CLAUDE.md             build, test, DDS and Docker gotchas that have already cost debugging time
 ```
 
 ## Build
 
 ```bash
-git clone --recurse-submodules -b main-jazzy git@github.com:sjckness/f1tenth_more.git
+git clone --recurse-submodules -b main-jazzy-rust git@github.com:sjckness/f1tenth_more.git
 cd f1tenth_more            # in an existing clone: git submodule update --init --recursive
 
 source /opt/ros/jazzy/setup.bash
+source src/rust/build_env.sh          # the Rust packages: OSQP's QDLDL from third_party, no network
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install
 source install/setup.bash
 ```
+
+The Rust packages need a toolchain and the colcon cargo plugins (user space,
+no sudo; versions and the reasons in [output/rust/setup.md](output/rust/setup.md)):
+
+```bash
+curl https://sh.rustup.rs -sSf | sh -s -- -y
+pip install --user --break-system-packages colcon-cargo colcon-ros-cargo
+cargo install --locked cargo-ament-build --version 0.1.11
+dpkg -l ros-jazzy-rosidl-generator-rs      # must be 0.5.0 (ROS snapshot 2026-09-11)
+```
+
+The rclrs nodes pin `rclrs =0.8.0`, which needs exactly that generator. Never
+run two colcon builds of the Rust packages at once: both rewrite
+`.cargo/config.toml`.
 
 - rosdep does not cover every Python dependency: `osqp` (the MPC), `ultralytics`
   and `torch` (YOLO), `pyarrow`. Install them with pip (a venv on `PYTHONPATH`
@@ -185,7 +218,16 @@ python3 tools/r3_failing_ids.py build output/jazzy_main/test_failing_ids.txt
 
 # Static checks, no build needed (Python 3.12 syntax, launch, YAML/JSON/XML, stack_params keys, ...)
 python3 -I output/consolidation/static_checks.py
+
+# Rust gates, from src/rust, after a colcon build
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
 ```
+
+`tools/rust_parity/<component>/` replays recorded inputs through both
+implementations and compares every output; run it again on a new machine or
+architecture before trusting a switch there.
 
 The baseline (`output/jazzy_main/test_failing_ids.txt`) holds the failures that
 predate the port: ament lint in a few packages, the LLM planner stub tests, MPC
@@ -298,6 +340,127 @@ tools/e2e_test.sh
 `sim_isaac.sh` refuses to start Isaac with less than 25 GB free on `/`. Scenes
 and layouts: `sim_isaac.sh --help`.
 
+## Rust ports
+
+Each port replaces one hot path and is selected per launch. A switch whose
+library or binary is missing refuses to start; it never falls back to Python
+silently.
+
+```bash
+ros2 launch f1tenth_bringup supervisor_bringup.launch.py \
+    corridor_impl:=rust mpc_solver_impl:=rust wall_tracker_impl:=rust \
+    hard_stop_impl:=rust costmap_boundary_impl:=rust proximity_guard:=shadow
+```
+
+| Switch | Values | Measured (Python -> Rust) |
+|---|---|---|
+| `mpc_solver_impl` | `py`, `rust` | MPC solve p95 10.4 -> 2.0 ms on linus, 24.4 -> 4.2 ms on the Orin |
+| `corridor_impl` | `py`, `rust` | Bit-identical for every finite input |
+| `wall_tracker_impl` | `py`, `rust` | Tracker p95 12.8 -> 4.5 ms on the worst bag |
+| `costmap_boundary_impl` | `py`, `rust` | Tick p50 4.95 ms -> 92 µs |
+| `hard_stop_impl` | `py`, `rust` | 1.13 M replayed operations, 0 differences; same trigger and release live |
+| `proximity_guard` | `off`, `shadow`, `active` | 0.61 -> 0.25 ms CPU per scan |
+
+Defaults flip to `rust` only in separate commits, after evidence from the car.
+The rclrs nodes end on SIGINT with exit -2, which launch logs as "process has
+died": harmless.
+
+## The car's Jazzy container
+
+The car keeps its native Humble stack and gains a Jazzy container beside it;
+exactly one of the two runs at a time.
+
+**Image.** Built on the Orin itself (JetPack 6, L4T r36.5: the build links the
+host's L4T libraries) from one commit, tagged `f1tenth:jazzy-orin-<sha>`.
+Uncommitted edits never reach the image. Inside: Ubuntu 24.04 and Jazzy from
+the 2026-09-11 snapshot, ZED SDK 5.4, CUDA 12.9, TensorRT 10.3, torch 2.8, the
+stack, the Discovery Server, `f1tenth_ctl`, the gateway, llama.cpp and the Rust
+packages.
+
+```bash
+docker/orin/build.sh [commit]       # on the Orin; ~50-70 min cold, ~10 min when only sources changed
+                                    # refuses while any stack runs; ORIN_RUST=skip builds without Rust
+```
+
+**Host side**, once: `docker/orin/host/install.sh` (no sudo) creates the state
+directories and links `stack_mode`, `docker_orin` and the user units.
+
+```bash
+docker_orin pin f1tenth:jazzy-orin-<sha>   # the image `up` runs
+stack_mode container                       # stop the native stack, start the container
+stack_mode native                          # back to native Humble
+stack_mode status
+docker_orin status | shell | logs -f | engine | report
+```
+
+- **Host networking only**, for every `docker build` and `docker run`: the
+  Orin's kernel has no bridge network (CLAUDE.md, "Orin Docker").
+- `docker_orin exec` keeps stdin open: inside a script, give every call
+  `</dev/null`, or it swallows the rest of the script.
+- Base load on the Orin, same conditions: 24.8 % total CPU native Humble, 17.5 %
+  in the container, mostly because Humble's Discovery Server burns 72 % of a core.
+
+**A live run with Foxglove**, `scripts/orin/` (each wraps the tools above --
+`stack_mode.sh` / `docker_orin.sh` -- and runs preflight.sh first: ZED on
+USB3, the lidar's Ethernet link, the VESC enumerated over USB):
+
+```bash
+scripts/orin/container_up.sh      # native -> container, autostart=none
+scripts/orin/stack_live.sh        # the full stack, live ZED+lidar+VESC, foxglove_bridge:8765
+#   --trt              yolo_backend:=engine instead of the default .pt
+#   --rust <list|all>  corridor,hard_stop,mpc_solver,wall_tracker -> that *_impl switch to 'rust'
+scripts/orin/stack_stop.sh        # f1tenth_ctl stop stack; container stays up
+scripts/orin/container_down.sh    # container -> native, verified
+scripts/orin/container_shell.sh   # a shell in the running container, ROS sourced
+scripts/orin/container_shell.sh llm "vai dritto 2m"   # one-shot: ros2 run llm llm_planner_node "..."
+```
+
+`container_shell.sh`'s `llm` shortcut exists because running it by hand
+from a bare host shell (`ros2 run llm llm_planner_node "..."`) uses
+whatever workspace happens to be on that shell's `PATH`/`AMENT_PREFIX_PATH`
+-- not the container's -- so the message definitions can disagree with the
+running stack ("sequence size exceeds remaining buffer"), and
+`load_mission`/`start_mission` hand off through a file
+(`install/share/.../missions/llm_generated/<id>.json`) whose only
+bind-mounted copy is the container's (`compose.yaml`); a native
+`llm_planner_node` writes its own install's copy, which `mission_manager`
+inside the container never sees (ENOENT). The shortcut runs through the
+same `docker exec` path every other `container_shell.sh` command takes, so
+it shares the live stack's install and `ROS_DISCOVERY_SERVER`/
+`ROS_DOMAIN_ID` by construction.
+
+For `test_campaign_logger` (an LLM-driven test campaign's recorder,
+`src/f1tenth_logger/TEST_CAMPAIGN.md`), run it natively instead -- its
+output, `<f1tenth_more checkout>/first_test_campaign`, is git-tracked and
+has no bind mount into this container, so a `docker exec` run would write
+into the container's ephemeral layer and lose the campaign on the next
+`down`:
+
+```bash
+source scripts/env/jazzy.sh && ros2 launch f1tenth_logger test_campaign_logger.launch.py
+```
+
+It reaches the same live stack either way (same `ROS_DISCOVERY_SERVER`/
+`ROS_DOMAIN_ID`, host networking).
+
+No script sends a motion command: `stack_live.sh` only starts the stack
+idle (perception, control, the BT) and prints the Foxglove WebSocket URL(s)
+(LAN and Tailscale) to open from a laptop; driving needs a joystick or a
+mission, same as native. `stack_live.sh` also samples
+`/diagnostics/battery_status` once the stack is ready and flags a reading
+under `min_battery_voltage` -- advisory, the same node that backs the BT's
+own runtime cutout (`f1tenth_diagnostics/battery_voltage_check_node.py`).
+
+Tested live on the Orin, 2026-10-26, Python/.pt defaults: ready in ~15 s;
+`/scan` ~16 Hz, `/camera/image_raw` ~11 Hz, `/camera/detections` ~5 Hz all
+publishing; `foxglove_bridge` listening on `0.0.0.0:8765`; battery
+11.77-11.78 V (min 10.80 V). Two things the scripts work around: `f1tenth_ctl`
+has no console-script on the container's PATH (only `ros2 run` indexes
+`install/lib/f1tenth_ctl/f1tenth_ctl`, so the scripts call that path
+directly), and plain `ros2 topic echo` / `hz` do not see this Fast DDS
+Discovery Server's publishers (CLAUDE.md) -- the battery and topic-rate
+checks go through `rclpy` directly instead.
+
 ## Configuration
 
 `src/f1tenth_params/config/stack_params.yaml` holds the default and the
@@ -324,6 +487,7 @@ silently ignored; edit the file.
 | `enable_comms` | `false` | Car-to-base link monitor |
 | `enable_swept_clearance` | `false` | Start `swept_clearance` with the stack instead of on demand |
 | `lidar_front_wall_door_detection_enabled` | `false` | Door detection in the LiDAR wall tracker |
+| `*_impl`, `proximity_guard` | `py`, `off` | The Rust switches (see above) |
 | `enable_foxglove` | `true` | `foxglove_bridge` on port 8765 |
 
 A test that asserts a default is coupled to this file: change both in the same
@@ -359,6 +523,10 @@ unchanged, so a bag shows which layer stopped the car.
 
 | Topic | Where |
 |---|---|
+| Rust ports: phases, gates, measurements | [output/rust_main/report.md](output/rust_main/report.md) |
+| Rust toolchain, versions, build details | [output/rust/setup.md](output/rust/setup.md) |
+| The car's container: status, design, decisions | [output/orin_container/report.md](output/orin_container/report.md), [design.md](output/orin_container/design.md) |
+| Container checks | [docker/orin/checks/README.md](docker/orin/checks/README.md) |
 | The Jazzy port: decisions, per-package results, Isaac sim mode | [output/jazzy_port/report.md](output/jazzy_port/report.md) |
 | `main-jazzy` build and test results | [output/jazzy_main/report.md](output/jazzy_main/report.md) |
 | Package by package (nodes, topics, parameters) | [src/f1tenth_more/README.md](src/f1tenth_more/README.md) |

@@ -348,9 +348,13 @@ These are the steps that worked on 2026-10-20. linus runs zsh.
    - After a `git pull`, run `systemctl --user restart f1tenth-telegram`. If
      the unit file changed, copy it again and `daemon-reload` first.
 7. **ssh to the car**, for the panel to show 🟢:
-   `ssh -o BatchMode=yes jetson-orin true` must work. f1tenth_ctl must exist
-   at `target.ctl_command` on the car (`src/f1tenth_ctl/README.md`, "On the
-   Orin").
+   `ssh -o BatchMode=yes jetson-orin true` must work. The car config's
+   `target.ctl_command` is `~/.local/bin/f1tenth_ctl_car`, the wrapper
+   `docker/orin/host/install.sh` installs on the Orin: it runs the Jazzy
+   container's f1tenth_ctl while the container `f1tenth_car` runs, and the
+   native checkout's otherwise (`src/f1tenth_ctl/README.md`, "On the Orin").
+   Until the wrapper is installed there, point `ctl_command` back at
+   `~/dev_ws/f1tenth_more/src/f1tenth_ctl/bin/f1tenth_ctl`.
 
 **Networking** (`telegram:` in `config/telegram.yaml`):
 

@@ -202,14 +202,17 @@ _FOUR = ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS',
 class TestThreadEnv:
     """R3 (2026-10-23): front_clearance_cpu_threads, the yolo_cpu_threads pattern.
 
-    The default env of every node is the one it had before: yolo's four
-    variables at yolo_cpu_threads (2), front_clearance's single
-    OPENBLAS_NUM_THREADS=1 (2026-10-13), nothing for the rest.
+    yolo_cpu_threads default was 2 (its two taskset cores) from 2026-10-22 to
+    2026-10-26, then aligned to the car's own behaviour -- one thread per
+    core, library defaults, the same as before 2026-10-22 -- for the on-car
+    validation pass (params_delta.md): 0 (unset) since. front_clearance's
+    single OPENBLAS_NUM_THREADS=1 (2026-10-13) and nothing for the rest are
+    unaffected.
     """
 
     def test_the_default_envs_are_unchanged(self):
         spawned = _spawned({})
-        assert spawned['yolo_detector_node'][1] == {var: '2' for var in _FOUR}
+        assert spawned['yolo_detector_node'][1] == {}
         assert spawned['front_clearance_node'][1] == {'OPENBLAS_NUM_THREADS': '1'}
         assert spawned['detection_3d_node'][1] == {}
         assert spawned['obstacle_projector_node'][1] == {}
@@ -220,8 +223,8 @@ class TestThreadEnv:
     def test_front_clearance_cpu_threads_sets_all_four(self):
         spawned = _spawned({'front_clearance_cpu_threads': '3'})
         assert spawned['front_clearance_node'][1] == {var: '3' for var in _FOUR}
-        # Only that node's env moves.
-        assert spawned['yolo_detector_node'][1] == {var: '2' for var in _FOUR}
+        # Only that node's env moves; yolo_detector_node's default (unset) is untouched.
+        assert spawned['yolo_detector_node'][1] == {}
 
     def test_yolo_cpu_threads_zero_is_still_unset(self):
         spawned = _spawned({'yolo_cpu_threads': '0'})

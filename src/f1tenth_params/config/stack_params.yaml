@@ -111,7 +111,15 @@ use_behavior_tree:
 # unconditionally now, since navigation.launch.py itself branches on this value).
 enable_nav2:
   default: false
-  description: "true: bring up the Nav2 stack (idles with no active goal, puts nothing on the mux by itself). false: navigation.launch.py brings up mpc_corr instead, which does drive the mux. Independent of use_behavior_tree."
+  description: "true: bring up the Nav2 stack (idles with no active goal, puts nothing on the mux by itself). false: navigation.launch.py brings up the planner-controller picked by planner_controller_mode (mpc_corr by default), which does drive the mux. Independent of use_behavior_tree."
+# Consumed by: f1tenth_navigation/navigation.launch.py (which node it starts when
+# enable_nav2 is false), f1tenth_behavior's mission preflight (which node must be
+# up), component_supervisor_node.py and stack_bringup.launch.py (the launch
+# argument planner_controller_mode:=... forwarded to 'navigation' and 'behavior').
+# Values and node names: f1tenth_params/planner_modes.py.
+planner_controller_mode:
+  default: corridor_mpc
+  description: "Which planner + controller turns mission moves into /drive (enable_nav2 false). 'corridor_mpc': mpc_corr, the corridor as the MPC's reference (default, every campaign so far). 'corridor_rrt': the same corridor geometry, RRT* inside it around obstacles and wall tracks, pure pursuit on the path (node corridor_rrt). 'p2p_geometric': no corridor, a Dubins / turn-then-straight path from the car to the target tracked by pure pursuit; obstacles slow and stop the car instead of being planned around (node p2p_geometric). All three take the same goal topics and publish the same feedback, so missions run unchanged. Per run without editing this file: supervisor_bringup.launch.py (or stack_bringup.launch.py) planner_controller_mode:=corridor_rrt."
 
 # ============================================================
 # Hardware
@@ -374,8 +382,8 @@ perception_stage_timing:
 # ~87 % of a core. yolo_cpu_threads also sets OMP/MKL/OPENBLAS/OPENCV thread env
 # for the node's process (not set when 0).
 yolo_cpu_threads:
-  default: 2
-  description: "yolo_detector_node: torch intra/inter-op and cv2 thread pool size, plus OMP_NUM_THREADS/MKL_NUM_THREADS/OPENBLAS_NUM_THREADS/OPENCV_FOR_THREADS_NUM of its process. 2 = its two taskset cores. 0 = library defaults (one thread per core, the behaviour before 2026-10-22)."
+  default: 0
+  description: "yolo_detector_node: torch intra/inter-op and cv2 thread pool size, plus OMP_NUM_THREADS/MKL_NUM_THREADS/OPENBLAS_NUM_THREADS/OPENCV_FOR_THREADS_NUM of its process. 0 = library defaults (one thread per core), the car's behaviour before 2026-10-22 and today. 2 (its two taskset cores) was this default's value from 2026-10-22 to 2026-10-26, flipped to match the car for the on-car validation pass (params_delta.md); the image's CPU-budget case for 2 still applies and may need its own launch argument."
 # Consumed by: f1tenth_perception/detection.launch.py (front_clearance_node's
 # process env) and f1tenth_costmap/costmap.launch.py (semantic_layer_node's).
 # The same thread env as yolo_cpu_threads, set by launch (an OpaqueFunction):
@@ -390,11 +398,11 @@ semantic_layer_cpu_threads:
   default: 0
   description: "semantic_layer_node: N > 0 sets OMP_NUM_THREADS/MKL_NUM_THREADS/OPENBLAS_NUM_THREADS/OPENCV_FOR_THREADS_NUM of its process to N. 0 = none of them set (library defaults, one thread per core), as before 2026-10-23."
 yolo_cuda_blocking_sync:
-  default: true
-  description: "yolo_detector_node: CU_CTX_SCHED_BLOCKING_SYNC on the CUDA primary context, so a thread waiting for the GPU sleeps instead of spinning a core. false = CUDA's default (spin with one context)."
+  default: false
+  description: "yolo_detector_node: CU_CTX_SCHED_BLOCKING_SYNC on the CUDA primary context, so a thread waiting for the GPU sleeps instead of spinning a core. false = CUDA's default (spin with one context), the car's behaviour. true was this default's value from 2026-10-22 to 2026-10-26, flipped to match the car for the on-car validation pass (params_delta.md)."
 yolo_max_rate_hz:
-  default: 15.0
-  description: "yolo_detector_node: process at most this many frames per second (stamp-driven drop before any conversion; the 30 Hz ZED stream becomes 15 Hz). 0.0 = every frame the latest-frame QoS delivers."
+  default: 0.0
+  description: "yolo_detector_node: process at most this many frames per second (stamp-driven drop before any conversion; the 30 Hz ZED stream becomes 15 Hz at 15.0). 0.0 = every frame the latest-frame QoS delivers, the car's behaviour. 15.0 was this default's value from 2026-10-22 to 2026-10-26, flipped to match the car for the on-car validation pass (params_delta.md)."
 yolo_backend:
   default: pt
   description: "yolo_detector_node inference backend for a *.pt yolo_model: 'pt' (PyTorch on yolo_device) or 'engine' (the FP16 TensorRT engine exported from it by scripts/export_yolo_engine.sh on the Orin). A missing or failing engine logs a WARN and runs the *.pt on CUDA. Ignored when yolo_model itself is a *.engine."
@@ -402,8 +410,8 @@ yolo_engine_path:
   default: ''
   description: "TensorRT engine for yolo_backend 'engine'. Empty = next to the model: <models>/<yolo_model stem>.trt<TensorRT version>.fp16.engine (the name export_yolo_engine.sh writes)."
 yolo_gpu_pipeline:
-  default: true
-  description: "yolo_detector_node: letterbox, postprocessing, LiDAR-exclusion mask stats and the label image on the GPU (one upload, one small download + the mono8 mask per frame) instead of the Ultralytics call and numpy mask loops. Same outputs (smoke test 2026-10-22: identical detections and masks on 48 frames). false = the classic path, also the per-frame fallback on an error."
+  default: false
+  description: "yolo_detector_node: letterbox, postprocessing, LiDAR-exclusion mask stats and the label image on the GPU (one upload, one small download + the mono8 mask per frame) instead of the Ultralytics call and numpy mask loops. Same outputs (smoke test 2026-10-22: identical detections and masks on 48 frames). false = the classic path, also the per-frame fallback on an error, and the car's behaviour. true was this default's value from 2026-10-22 to 2026-10-26, flipped to match the car for the on-car validation pass (params_delta.md)."
 # Consumed by: f1tenth_perception (lidar.launch.py, perception.launch.py's standalone
 # duplicate). NOT read by f1tenth_navigation/nav2.launch.py -- it includes
 # lidar.launch.py with no override, so this default is what actually reaches Nav2's
@@ -450,7 +458,7 @@ max_obstacle_radius:
 # its default_depth_extent placeholder, not a measurement. The projector used
 # max(size.x, size.y) / 2, so any object taller than wide got a ground disk of
 # half its HEIGHT: a 1.75 m x 0.5 m person became r = 0.875 m instead of 0.25 m.
-# That radius feeds MPC_corr's obstacle cost and compute_local_target's R_safe
+# That radius feeds MPC_corr's obstacle cost, whose disc is R_safe
 # (r + car_radius + avoidance_margin), and front_clearance_node's corridor test
 # (|y| - r) and near-face distance (x - r). Every value tuned on a run before
 # 2026-09-16 saw the inflated disks; see the go-to-object Phase 1.5 inventory
@@ -820,6 +828,17 @@ enable_scene_labels:
 use_wall_tracker:
   default: true
   description: "Multi-wall tracker (multi_wall_tracker.py) in lidar_front_wall_node: up to 4 wall tracks in odom on /perception/walls; the front track (matched on this scan, or coasting for at most lidar_front_wall_wall_tracker_front_max_coast_sec) becomes the heading wall of the virtual wall, falling back to sequential_lines when there is none; no front track is CLEAR (since 2026-10-16, block 3: the old -1 latch after a coasted-out front track held the car indefinitely in an open hall), NO_DATA (-1) only without a pose or a laser transform. REQUIRES enable_scene_labels: without it the node logs an ERROR and the tracker stays off. TRUE since 2026-10-14, with enable_scene_labels: the calib clips of 2026-10-14 (static, square to a flat wall, bumper at 1.00 / 2.00 m) gave stereo 1.010 / 1.999 m and /perception/virtual_wall 0.996 / 1.990 m, the latter with the tracker on."
+# Consumed by: f1tenth_perception/lidar_front_wall.launch.py (launch arg ->
+# lidar_front_wall_node's wall_tracker_impl parameter, whose own default is this
+# key through f1tenth_perception/wall_tracker_backend.py) and f1tenth_bringup's
+# supervisor_bringup.launch.py (wall_tracker_impl:=, through the supervisor's
+# wall_tracker_impl parameter to the `lidar_front_wall` component). Rust port
+# main-jazzy-rust R6: output/rust/parity_wall_tracker.md. Default py; a flip to
+# rust is its own commit after evidence. (The env var F1TENTH_WALL_TRACKER_IMPL
+# overrides this default for tests only; see wall_tracker_backend.py.)
+wall_tracker_impl:
+  default: py
+  description: "Which implementation runs lidar_front_wall_node's multi-wall tracker (multi_wall_tracker.MultiWallTracker: association, extent, confirmation, roles, FRONT) and its per-cycle wall fusion (wall_fusion). 'py' (default): the Python in f1tenth_perception. 'rust': the f1tenth_wall_tracker_core library (src/rust/f1tenth_wall_tracker_core) through ctypes, the same tracker ported operation for operation, bit-identical on linus (output/rust/parity_wall_tracker.md); every reader still gets multi_wall_tracker.Track objects. With 'rust', lidar_front_wall_node refuses to start if the library does not load; it never falls back to the Python silently."
 # Consumed by: f1tenth_behavior/behavior_executor_node.py (CheckStopCondition).
 wall_distance_max_age_s:
   default: 0.5
@@ -1106,8 +1125,8 @@ enable_wall_distance:
 # registered and restartable by name; the swept_clearance_* keys below stay
 # (swept_clearance_body_half_width_m is read by six other modules).
 enable_swept_clearance:
-  default: false
-  description: "Start swept_clearance_node (/perception/swept_clearance, the steering-arc travel before body contact) with the stack. Off by default since 2026-10-23: nothing consumes it. `scripts/stackctl.py start swept_clearance` starts it on demand; true here starts it at boot as before."
+  default: true
+  description: "Start swept_clearance_node (/perception/swept_clearance, the steering-arc travel before body contact) with the stack. true starts it at boot, the car's behaviour today: it predates this switch and has no such flag. false was this default's value from 2026-10-23 to 2026-10-26 (nothing consumes the topic; `scripts/stackctl.py start swept_clearance` starts it on demand), flipped to match the car for the on-car validation pass (params_delta.md)."
 # All of the following are consumed by:
 # f1tenth_perception/launch/wall_distance.launch.py, forwarded to
 # wall_distance_node under their names without the wall_distance_ prefix.
@@ -1257,6 +1276,30 @@ odom_stale_timeout_sec:
 use_rti_solver:
   default: true
   description: "true (default): mpc_corr.py uses the OSQP real-time-iteration solver. false: fall back to the original SLSQP solve (kept for rollback/comparison)."
+# Consumed by: f1tenth_control/mpc_corr.launch.py (launch arg -> MPC_corr.py's
+# corridor_impl parameter, whose own default is this key through
+# mpc_controller/corridor_backend.py), f1tenth_navigation/navigation.launch.py
+# (forwarded), and f1tenth_bringup's supervisor_bringup.launch.py /
+# stack_bringup.launch.py (corridor_impl:=, through the supervisor's
+# corridor_impl parameter to the `navigation` component). Rust port
+# main-jazzy-rust R1: output/rust/parity_corridor.md. Default py; a flip to rust
+# is its own commit after evidence. (The env var F1TENTH_CORRIDOR_IMPL overrides
+# this default for tests only; see corridor_backend.py.)
+corridor_impl:
+  default: py
+  description: "Which implementation builds mpc_corr's corridor geometry (corridor_curves / corridor_curves_to_pose). 'py' (default): f1tenth_params.corridor_geometry. 'rust': the f1tenth_mpc_core library (src/rust/f1tenth_mpc_core) through ctypes, bit-identical on linus (output/rust/parity_corridor.md). With 'rust', mpc_corr refuses to start if the library does not load; it never falls back to the Python silently."
+# Consumed by: f1tenth_control/mpc_corr.launch.py (launch arg -> MPC_corr.py's
+# mpc_solver_impl parameter, whose own default is this key through
+# mpc_controller/solver_backend.py), f1tenth_navigation/navigation.launch.py
+# (forwarded), and f1tenth_bringup's supervisor_bringup.launch.py /
+# stack_bringup.launch.py (mpc_solver_impl:=, through the supervisor's
+# mpc_solver_impl parameter to the `navigation` component). Rust port
+# main-jazzy-rust R2: output/rust/parity_mpc_solver.md. Default py; a flip to
+# rust is its own commit after evidence. (The env var F1TENTH_MPC_SOLVER_IMPL
+# overrides this default for tests only; see solver_backend.py.)
+mpc_solver_impl:
+  default: py
+  description: "Which implementation solves mpc_corr's RTI tick (mpc_solver.solve_mpc_step with solver rti and no stage_spec, both speed models). 'py' (default): mpc_solver._solve_rti. 'rust': the f1tenth_mpc_core solver core (src/rust/f1tenth_mpc_core, OSQP C 1.0.0 linked in) through ctypes, bit-identical on linus (output/rust/parity_mpc_solver.md). SLSQP and the reverse candidates (stage_spec) always run the Python. With 'rust', mpc_corr refuses to start if the library does not load; it never falls back to the Python silently."
 # Consumed by: f1tenth_control/mpc_corr.launch.py AND, since the single-
 # sourcing pass, by MPC_corr.py itself -- its declare_parameter() default is
 # now get_value('corridor_update_period') rather than a hand-mirrored literal.
@@ -1506,6 +1549,12 @@ mpc_arc_corr_sigma_m:
 mpc_arc_line_sigma_m:
   default: 0.35
   description: "Tolerance [m] on distance to the TARGET LINE while flying an arc corridor. Effective weight rho/(20 sigma^2) = 0.408. LOOSER than the corridor tolerance on purpose: this is a SLOW HOMING term, not path-following. The arc is re-anchored on the car every rebuild and so has no memory of accumulated lateral offset, which is the lateral homing the corridor has never had by design; this term supplies it. 0.35 m sits ABOVE the arc's own mean departure from the line (0.194 m) so it does not fight the corridor's designed shape, and BELOW the maximum (0.466 m) so it still acts on a real excursion. Total lateral stiffness 0.800 + 0.408 = 1.208, against the 1.25 the car is tuned at, with the untested term the weaker of the two on the first runs. PROVISIONAL."
+# ------------------------------------------------------------------
+# mpc_goal_pose_use_yaw -- mpc_corr (MPC_corr.py goal_pose_use_yaw)
+# ------------------------------------------------------------------
+mpc_goal_pose_use_yaw:
+  default: true
+  description: "TRUE SINCE 2026-11-05. A /mpc/goal_pose goal (EnterDoor, a mission goal_pose move) is approached along a corridor that ENDS ON THE POSE: the cubic Bezier tangent to the live yaw at the car and to the goal's yaw at the goal (corridor_curves_to_pose, the object branch's pose_arc), with the terminal yaw cost's reference the goal's yaw. Used on every rebuild where that curve fits the car's R_min and is no longer than corr_L_base (3.0 m); otherwise that rebuild is the bearing corridor this mode always had (logged as CORR/goal_pose). Arrival stays position-only (pose_goal_tolerance). goal_turn is not affected. WHY: until now the yaw was dropped, so a doorway goal was a point the car reached side-on -- 72 deg off the door axis in 2026-11-05T14-35-46 straight_2m_then_left_door, after which 0.9 m was not enough to turn into the door. false: the position-only corridors, byte-identical to before."
 object_c_safety:
   default: 1.5
   description: "Margin on the per-rebuild distance cap: rotating the corridor by dpsi is given c_safety * R_min * dpsi metres of remaining range. FLOOR IS 1.0, not the 1.5 wall_turn enforces -- wall_turn needs 1.5 because its corridor bends along a smoothstep whose peak slope is 1.5, while this corridor is straight and the car flies a plain arc onto it, where the honest factor is 1.0. Shipped at 1.5 as margin; a value in [1.0, 1.5) is a tuning choice and is accepted."
@@ -2226,6 +2275,40 @@ mpc_prediction_dt_s:
 #                                 fight holding a line.
 #   w_u_a, w_du_a 0.0  -> 0.0     unchanged, still off
 #
+# mpc-centerline-target (2026-11-17): w_obs 2.8 -> 70.0 effective (literal
+# 8.0 -> 200.0); w_term and w_corr unchanged. compute_local_target no longer
+# moves the target off an obstacle, so a centreline obstacle now sets the
+# stage w_obs cost directly against the terminal w_term pull in one QP, and
+# the obstacle has to win. Closed loop, nominal plant (real corridor, target
+# and RTI solve around the vehicle model; mpc_controller
+# test/test_centerline_target_closed_loop.py), 10 s at 0.5 m/s: worst
+# car-centre clearance minus R_safe (r + car_radius +
+# obstacle_safety_margin_m) and the most steering sign changes, over
+#   r0.5:  r 0.5 at 1.5 m, offset 5 mm / -2 cm / 10 cm
+#   r0.25: r 0.25 at 1.5 m, offset 1 cm / +-15 cm / 30 cm
+#   1.0m:  r 0.25 at 1.0 m (late), offset 1 cm
+#   w_obs  w_term  w_corr      r0.5            r0.25           1.0m
+#     8.0     9.0  3.5714   -0.241 m 3 sc   -0.194 m 1 sc   -0.289 m 1 sc
+#    80.0     9.0  1.0      -0.020 m 3 sc   +0.048 m 3 sc   -0.152 m 4 sc
+#   120.0     9.0  1.0      -0.003 m 3 sc   +0.072 m 3 sc   -0.145 m 2 sc
+#   200.0     9.0  1.0      +0.005 m 1 sc   +0.100 m 3 sc   -0.126 m 2 sc
+#   200.0     9.0  3.5714   +0.006 m 1 sc   +0.094 m 3 sc   -0.127 m 2 sc  <- shipped
+#   200.0    15.0  1.0      +0.006 m 3 sc   +0.095 m 3 sc   -0.137 m 2 sc
+# w_corr does not hinder the swerve at this w_obs (rows 4 and 5), so it stays
+# on its derivation; a higher w_term buys nothing and adds sign changes. Gains
+# flatten above ~200: the obstacle cost probes only points AHEAD of the nose
+# (SOLVER_FRONT_POINT_OFFSETS_M), so while the car swerves its centre trails
+# close to the R_safe circle whatever w_obs is. A continuous attenuation of
+# w_term by the target's penetration of the nearest disc was tried and NOT
+# kept: no clearance gained, and with a floor of 0.2 the car stopped short of
+# a 0.5 m obstacle instead of passing it. Still open, reported, not patched:
+# an obstacle EXACTLY on the line with the car aligned gives the QP no side to
+# prefer (the car stops in front of it); a late (1.0 m) obstacle ends ~13 cm
+# inside R_safe; the r 0.25 offset cases change steering sign 3 times. From
+# a standstill the solver waits ~2 s for the wheels to reach lock before it
+# accelerates. Nominal-model numbers: retune on the car / in Isaac
+# (scripts/sim/isaac_tuning on branch isaac-mpc-tuning).
+#
 # NOTE ON vdes, which this derivation did not settle: the velocity sigma was
 # chosen against vdes 0.45, and MPC_corr's bootstrap self.vdes is 0.5 (and
 # every real move overwrites it from the move's own commanded speed anyway).
@@ -2253,8 +2336,85 @@ mpc_w_v:
   description: "PER-STAGE speed-tracking weight on (v - vdes)^2. Effective value 1.50 after the 7/20 stage scaling. Was literal 8.0, effective 2.8."
 # tuned against legacy height radii, re-validate on floor
 mpc_w_obs:
-  default: 8.0
-  description: "PER-STAGE obstacle soft-deflection weight. Effective value 2.8 after the 7/20 stage scaling -- UNCHANGED, deliberately: less obstacle shyness was wanted, not more."
+  default: 200.0
+  description: "PER-STAGE obstacle soft cost, w_obs * softplus(R - d_front)^2 with R = car_radius + obstacle_safety_margin_m and d_front the clearance of the probe points ahead of the nose, on every stage including the terminal one. Effective value 70.0 after the 7/20 stage scaling. Was literal 8.0 (effective 2.8) until mpc-centerline-target (2026-11-17): with the target no longer moved off obstacles the obstacle term has to beat the terminal w_term pull inside the disc; see the table above mpc_w_term."
+# THE SIDE RULE (mpc_controller/side_rule.py, 2026-11-18, Andreas: "mettiamoci sta regola di
+# lato"). With the target always on the centreline, an obstacle exactly on the line ahead of an
+# aligned car leaves the QP mirror-symmetric -- no lateral gradient, no side to prefer -- and the
+# car stops in front of it (closed loop). An obstacle ahead within mpc_obstacle_tie_band_m of the
+# car's line (along the move heading) goes to the solver displaced to the side OPPOSITE
+# mpc_obstacle_tie_side, its radius grown by the displacement so the displaced disc contains the
+# real one (never less clearance, only a side). Outside the band the geometry decides.
+mpc_obstacle_tie_band_m:
+  default: 0.05
+  description: "Side rule band [m]: obstacles ahead whose centre is within this lateral distance of the car's line are passed on mpc_obstacle_tie_side (displaced to the other side by up to 2x this, radius grown by the displacement). 0 turns the rule off. 0.05: a few cm of detection noise must not make the side a coin flip; larger values swerve wider for slightly off-line obstacles (the radius grows by up to 2 x band)."
+mpc_obstacle_tie_side:
+  default: left
+  description: "Side rule: which side the car passes an obstacle that sits on its line ('left' or 'right'). See mpc_obstacle_tie_band_m."
+# MOVING OBSTACLES AND THE INFORMED SIDE RULE (mpc-dodge, 2026-11-18; mpc_controller/
+# obstacle_motion.py, side_rule.py). Every one OFF by default: the QP and the side rule are today's.
+# They read the track id and the odom velocity semantic_layer_node puts on each Obstacle2D when its
+# semantic_track_velocity_enabled is true (without it no obstacle is v_valid and they do nothing).
+# CAR DEPLOY (mpc-dodge-car, 2026-11-18): mpc_obs_vel_trust 1.0, mpc_obs_wake_weight 150.0,
+# mpc_obs_body_probes true and semantic_track_velocity_enabled true -- docs/mpc_dodge/
+# mpc_params_tuned.yaml, the Isaac phase 2 A/B variant 'alpha + wake + body probes' (dodge 13/18
+# vs 5/18 baseline, M1-M4 8/12 vs 3/12, S1-S5 9/13 = baseline; docs/mpc_dodge/REPORT.md sec. 3).
+# The return (corridor_lateral_reanchor false + mpc_return_*) stays OFF: not measured together
+# with the wake and the body probes. On the car unknown_objects_mode is off, so only YOLO tracks
+# can be v_valid. mpc_solver_impl must stay py (rust ignores all of these).
+mpc_obs_vel_trust:
+  default: 1.0
+  description: "Predicted discs: trust alpha in [0, 1] in the obstacles' estimated velocity. The disc of a v_valid obstacle at stage k is centred at p + alpha * v * t_k (t_k = control period + k * prediction dt + mpc_obs_vel_lead_s, capped at mpc_obs_pred_max_s). 0 = today's static obstacles at every stage; 1 = full constant velocity. Needs mpc_solver_impl py."
+mpc_obs_vel_lead_s:
+  default: 0.0
+  description: "Seconds added to every stage's prediction time of a moving obstacle (perception latency: the semantic layer's position is an EMA of past scans). Only with mpc_obs_vel_trust > 0 or the wake."
+mpc_obs_pred_max_s:
+  default: 2.0
+  description: "Cap [s] on the prediction time of a moving obstacle's disc: a constant velocity is not a forecast further out (cylinders bounce off walls, people turn)."
+mpc_obs_wake_weight:
+  default: 150.0
+  description: "The wake: per-stage soft cost (like mpc_w_obs, same 7/20 stage scaling) on horizon states inside a half-ellipse AHEAD of an approaching obstacle's motion, semi-major |v| * mpc_obs_wake_horizon_s, semi-minor its radius (+ car_radius + margin through the cost). 'Not where it is going'; no term pushes the car in any direction. 0 = off. Needs mpc_solver_impl py."
+mpc_obs_wake_horizon_s:
+  default: 1.0
+  description: "Length of the wake in seconds of the obstacle's own motion (see mpc_obs_wake_weight)."
+mpc_obs_body_probes:
+  default: true
+  description: "Body probes: the obstacle term of every stage also probes the rear bumper and the axle midpoint (base_link + offset * heading), not only points ahead of the nose. Isaac dodge runs (phase 3 diagnosis): about a third of the failures were a cylinder closing in on the flank or tail of a car moving at full speed, which the nose probes cannot see once the nose is past. Needs mpc_solver_impl py."
+mpc_obstacle_side_mode:
+  default: fixed
+  description: "Side rule: 'fixed' = an obstacle within mpc_obstacle_tie_band_m of the line is always passed on mpc_obstacle_tie_side (today). 'informed' = the side opposite its lateral velocity (pass behind it), else the side it came from, else the side with more free space, else mpc_obstacle_tie_side; latched per track for the move while it stays within mpc_obstacle_side_release_m of the line."
+mpc_obstacle_side_release_m:
+  default: 0.15
+  description: "Informed side rule: a track's latched side is released once it is this far from the line (hysteresis against mpc_obstacle_tie_band_m)."
+mpc_obstacle_side_vlat_min:
+  default: 0.1
+  description: "Informed side rule: lateral speed [m/s] above which the obstacle's motion decides the side."
+# THE RETURN ONTO THE MOVE'S LINE (mpc-dodge phase 2b, mpc_controller/lateral_return.py). With
+# corridor_lateral_reanchor true (default, today) the straight corridor is rebuilt through the car,
+# so after a swerve the car keeps its offset ("THE PRICE", MPC_corr). False keeps the line fixed in
+# odom from the move's start and only advances the corridor along it; the mpc_return_* knobs then
+# shape the return. All mpc_return_* are inert with reanchor true.
+corridor_lateral_reanchor:
+  default: true
+  description: "true: the straight (goal_distance) corridor passes through the car's current position at every rebuild (today; no lateral homing). false: the move's line stays fixed in the local odom frame (origin = the car's odom position at the move's first corridor, heading = the frozen, map-corrected move heading); a rebuild only advances the corridor along it, w_corr and the target act on the real lateral error, and the corridor half-width grows to contain the car."
+mpc_return_gain:
+  default: 0.0
+  description: "Return: w_corr_eff = w_corr * (1 + gain * min(1, |e| / 0.5 m)), e the lateral error from the fixed line. Only with corridor_lateral_reanchor false, off while an obstacle lies between the car and the line inside the horizon."
+mpc_return_lookahead_ratio:
+  default: 0.0
+  description: "Return: with a lateral error e the lookahead target on the line is at clip(ratio * |e|, mpc_return_lookahead_min_m, nominal) -- an approach angle of about atan(1/ratio), never steeper than the heading cap. 0 = nominal lookahead."
+mpc_return_lookahead_min_m:
+  default: 1.0
+  description: "Return: the shortest lookahead [m] the return may use."
+mpc_return_psi_scale:
+  default: 1.0
+  description: "Return: the terminal and stage heading weights fall to this fraction at a large lateral error (back to 1 near the line), so the car may cross the line at an angle and overshoot slightly. 1 = unchanged."
+mpc_return_max_heading_deg:
+  default: 35.0
+  description: "Return: cap on the approach angle [deg] the lookahead shortening may ask for."
+mpc_return_overshoot_max_m:
+  default: 0.15
+  description: "Return: allowed overshoot past the line [m]; also caps the approach angle at the one whose levelling-off at full lock (R_min (1 - cos theta)) fits inside it."
 # w_du_delta IS THE ONE TERM DELIBERATELY OFF THE rho/sigma^2 SET (2026-09-09).
 # Lowered effective 8.33 -> 3.0, i.e. literal 23.8095 -> 8.5714. The derived
 # value came from sigma = 0.03 rad/step, and that sigma was chosen as "what
@@ -2298,6 +2458,15 @@ mpc_w_du_a:
 mux_config:
   default: config/mux.yaml
   description: "ackermann_mux priority/lock/topic config arbitrating between drive-command sources."
+# Consumed by: f1tenth_control/ackermann_mux.launch.py (hard_stop_impl:=, which
+# hard_stop_node runs beside the mux) and f1tenth_bringup's
+# supervisor_bringup.launch.py / stack_bringup.launch.py (hard_stop_impl:=,
+# through the supervisor's hard_stop_impl parameter to the `control`
+# component). Rust port main-jazzy-rust R4: output/rust/parity_hard_stop.md.
+# Default py; a flip to rust is its own commit after evidence.
+hard_stop_impl:
+  default: py
+  description: "Which implementation runs hard_stop_node, the last-resort LiDAR stop on the safety_stop lane. 'py' (default): f1tenth_control/hard_stop_node.py. 'rust': f1tenth_hard_stop_rs (src/rust/f1tenth_hard_stop_rs), same node name, topics, parameters and decisions (output/rust/parity_hard_stop.md); it refuses to start without the footprint values the launch file passes. Never both: same node name and topics."
 # Consumed by: f1tenth_control/joy.launch.py.
 joy_config:
   default: config/joy_teleop.yaml
@@ -2433,38 +2602,6 @@ obstacle_safety_margin_m:
 proximity_front_extra_margin_m:
   default: 0.08
   description: "Small extra conservatism [m] added on top of car_radius + obstacle_safety_margin_m for IsProximityTooClose's front standoff only, since that lane is a raw-sensor last resort behind an already-tighter-tuned backstop (the front direction alone also has YOLO-lane coverage via handle_obstacle) -- kept separately tunable rather than folded into obstacle_safety_margin_m so it doesn't also affect MPC/IsObstacleDetected, which have no such asymmetry."
-
-# Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into MPC_corr.py's
-# own declared ROS param, whose declare_parameter() default is
-# get_value('obstacle_target_shift_m'), i.e. this key. THIS FILE IS THE ONLY
-# PLACE THE NUMBER LIVES; there is no in-code literal to keep in step. Also
-# what test_corridor_lookahead_target.py's duck-typed stand-in reads, so the
-# test fake cannot drift from the deployed value either.
-#
-# HOW FAR SIDEWAYS THE MPC TRACKING POINT IS SHOVED PAST AN OBSTACLE.
-# compute_local_target takes the corridor-centerline lookahead point and, when
-# that point lands within R_safe = r + car_radius + obstacle_safety_margin_m
-# of an obstacle, pushes it out to the R_safe circle and then TANGENTIALLY by
-# up to this much (scaled by how far it had penetrated -- the proportional
-# shape is unchanged, this key is only its ceiling). It is what makes the car
-# steer around an obstacle rather than at it; bigger = swerve wider and earlier.
-#
-# 0.30 REPLACES A CORRIDOR-DERIVED 0.6 * mean(halfWidth), which at the
-# shipping geometry (corr_wmin 0.4333 / corr_wmax 0.7667, then bare literals
-# in MPC_corr.py) evaluated to exactly 0.36 m. The f110_autonomy reference
-# this branch was ported from uses a fixed 1.0 m step; our stack had already
-# left that behind, so this is 0.36 -> 0.30, not 1.0 -> 0.30. Reduced on
-# request so the car passes close to obstacles instead of swerving wide.
-#
-# MUST STAY INSIDE THE CORRIDOR HALF-WIDTH or the target lands outside its own
-# corridor and the corridor cost fights the terminal cost. The narrow end is
-# corr_half_width_start_m (0.64 m, was 0.4333 m); 0.30 must stay below it. MPC_corr.py warns
-# (throttled) at runtime if this is ever set above the live corridor's mean
-# half-width rather than silently deflecting out of bounds.
-# tuned against legacy height radii, re-validate on floor
-obstacle_target_shift_m:
-  default: 0.30
-  description: "Max tangential displacement [m] applied to the MPC lookahead target when it falls inside an obstacle's safety radius, in compute_local_target. Scaled down by penetration depth, so this is the ceiling, not a fixed step. Was a corridor-derived 0.6 * mean(halfWidth) = 0.36 m; reduced to 0.30 so the car passes close to obstacles instead of swerving wide. Must stay under the corridor half-width (corr_half_width_start_m, 0.64 m, at the narrow end)."
 
 # --------------------------------------------------------------
 # OBSTACLE-AVOIDANCE TEST CONFIGURATION
@@ -2725,7 +2862,7 @@ enable_slam:
 # point is that nobody has to remember to turn it on.
 enable_mission_logger:
   default: true
-  description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle -- the node is not created and neither is the 5 Hz depth throttle that feeds its bags. FALSE SINCE 2026-10-16, down from true, because recording is not free on this box and must be asked for: the audit of corridor10m_20261015T171753 measured 12 cores at 95-97 %, /scan reaching a bag at 30 Hz against the 40 Hz urg_node published, /odometry/filtered at 38 Hz against the EKF own-reported 50, and the recorder writing 5.5 MB/s of which 73 % was Image and grid topics. A campaign run must pass enable_mission_logger:=true explicitly (f1tenth_logger/TEST_CAMPAIGN.md); everything inside the node is unchanged, and with true the behaviour is exactly as before. ALSO READ BY behavior_executor_node (forwarded by component_supervisor_node through behavior_bringup.launch.py): the mission start countdown (mission_countdown_sec, 0.0 s since 2026-10-21) is armed only when this is true; false starts a mission at once."
+  description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle -- the node is not created and neither is the 5 Hz depth throttle that feeds its bags. TRUE AGAIN SINCE 2026-10-23 (commit 6137165f9, a wall_turn cherry-pick unrelated to logging that flipped this key back with no mention of it in its message). It had gone FALSE on 2026-10-16 because recording is not free on this box: the audit of corridor10m_20261015T171753 measured 12 cores at 95-97 %, /scan reaching a bag at 30 Hz against the 40 Hz urg_node published, /odometry/filtered at 38 Hz against the EKF own-reported 50, and the recorder writing 5.5 MB/s of which 73 % was Image and grid topics. That cost was never re-measured or re-accepted before the revert -- pass enable_mission_logger:=false explicitly on CPU-constrained runs (the Orin; f1tenth_logger/TEST_CAMPAIGN.md) if it matters; everything inside the node is unchanged either way. ALSO READ BY behavior_executor_node (forwarded by component_supervisor_node through behavior_bringup.launch.py): the mission start countdown (mission_countdown_sec, 0.0 s since 2026-10-21) is armed only when this is true; false starts a mission at once."
 # ============================================================
 # mission_countdown_sec -- f1tenth_behavior/mission/loader.py
 # ============================================================
@@ -3387,6 +3524,9 @@ mission_translator_go_to_acquire_timeout_sec:
 mission_translator_go_to_lost_grace_sec:
   default: 1.5
   description: "go_to_object.lost_grace_sec [s] for a go_to intent phase: how long a lost target is driven toward its last point at reduced speed before the move fails target_lost. Same value as missions/go_to_person.json."
+mission_translator_go_to_search_min_confidence:
+  default: 0.5
+  description: "min_confidence on the object_seen stop_condition of the search move translate() prepends before every go_to_object move (go_to_object aborts target_not_found if the class is not already a confirmed track within go_to_acquire_timeout_sec; the search move drives straight until it is first sighted). Same value as missions/straight_until_potted_plant.json."
 mission_translator_turn_magnitude_deg:
   default: 90.0
   description: "Magnitude [deg] of every turn the translator emits, written into BOTH drive.turn_mag_deg and stop_condition.value from one variable. The behaviour tree honours any value -- condition_eval's orientation_delta ends the move on abs(turn_accum_deg) >= abs(value), nothing clamps it to 90 -- so this is a real choice. It stays 90 because 90 is the only magnitude the stack has been run at, and the MPC side of a larger turn is unverified."
@@ -3574,6 +3714,12 @@ wall_clear_distance_m:
 unknown_objects_mode:
   default: "off"
   description: "OFF by default since 2026-10-21: live, the LiDAR-only objects were too many and too large -- corridor clutter and wall returns no confirmed wall owned became unknown objects whose disks reached across the travel strip, so the MPC had nowhere feasible to go and the car stopped. Recognised (YOLO) objects are UNAFFECTED: they keep reaching mpc_corr on /costmap/semantic_obstacles exactly as before (obstacles_for_mpc drops only the unknown tracks), and hard_stop_node, which reads /scan itself, is unchanged. Set 'shadow' to look at them again without any control effect. LiDAR obstacles nothing recognised, as 'unknown' objects in the semantic layer (f1tenth_costmap/unknown_objects.py, obstacles v2). off: not computed. shadow: computed, tracked, published on /costmap/semantic_tracks, /costmap/semantic_markers and /costmap/unknown_objects/debug, but NOT on the MPC's obstacle list and no speed cap -- for a first live test. active: the MPC receives them like any object. Every occupied /scan cell is owned by a confirmed wall (within unknown_wall_tol_m), a confirmed recognised object (footprint + unknown_object_margin_m) or is an ISLAND; islands become candidates, candidates become tracks in the same tracker YOLO detections use; a detection that matches an unknown track upgrades it in place (same id)."
+# Consumed by: f1tenth_costmap/semantic_layer_node.py (its own parameter, default from here).
+# mpc-dodge 2026-11-18: per-track ground velocity (f1tenth_costmap/track_velocity.py) on
+# /costmap/semantic_obstacles (Obstacle2D id, vx, vy, v_valid ...) and /costmap/semantic_objects.
+semantic_track_velocity_enabled:
+  default: true
+  description: "Estimate each semantic track's velocity in the LOCAL odom frame (constant-velocity Kalman filter on the raw LiDAR / camera measurements, each brought into odom at its own timestamp: no map -> odom jump, ego motion compensated) and publish it with the track id on the MPC's obstacle list and the object list. Off: the fields keep their defaults (id -1, v_valid false) and nothing else changes. mpc_corr uses it only with mpc_obs_vel_trust > 0, mpc_obs_wake_weight > 0 or mpc_obstacle_side_mode informed."
 unknown_rate_hz:
   default: 10.0
   description: "Rate [Hz] of the semantic layer's LiDAR cycle (cells, candidates, unknown tracks) and of its /costmap/semantic_obstacles publish. 10 Hz = mpc_corr's control rate; the work order caps everything feeding the MPC at 10 Hz."
@@ -3868,6 +4014,319 @@ lidar_front_wall_door_jamb_viz_diameter_m:
   default: 0.10
   description: "Diameter [m] of each jamb's vertical cylinder on /viz/doors. The cylinders are lidar_front_wall_wall_viz_height_m tall and stand on the floor. Visualisation only."
 
+# --- WHICH door detector runs (door_source) ----------------------------------
+# Read by f1tenth_perception/lidar_front_wall_node.py (the PROFILE detector),
+# f1tenth_costmap/semantic_layer_node.py (the SEMANTIC one) and
+# f1tenth_costmap/freespace_door_node.py (the FREESPACE one). The three are
+# exclusive: each node runs its own detector only when door_source names it
+# AND that detector's own enable flag is set, so turning one on never starts
+# another and no two ever publish doors at the same time. All three publish
+# the SAME four outputs (/perception/doors_semantic, /viz/doors_semantic,
+# /costmap/semantic_doors, TF map -> door_<id>), which is what lets
+# f1tenth_behavior's enter_door goal work whichever one is selected.
+door_source:
+  default: "freespace"
+  description: "Which door detector the stack runs: 'freespace' (f1tenth_costmap/freespace_doors.py -- slam_toolbox's OCCUPANCY GRID and nothing else, a bottleneck in the free space between two wider regions, no walls involved; the default), 'semantic' (f1tenth_costmap/semantic_doors.py -- the SEMANTIC LAYER'S WALLS and nothing else geometric, two cases, map frame) or 'profile' (f1tenth_perception/door_detection.py -- the per-beam depth profile along a host wall line, the stereo veto, the odom frame; unchanged and still the one the addendum describes). Any other value is rejected at startup by freespace_door_node and semantic_layer_node. EACH detector also needs its own enable flag: freespace_doors_enabled (default TRUE), semantic_doors_enabled (default true) and lidar_front_wall_door_detection_enabled (default false). Setting this to one value therefore turns the other two detectors OFF but does not by itself turn the named one on."
+
+# --- doors from the semantic layer (f1tenth_costmap/semantic_doors.py) --------
+# Hosted by semantic_layer_node, on its LiDAR cycle (unknown_rate_hz), behind
+# semantic_doors_enabled AND door_source == 'semantic'. Input: the CONFIRMED
+# /perception/walls tracks the semantic layer already holds in the map frame,
+# plus /scan for two liveness questions only (do the beams cross the opening,
+# is a wall end a real end) and this node's own object tracks for the
+# in-the-gap veto. No stereo.
+# Output: /perception/doors_semantic (f1tenth_messages/DoorArray, MAP frame),
+# /viz/doors_semantic (MarkerArray), one TF map -> door_<id> per confirmed
+# door, and /costmap/semantic_doors (SemanticObjectArray, class_id "door").
+# PERCEPTION ONLY, and THE OVERLAY RULE holds: a door never modifies a wall or
+# any LiDAR data, and nothing may treat a doorway as free space because a door
+# is published there. The doors are deliberately NOT on
+# /costmap/semantic_objects: mpc_corr reads that topic into its obstacle list
+# and its reverse pre-check (semantic_objects_enabled), and a door there would
+# be a phantom obstacle standing in the one place the car is asked to drive
+# through.
+semantic_doors_enabled:
+  default: true
+  description: "Run the semantic-layer door detector on every LiDAR cycle of semantic_layer_node. ON by default since 2026-10-28 (it shipped false on 2026-10-28 morning), but NOT the detector the stack runs out of the box any more: door_source defaults to 'freespace' since 2026-10-28, so this flag only takes effect once door_source is set back to 'semantic'. the doors are wanted on every run, the cost is 0.08 ms per cycle of the 100 ms the 10 Hz tick allows (measured, tools/semantic_door_replay.py on corridor10m_20261016T144537, on a laptop -- expect more on the Orin, not a different order), and PERCEPTION ONLY still holds -- nothing in the control path, the costmap's obstacle list, the BT or a mission reads a door unless that mission asks for one with an enter_door goal. False: none of the four outputs exists and nothing is computed. Also needs door_source == 'semantic'. A door cycle that raises is logged (throttled), counted (door_errors on /costmap/unknown_objects/debug) and never stops the semantic layer; after 50 consecutive failures the node turns door detection off for its life."
+semantic_doors_min_wall_level:
+  default: "lidar_confirmed"
+  description: "The weakest wall that may be a door's jamb. 'tentative' (any live track), 'confirmed' (confirmed or coasting on ANY evidence, a stereo-only wall included), 'lidar_confirmed' (confirmed AND the LiDAR has seen it) or 'stereo_checked' (confirmed AND both sensors have). The default excludes TENTATIVE tracks -- a track the tracker has not yet confirmed moves and re-spawns, and a doorway built from two of them is a different doorway every scan -- and does NOT require the stereo, which sees walls the LiDAR plane misses and misses walls it sees. Words, not numbers, because a number in a config file says nothing; semantic_doors.wall_level maps MultiWallTrack.state + .source onto them."
+semantic_doors_width_min_m:
+  default: 0.70
+  description: "Narrowest opening [m], jamb to jamb. Deliberately the same number as lidar_front_wall_door_width_min_m, which is ALSO the tracker's collinear merge limit: two collinear wall pieces are one track across a gap shorter than it, so a doorway narrower than this is inside a single track and this detector -- which only ever pairs two tracks -- could not see it at all. Changing one without the other makes a band of widths that no detector reports."
+semantic_doors_width_max_m:
+  default: 1.40
+  description: "Widest opening [m]. Double doors and corridor mouths are wider and out of scope, exactly as for the profile detector (lidar_front_wall_door_width_max_m)."
+semantic_doors_parallel_angle_deg:
+  default: 10.0
+  description: "CASE A: the two walls either side of the gap must be the same line within this angle [deg]. Wider than this is a corner, and a corner is not a doorway. Matches lidar_front_wall_door_collinear_angle_deg so the two detectors agree on what collinear means."
+semantic_doors_parallel_offset_m:
+  default: 0.15
+  description: "CASE A: the lateral (across-line) offset [m] between the two FACING wall ends. Measured at the gap, not between the two infinite lines: two long walls a degree apart are collinear where they meet and metres apart at their far ends, and it is where they meet that decides whether a doorway sits between them."
+semantic_doors_perp_tol_deg:
+  default: 15.0
+  description: "CASE B: how far [deg] from square the two walls may be. The gap is measured from one wall's END perpendicularly to the other wall's PLANE, so the answer is only a width while the two are roughly perpendicular."
+semantic_doors_foot_inset_m:
+  default: 0.10
+  description: "CASE B: how far [m] inside the perpendicular wall's extent the foot of that perpendicular must lie. The far jamb of a case-B opening is a point on a wall SURFACE, not a wall end, and a foot at that wall's own end is two unknown ends facing each other across a diagonal -- a corner. This is what tells the two apart."
+semantic_doors_end_fov_margin_deg:
+  default: 2.0
+  description: "A jamb whose bearing is within this [deg] of the scan's own first or last beam is not a jamb: the wall may simply carry on outside what the scan saw. 'end_fov'."
+semantic_doors_end_range_margin_m:
+  default: 0.50
+  description: "A jamb within this [m] of the scan's range_max is not a jamb either, for the same reason: the wall's continuation is out of range, not absent. 'end_fov'."
+semantic_doors_end_occlusion_margin_m:
+  default: 0.30
+  description: "'end_occluded': a beam just past a jamb, on the GAP side, returning this much [m] nearer than the jamb itself means the end is the silhouette of something closer -- a shadow boundary, not a wall end. This is the one test that separates a real doorway from the hole a person or a box punches in a wall the tracker then holds as two tracks."
+semantic_doors_end_probe_beams:
+  default: 6
+  description: "How many beams past a jamb the occlusion probe reads. Enough to survive one dropout, few enough to stay beside the jamb rather than scan the room."
+semantic_doors_min_beams:
+  default: 4
+  description: "Fewest beams aimed into the gap for this cycle to decide anything. Fewer is 'few_beams': an opening seen from far away or very obliquely is undecidable now and will be decided from closer."
+semantic_doors_through_frac:
+  default: 0.60
+  description: "'not_through': of the beams aimed into the gap, at least this share must return more than semantic_doors_behind_margin_m PERPENDICULARLY BEYOND the opening line, or not return at all. A share rather than all of them, so one chair leg in the room beyond does not reject a real doorway, while a surface across the gap still fails it by far."
+semantic_doors_behind_margin_m:
+  default: 0.30
+  description: "How far [m] behind the opening line a return must lie to count as THROUGH. Shallower than this and what is behind the gap is a recess, a cabinet or a closed leaf set back in a deep frame, not a room."
+semantic_doors_gap_clear_m:
+  default: 0.12
+  description: "'on_segment': a valid return within this PERPENDICULAR distance [m] of the opening segment blocks the door. Perpendicular and along-track are separated deliberately -- the jambs' own returns sit at the segment's ends, and a plain point-to-segment distance cannot tell 'past the jamb, along the wall' (expected) from 'off the line, in the opening' (something standing in it)."
+semantic_doors_jamb_exclude_m:
+  default: 0.08
+  description: "How much [m] is taken off EACH END of the opening segment before the on_segment and object tests: the jambs are wall, their returns are wall returns, and they are at the ends by construction."
+semantic_doors_assoc_max_m:
+  default: 0.30
+  description: "Two sightings whose CENTRES are within this [m] are the same door. Association is by centre only -- not by the parent wall ids, which re-spawn far too often to be an identity (the profile detector's Door.msg says the same)."
+semantic_doors_confirm_hits:
+  default: 5
+  description: "Positive sightings before a door is CONFIRMED. Until then it is a candidate: it is tracked and drawn faded, it has no TF and it is on none of the output topics, and the mission's enter_door goal cannot select it."
+semantic_doors_smooth_alpha:
+  default: 0.30
+  description: "EMA weight of each new sighting on a door's centre, width and axis. Low enough that a door does not jitter with the wall fit, high enough that it follows a wall whose extent is still growing."
+semantic_doors_candidate_forget_s:
+  default: 5.0
+  description: "An UNCONFIRMED door with no sighting for this long [s] is dropped, so a one-off geometric coincidence does not sit in the list forever."
+semantic_doors_forget_unseen_s:
+  default: 0.0
+  description: "0 = a CONFIRMED door is kept in the map forever once seen, which is the point of putting it in the map frame: the car drives through it and can still be sent back to it. Above 0, a confirmed door with no sighting for that long [s] is dropped as well."
+semantic_doors_max_walls:
+  default: 12
+  description: "Most walls considered per cycle, longest first. The pair loop is quadratic and the semantic layer can hold more segments than any room has walls; the longest are the ones a doorway sits in."
+semantic_doors_jamb_viz_diameter_m:
+  default: 0.10
+  description: "Diameter [m] of each jamb's vertical cylinder on /viz/doors_semantic (radius 0.05 m). The cylinders are semantic_doors_viz_height_m tall and stand on the floor. Visualisation only."
+semantic_doors_viz_height_m:
+  default: 1.0
+  description: "Height [m] the jamb cylinders are drawn at on /viz/doors_semantic. Visualisation only: nothing measures a door's height here."
+semantic_doors_publish_tf:
+  default: true
+  description: "Broadcast map -> door_<id> for every CONFIRMED door. The frame's x axis is the crossing direction, fixed at first confirmation and never flipped, so a mission that drives through a door does not find its target spun round behind it. Off: the TF is not published and a mission goal of type enter_door has nothing to aim at."
+
+# --- doors from SCAN JUMPS (f1tenth_costmap/freespace_doors.py) ---------------
+# Hosted by freespace_door_node, behind freespace_doors_enabled AND
+# door_source == 'freespace' (the default). NO WALLS, no wall tracks, no
+# stereo -- which is the point: a doorway whose jambs were never fitted as two
+# separate wall segments is invisible to both other detectors and visible to
+# this one.
+# Method: /scan is the PRIMARY input. A doorway is a near-far-near step in the
+# range profile -- a jamb at A, a run of beams reaching much further through
+# the opening, a second jamb at B -- which is there on the FIRST scan that sees
+# it and is as strong for a door in a side wall as for one straight ahead.
+# /slam/map is a CROSS-CHECK, and its UNKNOWN cells are read as unknown rather
+# than as obstacles: is the line A-B clear of real obstacle, is there ANY free
+# cell behind it (one ray's worth -- there is deliberately no 'wide room'
+# requirement), is there occupancy where the jambs should be. With no grid yet
+# the detector runs anyway and flags its candidates 'no_grid'.
+# Every gate is PERMISSIVE and parameterised, because a missed door is a
+# mission that cannot run and a false one is a marker in Foxglove; what stops a
+# one-scan artefact is the CONFIRMATION (freespace_doors_confirm_pose_spread_m),
+# which asks where the car was standing rather than how many times it looked.
+# A FLAG IS NOT A REJECTION: 'marginal', 'one_jamb' and 'no_grid' candidates are
+# doors, tracked and published like any other.
+# The medial-axis detector this replaced is still here behind
+# freespace_doors_use_skeleton (default false); it finds nothing on the real
+# map, and output/doors/freespace.md says why.
+# See that module's docstring for each gate and its rejection code.
+# Output: the SAME four as the semantic detector (/perception/doors_semantic,
+# /viz/doors_semantic, /costmap/semantic_doors, TF map -> door_<id>) plus
+# /viz/doors_freespace_debug and /costmap/freespace_doors/debug.
+# PERCEPTION ONLY, and THE OVERLAY RULE holds exactly as it does there: a door
+# never modifies the grid, a wall or any LiDAR data, and nothing may treat a
+# doorway as free space because a door is published there.
+freespace_doors_enabled:
+  default: true
+  description: "Run the occupancy-grid door detector in freespace_door_node. Also needs door_source == 'freespace', which is the default, so this is the detector the stack runs out of the box. False: the node starts, subscribes to nothing, publishes nothing and computes nothing. PERCEPTION ONLY -- nothing in the control path, the costmap's obstacle list or the behaviour tree reads a door unless a mission asks for one with an enter_door goal. A cycle that raises is logged (throttled), counted (door_errors on /costmap/freespace_doors/debug) and never kills the node; after 50 consecutive failures the node turns detection off for its life."
+freespace_doors_rate_hz:
+  default: 10.0
+  description: "Most cycles per second. The cycle is DRIVEN BY /scan, not by a timer -- the scan is the evidence, so a cycle without a new one would re-measure the same beams -- and this throttles it, because the lidar runs at about 40 Hz and nothing downstream needs doors that often. Each cycle costs a few ms (no distance transform and no thinning unless freespace_doors_use_skeleton is on), so this is not the knob to reach for on a loaded Orin; it is here to stop the detector doing forty times the work it needs to. Must be > 0."
+freespace_doors_window_m:
+  default: 8.0
+  description: "RADIUS [m] of the square window cropped out of the grid around the car for the CROSS-CHECK: the window is 2 x this across, so 8.0 means a 16 m box, 321 x 321 cells at 0.05 m. Cells outside the grid's own extent are filled UNKNOWN, which the scan detector reads as 'no opinion' -- a door at the edge of the map is still a door. Cost is quadratic in this number but small, because nothing walks the whole window unless freespace_doors_use_skeleton is on."
+freespace_doors_occupied_threshold:
+  default: 65
+  description: "OccupancyGrid.data value (0-100) at or above which a cell is a real obstacle -- the same number costmap_boundary_node uses, not a new one. UNKNOWN (-1) is NOT an obstacle here, which is the single most important thing about this detector's reading of the grid: a room behind a door that has never been driven into is almost entirely unknown, and calling that an obstacle is how the medial-axis version concluded there was no door (output/doors/freespace.md)."
+freespace_doors_cleanup_iterations:
+  default: 1
+  description: "Iterations of the morphological cleanup, which only ever SHRINKS the free space: a binary closing of the obstacles (fills a one- or two-cell pinhole in a wall, so a missed ray is not a 0.10 m doorway) then a binary opening of the free space (drops isolated free specks that would seed a skeleton of their own). One iteration reaches 0.10 m at 0.05 m/cell, an order below freespace_doors_width_min_m, so it can neither close nor open a real doorway. 0 disables it."
+freespace_doors_width_min_m:
+  default: 0.70
+  description: "Narrowest opening [m], jamb to jamb. The same number as semantic_doors_width_min_m and lidar_front_wall_door_width_min_m -- all three detectors agree on what a door is narrow enough to stop being, so a width band that no detector reports cannot open up between them."
+freespace_doors_width_max_m:
+  default: 1.40
+  description: "Widest opening [m]. Same as semantic_doors_width_max_m: double doors and corridor mouths are wider and out of scope. Also the distance the jamb march is allowed to run before giving up."
+freespace_doors_rise_ratio:
+  default: 1.3
+  description: "How much wider the free space must get on BOTH sides of a bottleneck, as a multiple of the clearance AT the bottleneck, for it to be a doorway rather than a corridor that merely narrows. This is the one test that distinguishes the two, and it is what makes a plain 1.0 m corridor report nothing at all. Raise it to reject door-width necks in cluttered rooms; lower it if a real door between two tight corridors is being missed."
+freespace_doors_rise_within_m:
+  default: 1.0
+  description: "How far along the medial axis, from the bottleneck, the rise above may be found [m]. Also the walk length: if the skeleton runs out before this on either side the candidate is a dead end and is rejected with code 'spur', not 'no_rise' -- the difference between nowhere to go and it got no wider."
+freespace_doors_spur_prune_m:
+  default: 0.30
+  description: "Length [m] of skeleton hair eroded off every tip before anything is measured. Thinning leaves a short spur wherever the free-space boundary had a bump (a corner, one noisy cell) and each spur ends in a tip that would read as a dead end. Erodes real branches by the same amount, which costs nothing: a bottleneck this close to a genuine tip is a dead end and is meant to be rejected anyway."
+freespace_doors_local_min_radius_m:
+  default: 0.30
+  description: "Radius [m] within which a bottleneck must be the NARROWEST point of the medial axis. A square minimum filter over the clearance with non-skeleton cells set to infinity, so a candidate survives only if no skeleton cell this close to it is tighter. THIS IS WHAT MAKES A CANDIDATE A LOCAL MINIMUM, and it has to be applied BEFORE the width band: filtering by the band first and taking each cluster's narrowest cell finds cells sitting on the band's own lower EDGE wherever the skeleton descends through width_min_m into a tight corner, not pinches. Measured on corridor10m_20261019T131815, every one of 38 such candidates came back at exactly 2d = 0.700, all rejected downstream, and 22 of them were never even evaluated because freespace_doors_max_candidates is 16 -- a real 0.90 m doorway would have been cut from the list before anything looked at it. Raise it to suppress a pinch that has a tighter one nearby; lower it if two genuine doorways less than this apart are being collapsed into one."
+freespace_doors_tangent_span_m:
+  default: 0.25
+  description: "Half-length [m] of the skeleton chord the door's crossing direction is measured over. The direction to an ADJACENT skeleton cell can only be one of eight, i.e. quantised to 45 degrees, which is far too coarse for a door frame's yaw; a chord over 2 x this is not. Raise it on a smooth corridor for a steadier yaw, lower it where the axis genuinely curves through the opening."
+freespace_doors_symmetry_tol_m:
+  default: 0.20
+  description: "How far the width measured by marching to the two jambs may differ from 2 x the distance transform's clearance [m] before the candidate is rejected with code 'asymmetric'. The two only agree when the skeleton cell really sits mid-gap AND its nearest obstacle is one of the two jambs, i.e. when this is a clean bottleneck rather than a cell whose clearance is set by a wall it happens to be running alongside."
+freespace_doors_jamb_radius_m:
+  default: 0.15
+  description: "Radius [m] around each jamb point the obstacle cells behind it are counted in, for freespace_doors_jamb_min_cells. 0.15 m is three cells at 0.05 m, so a 0.05 m thick wall passing through the jamb contributes about seven cells and a two-cell blob contributes two -- the two cases this gate has to separate."
+freespace_doors_jamb_min_cells:
+  default: 4
+  description: "How many non-free cells must lie within freespace_doors_jamb_radius_m of EACH jamb. The jamb march stops at the first non-free cell and one cell is enough to stop it, so without this gate a chair leg, a single stray return or a two-cell map artefact standing the right distance from a wall is a jamb and the pair is a doorway. Found on a real grid, not reasoned: corridor10m_20261019T131815 confirmed one 1.11 m door whose far jamb was a 2-cell blob (the near one was solid wall) after the bottleneck, rise, symmetry AND 12-beam scan gates had all passed -- nothing earlier in the chain asks how much obstacle is behind a jamb. Raise it to demand more wall; 0 disables the gate."
+freespace_doors_min_beams:
+  default: 4
+  description: "How many /scan beams must pass through the opening and reach freespace_doors_beyond_m past the jamb line for the candidate to count as seen this cycle. Counting beams rather than testing one ray is what makes the confirmation robust to a single stray return. Same number as semantic_doors_min_beams."
+freespace_doors_beyond_m:
+  default: 0.5
+  description: "How far past the line between the two jambs a beam must reach [m] to count as having gone THROUGH the opening. This is the gate that separates a hole through a wall from a dent in one, measured as a SIGNED distance on the far side from the sensor, so a beam stopping short of the threshold and one sailing through it are told apart by a sign rather than a magnitude."
+freespace_doors_jamb_exclude_m:
+  default: 0.08
+  description: "How much is cut off each end of the opening before a beam's crossing point is required to fall inside it [m]. Keeps a beam that passes just beside a jamb, through some other gap, from being credited to this door. Same number as semantic_doors_jamb_exclude_m."
+freespace_doors_assoc_max_m:
+  default: 0.30
+  description: "Max distance [m] between a candidate's centre and a tracked door's for the two to be the same door. Handed straight to semantic_doors.DoorTracker -- there is ONE tracker for all three door sources, so this is the same knob as semantic_doors_assoc_max_m, with the same meaning, for a different detector's candidates."
+freespace_doors_confirm_hits:
+  default: 3
+  description: "Cycles a door must be seen in before it is CONFIRMED, when the pose-spread policy is off (freespace_doors_confirm_pose_spread_m 0). With the policy on -- the default -- this is not read at all: see confirm_pose_spread_m and confirm_same_pose_hits."
+freespace_doors_max_tracks:
+  default: 32
+  description: "Most doors held at once -- a TF and MARKER BUDGET, not a detection limit. A confirmed door is never forgotten (freespace_doors_forget_unseen_s 0), which is what lets a mission drive back to one, but it also means the list only grows and every confirmed door costs one TF and five markers on every cycle. When the cap is hit the LONGEST UNSEEN door is dropped first, evidence breaking ties. Recency and not evidence, measured: ranking by 'confirmed first, then most hits' made a long-lived door always outrank a young but genuine candidate, so the budget evicted candidates BEFORE they could earn strength and a cap of 32 cost 10 of the 29 strong doors the uncapped run of corridor10m_20261019T131815 found. With recency first the same cap costs 1 of 29. Hitting the cap is a tuning signal rather than silent corruption, because door_candidates on /costmap/freespace_doors/debug then sits pinned at the limit. 0 is unbounded."
+freespace_doors_merge_tracks_overlap:
+  default: 1.00
+  description: "ONE DOORWAY, ONE TRACK: two tracks whose centres are closer than this fraction of the mean of their two widths are the same opening and are merged, whatever their axes say -- TWO DOORWAYS CANNOT OVERLAP IN SPACE, so if two openings 1.1 m wide sit 0.8 m apart one of them is false and dropping the weaker hypothesis beats publishing both. Scale-free where a fixed radius is not: 1.0 allows 1.2 m between two 1.2 m doorways and only 0.7 m between two narrow ones. freespace_doors_merge_max_m merges CANDIDATES inside one cycle; this merges TRACKS, which nothing did before -- association only ever folds a candidate into an existing track, so once two tracks exist they never meet again. Measured on corridor10m_20261019T131815: 23 of the 30 strong doors were overlapping pairs, ids 5 and 15 sitting 0.30 m apart with the same axis and 307 against 48 hits, and a cluster of four inside 0.6 m at four different angles up to 97 deg apart. The survivor is the better-evidence track (confirmed, then strong, then hits, then pose spread, then the older id) and keeps its own geometry and fixed direction. 0 disables it."
+freespace_doors_merge_tracks_parallel_m:
+  default: 1.00
+  description: "The second, wider merge radius [m], which applies only when the two axes agree to within freespace_doors_merge_tracks_yaw_deg. A duplicate of a SIDE door drifts ALONG the wall rather than across it, so its copy can sit nearly a metre away and still be the same doorway -- measured pairs at 0.89, 0.90 and 0.91 m with 2 to 4 deg between their axes. Requiring the axis to match is what keeps this from fusing two genuinely different openings a metre apart. Must be >= freespace_doors_merge_tracks_m to mean anything; 0 disables it."
+freespace_doors_merge_tracks_yaw_deg:
+  default: 25.0
+  description: "Largest angle [deg] between two tracks' door axes that still counts as the same opening, for the wider freespace_doors_merge_tracks_parallel_m radius only. Undirected: an axis has no sign, so this is 0..90."
+freespace_doors_strong_min_hits:
+  default: 3
+  description: "Sightings a CONFIRMED door needs before it counts as STRONG. Confirmed means publishable; strong means a mission may drive at it -- f1tenth_behavior's enter_door resolves both 'nearest' and 'door_<id>' over STRONG doors only, and fails with no_strong_door when a matching door exists but has not earned it. 0 drops the requirement."
+freespace_doors_strong_grid_max_age_s:
+  default: 12.0
+  description: "A STRONG DOOR MUST HAVE BEEN CHECKED AGAINST A GRID THAT EXISTS AND IS RECENT: when /slam/map is older than this [s] every candidate of that cycle carries the grid_stale flag, which bars it from strong while leaving it published -- the scan still says there is an opening, but nothing current agrees, and strong is the claim that a mission may drive at it. 12.0 is two slam_toolbox update intervals and it is measured, not chosen: map_update_interval is 5.0 s and /slam/map is latched, so its age runs 0-6 s with receipt jitter, and swept over corridor10m_20261019T131815 the strong count goes 1 door at a 1 s limit (8429 grid_stale flags -- the gate becomes the result), 5 at 6 s (1134 flags, three doors demoted on publish timing alone), 8 at 12 s and above with no flags at all. Below two intervals this stops measuring the map and starts measuring the publish clock. Lower it only together with a faster map_update_interval; 0 disables it. A dead slam_toolbox is already caught by freespace_doors_grid_max_age_s, which drops the grid outright. A grid that is missing, or whose origin is rotated (which this detector refuses rather than mis-index), flags no_grid instead, with the same effect on strength."
+freespace_doors_strong_min_spread_m:
+  default: 1.0
+  description: "How far apart [m] the two robot positions furthest apart that have seen a door must be before it counts as STRONG, alongside freespace_doors_strong_min_hits. A door also needs NO FLAGS to be strong, so a 'marginal' width, a 'one_jamb' opening or one found before any grid arrived ('no_grid') is published and drawn but never selected by a mission. On corridor10m_20261019T131815 this reduced 57 confirmed doors to 18 strong ones (measured, output/doors/freespace.md). 0 drops the requirement. BOTH ZERO is what the wall detectors use, which makes every confirmed door strong -- the behaviour they had before the field existed."
+freespace_doors_smooth_alpha:
+  default: 0.30
+  description: "EMA weight of the newest measurement in a tracked door's centre, axis and width. Same knob and same meaning as semantic_doors_smooth_alpha."
+freespace_doors_candidate_forget_s:
+  default: 12.0
+  description: "Seconds an UNCONFIRMED door candidate survives without being seen again. Generous, because confirmation now waits for the car to move freespace_doors_confirm_pose_spread_m, and a candidate must outlive that wait."
+freespace_doors_forget_unseen_s:
+  default: 0.0
+  description: "Seconds a CONFIRMED door survives after leaving view. 0 means never forgotten -- a door stays in the map once confirmed, which is what lets a mission drive back to one. Same default and same meaning as semantic_doors_forget_unseen_s."
+freespace_doors_max_candidates:
+  default: 16
+  description: "Most ACCEPTED openings kept per cycle, best-seen (most beams through) first. A bound on what reaches the tracker in a cluttered room. Rejected openings are not capped: they cost nothing further and they are what /viz/doors_freespace_debug and the debug dict are made of."
+freespace_doors_width_min_detect_m:
+  default: 0.6
+  description: "Narrowest opening [m] the SCAN half will even consider. Wider than freespace_doors_width_min_m on purpose: an opening between the bands is published with a 'marginal' flag rather than dropped, because a missed door is a mission that cannot run and a false one is a marker in Foxglove."
+freespace_doors_width_max_detect_m:
+  default: 1.5
+  description: "Widest opening [m] the SCAN half will consider. See width_min_detect_m for why it is wider than the nominal band. Note that a door seen at a shallow angle measures WIDE -- the jamb beams graze the wall, so the last return before the opening lands short of the real jamb -- which is another reason this band has slack."
+freespace_doors_smooth_beams:
+  default: 3
+  description: "Width of the MEDIAN filter over the range profile, in beams. A median and not a mean because every gate here is about an edge: a mean of three smears a 0.5 m jamb step over three beams and moves where the jamb is, a median of three deletes a single-beam spike and leaves the step exactly where it was. 0 or 1 disables it."
+freespace_doors_jump_min_m:
+  default: 0.5
+  description: "How much further the next beam must reach [m] to count as a range discontinuity. This is the first and bluntest gate: below it nothing downstream happens at all, so if doors are missing entirely, check /viz/doors_freespace_debug for yellow points at the jambs before touching anything else. Lower it for shallow doorways seen from far away; raise it in cluttered rooms where every object edge is a jump."
+freespace_doors_max_edges:
+  default: 64
+  description: "Most rising and most falling edges kept per scan, largest jumps first. A bound on the pairing below, which is a product of the two: foliage or a crowd can otherwise produce hundreds of each."
+freespace_doors_min_interior_beams:
+  default: 1
+  description: "How many beams must fall strictly between the two jambs. 1 is the real constraint (an opening with no beams through it was never observed); it exists as a parameter so a noisy lidar can be made to demand more."
+freespace_doors_beyond_beams_min:
+  default: 2
+  description: "How many beams must reach freespace_doors_beyond_m past the line between the jambs. 2, not 3: a doorway seen almost edge-on puts very few beams through, and this is the gate most likely to lose one. The confirmation, not this count, is what rejects artefacts."
+freespace_doors_block_margin_m:
+  default: 0.05
+  description: "How far past the line between the jambs [m] a beam may stop and still count as BLOCKING the opening rather than passing through it. Small on purpose: the split test counts beams that stopped AT or BEFORE the threshold, not beams that merely did not get freespace_doors_beyond_m further. Testing the latter rejected every side door into a small room -- a beam through a 0.9 m opening into a 3 m room seen at a shallow angle clips that room's far wall only about 0.3 m past the threshold, so a run of perfectly good beams read as short and split the opening in two."
+freespace_doors_short_run_max:
+  default: 2
+  description: "How many CONSECUTIVE beams inside the opening may fall short of the far side without the opening counting as blocked. A chair leg or a person standing beside the door shadows a few beams; that must not split the doorway in two. Works with short_frac_max: an opening is only rejected ('split') when it exceeds BOTH."
+freespace_doors_short_frac_max:
+  default: 0.2
+  description: "What fraction of the beams inside the opening may fall short before it counts as blocked, alongside short_run_max. Both must be exceeded to reject, so a short wide shadow and a long narrow one are both tolerated and only something genuinely filling the doorway is not."
+freespace_doors_edge_beams:
+  default: 3
+  description: "How many beams either side of a jamb are looked at to decide whether the jamb is the END OF A SURFACE rather than an isolated return. A jamb is part of something; one dust mote, one reflection or the tip of a chair back is not, and pairing two of those invents a doorway out of nothing."
+freespace_doors_edge_tol_m:
+  default: 0.2
+  description: "How close in range [m] a neighbouring beam must be for the jamb to count as part of the same surface. Generous, because a jamb seen at an angle changes range quickly from beam to beam."
+freespace_doors_noise_max_m:
+  default: 0.1
+  description: "Occupied runs shorter than this [m] are IGNORED outright when the grid is asked whether the line between the jambs is clear. One or two cells: a chair leg, a single bad return, a map artefact. The first of three deliberate tolerances -- see occupied_frac_max and occupied_run_veto_m."
+freespace_doors_occupied_frac_max:
+  default: 0.25
+  description: "How much of the line between the jambs may be occupied, in pieces that each survived noise_max_m, before the opening is rejected ('occupied_frac'). Pieces, not a continuous run: a doorway with clutter along its threshold is still a doorway."
+freespace_doors_occupied_run_veto_m:
+  default: 0.2
+  description: "The only thing that VETOES an opening outright on the grid: one CONTINUOUS occupied run at least this long [m] across it ('blocked'). That is something standing across the doorway rather than in it -- a closed door, a shelf, a wall the scan was wrong about."
+freespace_doors_behind_min_m:
+  default: 0.3
+  description: "Where the search for free space BEHIND the opening starts [m], measured along the crossing direction. Starts off the threshold so the jambs' own cells are not what satisfies it."
+freespace_doors_behind_max_m:
+  default: 1.0
+  description: "Where the search for free space behind the opening stops [m]. Short on purpose: all this asks is that something got through, not that there is a room."
+freespace_doors_behind_free_min_cells:
+  default: 3
+  description: "How many free cells must be found behind the opening. DELIBERATELY TINY -- one ray's worth is enough. There is no 'wide room' requirement and must not be: a room behind a door that has never been driven into is a fan of thin free lines with UNKNOWN between them, and demanding an open region there is exactly the test that made the medial-axis detector report zero doors on the real map (output/doors/freespace.md)."
+freespace_doors_scan_jamb_radius_m:
+  default: 0.25
+  description: "How far from each jamb point [m] the grid is searched for occupancy. 0.25, not the medial-axis detector's 0.15: the jamb point comes from a beam that grazed the wall and can sit a cell or two off it."
+freespace_doors_scan_jamb_min_cells:
+  default: 1
+  description: "How many occupied cells must lie within scan_jamb_radius_m of a jamb. ONE END MAY MISS IT: glass returns nothing, a corner can reflect a beam away and a jamb seen edge-on leaves almost no cells, so a single missing jamb keeps the candidate with a 'one_jamb' flag. Both ends missing is still a rejection ('no_jamb') -- that is not a doorway, it is two numbers."
+freespace_doors_merge_max_m:
+  default: 0.3
+  description: "Candidates whose centres are closer than this [m] are collapsed into one. One doorway produces several jump pairs (the median filter, a two-beam-wide jamb, a far surface at two depths), and the tracker associates each candidate to AT MOST ONE track -- so handing it five copies of one door spawns four spurious tracks. The survivor is the one with the most beams through it and inherits the union of the cluster's flags."
+freespace_doors_confirm_pose_spread_m:
+  default: 0.3
+  description: "How far apart [m] two of a door's sightings must have been made from before it is CONFIRMED. This, not a hit count, is what rejects a one-scan artefact: a reflection or a beam that slipped past a corner is perfectly repeatable from one standing position, and counting it ten times proves nothing, but it does not survive being looked at from a metre away. The swept choice was 1.0 m; loosened to 0.3 m on request (no bag check). The 1.0 m sweep result follows -- the sweep in output/doors/freespace.md put it at 57 confirmed doors on corridor10m_20261019T131815 against 98 for the first, permissive default of 0.15 m, and it lost not one of the 29 STRONG doors. 0 disables the policy and falls back to freespace_doors_confirm_hits."
+freespace_doors_confirm_same_pose_hits:
+  default: 0
+  description: "How many hits confirm a door regardless of where they came from. 0 DISABLES THE FALLBACK, which means A STATIONARY CAR NEVER CONFIRMS A DOOR -- deliberate, and the direct consequence of the sweep above: with the fallback at 3 almost everything seen three times in 0.3 s confirmed, and the pose-spread policy barely bit. Set it back to 3 if a mission has to resolve a door from a standstill, and expect the false-positive count to climb."
+freespace_doors_use_skeleton:
+  default: false
+  description: "Run the MEDIAL-AXIS detector instead of the scan-jump one. Default FALSE. It crops the grid, distance-transforms the free space, thins it to its medial axis and looks for a bottleneck whose clearance rises on both sides -- and on the real map it finds nothing, because a room behind a door is a ray fan rather than a region, so the rise test cannot hold and the few skeleton cells reaching through a doorway are short branches the spur pruning discards. Kept, and kept tested, because the geometry is sound wherever the map IS filled in. See output/doors/freespace.md."
+freespace_doors_grid_max_age_s:
+  default: 30.0
+  description: "How old the last /slam/map message may be [s] before a cycle is skipped. The grid is latched, so an old one keeps arriving in every new subscriber's queue forever: without this, a dead slam_toolbox would leave this node confidently re-publishing doors from a grid minutes out of date. A skipped cycle changes nothing -- the tracker keeps whatever it already confirmed. 0 disables the check."
+freespace_doors_debug_markers:
+  default: true
+  description: "Publish /viz/doors_freespace_debug: the medial axis as points, every candidate as a cube coloured by WHY it was rejected (green a door, grey the geometry was wrong, red the geometry was right and the scan said no), and the code as text. Nothing consumes it; it exists so that 'why is there no door there' is one Foxglove panel rather than a replay. False to save the MarkerArray on a logging-heavy run."
+
 # --- minimum width for a LiDAR wall (multi_wall_tracker's span gate) ----------
 # A wall is long; an object face, a chair leg, the end of a counter and a
 # person's two legs are short, and the extraction reports geometry, not
@@ -4017,3 +4476,80 @@ lidar_front_wall_wall_extract_quality_gates:
 enable_comms:
   default: false
   description: "Auto-start the comms component (f1tenth_comms comms.launch.py: Wi-Fi coverage grids and the link to the base on /comms/*). Report only, nothing drives or stops on it. Launch argument of supervisor_bringup.launch.py and stack_bringup.launch.py."
+
+# ============================================================
+# Planner-controller modes corridor_rrt and p2p_geometric (f1tenth_planners)
+# ============================================================
+# Consumed by: f1tenth_planners (corridor_rrt_node.py, p2p_geometric_node.py),
+# read as their ROS parameter defaults. Only used when planner_controller_mode
+# is corridor_rrt or p2p_geometric. Shared limits come from the keys mpc_corr
+# already reads (car_radius, obstacle_safety_margin_m, mpc_wheelbase_m,
+# mpc_steering_angle_min/max_rad, max_forward_speed_mps, min_moving_speed_mps,
+# object_reach_tol_m, object_stop_distance_m, corr_half_width_start_m, ...), so
+# a mode switch changes the planner and the controller and nothing else.
+planner_control_period_s:
+  default: 0.1
+  description: "Control tick [s] of corridor_rrt and p2p_geometric: pure pursuit, arrival checks and /drive. 0.1 matches mpc_corr's ts, so /mpc/object_status arrives at the rate the mission's object_reached expects."
+planner_cruise_speed_mps:
+  default: 0.5
+  description: "Speed reference [m/s] of corridor_rrt and p2p_geometric when the move names none (goal_distance, goal_pose). Same as mpc_corr's vdes. Turn, drive and object moves use their own speed. Clamped by max_forward_speed_mps, floored at min_moving_speed_mps while moving."
+planner_replan_period_s:
+  default: 1.0
+  description: "Seconds between replans of corridor_rrt (corridor + RRT*) and p2p_geometric (Dubins path) while a move runs; also replanned at once when the current path is blocked or the car is off it by more than planner_path_deviation_m. Same cadence as mpc_corr's corridor_update_period."
+planner_path_deviation_m:
+  default: 0.35
+  description: "Cross-track error [m] from the tracked path that forces an immediate replan."
+planner_goal_tolerance_m:
+  default: 0.15
+  description: "goal_pose / turn arrival radius [m] of corridor_rrt and p2p_geometric, as mpc_corr's pose_goal_tolerance. A car that passes the goal within planner_goal_pass_tolerance_m (the goal behind it along the approach) is also arrived, so a near miss does not loop."
+planner_goal_pass_tolerance_m:
+  default: 0.4
+  description: "Pass-by arrival radius [m]: the goal is behind the car along the approach direction and within this distance."
+pp_lookahead_min_m:
+  default: 0.6
+  description: "Pure pursuit: shortest lookahead [m]. Must stay above about half the minimum turning radius (mpc_wheelbase_m / tan(steering bound), ~0.95 m) or the tracker oscillates. Lookahead = clip(pp_lookahead_min_m + pp_lookahead_gain_s * v, min, pp_lookahead_max_m)."
+pp_lookahead_gain_s:
+  default: 0.5
+  description: "Pure pursuit: lookahead growth with speed [s]."
+pp_lookahead_max_m:
+  default: 1.5
+  description: "Pure pursuit: longest lookahead [m]."
+pp_lateral_accel_max_mps2:
+  default: 1.0
+  description: "Pure pursuit speed cap from the commanded curvature: v <= sqrt(this / |kappa|), never below min_moving_speed_mps while moving."
+pp_steering_rate_max_rad_s:
+  default: 2.0
+  description: "Largest change of the published steering angle per second [rad/s] in corridor_rrt and p2p_geometric."
+rrt_max_iterations:
+  default: 1500
+  description: "RRT* iteration cap per plan (corridor_rrt). The planner also stops at rrt_time_budget_s."
+rrt_time_budget_s:
+  default: 0.08
+  description: "Wall-clock budget [s] of one RRT* plan. Runs inside the control tick, so it must stay well under planner_control_period_s. After the first solution the remaining budget is spent rewiring."
+rrt_step_m:
+  default: 0.3
+  description: "RRT* steer step [m]: the longest new edge."
+rrt_goal_bias:
+  default: 0.15
+  description: "Fraction of RRT* samples drawn at the goal itself."
+rrt_rewire_radius_m:
+  default: 0.8
+  description: "RRT* neighbourhood radius [m] for choosing a parent and rewiring."
+rrt_root_cone_deg:
+  default: 50.0
+  description: "Edges leaving the car must point within this angle [deg] of its heading: an Ackermann car cannot start a path sideways."
+rrt_seed:
+  default: -1
+  description: "RNG seed of the RRT*; -1 seeds from the clock. A fixed seed makes a replay plan the same tree."
+rrt_corridor_length_min_m:
+  default: 1.5
+  description: "Shortest corridor [m] corridor_rrt builds for a rolling target (drive moves). Distance and pose moves end their corridor on the goal."
+rrt_corridor_length_drive_m:
+  default: 3.0
+  description: "Corridor length [m] of an open-ended drive move in corridor_rrt, rebuilt from the car at every replan (mpc_corr's corr_L_base)."
+p2p_obstacle_lookahead_m:
+  default: 1.5
+  description: "p2p_geometric: how far along its path [m] it checks for obstacles (circles inflated by car_radius + obstacle_safety_margin_m) and wall tracks. A blocked path inside this distance slows the car linearly to zero at p2p_obstacle_stop_m; it does not plan around (that is what corridor_rrt is for)."
+p2p_obstacle_stop_m:
+  default: 0.5
+  description: "p2p_geometric: path-distance [m] to the first blocked point at which the car stops and waits."

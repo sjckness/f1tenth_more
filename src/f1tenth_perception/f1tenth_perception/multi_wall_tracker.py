@@ -1253,7 +1253,23 @@ def ray_blocked_by(points, laser_xy, blockers, margin_m=0.10):
 class MultiWallTracker:
     """Wall tracks in odom; see the module docstring."""
 
-    def __init__(self, params=None, rect_params=None):
+    def __new__(cls, *args, **kwargs):
+        """Dispatch on wall_tracker_impl (wall_tracker_backend.py).
+
+        `MultiWallTracker(params, rect, impl='rust')` -- or no `impl` while
+        wall_tracker_backend.DEFAULT_IMPL is 'rust' (the stack_params.yaml
+        default, or the F1TENTH_WALL_TRACKER_IMPL test hook) -- builds the
+        Rust-backed NativeMultiWallTracker, a subclass with the same API; 'py',
+        the default, builds this class exactly as before.
+        """
+        if cls is MultiWallTracker:
+            from f1tenth_perception import wall_tracker_backend
+            native = wall_tracker_backend.native_class_for(kwargs.get('impl'))
+            if native is not None:
+                return object.__new__(native)
+        return object.__new__(cls)
+
+    def __init__(self, params=None, rect_params=None, impl=None):
         self.p = params or TrackerParams()
         #: The rectangle verification's own numbers (wall_fusion.RectParams).
         #: The tracker holds them because the sticky state they drive lives on

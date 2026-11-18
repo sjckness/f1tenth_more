@@ -1,0 +1,119 @@
+{
+ "scenario": "M3",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "end_reason": "mission COMPLETE",
+ "phases_wall_s": {
+  "ready": 2.249,
+  "params": 0.204,
+  "scenario": 8.013,
+  "reset": 7.073,
+  "start": 0.008,
+  "record": 16.446
+ },
+ "valid": true,
+ "gt_blowup_t": null,
+ "start_pose_map_sim": {
+  "x": 0.45405397888797894,
+  "y": 2.9975375570997502,
+  "yaw_deg": 2.6475595823062776
+ },
+ "progress_m": 4.039056112468399,
+ "max_lateral_error_m": 0.5314819828285436,
+ "final_lateral_error_m": 0.530092947564386,
+ "final_heading_error_rad": 0.011968241581601898,
+ "duration_s": 14.450000000000017,
+ "time_to_goal_s": 14.450000000000017,
+ "obstacles": [
+  {
+   "id": "cyl050",
+   "r": 0.25,
+   "min_centre_dist_m": 0.5218829456699381,
+   "r_safe_ref_m": 0.5700000000000001,
+   "margin_m": -0.04811705433006197,
+   "t_min_s": 4.133333332999996,
+   "body_clearance_m": -0.008139562880860263,
+   "level": null
+  }
+ ],
+ "min_margin_m": -0.04811705433006197,
+ "min_body_clearance_m": -0.008139562880860263,
+ "steer_sign_changes": 3,
+ "steer_sat": {
+  "n": 145,
+  "delta_frac": 0.0896551724137931,
+  "rate_frac": 0.16666666666666666,
+  "delta_any": true,
+  "rate_any": true
+ },
+ "solver_ticks": 120,
+ "solve_failures": 0,
+ "max_n_obstacles_seen": 29,
+ "solve_time_ms_p95": 0.0,
+ "solve_over_deadline": 0,
+ "mpc_cpu_ms_per_tick": 75.50000000000001,
+ "perceived_r_max_m": 0.2673082649707794,
+ "safety": {
+  "hard_stop_engaged": true,
+  "bt_trip": true,
+  "mux_safety_lanes": [
+   "base_link/emergency",
+   "base_link/hard_stop"
+  ],
+  "contact_event": true,
+  "events": [
+   {
+    "event": "estop",
+    "cause": "IsProximityTooClose",
+    "source": "behavior_tree",
+    "lane": "emergency"
+   },
+   {
+    "event": "contact",
+    "cause": "lidar return 0.001 m inside the footprint",
+    "clearance_m": -0.0014,
+    "source": "obstacle_clearance_node"
+   }
+  ]
+ },
+ "outcome": "collision",
+ "mission_final_state": "COMPLETE",
+ "failure": {
+  "id": "cyl050",
+  "level": null,
+  "margin_m": -0.04811705433006197,
+  "body_clearance_m": -0.008139562880860263,
+  "t_s": 4.133333332999996,
+  "steer_sat_before": {
+   "n": 15,
+   "delta_frac": 0.06666666666666667,
+   "rate_frac": 0.8571428571428571,
+   "delta_any": true,
+   "rate_any": true
+  }
+ },
+ "return": {
+  "x_pass_m": 2.367783367614929,
+  "passed": true,
+  "swerve_side": -1.0,
+  "lateral_at_pass_m": -0.48127873600791393,
+  "return_time_s": null,
+  "overshoot_m": 0.0,
+  "crossings": 0,
+  "final_lateral_m": -0.530092947564386,
+  "time_after_pass_s": 3.366666667000004
+ },
+ "score": 0.0,
+ "score_terms": null,
+ "nominal": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "recorder_code": 0,
+ "wall_recorder_s": 35.8,
+ "isaac_alive_after": true
+}

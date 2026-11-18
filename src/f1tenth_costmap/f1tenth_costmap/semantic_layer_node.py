@@ -151,6 +151,7 @@ in mpc_corr).
 """
 
 import array
+import dataclasses
 import itertools
 import json
 import math
@@ -162,12 +163,14 @@ from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 
 import numpy as np
+from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import OccupancyGrid, Odometry
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import ColorRGBA, Float32, Int32MultiArray, String
 from tf2_ros import ConnectivityException, ExtrapolationException, LookupException
 from tf2_ros.buffer import Buffer
 from tf2_msgs.msg import TFMessage
+from tf2_ros.transform_broadcaster import TransformBroadcaster
 from tf2_ros.transform_listener import TransformListener
 from vision_msgs.msg import (
     Detection3D,
@@ -177,16 +180,19 @@ from vision_msgs.msg import (
 from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_messages.msg import (
-    MultiWallTrack, MultiWallTrackArray, Obstacle2D, Obstacle2DArray, SemanticObject,
-    SemanticObjectArray, StereoColumns, WallObservationArray)
+    Door, DoorArray, MultiWallTrack, MultiWallTrackArray, Obstacle2D, Obstacle2DArray,
+    SemanticObject, SemanticObjectArray, StereoColumns, WallObservationArray)
 from f1tenth_params.object_geometry import footprint_radius
-from f1tenth_params.param_defaults import get_value
+from f1tenth_params.param_defaults import get_odom_topic, get_value
 from f1tenth_costmap import unknown_objects as uo
 from f1tenth_costmap.wall_raster import rasterize_walls, transform_segment
 from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_params.object_geometry import ObstacleFilter
 
 from f1tenth_costmap import object_memory as om
+from f1tenth_costmap import semantic_door_markers as sdm
+from f1tenth_costmap import semantic_doors as sd
+from f1tenth_costmap import track_velocity as tv
 from f1tenth_costmap.semantic_layer import (
     compose_base_link_to_map, dedupe_tracks, find_nearest_pose_by_stamp, hand_over_to_lidar,
     live_tracks, pose_to_xytheta, update_tracks_batch, update_unknown_batch)
@@ -459,6 +465,32 @@ class SemanticLayerNode(Node):
             float(stack('obstacle_z_min')), float(stack('obstacle_z_max')),
             float(stack('min_obstacle_radius')), float(stack('max_obstacle_radius')))
         self.declare_parameter('obstacles_topic', '/costmap/semantic_obstacles')
+        # ---- per-track velocity (mpc-dodge, f1tenth_costmap/track_velocity.py) --------
+        # OFF by default: semantic_track_velocity_enabled. On, every track's raw measurements go
+        # into the LOCAL odom frame at their own timestamp (the local EKF's pose history, never the
+        # map), a constant-velocity filter per id estimates its ground velocity, and the obstacle
+        # list and the object list carry it (id, vx, vy, v_valid ...).
+        self.velocity_enabled = bool(stack('semantic_track_velocity_enabled'))
+
+        def vparam(name, default):
+            return float(self.declare_parameter(name, default).value)
+        self._velocity = tv.TrackVelocityEstimator(
+            q_acc=vparam('track_velocity_q_acc', 1.5),
+            meas_sigma=vparam('track_velocity_meas_sigma_m', 0.05),
+            min_age_s=vparam('track_velocity_min_age_s', 0.5),
+            min_speed=vparam('track_velocity_min_speed_mps', 0.1),
+            max_sigma_v=vparam('track_velocity_max_sigma_mps', 0.25),
+            max_gap_s=vparam('track_velocity_max_gap_s', 1.0))
+        self.velocity_arc_correction = bool(
+            self.declare_parameter('track_velocity_arc_correction', True).value)
+        self.velocity_max_aspect = vparam('track_velocity_max_aspect', 3.5)
+        self._odom_history = []
+        if self.velocity_enabled:
+            self.odom_sub = self.create_subscription(
+                Odometry,
+                self.declare_parameter('track_velocity_odom_topic', get_odom_topic()).value,
+                self._odom_cb, QoSProfile(depth=20, history=HistoryPolicy.KEEP_LAST,
+                                          reliability=ReliabilityPolicy.BEST_EFFORT))
         # /scan is subscribed once, in _init_object_memory: the memory's
         # visibility and this LiDAR cycle read the same latest scan.
         self._scan_unprocessed = False
@@ -500,8 +532,203 @@ class SemanticLayerNode(Node):
         self._last_published_marker_keys: set = set()
 
         self._init_object_memory()
+        self._init_semantic_doors(stack)
 
         self.get_logger().info('semantic_layer_node started')
+
+    # ------------------------------------------------------------------
+    # Doors from the semantic layer (f1tenth_costmap/semantic_doors.py)
+    # ------------------------------------------------------------------
+    #: Consecutive failing door cycles after which door detection is turned
+    #: off for this node's life. The semantic layer must never be stopped by
+    #: an overlay; the same number and the same reasoning as
+    #: lidar_front_wall_node's own door guard.
+    DOOR_MAX_ERRORS = 50
+
+    def _init_semantic_doors(self, stack):
+        """Declare the door parameters and wire the four outputs.
+
+        `stack` is __init__'s own declare-from-stack_params helper, passed in
+        rather than rebuilt, so every door default comes from the one
+        stack_params.yaml entry and from nowhere else.
+
+        NOTHING IS CREATED WHEN THE DETECTOR IS OFF -- no publisher, no
+        broadcaster, no tracker: `semantic_doors_enabled` false, or
+        `door_source` naming one of the other two detectors (freespace_door_
+        node's grid one, or lidar_front_wall_node's profile one), leaves this
+        node exactly as
+        it was. Both default to running it (true / 'semantic').
+        """
+        self.door_source = str(stack('door_source'))
+        if self.door_source not in sd.DOOR_SOURCES:
+            raise ValueError('door_source must be one of '
+                             f'{sd.DOOR_SOURCES}, got {self.door_source!r}')
+        self.doors_enabled = (bool(stack('semantic_doors_enabled'))
+                              and self.door_source == 'semantic')
+        self._door_tracker = None
+        self._door_errors = 0
+        self._door_ms = math.nan
+        self._door_codes: dict = {}
+        self._door_viz_ids: set = set()
+        if not self.doors_enabled:
+            return
+
+        level_name = str(stack('semantic_doors_min_wall_level'))
+        if level_name not in sd.LEVEL_BY_NAME:
+            raise ValueError('semantic_doors_min_wall_level must be one of '
+                             f'{sorted(sd.LEVEL_BY_NAME)}, got {level_name!r}')
+        self.door_params = sd.DoorParams(
+            min_wall_level=sd.LEVEL_BY_NAME[level_name],
+            width_min_m=float(stack('semantic_doors_width_min_m')),
+            width_max_m=float(stack('semantic_doors_width_max_m')),
+            parallel_angle_deg=float(stack('semantic_doors_parallel_angle_deg')),
+            parallel_offset_m=float(stack('semantic_doors_parallel_offset_m')),
+            perp_tol_deg=float(stack('semantic_doors_perp_tol_deg')),
+            foot_inset_m=float(stack('semantic_doors_foot_inset_m')),
+            end_fov_margin_rad=math.radians(
+                float(stack('semantic_doors_end_fov_margin_deg'))),
+            end_range_margin_m=float(stack('semantic_doors_end_range_margin_m')),
+            end_occlusion_margin_m=float(stack('semantic_doors_end_occlusion_margin_m')),
+            end_probe_beams=int(stack('semantic_doors_end_probe_beams')),
+            min_beams=int(stack('semantic_doors_min_beams')),
+            through_frac=float(stack('semantic_doors_through_frac')),
+            behind_margin_m=float(stack('semantic_doors_behind_margin_m')),
+            gap_clear_m=float(stack('semantic_doors_gap_clear_m')),
+            jamb_exclude_m=float(stack('semantic_doors_jamb_exclude_m')),
+            assoc_max_m=float(stack('semantic_doors_assoc_max_m')),
+            confirm_hits=int(stack('semantic_doors_confirm_hits')),
+            smooth_alpha=float(stack('semantic_doors_smooth_alpha')),
+            candidate_forget_s=float(stack('semantic_doors_candidate_forget_s')),
+            forget_unseen_s=float(stack('semantic_doors_forget_unseen_s')),
+            max_walls=int(stack('semantic_doors_max_walls')))
+        self.door_jamb_diameter_m = float(stack('semantic_doors_jamb_viz_diameter_m'))
+        self.door_viz_height_m = float(stack('semantic_doors_viz_height_m'))
+        self.door_publish_tf = bool(stack('semantic_doors_publish_tf'))
+        self._door_tracker = sd.DoorTracker(self.door_params)
+        self.doors_pub = self.create_publisher(
+            DoorArray,
+            self.declare_parameter('doors_topic', '/perception/doors_semantic').value, 10)
+        self.viz_doors_pub = self.create_publisher(
+            MarkerArray,
+            self.declare_parameter('viz_doors_topic', '/viz/doors_semantic').value, 10)
+        self.door_objects_pub = self.create_publisher(
+            SemanticObjectArray,
+            self.declare_parameter('door_objects_topic', '/costmap/semantic_doors').value,
+            10)
+        self._door_tf = TransformBroadcaster(self) if self.door_publish_tf else None
+        self.get_logger().info(
+            f'semantic doors on: walls at or above {level_name!r}, '
+            f'{self.door_params.width_min_m:.2f}-{self.door_params.width_max_m:.2f} m, '
+            f'confirmed after {self.door_params.confirm_hits} sightings')
+
+    def _door_walls_map(self, pose):
+        """The semantic layer's wall TRACKS as map-frame sd.Wall records.
+
+        The tracks only -- not `_observed_walls_map`'s raw observations. A
+        doorway's jamb has to be a wall with an identity and a confirmation
+        level behind it, and a raw observation has neither: it is this scan's
+        run of returns, with no id to track a door against and nothing to
+        compare door_min_wall_level to.
+        """
+        msg = self._latest_walls
+        if msg is None:
+            return []
+        out = []
+        for t in msg.tracks:
+            p0, p1 = transform_segment((t.p0_bl.x, t.p0_bl.y),
+                                       (t.p1_bl.x, t.p1_bl.y), pose)
+            out.append(sd.Wall(t.id, p0, p1,
+                               level=sd.wall_level(t.state, t.source),
+                               role=t.role or t.label))
+        return out
+
+    def _door_step(self, scan):
+        """Prepare one scan for the door cycle and run it.
+
+        Cheap enough to stand on its own (one uo.scan_points over the scan,
+        then the pair loop): the replay measures the whole cycle at 0.08 ms
+        median on a laptop, against the 100 ms the 10 Hz tick allows.
+        """
+        if not self.doors_enabled or self._door_tracker is None:
+            return
+        stamp = scan.header.stamp.sec + scan.header.stamp.nanosec * 1e-9
+        pose = find_nearest_pose_by_stamp(self._pose_history, stamp)
+        laser = self._laser_pose_for(scan.header.frame_id)
+        if pose is None or laser is None:
+            self.get_logger().warn(
+                'semantic doors: no pose or no laser transform yet -- scan skipped',
+                throttle_duration_sec=5.0)
+            return
+        _pts, bearings, ranges = uo.scan_points(
+            scan.ranges, scan.angle_min, scan.angle_increment, scan.range_min,
+            scan.range_max, laser)
+        self._door_cycle(scan, pose, laser, bearings, ranges, stamp)
+
+    def _door_cycle(self, scan, pose, laser, bearings, ranges, stamp_sec):
+        """One door cycle: candidates, the tracker, and the four outputs.
+
+        Never raises into the LiDAR cycle. A door is an OVERLAY: whatever
+        goes wrong here, the walls, the obstacle list and the speed cap of
+        this same cycle are exactly what they would have been without it.
+        """
+        if not self.doors_enabled or self._door_tracker is None:
+            return
+        t0 = time.perf_counter()
+        try:
+            walls = self._door_walls_map(pose)
+            view = sd.ScanView(bearings, ranges, laser[:2], scan.range_max)
+            objects = [(float(xy[0]), float(xy[1]), float(t.radius()))
+                       for t, xy in ((t, uo.to_base_link([(t.x_map, t.y_map)], pose)[0])
+                                     for t in self._tracks if t.confirmed)]
+            cands = sd.candidate_doors(
+                walls, view, objects, self.door_params,
+                to_base_link=lambda xy: uo.to_base_link([xy], pose)[0])
+            self._door_tracker.update(cands, (pose[0], pose[1]), stamp_sec)
+            self._door_codes = {}
+            for c in cands:
+                key = c.code or 'ok'
+                self._door_codes[key] = self._door_codes.get(key, 0) + 1
+            self._publish_doors(scan.header.stamp, stamp_sec, pose)
+            self._door_errors = 0
+        except Exception as exc:                        # noqa: BLE001
+            self._door_errors += 1
+            self.get_logger().warn(
+                f'semantic doors: cycle failed ({exc!r}); the semantic layer is '
+                'unaffected', throttle_duration_sec=5.0)
+            if self._door_errors >= self.DOOR_MAX_ERRORS:
+                self.doors_enabled = False
+                self.get_logger().error(
+                    f'semantic doors: {self._door_errors} consecutive failures -- '
+                    'door detection is off for the life of this node')
+        finally:
+            self._door_ms = (time.perf_counter() - t0) * 1e3
+
+    def _publish_doors(self, stamp_msg, stamp_sec, pose):
+        """The DoorArray, the markers, the TFs and the semantic-layer objects."""
+        tracker = self._door_tracker
+        confirmed = tracker.confirmed()
+
+        msg = DoorArray()
+        msg.header.stamp = stamp_msg
+        msg.header.frame_id = self.map_frame
+        msg.doors = [sdm.door_message(d, Door, stamp_msg) for d in confirmed]
+        self.doors_pub.publish(msg)
+
+        objects = SemanticObjectArray()
+        objects.header.stamp = stamp_msg
+        objects.header.frame_id = self.map_frame
+        objects.objects = [sdm.door_object(d, SemanticObject) for d in confirmed]
+        self.door_objects_pub.publish(objects)
+
+        markers, self._door_viz_ids = sdm.marker_array(
+            tracker.tracks, self._door_viz_ids, self.map_frame, stamp_msg,
+            self.door_jamb_diameter_m, self.door_viz_height_m, car_pose=pose)
+        self.viz_doors_pub.publish(markers)
+
+        if self._door_tf is not None and confirmed:
+            self._door_tf.sendTransform([
+                sdm.door_transform(d, TransformStamped, self.map_frame, stamp_msg)
+                for d in confirmed])
 
     # ------------------------------------------------------------------
     def _init_object_memory(self):
@@ -700,8 +927,17 @@ class SemanticLayerNode(Node):
         """
         if not self._pose_history:
             return
-        if self._scan_unprocessed and self._scan is not None and self.unknown_mode != 'off':
-            self._lidar_step(self._scan[1])
+        if self._scan_unprocessed and self._scan is not None:
+            if self.unknown_mode != 'off':
+                self._lidar_step(self._scan[1])
+            # DOORS DO NOT RIDE ON THE UNKNOWN-OBJECT CYCLE. They used to be
+            # called from _lidar_step, which runs only while
+            # unknown_objects_mode is 'shadow' or 'active' -- and that
+            # parameter ships 'off', so the door detector would have been
+            # dead on the car with no way to tell from its own flags. The two
+            # read the same scan and the same walls but answer different
+            # questions, and neither should be able to switch the other off.
+            self._door_step(self._scan[1])
         self._scan_unprocessed = False
         pose_now = self._pose_history[-1][1]
         out = Obstacle2DArray()
@@ -709,10 +945,10 @@ class SemanticLayerNode(Node):
         out.header.frame_id = self.base_frame
         now_sec = self._pose_history[-1][0]
         current = {t.track_id for t in self._current_recognised(now_sec)}
-        obstacles = uo.obstacles_for_mpc(self._tracks, pose_now, self.unknown_mode,
-                                         self.class_margin, now_sec, self.recognised_max_age_s,
-                                         current_ids=current)
-        out.obstacles = [Obstacle2D(x=x, y=y, r=r) for x, y, r in obstacles]
+        obstacles = uo.obstacles_for_mpc_tracks(self._tracks, pose_now, self.unknown_mode,
+                                                self.class_margin, now_sec,
+                                                self.recognised_max_age_s, current_ids=current)
+        out.obstacles = [self._obstacle_msg(x, y, r, trk) for x, y, r, trk in obstacles]
         self.obstacles_pub.publish(out)
         cap = uo.speed_cap(self._tracks, pose_now, self.unknown_mode, self.speed_cap_enabled,
                            self.speed_cap_mps, self.speed_cap_range_m,
@@ -724,6 +960,11 @@ class SemanticLayerNode(Node):
             'cells': dict(zip(('free', 'wall', 'object', 'island'),
                               (int(c) for c in self._owner_counts))),
             'candidates': self._n_candidates,
+            'door_ms': round(self._door_ms, 2) if self._door_ms == self._door_ms else None,
+            'door_errors': self._door_errors,
+            'door_codes': self._door_codes,
+            'doors_confirmed': (0 if self._door_tracker is None
+                                else len(self._door_tracker.confirmed())),
             'unknown_tentative': sum(1 for t in unknown if not t.confirmed),
             'unknown_confirmed': sum(1 for t in unknown if t.confirmed),
             'recognised_confirmed': sum(
@@ -735,6 +976,23 @@ class SemanticLayerNode(Node):
             'speed_cap': cap,
             'lidar_ms': None if not math.isfinite(self._unknown_ms)
             else round(self._unknown_ms, 3)})))
+
+    def _obstacle_msg(self, x, y, r, trk):
+        """One Obstacle2D: the disk, and (velocity on) its track's id and motion."""
+        o = Obstacle2D(x=x, y=y, r=r)
+        if not self.velocity_enabled:
+            return o
+        o.id = int(trk.track_id)
+        est = self._velocity_of(trk)
+        if est is not None:
+            o.vx, o.vy, o.speed, o.heading = est.vx, est.vy, est.speed, est.heading
+            o.v_sigma = est.sigma_v
+            o.v_valid = bool(est.valid)
+            yaw = self._odom_yaw_now()
+            if yaw is not None:
+                c, s = math.cos(yaw), math.sin(yaw)
+                o.vx_car, o.vy_car = c * est.vx + s * est.vy, -s * est.vx + c * est.vy
+        return o
 
     def _lidar_step(self, scan):
         t0 = time.perf_counter()
@@ -774,6 +1032,7 @@ class SemanticLayerNode(Node):
         self._tracks, folded = dedupe_tracks(self._tracks, self.merge_distance_m,
                                              self._fold_memory, self._plausible)
         self._n_dedupe += folded
+        self._feed_velocity(pose, stamp, sensor_xy=laser[:2])
         self._n_candidates = len(cands)
         self._owner_counts = np.bincount(owner.ravel(), minlength=4).tolist()
         self._unknown_ms = (time.perf_counter() - t0) * 1e3
@@ -861,6 +1120,65 @@ class SemanticLayerNode(Node):
         if len(self._pose_history) > _POSE_HISTORY_MAXLEN:
             self._pose_history.pop(0)
         self._last_pose_rx = self._now_sec()
+
+    def _odom_cb(self, msg: Odometry):
+        """Keep the LOCAL odom pose history (track_velocity's frame), stamp-ordered."""
+        stamp_sec = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        if self._odom_history and stamp_sec <= self._odom_history[-1][0]:
+            return
+        self._odom_history.append(
+            (stamp_sec, pose_to_xytheta(msg.pose.pose.position, msg.pose.pose.orientation)))
+        if len(self._odom_history) > 400:
+            del self._odom_history[:100]
+
+    def _feed_velocity(self, pose_map, stamp_sec, sensor_xy=None):
+        """
+        Feed every track measured at stamp_sec to its velocity filter, in odom.
+
+        pose_map is the map pose the node placed this batch's measurements with: its exact
+        inverse takes them back to base_link, the odom pose at the same stamp to odom, so the
+        map cancels. sensor_xy (LiDAR): the scan origin in base_link, for the arc-centroid
+        correction of unknown tracks.
+        """
+        if not self.velocity_enabled or pose_map is None:
+            return
+        pose_odom = tv.interpolate_pose(self._odom_history, stamp_sec)
+        if pose_odom is None:
+            return
+        for trk in self._tracks:
+            meas = getattr(trk, 'last_meas', None)
+            if meas is None or abs(meas[0] - stamp_sec) > 1e-6:
+                continue
+            bl = uo.to_base_link([(meas[1], meas[2])], pose_map)[0]
+            if sensor_xy is not None and trk.is_unknown and self.velocity_arc_correction:
+                bl = tv.arc_centre_correction(bl, trk.radius(), sensor_xy)
+            xo, yo, ao = pose_odom
+            c, s = math.cos(ao), math.sin(ao)
+            self._velocity.update(trk.track_id, stamp_sec, xo + c * bl[0] - s * bl[1],
+                                  yo + s * bl[0] + c * bl[1])
+        self._velocity.retain(t.track_id for t in self._tracks)
+
+    def _velocity_of(self, trk):
+        """
+        Return the track's VelocityEstimate, or None (feature off, never measured).
+
+        A LONG, THIN unknown cluster (length > track_velocity_max_aspect x its width, the width
+        floored at 0.1 m: a wall stub, a cabinet run) is never v_valid: its centroid slides along
+        it as the visible part changes while the car drives (seen in Isaac: a wall stub behind the
+        car at 0.29 m/s, aspect ~6). A cylinder's half-arc (aspect ~2) is not one: the plain
+        chain criterion of track_disks (1.5) also caught every LiDAR cylinder and left the
+        phase 2 A/B with v_valid on 1 % of the moving cylinders' disks.
+        """
+        if not self.velocity_enabled:
+            return None
+        est = self._velocity.estimate(trk.track_id)
+        if est is not None and est.valid and uo.is_elongated(
+                trk, ratio=self.velocity_max_aspect, min_width=0.1):
+            est = dataclasses.replace(est, valid=False)
+        return est
+
+    def _odom_yaw_now(self):
+        return self._odom_history[-1][1][2] if self._odom_history else None
 
     def _scan_cb(self, msg: LaserScan):
         self._scan = (self._now_sec(), msg)
@@ -1018,6 +1336,7 @@ class SemanticLayerNode(Node):
         self._tracks, folded = dedupe_tracks(self._tracks, self.merge_distance_m,
                                              self._fold_memory, self._plausible)
         self._n_dedupe += folded
+        self._feed_velocity(map_pose, stamp_sec)
         self._log_new_spawns(before_ids, map_pose=map_pose)
 
         self._publish(msg.header.stamp)
@@ -1297,6 +1616,16 @@ class SemanticLayerNode(Node):
             obj.in_fov = bool(mem.in_fov)
             obj.in_fov_lidar = bool(mem.in_fov_lidar)
             obj.in_fov_stereo = bool(mem.in_fov_stereo)
+            est = self._velocity_of(trk)
+            if est is not None:
+                obj.vx_odom, obj.vy_odom, obj.speed = est.vx, est.vy, est.speed
+                obj.heading_odom = est.heading
+                obj.v_cov = [float(v) for v in est.cov.ravel()]
+                obj.v_valid = bool(est.valid)
+                yaw = self._odom_yaw_now()
+                if yaw is not None:
+                    c, s = math.cos(yaw), math.sin(yaw)
+                    obj.vx_car, obj.vy_car = c * est.vx + s * est.vy, -s * est.vx + c * est.vy
             msg.objects.append(obj)
         self.objects_pub.publish(msg)
 

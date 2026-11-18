@@ -238,7 +238,7 @@ def run_bot(cfg: Config, controller: Controller, token: str,
         try:
             await edit(context.bot, chat_id, mid, ex.render(), parse_mode='HTML')
             while not ex.done:
-                await asyncio.sleep(planner.POLL_S)
+                await asyncio.sleep(ex.poll_delay())
                 await asyncio.to_thread(ex.poll, controller.t, cfg.timeout('status'))
                 await edit(context.bot, chat_id, mid, ex.render(), parse_mode='HTML')
         finally:

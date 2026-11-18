@@ -28,3 +28,17 @@ float32 fov_unseen_s        # [s] in view and undetected since the last detectio
 bool in_fov                 # visible to a sensor able to detect this class (YOLO classes: the stereo camera)
 bool in_fov_lidar           # LiDAR: in the scan's own sector and range, no closer return on the bearing
 bool in_fov_stereo          # camera: live, inside the frustum and depth window, not occluded
+
+# --- velocity (mpc-dodge, 2026-11-18): f1tenth_costmap/track_velocity.py --------
+# Constant-velocity filter on the raw measurements brought into the LOCAL odom
+# frame at their own timestamp: no map -> odom jump reaches it, and the car's own
+# motion is compensated. Zero / false unless semantic_layer_node's
+# semantic_track_velocity_enabled is true. NOT map frame, unlike x/y above.
+float32 vx_odom             # [m/s]
+float32 vy_odom             # [m/s]
+float32 speed               # [m/s]
+float32 heading_odom        # [rad]
+float32[4] v_cov            # [m^2/s^2] 2x2 velocity covariance, row-major (odom)
+float32 vx_car              # [m/s] the same velocity in the car's axes (debug / Foxglove only)
+float32 vy_car              # [m/s]
+bool v_valid

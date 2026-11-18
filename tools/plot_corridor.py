@@ -109,7 +109,7 @@ def draw_snapshot(ax, snap, title_suffix=""):
                 fc="tab:purple", ec="tab:purple", zorder=4,
             )
 
-    # local target (lookahead point, post obstacle-deflection)
+    # local target (the lookahead point on the centerline)
     ax.plot(target["x"], target["y"], "*", color="tab:orange", markersize=16,
              label="local target", zorder=4)
 

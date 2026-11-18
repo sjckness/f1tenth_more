@@ -1,0 +1,12 @@
+[isaac_tuning 00:18:43] preflight ok {'free_disk_gb': 21.8, 'free_vram_mib': 6909}
+[isaac_tuning 00:18:45] discovery server {'port': 11878, 'pgid': 2983194}
+[isaac_tuning 00:19:04] isaac up {'wall_s': 19.3}
+[isaac_tuning 00:19:04] stack starting {'pgid': 2984627, 'log': 'stack_S1_r0.log'}
+[isaac_tuning 00:19:42] S1 r0: success score=89.38898385426002 margin=0.14167659175155078 wall=37.3s
+[isaac_tuning 00:19:42] stopping stack: SIGTERM to process group 2984627
+[isaac_tuning 00:19:42] stopping stack: SIGTERM to what is left of process group 2984627
+[isaac_tuning 00:19:43] stack stopped {'wall_s': 1.8, 'leftovers': 0}
+[isaac_tuning 00:19:44] stopping isaac: SIGTERM to process group 2983325
+[isaac_tuning 00:19:44] stopping discovery server: SIGINT to process group 2983194
+[isaac_tuning 00:19:44] session closed {'container': False, 'leftovers': 0}
+[isaac_tuning 00:19:44] done: 1/1 success, score 89.4 +- 0.0, orphans 0, out output/isaac_tuning/proof_S1

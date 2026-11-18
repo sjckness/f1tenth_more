@@ -1,0 +1,35 @@
+[package]
+name = "f1tenth_costmap_boundary_rs"
+version = "0.1.0"
+description = "costmap_boundary_node in Rust (rclrs): nearest-occupied-cell boundaries and front clearance from /slam/map"
+edition = "2021"
+license = "Apache-2.0"
+rust-version = "1.85"
+
+[[bin]]
+name = "costmap_boundary_node"
+path = "src/main.rs"
+
+# tools/rust_parity/costmap_boundary: the same extraction on recorded/synthetic cases.
+[[bin]]
+name = "costmap_boundary_replay"
+path = "src/bin/costmap_boundary_replay.rs"
+
+[dependencies]
+# See ../Cargo.toml for these two pins.
+rclrs = "=0.8.0"
+# Every message type (builtin_interfaces, std_msgs, nav_msgs, and the
+# workspace's f1tenth_messages), as ros_env::<package>::msg::<Type>.
+ros-env = "=0.3.0"
+serde = { version = "1", features = ["derive"] }
+# float_roundtrip: correctly rounded float parsing. The default parser can be
+# 1 ulp off, which the parity harness would read as an extraction difference.
+serde_json = { version = "1", features = ["float_roundtrip"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"

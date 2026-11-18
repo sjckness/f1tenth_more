@@ -1,0 +1,15 @@
+# mpc-dodge phase 2 / 2b A/B (evaluate.py). {} = every default of space.yaml = the shipped MPC.
+# Wake 150 and the return numbers were picked on the closed-loop rig (mpc_controller
+# test_dodge_closed_loop.py); trust 0.5 without a wake did WORSE than static there.
+baseline: {}
+alpha: {mpc_obs_vel_trust: 1.0}
+alpha_wake: {mpc_obs_vel_trust: 1.0, mpc_obs_wake_weight: 150.0, mpc_obs_wake_horizon_s: 1.0}
+informed: {mpc_obstacle_side_mode: informed}
+all: {mpc_obs_vel_trust: 1.0, mpc_obs_wake_weight: 150.0, mpc_obs_wake_horizon_s: 1.0,
+      mpc_obstacle_side_mode: informed}
+fixed_line: {corridor_lateral_reanchor: false}
+return: {corridor_lateral_reanchor: false, mpc_return_gain: 1.0, mpc_return_lookahead_ratio: 2.5,
+         mpc_return_psi_scale: 0.5}
+all_return: {mpc_obs_vel_trust: 1.0, mpc_obs_wake_weight: 150.0, mpc_obs_wake_horizon_s: 1.0,
+             mpc_obstacle_side_mode: informed, corridor_lateral_reanchor: false,
+             mpc_return_gain: 1.0, mpc_return_lookahead_ratio: 2.5, mpc_return_psi_scale: 0.5}

@@ -1,0 +1,63 @@
+== py mpc_controller (23:57:14)
+   15 failed, 1669 passed, 1 skipped, 2 xfailed, 8 warnings in 407.31s (0:06:47) [408 s]
+== py f1tenth_params (00:04:02)
+   80 passed in 0.51s [1 s]
+== py f1tenth_logger (00:04:03)
+   5 failed, 331 passed, 8 warnings in 51.10s [52 s]
+== rust mpc_controller (00:04:55)
+   15 failed, 1669 passed, 1 skipped, 2 xfailed, 8 warnings in 410.30s (0:06:50) [411 s]
+== rust f1tenth_params (00:11:46)
+   80 passed in 0.43s [1 s]
+== rust f1tenth_logger (00:11:47)
+   5 failed, 331 passed, 8 warnings in 47.82s [49 s]
+== substitute mpc_controller (00:12:36)
+   15 failed, 1669 passed, 1 skipped, 2 xfailed, 8 warnings in 442.61s (0:07:22) [443 s]
+== substitute f1tenth_params (00:19:59)
+   80 passed in 0.10s [2 s]
+== substitute f1tenth_logger (00:20:01)
+   6 failed, 330 passed, 8 warnings in 53.06s [54 s]
+== capture mpc_controller (00:20:55)
+   15 failed, 1669 passed, 1 skipped, 2 xfailed, 8 warnings in 903.51s (0:15:03) [906 s]
+== capture f1tenth_params (00:36:01)
+   80 passed in 0.17s [1 s]
+== capture f1tenth_logger (00:36:02)
+   5 failed, 307 passed, 8 warnings, 24 errors in 45.70s [47 s]
+f1tenth_logger   capture       336 tests  passed   307  failure   5  error  24  skipped   0  differs from py 24
+f1tenth_logger   py            336 tests  passed   331  failure   5  error   0  skipped   0  differs from py 0
+f1tenth_logger   rust          336 tests  passed   331  failure   5  error   0  skipped   0  differs from py 0
+f1tenth_logger   substitute    336 tests  passed   330  failure   6  error   0  skipped   0  differs from py 1
+f1tenth_params   capture        80 tests  passed    80  failure   0  error   0  skipped   0  differs from py 0
+f1tenth_params   py             80 tests  passed    80  failure   0  error   0  skipped   0  differs from py 0
+f1tenth_params   rust           80 tests  passed    80  failure   0  error   0  skipped   0  differs from py 0
+f1tenth_params   substitute     80 tests  passed    80  failure   0  error   0  skipped   0  differs from py 0
+mpc_controller   capture      1687 tests  passed  1669  failure  15  error   0  skipped   3  differs from py 0
+mpc_controller   py           1687 tests  passed  1669  failure  15  error   0  skipped   3  differs from py 0
+mpc_controller   rust         1687 tests  passed  1669  failure  15  error   0  skipped   3  differs from py 0
+mpc_controller   substitute   1687 tests  passed  1669  failure  15  error   0  skipped   3  differs from py 0
+25 DIFFERENCES
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_a_corridor_from_another_pose_estimate_is_warned_about', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_a_failed_llm_call_still_produces_a_test', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_a_replan_joins_the_open_test_instead_of_starting_one', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_a_second_initial_supersedes_the_open_test', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_a_test_that_never_started_has_no_driving_metrics', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_a_test_with_no_end_message_times_out', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_an_abort_before_the_start_is_cancelled_before_start', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_an_event_from_another_plan_is_flagged', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_an_initial_plan_result_opens_a_test_and_finishing_closes_it', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_an_open_test_publishes_status_lines_and_a_closing_one', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_contact_and_feasibility_reached_the_export', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_ctrl_c_closes_the_open_test_cleanly', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_every_stream_was_recorded_at_its_own_rate', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_mpc_solves_were_recorded', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_odometry_was_decoded_into_poses', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_startup_prints_the_absolute_campaign_folder_and_every_subscription', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_the_driving_window_matches_what_was_published', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_the_export_covers_every_test_the_node_opened', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_the_initial_prompt_was_sent_before_the_test_existed', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_the_mission_and_safety_events_were_recorded', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_the_plan_id_reaches_the_test_folder', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_the_pre_roll_wrote_samples_from_before_the_test_opened', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_the_standstill_floor_is_below_the_driving_jerk', 'passed', 'error')
+   ('f1tenth_logger', 'capture', 'test.test_campaign.test_logger_node_roundtrip::test_the_trigger_produces_exactly_one_completed_test', 'passed', 'error')
+   ('f1tenth_logger', 'substitute', 'test.test_campaign.test_logger_node_roundtrip::test_the_standstill_floor_is_below_the_driving_jerk', 'passed', 'failure')
+exit 1

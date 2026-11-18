@@ -1,0 +1,32 @@
+# D3 harness override for the car container (plan P6.2, P9): the same image,
+# devices, state and caches as compose.yaml, but nothing is started: the
+# container sleeps and the parity scripts run in it with `docker_orin.sh exec`.
+#   scripts/docker_orin.sh up --harness      (= -f compose.yaml -f compose.harness.yaml)
+# Same container name (f1tenth_car), so the harness and the car container can
+# never run at the same time. The wrapper f1tenth_ctl_car refuses while the
+# harness runs (role harness), and the healthcheck reports healthy without
+# checking anything.
+#
+# The worktree's harness code is mounted at its host path (F1T_REPO, exported by
+# docker_orin.sh): scripts/ (scripts/jazzy_parity/*, which compute their repo
+# from their own path), tools/ and docker/orin/checks/ read-only, output/
+# read-write for the results. The stack itself still comes only from the
+# image's /opt/f1tenth_ws/install.
+#
+# Isolated DDS: a domain of its own (F1T_HARNESS_DOMAIN_ID, default 88) and
+# localhost-only automatic discovery, so a harness participant can never join
+# the production graph on domain 0; jazzy.sh keeps an exported ROS_DOMAIN_ID.
+# Each parity script sets its own isolation on top (lib_parity.sh).
+services:
+  car:
+    environment:
+      F1T_CONTAINER_ROLE: harness
+      ROS_DOMAIN_ID: "${F1T_HARNESS_DOMAIN_ID:-88}"
+      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+      F1T_REPO: "${F1T_REPO:?F1T_REPO is set by scripts/docker_orin.sh up --harness}"
+    command: ["sleep", "infinity"]
+    volumes:
+      - {type: bind, source: "${F1T_REPO:?}/scripts", target: "${F1T_REPO:?}/scripts", read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: "${F1T_REPO:?}/tools", target: "${F1T_REPO:?}/tools", read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: "${F1T_REPO:?}/docker/orin/checks", target: "${F1T_REPO:?}/docker/orin/checks", read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: "${F1T_REPO:?}/output", target: "${F1T_REPO:?}/output", bind: {create_host_path: false}}

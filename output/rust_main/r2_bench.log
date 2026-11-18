@@ -1,0 +1,8 @@
+py: 723 ticks x 7: mean 7.823 ms, p50 7.511, p95 10.435, p99 10.973, max 11.822
+  live config matrix/offset_free/obs8/walls4: p50 10.435 ms, p95 11.102, max 11.758
+rust: 723 ticks x 7: mean 1.239 ms, p50 1.272, p95 2.012, p99 2.120, max 2.398
+  live config matrix/offset_free/obs8/walls4: p50 1.992 ms, p95 2.154, max 2.351
+py: 723 ticks x 7: mean 7.851 ms, p50 7.597, p95 10.404, p99 10.983, max 12.285
+  live config matrix/offset_free/obs8/walls4: p50 10.583 ms, p95 11.321, max 12.285
+rust: 723 ticks x 7: mean 1.229 ms, p50 1.257, p95 1.991, p99 2.153, max 2.505
+  live config matrix/offset_free/obs8/walls4: p50 1.976 ms, p95 2.317, max 2.505

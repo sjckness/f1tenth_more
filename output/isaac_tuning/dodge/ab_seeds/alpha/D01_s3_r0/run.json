@@ -1,0 +1,144 @@
+{
+ "scenario": "D01_s3",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "end_reason": "mission COMPLETE",
+ "phases_wall_s": {
+  "ready": 2.998,
+  "params": 0.181,
+  "scenario": 0.026,
+  "reset": 8.468,
+  "start": 0.008,
+  "record": 10.873
+ },
+ "valid": true,
+ "gt_blowup_t": 8.549999999999955,
+ "start_pose_map_sim": {
+  "x": 0.4358261592583216,
+  "y": 3.00582319836504,
+  "yaw_deg": 2.895537194773322
+ },
+ "progress_m": 1.299586810881309,
+ "max_lateral_error_m": 0.16052143632545124,
+ "final_lateral_error_m": 0.07770990718608797,
+ "final_heading_error_rad": 2.401306603742803,
+ "duration_s": 8.883333332999996,
+ "time_to_goal_s": 8.883333332999996,
+ "obstacles": [
+  {
+   "id": "c030_0",
+   "r": 0.15,
+   "min_centre_dist_m": 0.37974065307614013,
+   "r_safe_ref_m": 0.47,
+   "margin_m": -0.09025934692385984,
+   "t_min_s": 3.533333332999973,
+   "body_clearance_m": -0.050903439547485343,
+   "level": 0
+  },
+  {
+   "id": "c050_0",
+   "r": 0.25,
+   "min_centre_dist_m": 0.46210905660936147,
+   "r_safe_ref_m": 0.5700000000000001,
+   "margin_m": -0.1078909433906386,
+   "t_min_s": 8.533333332999973,
+   "body_clearance_m": -0.016038823925595858,
+   "level": 0
+  },
+  {
+   "id": "c030_1",
+   "r": 0.15,
+   "min_centre_dist_m": 1.4734674700450985,
+   "r_safe_ref_m": 0.47,
+   "margin_m": 1.0034674700450985,
+   "t_min_s": 3.016666665999992,
+   "body_clearance_m": 1.0583811453696577,
+   "level": 1
+  }
+ ],
+ "min_margin_m": -0.1078909433906386,
+ "min_body_clearance_m": -0.050903439547485343,
+ "steer_sign_changes": 4,
+ "steer_sat": {
+  "n": 89,
+  "delta_frac": 0.10112359550561797,
+  "rate_frac": 0.14772727272727273,
+  "delta_any": true,
+  "rate_any": true
+ },
+ "solver_ticks": 62,
+ "solve_failures": 0,
+ "max_n_obstacles_seen": 34,
+ "solve_time_ms_p95": 0.0,
+ "solve_over_deadline": 0,
+ "mpc_cpu_ms_per_tick": 83.54838709677419,
+ "perceived_r_max_m": 0.2608914077281952,
+ "safety": {
+  "hard_stop_engaged": true,
+  "bt_trip": true,
+  "mux_safety_lanes": [
+   "base_link/emergency",
+   "base_link/hard_stop"
+  ],
+  "contact_event": true,
+  "events": [
+   {
+    "event": "contact",
+    "cause": "lidar return 0.009 m inside the footprint",
+    "clearance_m": -0.0088,
+    "source": "obstacle_clearance_node"
+   },
+   {
+    "event": "estop",
+    "cause": "IsProximityTooClose",
+    "source": "behavior_tree",
+    "lane": "emergency"
+   },
+   {
+    "event": "contact",
+    "cause": "lidar return 0.025 m inside the footprint",
+    "clearance_m": -0.0247,
+    "source": "obstacle_clearance_node"
+   },
+   {
+    "event": "estop",
+    "cause": "IsProximityTooClose",
+    "source": "behavior_tree",
+    "lane": "emergency"
+   }
+  ]
+ },
+ "outcome": "collision",
+ "mission_final_state": "COMPLETE",
+ "failure": {
+  "id": "c050_0",
+  "level": 0,
+  "margin_m": -0.1078909433906386,
+  "body_clearance_m": -0.016038823925595858,
+  "t_s": 8.533333332999973,
+  "steer_sat_before": {
+   "n": 15,
+   "delta_frac": 0.0,
+   "rate_frac": 0.0,
+   "delta_any": false,
+   "rate_any": false
+  }
+ },
+ "return": {
+  "x_pass_m": 2.743173103693737,
+  "passed": false
+ },
+ "score": 0.0,
+ "score_terms": null,
+ "nominal": {
+  "distance_m": 3.5,
+  "speed_mps": 0.5,
+  "timeout_s": 15.0
+ },
+ "recorder_code": 0,
+ "wall_recorder_s": 24.3,
+ "isaac_alive_after": true
+}

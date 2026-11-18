@@ -1,0 +1,3 @@
+{"t": 146.683333333, "data": "{\"event\": \"contact\", \"cause\": \"lidar return 0.004 m inside the footprint\", \"clearance_m\": -0.0041, \"source\": \"obstacle_clearance_node\"}"}
+{"t": 146.7, "data": "{\"event\": \"estop\", \"cause\": \"IsProximityTooClose\", \"source\": \"behavior_tree\", \"lane\": \"emergency\"}"}
+{"t": 150.0, "data": "{\"event\": \"estop\", \"cause\": \"IsProximityTooClose\", \"source\": \"behavior_tree\", \"lane\": \"emergency\"}"}

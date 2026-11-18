@@ -1,0 +1,25 @@
+image f1tenth:jazzy-orin-e257b03
+id sha256:1a704265ed202201ef2d7759af1dce30344c4a536c413d1bc64dfce6feb92c93
+size_bytes 9837584062
+created 2026-10-25T10:12:02.02171399+01:00
+revision e257b036fa2d5046ede505e9ae6c8247bcd89022
+labels:
+  f1tenth.branch=main-jazzy-rust
+  f1tenth.car_sync.native_head=6c329992609d3e6c38939c8da1d240393af718aa
+  f1tenth.car_sync.sha256=bb2d9d7c579ea0e43510f3ca0f8129dbc6fb8656fb7f3f7fa0ca6cae03f4ec63
+  f1tenth.gid.dialout=20
+  f1tenth.gid.input=101
+  f1tenth.gid.jtop=1003
+  f1tenth.gid.render=104
+  f1tenth.gid.video=44
+  f1tenth.gid.zed=1005
+  f1tenth.ros_snapshot=2026-09-11
+  f1tenth.rust=build
+  f1tenth.sources_tree=a03363ed8fa32546fff8e689d237269e116d8a8d882555608320e181762566f3
+  f1tenth.tensorrt=10.3.0.26
+  f1tenth.ubuntu_snapshot=20261024T000000Z
+  org.opencontainers.image.revision=e257b036fa2d5046ede505e9ae6c8247bcd89022
+  org.opencontainers.image.source=f1tenth_more main-jazzy-rust, docker/orin/Dockerfile
+  org.opencontainers.image.title=f1tenth Jazzy car (Orin, JetPack 6 / L4T r36.5)
+  org.opencontainers.image.version=orin-before-pull-2026-10-22-198-ge257b036fa2d
+

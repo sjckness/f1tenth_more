@@ -95,6 +95,25 @@ def generate_launch_description():
     discovery_server_port_la = DeclareLaunchArgument(
         'discovery_server_port', default_value=str(discovery_server_port_default),
         description=discovery_server_port_desc)
+    # Rust ports (output/rust/), as in supervisor_bringup.launch.py.
+    guard_la = DeclareLaunchArgument(
+        'guard', default_value='off', choices=['off', 'shadow', 'active'],
+        description='Rust front-proximity guard: off (not launched), shadow, active.')
+    impl_la = DeclareLaunchArgument(
+        'impl', default_value='py', choices=['py', 'rust'],
+        description='costmap_boundary_node implementation: py or rust.')
+    corridor_impl_default, corridor_impl_desc = get_default('corridor_impl')
+    corridor_impl_la = DeclareLaunchArgument(
+        'corridor_impl', default_value=str(corridor_impl_default), choices=['py', 'rust'],
+        description=corridor_impl_desc)
+    mpc_solver_impl_default, mpc_solver_impl_desc = get_default('mpc_solver_impl')
+    mpc_solver_impl_la = DeclareLaunchArgument(
+        'mpc_solver_impl', default_value=str(mpc_solver_impl_default), choices=['py', 'rust'],
+        description=mpc_solver_impl_desc)
+    hard_stop_impl_default, hard_stop_impl_desc = get_default('hard_stop_impl')
+    hard_stop_impl_la = DeclareLaunchArgument(
+        'hard_stop_impl', default_value=str(hard_stop_impl_default), choices=['py', 'rust'],
+        description=hard_stop_impl_desc)
     discovery_server_address = LaunchConfiguration('discovery_server_address')
     discovery_server_port = LaunchConfiguration('discovery_server_port')
 
@@ -208,7 +227,8 @@ def generate_launch_description():
     # that used to live here) was retired -- superseded by the BT's own
     # unconditional handle_obstacle lane (see section 6 / f1tenth_behavior).
     # ================================================================
-    command_control_bringup = [include('f1tenth_control', 'ackermann_mux.launch.py')]
+    command_control_bringup = [include('f1tenth_control', 'ackermann_mux.launch.py',
+                                       hard_stop_impl=LaunchConfiguration('hard_stop_impl'))]
 
     # ================================================================
     # 6. AUTONOMY
@@ -219,11 +239,25 @@ def generate_launch_description():
     # localization_bringup. The BT supervisor turns Nav2's plans into drive commands
     # via the mux; independent of which process navigation_bringup itself started.
     # ================================================================
+    # planner_controller_mode (f1tenth_params/planner_modes.py): a real launch
+    # argument, default from stack_params.yaml, handed to both ends -- the
+    # navigation include starts that controller, the behaviour's preflight
+    # requires it -- as the supervisor path does (apply_planner_controller_mode).
+    planner_mode_default, planner_mode_desc = get_default('planner_controller_mode')
+    planner_controller_mode_la = DeclareLaunchArgument(
+        'planner_controller_mode', default_value=str(planner_mode_default),
+        description=planner_mode_desc)
+    planner_mode = LaunchConfiguration('planner_controller_mode')
     autonomy_bringup = [
-        include('f1tenth_navigation', 'navigation.launch.py', condition=is_calibration_disabled),
+        include('f1tenth_navigation', 'navigation.launch.py', condition=is_calibration_disabled,
+                corridor_impl=LaunchConfiguration('corridor_impl'),
+                mpc_solver_impl=LaunchConfiguration('mpc_solver_impl'),
+                planner_controller_mode=planner_mode),
     ]
     if use_behavior_tree:
-        autonomy_bringup.append(include('f1tenth_behavior', 'behavior_bringup.launch.py'))
+        autonomy_bringup.append(include('f1tenth_behavior', 'behavior_bringup.launch.py',
+                                        proximity_guard=LaunchConfiguration('guard'),
+                                        planner_controller_mode=planner_mode))
     # slam.launch.py self-gates via its own enable_slam param (default false,
     # mirrors enable_foxglove's own pattern -- see that key's own stack_params.yaml
     # comment). Deferred behind is_calibration_disabled same as navigation_bringup
@@ -240,7 +274,8 @@ def generate_launch_description():
     # enable_slam flag as slam.launch.py itself (see that file's own module
     # docstring for why it shares the flag rather than a second toggle).
     autonomy_bringup.append(
-        include('f1tenth_costmap', 'costmap.launch.py', condition=is_calibration_disabled))
+        include('f1tenth_costmap', 'costmap.launch.py', condition=is_calibration_disabled,
+                costmap_boundary_impl=LaunchConfiguration('impl')))
 
     # ================================================================
     # 7. DIAGNOSTICS & INTELLIGENCE
@@ -318,11 +353,17 @@ def generate_launch_description():
     return LaunchDescription([
         discovery_server_address_la,
         discovery_server_port_la,
+        guard_la,
+        impl_la,
+        corridor_impl_la,
+        mpc_solver_impl_la,
+        hard_stop_impl_la,
         discovery_server_env,
         fastdds_profile_la,
         fastdds_profile_env,
         discovery_server,
         enable_comms_la,
+        planner_controller_mode_la,
         vesc_bringup,
         localization_bringup,
         description_bringup,

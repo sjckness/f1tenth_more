@@ -14,6 +14,7 @@ from rclpy.parameter import Parameter
 from rclpy.qos import (
     QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data)
 
+from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from nav_msgs.msg import OccupancyGrid, Odometry
 from std_msgs.msg import Bool, Float32, Int32, String
 from ackermann_msgs.msg import AckermannDriveStamped
@@ -23,7 +24,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from f1tenth_comms.tf_poll import make_tf
 from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import (
-    BoundaryConstraintArray, DriveClamp, DriveCommand, MissionStatus, MpcSolverStatus,
+    BoundaryConstraintArray, DoorArray, DriveClamp, DriveCommand, MissionStatus, MpcSolverStatus,
     MultiWallTrackArray, ObjectApproachStatus, ObjectGoal, Obstacle2DArray, ReverseStatus,
     SemanticObjectArray, SpeedChannelStatus, TurnGoal, WallEstimate, WallTrack)
 from f1tenth_messages.msg import MpcParamUpdate  # LLM2 (two-llm-arch), see _llm2_setup
@@ -35,11 +36,16 @@ from f1tenth_params.semantic_objects import MEMORY as SEMANTIC_MEMORY
 from f1tenth_params.semantic_objects import objects_to_odom_circles
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from mpc_controller.cost_to_go import CostToGo, LatticeConfig
+from mpc_controller import lateral_return
+from mpc_controller import obstacle_motion
+from mpc_controller import side_rule
 from mpc_controller.move_target import (
     MoveTarget, without_target_circles, without_target_objects)
 from f1tenth_params.corridor_geometry import (
-    CORRIDOR_HANDLE_FRAC, CORRIDOR_WIDTH_RATIO, POSE_HANDLE_FRAC,
-    corridor_curves, corridor_curves_to_pose, wrap_pi)
+    CORRIDOR_HANDLE_FRAC, CORRIDOR_WIDTH_RATIO, POSE_HANDLE_FRAC, wrap_pi)
+from mpc_controller import corridor_backend
+from mpc_controller import door_goal_debug as dgd
+from mpc_controller import solver_backend
 from mpc_controller import wall_boundaries as wb
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
 from mpc_controller.llm2_params import (
@@ -90,6 +96,14 @@ from tf2_ros.buffer import Buffer
 #: centreline by a linearly growing half-width and drew straight walls;
 #: reverted 2026-10-13 on request. The width changes of Part D stay.
 CORRIDOR_WALLS = 'bezier'
+
+#: mpc-dodge phase 2b: how far beyond the car's lateral error the fixed-line corridor's half-width
+#: reaches (the car's own offset, plus what one rebuild period of swerving can add at 0.5 m/s).
+CORRIDOR_CONTAIN_MARGIN_M = 0.45
+
+#: mpc-dodge mpc_obs_body_probes: probe points along the car's axis from base_link (rear axle):
+#: the rear bumper and the axle midpoint (car_spec: rear bumper -0.082 m, wheelbase 0.305 m).
+BODY_PROBE_OFFSETS_M = (-0.08, 0.15)
 
 
 def lookahead_clamp_length(n_steps, ts, v_des, reach_margin):
@@ -307,6 +321,30 @@ def _project_onto_line(
     return dx * math.cos(line_yaw) + dy * math.sin(line_yaw)
 
 
+def _along_lateral_error(
+        point: Tuple[float, float], origin: Tuple[float, float],
+        yaw: float) -> Tuple[float, float]:
+    """(along, lateral) of `point` relative to `origin`, in the frame whose
+    x axis is `yaw`. along is _project_onto_line's own quantity; lateral is
+    the signed perpendicular distance, positive to the left of the axis --
+    the same convention f1tenth_behavior's enter_door.py uses in its own
+    door-frame decomposition (door_frame_xy). Written here as well, rather
+    than imported, only because this package does not depend on that one;
+    keep the two in agreement if either changes.
+
+    Used ONLY by _publish_steering_model_diag, to show how a pose-mode goal
+    (a door's own axis, once set) is being approached: lateral should stay
+    small and quiet throughout a healthy approach, while along shrinks
+    monotonically. A lateral that jumps between ticks is the signature the
+    map -> odom drift bug (see goal_pose_anchor_map's own comment) left
+    behind; a correct reprojection keeps it from happening.
+    """
+    dx = float(point[0]) - float(origin[0])
+    dy = float(point[1]) - float(origin[1])
+    c, s = math.cos(yaw), math.sin(yaw)
+    return dx * c + dy * s, -dx * s + dy * c
+
+
 def _select_live_boundaries(
         values: List[Tuple[float, float, float]], last_time: Optional[float],
         now_sec: float, timeout_sec: float) -> List[Tuple[float, float, float]]:
@@ -351,15 +389,22 @@ class MPCController(Node):
         self.hw_y: Optional[float] = None
         self.hw_yaw: Optional[float] = None
         self.hw_v: Optional[float] = None
+        # The odom message's own angular.z -- gyro-informed on the real EKF,
+        # commanded-yaw-integrated on raw /odom -- read only by
+        # _publish_steering_model_diag (steering_model_diag_enabled); nothing
+        # in the drive/solve path uses it.
+        self.hw_yaw_rate: Optional[float] = None
         self.hw_odom_last_time: Optional[float] = None
 
         self.sim_x: Optional[float] = None
         self.sim_y: Optional[float] = None
         self.sim_yaw: Optional[float] = None
         self.sim_v: Optional[float] = None
+        self.sim_yaw_rate: Optional[float] = None
         self.sim_odom_last_time: Optional[float] = None
 
         self.active_odom_source: Optional[str] = None
+        self.yaw_rate: Optional[float] = None
         self.odom_stale_timeout_sec = float(
             self.declare_parameter('odom_stale_timeout_sec', 0.5).value
         )
@@ -431,16 +476,55 @@ class MPCController(Node):
             'map_odom_max_age_sec', 0.2).value)
 
         # =========================
-        # Goal pose (runtime command via /mpc/goal_pose) -- position-only
-        # arrival this pass, no final-yaw alignment (see build_straight_corridor/
-        # control_loop for the scope note). Mutually exclusive with goal_distance
-        # mode: whichever topic was published to most recently wins -- each
-        # callback clears the other mode's state (see goal_pose_callback/
-        # goal_distance_callback).
+        # Goal pose (runtime command via /mpc/goal_pose). Mutually exclusive
+        # with goal_distance mode: whichever topic was published to most
+        # recently wins -- each callback clears the other mode's state (see
+        # goal_pose_callback/goal_distance_callback). Arrival is still
+        # POSITION-ONLY (pose_goal_tolerance); the yaw shapes the corridor the
+        # car drives there along, see goal_pose_use_yaw below.
         # =========================
         self.goal_pose_xy: Optional[Tuple[float, float]] = None
-        self.goal_pose_yaw: Optional[float] = None  # stored but unused by corridor/termination logic this pass
+        self.goal_pose_yaw: Optional[float] = None
         self.pose_goal_reached = False
+
+        # THE GOAL'S YAW IS HOW THE CAR ARRIVES, not a number stored and
+        # ignored. True: a /mpc/goal_pose goal is approached along a corridor
+        # that ENDS ON THE POSE -- corridor_curves_to_pose, the cubic Bezier
+        # tangent to the live yaw at the car and to goal_pose_yaw at the goal
+        # -- with psiRef (the terminal yaw cost's reference) the goal's yaw.
+        # Used whenever that curve is drivable (peak curvature within the
+        # car's R_min) and no longer than corr_L_base; otherwise the corridor
+        # is the bearing one this mode always had, so a pose the car cannot
+        # reach at that heading from where it is degrades to "drive at the
+        # point" rather than to a reference that asks for more than full lock.
+        # WHY: before 2026-11-05 the yaw was dropped, so EnterDoor's goal (a
+        # doorway, its yaw the way through) was a POINT: the car chased it in
+        # a straight line and reached it side-on, 72 deg off the door axis in
+        # 2026-11-05T14-35-46 straight_2m_then_left_door, then drove past the
+        # door because 0.9 m is not enough to turn 72 deg. False: the
+        # position-only behaviour, byte-identical corridors.
+        # goal_turn's synthetic goal reuses goal_pose_xy/yaw but is NOT
+        # affected: goal_pose_honour_yaw is set by goal_pose_callback only.
+        self.goal_pose_use_yaw = bool(self.declare_parameter(
+            'goal_pose_use_yaw', get_value('mpc_goal_pose_use_yaw')).value)
+        self.goal_pose_honour_yaw = False
+
+        # goal_pose_anchor_map: (x, y, yaw) of the goal AS RECEIVED, in the MAP
+        # frame, when goal_pose_callback got it from a message whose frame_id
+        # is map_frame (EnterDoor, PublishMoveGoal's move.goal_pose branch --
+        # both send doors/fixed points this way). None means either no
+        # pose-mode goal is active, or the one that is active is odom-frame
+        # already (goal_turn_callback's synthetic target: see that method) --
+        # either way goal_pose_xy/yaw are driven at RAW, the pre-existing
+        # behaviour. When set, _refresh_goal_anchor() reprojects it into
+        # goal_pose_xy/yaw every tick through the live map -> odom edge, the
+        # same correction goal_anchor_map/goal_anchor_odom already give
+        # goal_distance mode and for the same reason (_pose_odom_to_map's
+        # docstring): without it a target captured once in map drifts away
+        # from the car's own odom-frame driving state by however much map ->
+        # odom has moved since, which for a doorway is easily enough to
+        # mis-aim at a jamb instead of the opening.
+        self.goal_pose_anchor_map: Optional[Tuple[float, float, float]] = None
         self.pose_goal_tolerance = float(
             self.declare_parameter('pose_goal_tolerance', 0.15).value
         )
@@ -892,6 +976,17 @@ class MPCController(Node):
         # key -- see car_radius's own comment above.
         self.avoidance_margin = float(self.declare_parameter('avoidance_margin', 0.12).value)
 
+        # The side rule (mpc_controller/side_rule.py): an obstacle ahead within
+        # this band of the car's line goes to the solver displaced to the side
+        # opposite mpc_obstacle_tie_side (radius grown by the displacement), so
+        # a centred obstacle does not leave the QP without a side to prefer.
+        # stack_params.yaml is the only source of both numbers.
+        self.obstacle_tie_band_m = float(self.declare_parameter(
+            'mpc_obstacle_tie_band_m', get_value('mpc_obstacle_tie_band_m')).value)
+        self.obstacle_tie_side = side_rule.side_sign(str(self.declare_parameter(
+            'mpc_obstacle_tie_side', get_value('mpc_obstacle_tie_side')).value))
+        self._init_dodge_params()
+
         # Solver selection: real-time-iteration (linearize once + one warm-started
         # OSQP QP solve per tick) vs. the original from-scratch nonlinear SLSQP
         # solve every tick. Default true per the MPC optimization pass -- the
@@ -1026,20 +1121,6 @@ class MPCController(Node):
             self.wall_row_identity = wb.RowIdentity(
                 self.wall_row_merge_angle_deg, self.wall_row_merge_offset_m)
 
-        # Max tangential shove applied to the lookahead target when it lands
-        # inside an obstacle's safety radius -- see compute_local_target,
-        # which is the only reader. A DECLARED PARAMETER whose default comes
-        # from stack_params.yaml via get_value(), same single-sourcing as
-        # corridor_update_period below: the number lives in that file and
-        # nowhere else, so a bare `ros2 run` that bypasses the launch file
-        # still gets the deployed value, and the test stand-in in
-        # test_corridor_lookahead_target.py reads the same key rather than
-        # carrying a copy.
-        self.obstacle_target_shift = float(
-            self.declare_parameter(
-                'obstacle_target_shift_m',
-                get_value('obstacle_target_shift_m')).value)
-
         # nice: see _apply_nice() below, called near the end of __init__.
         # Defaults to no-op (0) so this node's priority is unchanged unless a
         # deployment explicitly opts in via mpc_corr.launch.py. CPU affinity
@@ -1107,6 +1188,35 @@ class MPCController(Node):
         self.corr_width_scale_with_length = bool(self.declare_parameter(
             'corr_width_scale_with_length',
             get_value('corr_width_scale_with_length')).value)
+        # WHICH IMPLEMENTATION BUILDS THE GEOMETRY (corridor_backend.py):
+        # 'py' f1tenth_params.corridor_geometry, 'rust' the bit-identical
+        # port in f1tenth_mpc_core (output/rust/parity_corridor.md). Default
+        # from stack_params.yaml (py). rust that does not load refuses the
+        # start here, never falls back: the launch line is what runs.
+        # READ-ONLY, like the LLM2 switch: it is read once, so a runtime
+        # `ros2 param set` is refused instead of accepted and ignored.
+        self.corridor_impl = corridor_backend.require(str(self.declare_parameter(
+            'corridor_impl', corridor_backend.default_impl(),
+            ParameterDescriptor(
+                read_only=True,
+                description='corridor geometry py|rust (R1): read once at start')).value))
+        self.get_logger().info(
+            f'CORR/impl | corridor geometry: '
+            f'{corridor_backend.describe(self.corridor_impl)}')
+        # WHICH IMPLEMENTATION SOLVES THE RTI TICK (solver_backend.py, R2):
+        # 'py' mpc_solver._solve_rti, 'rust' the bit-identical port in
+        # f1tenth_mpc_core (output/rust/parity_mpc_solver.md), for rti ticks
+        # without a stage_spec; SLSQP and the reverse candidates stay py.
+        # Same shape as corridor_impl: default from stack_params.yaml (py),
+        # rust that does not load refuses the start, read-only at run time.
+        self.mpc_solver_impl = solver_backend.require(str(self.declare_parameter(
+            'mpc_solver_impl', solver_backend.default_impl(),
+            ParameterDescriptor(
+                read_only=True,
+                description='RTI solver core py|rust (R2): read once at start')).value))
+        self.get_logger().info(
+            f'MPC/solver_impl | RTI solver: '
+            f'{solver_backend.describe(self.mpc_solver_impl)}')
 
         # LOOKAHEAD IS DERIVED FROM CORRIDOR LENGTH, NOT A SECOND CONSTANT.
         # It used to be a bare `lookahead = 1.5` inside compute_local_target
@@ -1618,6 +1728,17 @@ class MPCController(Node):
         # =========================
         # Pesi
         # =========================
+        # mpc-centerline-target (2026-11-17): THE OBSTACLE MUST BEAT THE
+        # TARGET. compute_local_target no longer moves the target off an
+        # obstacle, so on a centreline obstacle the terminal w_term pull and
+        # the stage w_obs cost meet head-on inside one QP. With the old
+        # balance the obstacle lost: driven closed-loop (real corridor,
+        # target and RTI solve around the vehicle model, test/
+        # test_centerline_target_closed_loop.py) the car's centre went
+        # 0.2-0.3 m inside R_safe. mpc_w_obs was raised; w_term and w_corr
+        # were checked and left alone. stack_params.yaml holds the value and
+        # the measured table; this comment deliberately does not repeat them.
+        #
         # w_psi / w_corr are now REALLY WIRED UP -- w_psi as a terminal-yaw
         # cost and w_corr as a stagewise squared-lateral-offset cost, in
         # mpc_solver.py's RTI QP as well as in planner_cost_corridor. Before
@@ -1693,8 +1814,8 @@ class MPCController(Node):
         #     measured, in both directions.
         #   - OBSTACLE CLEARANCE. The old note's mechanism -- a lateral
         #     penalty resists the deflection while an obstacle is still
-        #     there -- has not gone away. w_obs was deliberately left at
-        #     2.8 for less shyness, and w_corr now pulls the other way.
+        #     there -- has not gone away. (w_obs was raised on
+        #     mpc-centerline-target, see the head of this block.)
         # a bare `ros2 run` that bypasses the launch file gets the deployed
         # set too. Until this pass these were ten bare literals with no ROS
         # parameter behind them at all: no launch override, no config
@@ -1707,16 +1828,9 @@ class MPCController(Node):
         # through untouched; every other key is per-stage and is multiplied
         # by STAGE_WEIGHT_REF_HORIZON / N = 7/20 = 0.35 inside
         # solve_mpc_step (mpc_solver.scale_stage_weights). Quote the
-        # EFFECTIVE number when comparing against a tuning note:
-        #
-        #   key            yaml literal   effective (x 0.35)
-        #   w_corr              3.5714               1.2500
-        #   w_psi_stage         4.7736               1.6708
-        #   w_v                 4.2857               1.5000
-        #   w_du_delta          8.5714               3.0000
-        #   w_obs               8.0000               2.8000
-        #   w_term              9.0                  9.0    (terminal)
-        #   w_psi               4.5                  4.5    (terminal)
+        # EFFECTIVE number when comparing against a tuning note (each key's
+        # stack_params.yaml description quotes it; test_weight_set.py pins
+        # the translation, so no copy of the table lives here to go stale).
         #
         # The stage literals are rho / (7 * sigma^2), which is exactly what
         # makes the TOTAL stage cost over the horizon equal rho / sigma^2
@@ -1765,31 +1879,6 @@ class MPCController(Node):
         # three moves later is a real safety regression, not a cosmetic one.
         self.vdes_default = self.vdes
         self.avoidance_margin_default = self.avoidance_margin
-
-        # =========================
-        # Target smoothing / obstacle-deflection coast
-        # =========================
-        # Exponential smoothing on compute_local_target's (possibly obstacle-
-        # deflected) output point -- raw per-frame obstacle detections can
-        # otherwise make the target jump frame to frame even with
-        # f1tenth_perception's own merge/plausibility filtering upstream.
-        # new = alpha*raw + (1-alpha)*old; alpha=1.0 disables smoothing
-        # (always the raw point); smaller alpha = smoother but slower to react.
-        self.target_smoothing_alpha = float(
-            self.declare_parameter('target_smoothing_alpha', 0.5).value)
-        self.smoothed_target: Optional[np.ndarray] = None
-
-        # When the obstacle(s) deflecting the target drop out of the live
-        # per-frame list (one missed detection, one merge-away, object
-        # actually cleared -- compute_local_target has no per-frame memory of
-        # its own), don't snap the target straight back to the raw centerline
-        # on the very next tick: decay the last-applied deflection linearly to
-        # zero over this many ticks instead. 1 tick = one compute_local_target
-        # call (~one control_loop tick, self.ts seconds apart).
-        self.deflection_decay_ticks = int(
-            self.declare_parameter('deflection_decay_ticks', 5).value)
-        self.last_deflection_vec = np.zeros(2)
-        self.deflection_decay_remaining = 0
 
         # =========================
         # Salvataggio debug corridoio
@@ -1918,6 +2007,22 @@ class MPCController(Node):
             10
         )
 
+        # LIVE DOOR -> GOAL DIAGNOSTIC (door_goal_debug.py). Read-only: compares
+        # the door as detected NOW (map) with the goal this node is driving at
+        # (odom, reprojected back to map through the live map -> odom edge) and
+        # publishes Foxglove markers + one 1 Hz log line. Nothing in the control
+        # path reads any of it. Only active while a map-frame goal_pose has a
+        # door within 1.5 m of it.
+        self.door_goal_debug = bool(self.declare_parameter(
+            'door_goal_debug', True).value)
+        self._dbg_doors = {}
+        self._dbg_last_pub_sec = 0.0
+        if self.door_goal_debug:
+            self.sub_dbg_doors = self.create_subscription(
+                DoorArray, '/perception/doors_semantic', self._dbg_doors_cb, 10)
+            self.door_goal_debug_pub = self.create_publisher(
+                MarkerArray, '/mpc/door_goal_debug', 10)
+
         # Drive-to-a-tracked-object. The ONE goal input that is republished
         # throughout its move rather than sent once, which is why it carries a
         # move_id and why its callback branches on that before touching state.
@@ -1937,6 +2042,29 @@ class MPCController(Node):
             self.goal_object_end_callback,
             10
         )
+
+        # =========================
+        # Steering-model live diagnostic (/mpc/steering_model_diag) -- OFF by
+        # default, for the jamb-hit/wobble investigation (2026-10-31): a live
+        # check in Foxglove of whether the commanded steering actually turns
+        # the car the way the MPC's own kinematic model (vehicle_model.py's
+        # psidot = (v/L) cos(beta) tan(delta)) predicts, and whether the
+        # current pose-mode goal (a door, once goal_pose_anchor_map's fix
+        # lands) tracks correctly along/across its own axis. Gated so a run
+        # that never enables it pays nothing: no publisher, no computation,
+        # not even the one extra odom field capture it reads (hw_yaw_rate/
+        # sim_yaw_rate are free -- read off messages already subscribed to --
+        # but the publish + the trig below only run when this is true).
+        # =========================
+        self.steering_model_diag_enabled = bool(self.declare_parameter(
+            'steering_model_diag_enabled', False).value)
+        self.steering_model_diag_smooth_alpha = float(self.declare_parameter(
+            'steering_model_diag_smooth_alpha', 0.1).value)
+        self._steering_model_ratio_ema: Optional[float] = None
+        self.steering_model_diag_pub = None
+        if self.steering_model_diag_enabled:
+            self.steering_model_diag_pub = self.create_publisher(
+                DiagnosticArray, '/mpc/steering_model_diag', 10)
 
         # f1tenth_behavior's PublishMoveGoal, for a mission "turn" step (schema_
         # version 2.0). See goal_turn_callback's own docstring for how a signed
@@ -2310,7 +2438,7 @@ class MPCController(Node):
 
         self.get_logger().info(
             'MPC Controller STARTED (pure MPC + obstacle avoidance '
-            '[fixed deflection + predicted clearance], no plan executor)'
+            '[solver w_obs cost, centerline target], no plan executor)'
         )
 
         # ---- DEBUG: dump della configurazione all'avvio ----
@@ -2410,6 +2538,7 @@ class MPCController(Node):
         self.hw_y = msg.pose.pose.position.y
         self.hw_yaw = self.quaternion_to_yaw(msg.pose.pose.orientation)
         self.hw_v = msg.twist.twist.linear.x
+        self.hw_yaw_rate = msg.twist.twist.angular.z
         self.hw_odom_last_time = self.get_clock().now().nanoseconds * 1e-9
         # Model log only (see model_log_path in __init__).
         self.hw_odom_stamp_sec = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
@@ -2426,6 +2555,7 @@ class MPCController(Node):
         self.sim_y = msg.pose.pose.position.y
         self.sim_yaw = self.quaternion_to_yaw(msg.pose.pose.orientation)
         self.sim_v = msg.twist.twist.linear.x
+        self.sim_yaw_rate = msg.twist.twist.angular.z
         self.sim_odom_last_time = self.get_clock().now().nanoseconds * 1e-9
         # Model log only (see model_log_path in __init__).
         self.sim_odom_stamp_sec = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
@@ -2535,6 +2665,7 @@ class MPCController(Node):
         # command along with its per-move overrides (see _clear_drive_state).
         self.goal_pose_xy = None
         self.goal_pose_yaw = None
+        self.goal_pose_anchor_map = None
         self.pose_goal_reached = False
         self._clear_drive_state()
         self._invalidate_move_state()
@@ -2659,17 +2790,115 @@ class MPCController(Node):
         publish pass, which likewise keeps recomputing from its cached grid/pose
         of whatever age and only fails safe when the input has NEVER arrived --
         and that "never" case cannot occur here, since capture seeds a value.
+
+        ALSO refreshes goal_pose_anchor_map's reprojection into goal_pose_xy/
+        goal_pose_yaw, when a pose-mode move captured one (see that attribute's
+        comment in __init__): same correction, same one-lookup-per-tick
+        sharing, same hold-last-good-value-on-failure rule. goal_anchor_map and
+        goal_pose_anchor_map are never both set at once -- goal_distance_
+        callback/goal_pose_callback/goal_turn_callback/the drive callback each
+        clear the other modes' anchor -- so this never reprojects two moves'
+        worth of state off one lookup; sharing it is purely to avoid a second
+        TF query on ticks where only one of the two happens to be set.
         """
-        if self.goal_anchor_map is None:
+        need_distance = self.goal_anchor_map is not None
+        need_pose = self.goal_pose_anchor_map is not None
+        if not need_distance and not need_pose:
             return
         tf_map_odom = self._lookup_map_odom(max_age_sec=self.map_odom_max_age_sec)
         if tf_map_odom is None:
-            self.get_logger().warn(
-                'ANCHOR/hold | map -> odom unavailable OR STALE this tick: '
-                'holding last reprojected anchor (NOT reverting to the raw '
-                'odom anchor)', throttle_duration_sec=5.0)
+            if need_distance:
+                self.get_logger().warn(
+                    'ANCHOR/hold | map -> odom unavailable OR STALE this tick: '
+                    'holding last reprojected anchor (NOT reverting to the raw '
+                    'odom anchor)', throttle_duration_sec=5.0)
+            if need_pose:
+                self.get_logger().warn(
+                    'POSEGOAL/hold | map -> odom unavailable OR STALE this tick: '
+                    'holding last reprojected goal_pose (NOT reverting to the '
+                    'raw map numbers)', throttle_duration_sec=5.0)
             return
-        self.goal_anchor_odom = _pose_map_to_odom(*self.goal_anchor_map, *tf_map_odom)
+        if need_distance:
+            self.goal_anchor_odom = _pose_map_to_odom(*self.goal_anchor_map, *tf_map_odom)
+        if need_pose:
+            gx, gy, gyaw = _pose_map_to_odom(*self.goal_pose_anchor_map, *tf_map_odom)
+            self.goal_pose_xy = (gx, gy)
+            self.goal_pose_yaw = gyaw
+
+    # ---- live door -> goal diagnostic (read-only; see door_goal_debug.py) ----
+    def _dbg_doors_cb(self, msg):
+        try:
+            self._dbg_doors = {
+                int(d.id): ((float(d.center.x), float(d.center.y)),
+                            dgd.door_axis_yaw(float(d.normal.x), float(d.normal.y)))
+                for d in msg.doors if d.state == d.STATE_CONFIRMED}
+        except Exception:  # noqa: BLE001 - diagnostics must not stop control
+            pass
+
+    def _dbg_arrow(self, mid, ns, frame, x, y, yaw, rgba, stamp, length=0.6):
+        m = Marker()
+        m.header.frame_id = frame
+        m.header.stamp = stamp
+        m.ns, m.id = ns, mid
+        m.type, m.action = Marker.ARROW, Marker.ADD
+        m.points = [Point(x=float(x), y=float(y), z=0.1),
+                    Point(x=float(x + length * math.cos(yaw)),
+                          y=float(y + length * math.sin(yaw)), z=0.1)]
+        m.scale.x, m.scale.y, m.scale.z = 0.05, 0.10, 0.12
+        m.color.r, m.color.g, m.color.b, m.color.a = rgba
+        m.lifetime.sec, m.lifetime.nanosec = 1, 0
+        return m
+
+    def _door_goal_debug_tick(self):
+        """Markers + 1 Hz line: door as detected now vs the goal in use."""
+        if (not getattr(self, 'door_goal_debug', False)
+                or getattr(self, 'goal_pose_anchor_map', None) is None):
+            return
+        if self.goal_pose_xy is None or self.goal_pose_yaw is None or not self._dbg_doors:
+            return
+        try:
+            tf = self._lookup_map_odom()
+            if tf is None:
+                return
+            gx, gy = self.goal_pose_xy
+            ev = dgd.evaluate((gx, gy, float(self.goal_pose_yaw)), tf, self._dbg_doors,
+                              honour_yaw=bool(self.goal_pose_honour_yaw))
+            if ev is None:
+                return
+            self.get_logger().info(
+                f'DOORDBG | door_{ev["door_id"]} vs goal_in_use ({ev["kind"]}): '
+                f'|d|={ev["dist_m"]:.3f} m dyaw={ev["dyaw_deg"]:+.1f} deg '
+                f'(goal yaw honoured={ev["honour_yaw"]}; map->odom yaw '
+                f'{math.degrees(tf[2]):+.1f} deg)', throttle_duration_sec=1.0)
+            now = self.get_clock().now()
+            if now.nanoseconds * 1e-9 - self._dbg_last_pub_sec < 0.2:
+                return
+            self._dbg_last_pub_sec = now.nanoseconds * 1e-9
+            stamp = now.to_msg()
+            (cx, cy), dyaw = self._dbg_doors[ev['door_id']]
+            gm = ev['goal_map']
+            arr = MarkerArray()
+            # green: door centre + axis, detected NOW, map frame
+            arr.markers.append(self._dbg_arrow(
+                0, 'door_now', self.map_frame, cx, cy, dyaw, (0.1, 0.9, 0.2, 1.0), stamp, 0.8))
+            # cyan: the goal exactly as the MPC uses it, odom frame
+            arr.markers.append(self._dbg_arrow(
+                1, 'goal_used_odom', self.odom_frame, gx, gy, float(self.goal_pose_yaw),
+                (0.1, 0.8, 1.0, 1.0), stamp))
+            # magenta: same goal reprojected to map via the live map -> odom
+            arr.markers.append(self._dbg_arrow(
+                2, 'goal_used_in_map', self.map_frame, gm[0], gm[1], gm[2],
+                (1.0, 0.2, 0.9, 1.0), stamp))
+            # yellow: psiEnd at the corridor end (odom)
+            cc = self.cached_corridor
+            if cc is not None and len(cc['xc']) > 0:
+                arr.markers.append(self._dbg_arrow(
+                    3, 'psi_end', self.odom_frame, float(cc['xc'][-1]), float(cc['yc'][-1]),
+                    float(cc['defn']['psiEnd']), (1.0, 0.9, 0.1, 1.0), stamp))
+            self.door_goal_debug_pub.publish(arr)
+        except Exception as exc:  # noqa: BLE001 - diagnostics must not stop control
+            self.get_logger().warn(f'DOORDBG failed: {type(exc).__name__}: {exc}',
+                                   throttle_duration_sec=10.0)
 
     def goal_pose_callback(self, msg: PoseStamped):
         if self.x is None or self.y is None:
@@ -2680,6 +2909,8 @@ class MPCController(Node):
 
         self.goal_pose_xy = (msg.pose.position.x, msg.pose.position.y)
         self.goal_pose_yaw = self.quaternion_to_yaw(msg.pose.orientation)
+        # getattr: the goal_pose_callback test stand-ins predate the switch.
+        self.goal_pose_honour_yaw = bool(getattr(self, 'goal_pose_use_yaw', False))
         self.pose_goal_reached = False
         # Switching to pose mode -- clear any distance-mode goal so the two
         # modes stay mutually exclusive: whichever topic was published to most
@@ -2692,9 +2923,36 @@ class MPCController(Node):
         self._no_goal_warned = False
         self._clear_drive_state()
         self._invalidate_move_state()
+
+        # MAP -> ODOM DRIFT CORRECTION (see goal_pose_anchor_map's own comment
+        # in __init__ for why this is needed at all). EnterDoor and
+        # PublishMoveGoal's move.goal_pose branch both send this already in
+        # MAP frame -- header.frame_id == self.map_frame -- while self.x/self.y
+        # above are this node's own ODOM state. Capturing the map-frame point
+        # here and letting _refresh_goal_anchor() reproject it every tick is
+        # what keeps the two in agreement for as long as this move runs, the
+        # same treatment goal_distance_callback's own anchor already gets.
+        # An odom-frame goal (goal_turn_callback's synthetic target re-uses
+        # this same state, see that method) needs no correction and keeps
+        # frame_id unset, so it is left alone here. Any OTHER frame is
+        # unexpected: warn and drive at it raw rather than guess.
+        self.goal_pose_anchor_map = None
+        if msg.header.frame_id == self.map_frame:
+            self.goal_pose_anchor_map = (
+                self.goal_pose_xy[0], self.goal_pose_xy[1], self.goal_pose_yaw)
+        elif msg.header.frame_id and msg.header.frame_id != self.odom_frame:
+            self.get_logger().warn(
+                f'goal_pose in frame {msg.header.frame_id!r}, expected '
+                f'{self.map_frame!r}: driving at it RAW, no map -> odom drift '
+                'correction applied.', throttle_duration_sec=5.0)
+
         self.get_logger().info(
             f'Nuovo goal_pose=({self.goal_pose_xy[0]:.3f}, {self.goal_pose_xy[1]:.3f}) '
-            f'yaw={self.goal_pose_yaw:+.3f} (yaw non ancora utilizzato, solo posizione)'
+            f'yaw={self.goal_pose_yaw:+.3f} '
+            + ('(arrivo con questo yaw: corridoio a posa) '
+               if self.goal_pose_honour_yaw else '(yaw ignorato, solo posizione) ')
+            + f'frame={msg.header.frame_id!r}'
+            + (' [map-anchored]' if self.goal_pose_anchor_map is not None else '')
         )
 
     def goal_object_callback(self, msg: ObjectGoal):
@@ -2779,6 +3037,7 @@ class MPCController(Node):
         self.goal_reached = False
         self.goal_pose_xy = None
         self.goal_pose_yaw = None
+        self.goal_pose_anchor_map = None
         self.pose_goal_reached = False
         self._no_goal_warned = False
         self._clear_drive_state()
@@ -3134,14 +3393,22 @@ class MPCController(Node):
             self.y + reach * math.sin(target_yaw),
         )
         self.goal_pose_yaw = target_yaw
+        # A turn's synthetic target is a point on the bearing, not a pose to
+        # arrive on: the corridor keeps the bearing geometry it is tuned on.
+        self.goal_pose_honour_yaw = False
         self.pose_goal_reached = False
         # Switching to turn (pose-mode-backed) -- clear any distance-mode
         # goal so the two stay mutually exclusive, same pattern goal_pose_
-        # callback/goal_distance_callback already use for each other.
+        # callback/goal_distance_callback already use for each other. Also
+        # clear any pose-mode map anchor a PREVIOUS goal_pose move left set:
+        # this target is synthesised directly in odom above, and without this
+        # _refresh_goal_anchor() would overwrite it next tick with that stale
+        # move's reprojection.
         self.goal_distance = None
         self.goal_start_xy = None
         self.goal_anchor_map = None
         self.goal_anchor_odom = None
+        self.goal_pose_anchor_map = None
         self.goal_reached = False
         self._no_goal_warned = False
         self._clear_drive_state()
@@ -3356,6 +3623,7 @@ class MPCController(Node):
         self.goal_anchor_odom = None
         self.goal_pose_xy = None
         self.goal_pose_yaw = None
+        self.goal_pose_anchor_map = None
         self.pose_goal_reached = False
         self.goal_reached = False
         self._no_goal_warned = False
@@ -3696,6 +3964,9 @@ class MPCController(Node):
     def _invalidate_move_state(self):
         """Drop every piece of per-move cached geometry.
 
+        mpc-dodge: also the move's fixed line (corridor_lateral_reanchor false) and the informed
+        side rule's latches -- both belong to the move.
+
         Also starts the reverse manoeuvre's attempt count afresh (a new move
         lifts a "stuck" give-up).
 
@@ -3729,10 +4000,6 @@ class MPCController(Node):
         # getattr for the duck-typed stand-ins, which carry no channel.
         if getattr(self, 'speed_channel', None) is not None:
             self._speed_reset('goal_change')
-        # Target smoothing / obstacle-deflection coast: previous move's state.
-        self.smoothed_target = None
-        self.last_deflection_vec = np.zeros(2)
-        self.deflection_decay_remaining = 0
         # Object mode's per-move geometry. Cleared HERE rather than in each of
         # the other four callbacks, so that any new goal of any shape drops an
         # active object approach without those callbacks having to grow a line
@@ -3780,6 +4047,10 @@ class MPCController(Node):
         self.stop_ramp_d_rem = None
         # Corridor geometry: force a rebuild + marker publish on the next tick.
         self.cached_corridor = None
+        self._move_line_origin = None
+        _latch = getattr(self, '_side_latch', None)
+        if _latch is not None:
+            _latch.reset()
         # A new move's first corridor has nothing meaningful to be a step FROM
         # -- differencing it against the last move's would report the whole
         # re-anchoring as reference movement. Same reason the arc's hysteresis
@@ -3811,14 +4082,17 @@ class MPCController(Node):
         if hw_age < self.odom_stale_timeout_sec:
             source = 'hardware'
             self.x, self.y, self.yaw, self.v = self.hw_x, self.hw_y, self.hw_yaw, self.hw_v
+            self.yaw_rate = self.hw_yaw_rate
             self.state_stamp_sec = self.hw_odom_stamp_sec
         elif sim_age < self.odom_stale_timeout_sec:
             source = 'sim'
             self.x, self.y, self.yaw, self.v = self.sim_x, self.sim_y, self.sim_yaw, self.sim_v
+            self.yaw_rate = self.sim_yaw_rate
             self.state_stamp_sec = self.sim_odom_stamp_sec
         else:
             source = None
             self.x = self.y = self.yaw = self.v = None
+            self.yaw_rate = None
             self.state_stamp_sec = None
 
         # ---- DEBUG: eta' delle due sorgenti, per capire chi e' stale ----
@@ -3848,11 +4122,20 @@ class MPCController(Node):
             return
 
         obstacles_global = []
+        motions = {}
         for obs in msg.obstacles:
             x_g, y_g = self.robot_to_global(obs.x, obs.y)
             obstacles_global.append((x_g, y_g, float(obs.r)))
+            # mpc-dodge: the track id and the ODOM velocity (semantic_track_velocity_enabled),
+            # keyed by the disc so it follows it through selection; defaults = no motion.
+            tid = int(getattr(obs, 'id', -1))
+            if tid >= 0 or bool(getattr(obs, 'v_valid', False)):
+                motions[obstacles_global[-1]] = obstacle_motion.Motion(
+                    tid, float(getattr(obs, 'vx', 0.0)), float(getattr(obs, 'vy', 0.0)),
+                    bool(getattr(obs, 'v_valid', False)))
 
         self.obstacles_global_live = obstacles_global
+        self.obstacles_motion_live = motions
         self.obstacles_live_time = self.get_clock().now().nanoseconds * 1e-9
 
         # ---- DEBUG: primo ostacolo in frame robot vs frame globale ----
@@ -4952,7 +5235,14 @@ class MPCController(Node):
         same call, same arguments -- which is what keeps the flag-off
         behaviour bit-identical (pinned by test_reverse_flag_off_identity.py
         on the existing closed-loop scenarios).
+
+        mpc_solver_impl (R2) rides along as solve_mpc_step's impl= when the
+        node has one; a stand-in without the attribute passes nothing and
+        gets solver_backend.DEFAULT_IMPL, the call unchanged.
         """
+        impl = getattr(self, 'mpc_solver_impl', None)
+        if impl is not None:
+            solve_kwargs = dict(solve_kwargs, impl=impl)
         if not getattr(self, 'allow_reverse', False) or self.reverse_planner is None:
             return solve_mpc_step(**solve_kwargs)
         return self.reverse_planner.step(
@@ -5065,6 +5355,77 @@ class MPCController(Node):
                 throttle_duration_sec=5.0
             )
         self._log_ctrl(source, requested, speed, steering_angle)
+        if self.steering_model_diag_enabled:
+            self._publish_steering_model_diag(speed, steering_angle)
+
+    def _publish_steering_model_diag(self, speed_cmd, steering_cmd):
+        """/mpc/steering_model_diag -- see the param's own comment. Gated by
+        steering_model_diag_enabled; _publish_drive only calls this when it
+        is true, so the trig below never runs otherwise.
+
+        predicted_yaw_rate uses the EXACT formula vehicle_model.py's
+        f1tenth_state_fcn_dt_beta solves with (psidot = (v/L) cos(beta)
+        tan(delta), beta = atan((lr/L) tan(delta))), at THIS tick's published
+        speed/steering, so the ratio against measured_yaw_rate is a direct
+        read of whether the model the solver trusts matches the car: near 1.0
+        is agreement, a ratio pinned away from 1.0 (the ~0.84 another
+        approach move's own post-hoc analysis found) is the model/steering
+        mismatch suspect B asks about. measured_yaw_rate is the active odom
+        source's own twist.angular.z (gyro-informed on the real EKF) -- see
+        self.yaw_rate's own comment -- never a finite-difference of self.yaw,
+        which would also pick up this same lookup's own positional noise.
+
+        goal_along_error_m/goal_lateral_error_m are _along_lateral_error's
+        (car_xy, goal_pose_xy, goal_pose_yaw) -- live only in pose mode (a
+        door, or any move.goal_pose), NaN otherwise. See that function's own
+        comment for what a healthy vs. a still-drifting approach looks like
+        on it.
+        """
+        if self.x is None or self.y is None or self.v is None:
+            return
+        L, lr = self.params['L'], self.params['lr']
+        beta = math.atan((lr / L) * math.tan(steering_cmd))
+        yaw_rate_pred = (speed_cmd / L) * math.cos(beta) * math.tan(steering_cmd)
+        yaw_rate_meas = self.yaw_rate if self.yaw_rate is not None else math.nan
+
+        ratio = math.nan
+        if math.isfinite(yaw_rate_meas) and abs(yaw_rate_pred) > 1e-3:
+            ratio = yaw_rate_meas / yaw_rate_pred
+            a = self.steering_model_diag_smooth_alpha
+            self._steering_model_ratio_ema = (
+                ratio if self._steering_model_ratio_ema is None
+                else (1.0 - a) * self._steering_model_ratio_ema + a * ratio)
+        ratio_smoothed = (self._steering_model_ratio_ema
+                          if self._steering_model_ratio_ema is not None else math.nan)
+
+        goal_x = goal_y = goal_yaw = along_m = lateral_m = math.nan
+        if self.goal_pose_xy is not None and self.goal_pose_yaw is not None:
+            goal_x, goal_y = self.goal_pose_xy
+            goal_yaw = self.goal_pose_yaw
+            along_m, lateral_m = _along_lateral_error(
+                (self.x, self.y), self.goal_pose_xy, goal_yaw)
+
+        status = DiagnosticStatus()
+        status.name = 'mpc_corr: steering model'
+        status.level = DiagnosticStatus.OK
+        status.message = f'yaw_rate ratio (smoothed) = {ratio_smoothed:+.3f}'
+        status.values = [
+            KeyValue(key='commanded_steering_rad', value=f'{steering_cmd:.5f}'),
+            KeyValue(key='commanded_speed_mps', value=f'{speed_cmd:.5f}'),
+            KeyValue(key='predicted_yaw_rate_rad_s', value=f'{yaw_rate_pred:.5f}'),
+            KeyValue(key='measured_yaw_rate_rad_s', value=f'{yaw_rate_meas:.5f}'),
+            KeyValue(key='yaw_rate_ratio', value=f'{ratio:.5f}'),
+            KeyValue(key='yaw_rate_ratio_smoothed', value=f'{ratio_smoothed:.5f}'),
+            KeyValue(key='goal_pose_x_odom', value=f'{goal_x:.5f}'),
+            KeyValue(key='goal_pose_y_odom', value=f'{goal_y:.5f}'),
+            KeyValue(key='goal_pose_yaw_odom', value=f'{goal_yaw:.5f}'),
+            KeyValue(key='goal_along_error_m', value=f'{along_m:.5f}'),
+            KeyValue(key='goal_lateral_error_m', value=f'{lateral_m:.5f}'),
+        ]
+        msg = DiagnosticArray()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.status = [status]
+        self.steering_model_diag_pub.publish(msg)
 
     def _log_ctrl(self, source, requested, applied, steer):
         """
@@ -5190,6 +5551,7 @@ class MPCController(Node):
         # docstring for why they must not look this up independently. No-op in
         # pose/turn mode and whenever no map anchor was captured.
         self._refresh_goal_anchor()
+        self._door_goal_debug_tick()
 
         # Same one-lookup-per-tick discipline for the object target: it is
         # read by the corridor build and by the branch below, and two
@@ -5326,8 +5688,9 @@ class MPCController(Node):
                 throttle_duration_sec=1.0)
 
         elif self.goal_pose_xy is not None:
-            # Pose mode -- position-only arrival, no final-yaw alignment this
-            # pass (see build_straight_corridor's scope note). Mutually
+            # Pose mode -- position-only ARRIVAL: the goal's yaw shapes the
+            # corridor the car comes in along (goal_pose_use_yaw), it is not
+            # an arrival condition. Mutually
             # exclusive with distance mode: goal_pose_callback/
             # goal_distance_callback each clear the other mode's state, so
             # goal_distance/goal_start_xy are guaranteed None here.
@@ -5641,7 +6004,12 @@ class MPCController(Node):
         # avoidance was coming from the solver's w_obs cost alone, fighting
         # every tick against a static straight-line target -- hence the
         # oversized, last-moment corrections.
+        motions = [getattr(self, 'obstacles_motion_live', {}).get(o) for o in obstacles_global]
+        planning_obstacles = list(obstacles_global)
+        obstacles_global, motions = self._side_ruled_obstacles(obstacles_global, motions, corridor)
         corridor["obstacles_world"] = obstacles_global
+        self._attach_obstacle_motion(corridor, obstacles_global, motions)
+        self._return_shape = self._compute_return_shape(corridor, planning_obstacles)
         corridor["d_safe"] = self.dmin
         # UPGRADE: car_radius/avoidance_margin, read by both
         # compute_local_target (below, this file) and mpc_solver.py's
@@ -5740,7 +6108,7 @@ class MPCController(Node):
             ts=self.ts_pred,
             params=self.params,
             limits=solve_limits,
-            weights=self._weights_for(corridor),
+            weights=self._tick_weights(corridor),
             obstacles=obstacles_global,
             dmin=self.dmin,
             vdes=vdes,
@@ -6129,6 +6497,8 @@ class MPCController(Node):
         X0 = float(x[0])
         Y0 = float(x[1])
         psi0 = float(x[2])
+        # mpc-dodge phase 2b (corridor_lateral_reanchor false): the straight move's fixed line.
+        move_line = None
 
         d_front = float(self.front_distance)
 
@@ -6160,6 +6530,12 @@ class MPCController(Node):
         # the ordinary length-driven geometry: the corridor ends where a
         # heading ramp of that length happens to put it.
         pose_target = None
+        # (psiEnd, L) of the goal_pose branch's BEARING corridor, set only
+        # when that branch asked for a pose corridor instead (goal_pose_use_
+        # yaw): what the build site falls back to when the pose curve is not
+        # drivable. None everywhere else, including the object branch, whose
+        # fallback is its own target-line geometry.
+        goal_pose_fallback = None
 
         # The standoff point this corridor was built to reach, and the tracked
         # target it was derived from -- both odom, both None off the object
@@ -6413,6 +6789,14 @@ class MPCController(Node):
                     psiStart = psi0
                 else:
                     psiStart = psiEnd
+                # mpc-dodge phase 2b: a STRAIGHT drive move (the missions' 'drive:
+                # straight' + distance stop) is the same corridor as goal_distance,
+                # so the same fixed line applies to it (_fixed_line_corridor).
+                if (drive_cmd['mode'] == 'straight'
+                        and not getattr(self, 'corridor_lateral_reanchor', True)):
+                    fixed = MPCController._fixed_line_corridor(
+                        self, X0, Y0, psi0, psiEnd, psiStart)
+                    X0, Y0, psiStart, pose_target, goal_pose_fallback, move_line = fixed
             # No goal to clip the length against (that is what open-ended
             # means), so the full nominal corridor length, exactly as the
             # goal_distance branch uses.
@@ -6611,6 +6995,17 @@ class MPCController(Node):
             gx, gy = self.goal_pose_xy
             psiEnd = math.atan2(gy - Y0, gx - X0)
             L = float(np.clip(math.hypot(gx - X0, gy - Y0), 1.0, self.corr_L_base))
+            # ARRIVING ON THE GOAL'S YAW (goal_pose_use_yaw, see __init__):
+            # ask for the pose corridor, ending ON (gx, gy) tangent to the
+            # goal's yaw, and keep the bearing corridor just computed as the
+            # fallback the build site returns to when that curve is not
+            # drivable or is longer than corr_L_base. getattr: the corridor
+            # test stand-ins predate the switch, and absent means off.
+            _gyaw = getattr(self, 'goal_pose_yaw', None)
+            if getattr(self, 'goal_pose_honour_yaw', False) and _gyaw is not None:
+                goal_pose_fallback = (psiEnd, L)
+                pose_target = (gx, gy)
+                psiEnd = float(_gyaw)
         else:
             # STRAIGHT (goal_distance) move: a corridor that ALWAYS PASSES
             # THROUGH THE CAR'S CURRENT POSITION, pointed along a FROZEN,
@@ -6743,6 +7138,13 @@ class MPCController(Node):
                     # heading return at every rebuild period tested -- see the
                     # corridor_heading_return parameter's own note in __init__.
                     psiStart = psiEnd
+                # mpc-dodge phase 2b: corridor_lateral_reanchor FALSE keeps the
+                # move's line fixed in the LOCAL odom frame (lateral_return.py and
+                # _fixed_line_corridor). True (default) is "THE PRICE" as written.
+                if not getattr(self, 'corridor_lateral_reanchor', True):
+                    fixed = MPCController._fixed_line_corridor(
+                        self, X0, Y0, psi0, psiEnd, psiStart)
+                    X0, Y0, psiStart, pose_target, goal_pose_fallback, move_line = fixed
                 # Diagnostic only: how far the car now sits from the ORIGINAL
                 # line. Deliberately not acted on any more (see "THE PRICE"
                 # above) -- logged so a run can still be read back for how much
@@ -6877,8 +7279,11 @@ class MPCController(Node):
         # beyond 2.0 m, 8 of 9 beyond 1.55 m and 9 of 12 beyond 1.25 m -- so a
         # fallback is not an edge case, it is the final approach, and it is the
         # straight geometry the branch has always used there.
+        # corridor_impl (corridor_backend.py): getattr, because the stand-ins
+        # carry no such field; they get corridor_backend.DEFAULT_IMPL.
+        _corridor_impl = getattr(self, 'corridor_impl', corridor_backend.DEFAULT_IMPL)
         if pose_target is not None:
-            geom = corridor_curves_to_pose(
+            geom = corridor_backend.corridor_curves_to_pose(
                 X0, Y0, psiStart, pose_target[0], pose_target[1], psiEnd,
                 self.corr_N,
                 w0=self.corr_wmin,
@@ -6888,6 +7293,7 @@ class MPCController(Node):
                             if getattr(self, 'corr_width_scale_with_length',
                                        False) else None),
                 walls=CORRIDOR_WALLS,
+                impl=_corridor_impl,
             )
             # THE CAP APPLIES TO THIS SHAPE TOO, and it has to be checked
             # after the fit rather than before it: the pose corridor's length
@@ -6900,9 +7306,40 @@ class MPCController(Node):
             _over_cap = float(geom['length']) > max(float(self.corr_L_base),
                                                     1e-3) + 1e-9
             if geom['feasible'] and not _over_cap:
-                object_corridor_shape = 'pose_arc'
+                object_corridor_shape = ('goal_pose_arc' if goal_pose_fallback is not None
+                                         else 'pose_arc')
                 L = float(geom['length'])
                 L_full = L
+            elif goal_pose_fallback is not None:
+                # goal_pose: back to the BEARING corridor the branch computed
+                # before asking for the pose -- the one this mode always had,
+                # psiRef the bearing. Over the cap the pose is too far to plan
+                # the arrival yet (the next rebuilds, closer, ask again);
+                # infeasible, the pose cannot be reached at that yaw from here
+                # within full lock, and a reference that asks for more is what
+                # this fallback exists to avoid.
+                self.get_logger().info(
+                    'CORR/goal_pose | pose corridor '
+                    + (f'{geom["length"]:.2f} m long, past corr_L_base='
+                       f'{self.corr_L_base:.2f} m' if _over_cap else
+                       f'needs kappa={geom["kappa_max"]:.3f} 1/m against '
+                       f'R_min={float("nan") if _r_min is None else _r_min:.3f} m')
+                    + ': bearing corridor this rebuild',
+                    throttle_duration_sec=1.0)
+                pose_target = None
+                psiEnd, L_full = goal_pose_fallback
+                L = min(L_full, max(float(self.corr_L_base), 1e-3))
+                corridor_cut = L < L_full - 1e-9
+                _scale = (L_full / L) if corridor_cut and L > 0.0 else 1.0
+                u_start_use = min(1.0, self.corr_turn_u_start * _scale)
+                u_end_use = min(1.0, self.corr_turn_u_end * _scale)
+                # R_min was taken for the pose's turn direction; the bearing
+                # may turn the other way.
+                if _limits is not None and _params is not None:
+                    _bound = (_limits['delta_max']
+                              if wrap_pi(psiEnd - psiStart) >= 0.0
+                              else _limits['delta_min'])
+                    _r_min = min_turn_radius(_params['L'], _bound)
             elif _over_cap:
                 self.get_logger().info(
                     f'CORR/pose | the fit is {geom["length"]:.2f} m long for a '
@@ -6944,7 +7381,7 @@ class MPCController(Node):
                 target_line = None
 
         if pose_target is None:
-            geom = corridor_curves(
+            geom = corridor_backend.corridor_curves(
                 X0, Y0, psiStart, psiEnd, L, self.corr_N,
                 dpsi=turn_remaining,
                 u_start=u_start_use,
@@ -6968,6 +7405,7 @@ class MPCController(Node):
                             if getattr(self, 'corr_width_scale_with_length',
                                        False) else None),
                 walls=CORRIDOR_WALLS,
+                impl=_corridor_impl,
             )
         if not geom['feasible'] and pose_target is None:
             self.get_logger().warn(
@@ -6981,12 +7419,25 @@ class MPCController(Node):
         xL, yL = geom["xL"], geom["yL"]
         xR, yR = geom["xR"], geom["yR"]
         halfWidth = geom["halfWidth"]
+        if move_line is not None and move_line['mode'] == 'arc':
+            # 'arc' -> 'hold' when the pose corridor fell back (pose_target cleared below it).
+            if pose_target is None:
+                move_line['mode'] = 'hold'
+            else:
+                object_corridor_shape = 'return_arc'
+        if move_line is not None and move_line['mode'] == 'fixed':
+            # The fixed line need not pass through the car any more: the hard
+            # lateral bound must still contain it (and the swerve one rebuild
+            # period can add), or the QP starts infeasible.
+            halfWidth = np.maximum(np.asarray(halfWidth, dtype=float),
+                                   abs(move_line['e']) + CORRIDOR_CONTAIN_MARGIN_M)
         dpsi = geom["dpsi"]
         p_goal = geom["Pend"]
         if d_front is None:
             d_front = -1.0      # see the wall_turn branch: debug and log only
 
         corridor = {
+            'moveLine': move_line,
             "xc": xc,
             "yc": yc,
             "xL": xL,
@@ -7567,7 +8018,257 @@ class MPCController(Node):
                     throttle_duration_sec=5.0)
         return float(lookahead)
 
+    # ── mpc-dodge: moving obstacles, the informed side rule, the return ───
+    def _init_dodge_params(self):
+        """
+        Declare the mpc-dodge parameters (stack_params.yaml is their only source).
+
+        Every one defaults to today's controller: static discs (mpc_obs_vel_trust 0), no wake
+        (mpc_obs_wake_weight 0), the fixed side rule, the corridor re-anchored on the car
+        (corridor_lateral_reanchor true) and no return shaping. See obstacle_motion.py,
+        side_rule.py (informed) and lateral_return.py.
+        """
+        def _p(key):
+            return self.declare_parameter(key, get_value(key)).value
+        self.obs_vel_trust = min(1.0, max(0.0, float(_p('mpc_obs_vel_trust'))))
+        self.obs_vel_lead_s = float(_p('mpc_obs_vel_lead_s'))
+        self.obs_pred_max_s = float(_p('mpc_obs_pred_max_s'))
+        self.obs_wake_weight = max(0.0, float(_p('mpc_obs_wake_weight')))
+        self.obs_wake_horizon_s = float(_p('mpc_obs_wake_horizon_s'))
+        self.obs_body_probes = bool(_p('mpc_obs_body_probes'))
+        self.obstacle_side_mode = str(_p('mpc_obstacle_side_mode'))
+        if self.obstacle_side_mode not in ('fixed', 'informed'):
+            raise ValueError("mpc_obstacle_side_mode must be 'fixed' or 'informed', "
+                             f'got {self.obstacle_side_mode!r}')
+        self.obstacle_side_release_m = float(_p('mpc_obstacle_side_release_m'))
+        self.obstacle_side_vlat_min = float(_p('mpc_obstacle_side_vlat_min'))
+        self.corridor_lateral_reanchor = bool(_p('corridor_lateral_reanchor'))
+        self.return_gain = float(_p('mpc_return_gain'))
+        self.return_lookahead_ratio = float(_p('mpc_return_lookahead_ratio'))
+        self.return_lookahead_min_m = float(_p('mpc_return_lookahead_min_m'))
+        self.return_psi_scale = float(_p('mpc_return_psi_scale'))
+        self.return_max_heading_deg = float(_p('mpc_return_max_heading_deg'))
+        self.return_overshoot_max_m = float(_p('mpc_return_overshoot_max_m'))
+        self._side_latch = side_rule.SideLatch()
+        self._move_line_origin = None
+        self._return_shape = None
+        self.obstacles_motion_live = {}
+        self.get_logger().info(
+            f'DODGE/cfg | vel_trust={self.obs_vel_trust} lead={self.obs_vel_lead_s} '
+            f'wake={self.obs_wake_weight}/{self.obs_wake_horizon_s}s '
+            f'side={self.obstacle_side_mode} reanchor={self.corridor_lateral_reanchor} '
+            f'return gain={self.return_gain} ratio={self.return_lookahead_ratio} '
+            f'psi_scale={self.return_psi_scale}')
+
+    def _side_ruled_obstacles(self, obstacles, motions, corridor):
+        """
+        Apply this tick's side rule: (obstacles, motions), the motions following their discs.
+
+        'fixed' is _tie_broken_obstacles (today). 'informed' is side_rule.break_ties_informed,
+        latched per track for the move.
+        """
+        if getattr(self, 'obstacle_side_mode', 'fixed') != 'informed':
+            # class-qualified: the closed-loop rig runs these on duck-typed stand-ins
+            return MPCController._tie_broken_obstacles(self, obstacles, corridor), motions
+        heading = float(corridor.get('psiRef', self.yaw))
+        reach = float(corridor.get('L', self.corr_L_base))
+        out, decided = side_rule.break_ties_informed(
+            obstacles, motions, (self.x, self.y), heading, self.obstacle_tie_band_m,
+            max(self.obstacle_side_release_m, self.obstacle_tie_band_m), self.obstacle_tie_side,
+            reach, self._side_latch, v_min=self.obstacle_side_vlat_min,
+            free_space=lambda a, lat: MPCController._free_space(self, heading, a, lat, obstacles))
+        if decided:
+            self.get_logger().info(
+                'TIE/informed | ' + ', '.join(
+                    f'#{i} id {getattr(motions[i], "track_id", None)} '
+                    f'{"left" if side > 0 else "right"} ({reason})'
+                    for i, side, reason in decided),
+                throttle_duration_sec=1.0)
+        return out, motions
+
+    def _free_space(self, heading, along, lat, obstacles):
+        """(free_left, free_right) [m] beside the line at `along` ahead: costmap walls, others."""
+        c, s = math.cos(heading), math.sin(heading)
+        px, py = self.x + c * along, self.y + s * along
+        lx, ly = -s, c
+        free = [None, None]
+        for nx_, ny_, off in getattr(self, 'costmap_boundaries_world', []) or []:
+            if not math.isfinite(off):
+                continue
+            for i, sgn in enumerate((1.0, -1.0)):
+                k = sgn * (nx_ * lx + ny_ * ly)
+                if k > 0.5:
+                    d = (off - (nx_ * px + ny_ * py)) / k
+                    free[i] = d if free[i] is None else min(free[i], d)
+        for ox, oy, r in obstacles:
+            dx, dy = ox - self.x, oy - self.y
+            a = c * dx + s * dy
+            o_lat = -s * dx + c * dy
+            if abs(a - along) > 1.0 or abs(o_lat - lat) < 1e-6:
+                continue
+            gap = abs(o_lat) - r
+            i = 0 if o_lat > 0.0 else 1
+            free[i] = gap if free[i] is None else min(free[i], gap)
+        return free[0], free[1]
+
+    def _attach_obstacle_motion(self, corridor, obstacles, motions):
+        """
+        Put the predicted per-stage discs and the wake on the corridor, or clear them.
+
+        obstacle_motion.py. Both None (the QP of today) unless mpc_obs_vel_trust /
+        mpc_obs_wake_weight are on and at least one obstacle is v_valid.
+        """
+        corridor['obstacles_world_stages'] = None
+        corridor['wake_world_stages'] = None
+        corridor['body_probe_offsets'] = None
+        if (getattr(self, 'obs_body_probes', False) and obstacles
+                and getattr(self, 'mpc_solver_impl', 'py') != 'rust'):
+            corridor['body_probe_offsets'] = BODY_PROBE_OFFSETS_M
+        trust = getattr(self, 'obs_vel_trust', 0.0)
+        wake = getattr(self, 'obs_wake_weight', 0.0)
+        if (trust <= 0.0 and wake <= 0.0) or not any(m is not None and m.valid for m in motions):
+            return
+        if getattr(self, 'mpc_solver_impl', 'py') == 'rust':
+            # The Rust core takes one obstacle list for every stage (mpc_solver refuses the
+            # stage lists): the static obstacles of today, said loudly, rather than no solve.
+            self.get_logger().error(
+                'DODGE | mpc_obs_vel_trust / mpc_obs_wake_weight need mpc_solver_impl py: '
+                'solving with static obstacles', throttle_duration_sec=10.0)
+            return
+        times = obstacle_motion.stage_times(
+            self.N, getattr(self, 'ts_pred', self.ts), self.ts, self.obs_vel_lead_s,
+            self.obs_pred_max_s)
+        stages = obstacle_motion.predicted_stage_obstacles(obstacles, motions, times, trust)
+        if trust > 0.0:
+            corridor['obstacles_world_stages'] = stages
+        if wake > 0.0:
+            corridor['wake_world_stages'] = obstacle_motion.stage_wake_obstacles(
+                obstacles, motions, stages, (self.x, self.y), self.obs_wake_horizon_s)
+        self.get_logger().info(
+            'DODGE/motion | ' + ', '.join(
+                f'id {m.track_id} v=({m.vx:+.2f},{m.vy:+.2f})' for m in motions
+                if m is not None and m.valid), throttle_duration_sec=1.0)
+
+    def _compute_return_shape(self, corridor, obstacles):
+        """Return this tick's lateral_return.ReturnShape on a fixed-line corridor, else None."""
+        self._planning_obstacles_last = list(obstacles)
+        line = corridor.get('moveLine')
+        if line is None or self.x is None or line.get('mode') == 'hold':
+            return None
+        e = lateral_return.lateral_offset((self.x, self.y), line['origin'], line['psi'])
+        blocked = lateral_return.obstacle_in_return_band(
+            e, (self.x, self.y), line['psi'], obstacles,
+            float(corridor.get('L', self.corr_L_base)), self.car_radius + self.avoidance_margin)
+        shape = lateral_return.shape(e, self.return_gain, self.return_psi_scale, blocked)
+        self.get_logger().info(
+            f'RETURN | e={e:+.3f} mode={line.get("mode")} active={shape.active} '
+            f'blocked={shape.blocked} w_corr x{shape.w_corr_scale:.2f} '
+            f'w_psi x{shape.w_psi_scale:.2f}', throttle_duration_sec=1.0)
+        return shape
+
+    def _fixed_line_corridor(self, X0, Y0, psi0, psiEnd, psiStart):
+        """
+        Return (X0, Y0, psiStart, pose_target, goal_pose_fallback, move_line) of a fixed line.
+
+        corridor_lateral_reanchor false (lateral_return.py): the move's line is fixed in the LOCAL
+        odom frame -- origin the car's odom position at the move's first corridor, never re-read
+        from the map, so no SLAM step moves it sideways; direction the move's frozen heading
+        psiEnd.
+        lateral_return.plan picks the corridor: 'fixed' (along the line from the foot of the car's
+        perpendicular), 'arc' (the goal_pose pose corridor from the car's pose to the line point D
+        ahead; its fallback, today's corridor through the car) or 'hold' (today's corridor: an
+        obstacle lies between the car and the line). Unchanged inputs come back for 'hold'.
+        """
+        pose_target, goal_pose_fallback = None, None
+        if getattr(self, '_move_line_origin', None) is None:
+            self._move_line_origin = (X0, Y0)
+        origin = tuple(self._move_line_origin)
+        e = lateral_return.lateral_offset((X0, Y0), origin, psiEnd)
+        blocked = lateral_return.obstacle_in_return_band(
+            e, (X0, Y0), psiEnd, getattr(self, '_planning_obstacles_last', []) or [],
+            max(self.corr_L_base, 1.0), self.car_radius + self.avoidance_margin)
+        r_min = None
+        if getattr(self, 'limits', None) is not None and getattr(self, 'params', None) is not None:
+            r_min = min_turn_radius(self.params['L'], self.limits['delta_max'])
+        mode, d, e_land = lateral_return.plan(
+            e, getattr(self, 'return_lookahead_ratio', 0.0),
+            getattr(self, 'return_lookahead_min_m', 1.0),
+            lateral_return.max_return_heading(
+                getattr(self, 'return_max_heading_deg', 35.0),
+                getattr(self, 'return_overshoot_max_m', 0.15), r_min),
+            max(self.corr_L_base, 1.0), blocked)
+        move_line = {'origin': origin, 'psi': float(psiEnd), 'e': e, 'mode': mode, 'D': d,
+                     'e_land': e_land}
+        fx, fy = lateral_return.foot_on_line((X0, Y0), origin, psiEnd)
+        if mode == 'fixed':
+            X0, Y0 = fx, fy
+        elif mode == 'arc':
+            pose_target = (fx + d * math.cos(psiEnd) - e_land * math.sin(psiEnd),
+                           fy + d * math.sin(psiEnd) + e_land * math.cos(psiEnd))
+            psiStart = psi0
+            goal_pose_fallback = (psiEnd, max(self.corr_L_base, 1.0))
+        self.get_logger().info(
+            f'RETURN/plan | e={e:+.3f} mode={mode} D={d} blocked={blocked}',
+            throttle_duration_sec=1.0)
+        return X0, Y0, psiStart, pose_target, goal_pose_fallback, move_line
+
+    def _tick_weights(self, corridor):
+        """_weights_for(corridor), with this tick's return shaping and the wake weight."""
+        weights = self._weights_for(corridor)
+        shape = getattr(self, '_return_shape', None)
+        wake = getattr(self, 'obs_wake_weight', 0.0)
+        if (shape is None or not shape.active) and not (
+                wake > 0.0 and corridor.get('wake_world_stages') is not None):
+            return weights
+        weights = dict(weights)
+        if shape is not None and shape.active:
+            weights['w_corr'] = float(weights.get('w_corr', 0.0)) * shape.w_corr_scale
+            for key in ('w_psi', 'w_psi_stage'):
+                if key in weights:
+                    weights[key] = float(weights[key]) * shape.w_psi_scale
+        if wake > 0.0 and corridor.get('wake_world_stages') is not None:
+            weights['w_obs_wake'] = wake
+        return weights
+
+    def _tie_broken_obstacles(self, obstacles, corridor):
+        """
+        Apply the side rule (side_rule.break_ties) to this tick's obstacle list.
+
+        The line is the car's position along the corridor's reference heading
+        (psiRef: the move's frozen heading on a straight move), considered as
+        far ahead as the corridor reaches.
+        """
+        heading = float(corridor.get("psiRef", self.yaw))
+        reach = float(corridor.get("L", self.corr_L_base))
+        out, n = side_rule.break_ties(obstacles, (self.x, self.y), heading,
+                                      self.obstacle_tie_band_m, self.obstacle_tie_side, reach)
+        if n:
+            self.get_logger().info(
+                f'TIE | {n} obstacle(s) within {self.obstacle_tie_band_m:.2f} m of the line: '
+                f'passing on the {"left" if self.obstacle_tie_side > 0 else "right"}',
+                throttle_duration_sec=2.0)
+        return out
+
     def compute_local_target(self, x, corridor):
+        """
+        Return the MPC's terminal target: the lookahead point ON the centerline.
+
+        Projects the car onto the corridor centerline (argmin distance),
+        advances `lookahead` (_corridor_lookahead) along the cumulative
+        arclength and returns that centerline sample, clamped to the last one
+        at the corridor end. Nothing else: no obstacle moves it, and nothing
+        filters it across ticks.
+
+        OBSTACLES ARE THE SOLVER'S JOB. The point is returned even when it
+        falls inside an obstacle's safety disc. Avoidance happens in the QP
+        alone, where mpc_solver's soft w_obs cost is traded against this
+        target's w_term pull (and the stage cross-track w_corr) in one
+        optimisation. Shifting the target here instead (the
+        obstacle_target_shift_m deflection, with its 5-tick coast and an
+        exponential smoother on top, removed on branch mpc-centerline-target)
+        made the target generator do the avoidance and left the MPC chasing a
+        point that had already swerved.
+        """
         p_robot = np.array([x[0], x[1]], dtype=float)
 
         xc = np.asarray(corridor["xc"], dtype=float)
@@ -7588,133 +8289,13 @@ class MPCController(Node):
             [xc[idx_target], yc[idx_target]],
             dtype=float
         )
-        # Raw (pre-obstacle-deflection) target -- kept so the deflection-coast
-        # logic below can tell whether THIS tick actually deflected anything,
-        # and can decay a stale deflection back onto the (current) centerline
-        # rather than some earlier tick's raw point.
-        p_target_raw = p_target.copy()
 
         # ---- DEBUG: indice piu' vicino e indice di lookahead ----
         self.get_logger().info(
             f'TGT | idx={idx} idx_target={idx_target}/{len(xc) - 1} '
-            f'lookahead={lookahead:.2f} nominale=({p_target[0]:+.3f},{p_target[1]:+.3f})'
+            f'lookahead={lookahead:.2f} target=({p_target[0]:+.3f},{p_target[1]:+.3f})'
         )
-
-        # se il target lookahead cade dentro il margine di sicurezza di un
-        # ostacolo, spostalo tangenzialmente fuori: e' qui che avviene
-        # l'evitamento ostacoli / cambio di direzione locale, senza bisogno
-        # di un piano.
-        #
-        # UPGRADE:
-        #  - il raggio di innesco ora usa la stessa distanza di sicurezza del
-        #    solver (R_safe = r + d_safe) invece del solo raggio ostacolo,
-        #    cosi' il target inizia a muoversi PRIMA che il costo del solver
-        #    debba intervenire con forza, non dopo.
-        #  - lo spostamento tangenziale ora e' proporzionale a quanto il
-        #    target ha "sconfinato" nel margine di sicurezza (0 a R_safe,
-        #    massimo sulla superficie dell'ostacolo) invece di un salto fisso
-        #    di 1.0 m.
-        #
-        # THE CEILING ON THAT DISPLACEMENT IS obstacle_target_shift_m, a
-        # declared parameter read from stack_params.yaml (see __init__). It
-        # used to be 0.6 * mean(halfWidth) -- corridor-derived, and so
-        # self-limiting against leaving the corridor, but also unnamed,
-        # untunable without a rebuild, and silently retuned by any change to
-        # corr_wmin/corr_wmax. At the shipping geometry it evaluated to
-        # exactly 0.36 m; the parameter now ships 0.30, deliberately smaller
-        # so the car passes close to obstacles instead of swerving wide.
-        # The PROPORTIONAL SHAPE below is unchanged -- this is only its
-        # ceiling, still scaled by `penetration`.
-        #
-        # Because the value is no longer derived from the corridor, the
-        # "never leaves the corridor" property is no longer structural: it
-        # holds because 0.30 < the 0.64 m narrow half-width, not because
-        # the arithmetic forces it. The throttled warn below is what keeps
-        # that from going quiet if either number is ever retuned past the
-        # other.
-        d_safe = corridor.get("d_safe", 0.0)
-        max_defl = self.obstacle_target_shift
-
-        mean_half_width = float(np.mean(corridor["halfWidth"]))
-        if max_defl > mean_half_width:
-            self.get_logger().warn(
-                f'TGT/defl | obstacle_target_shift_m {max_defl:.3f} exceeds the '
-                f'corridor mean half-width {mean_half_width:.3f}: a fully '
-                f'penetrating obstacle deflects the target outside its own '
-                f'corridor.',
-                throttle_duration_sec=5.0)
-
-        for ox, oy, r in corridor.get("obstacles_world", []):
-            p_obs = np.array([ox, oy], dtype=float)
-            R_safe = r + self.car_radius + self.avoidance_margin
-
-            v = p_target - p_obs
-            d = np.linalg.norm(v)
-
-            if d < R_safe:
-                if d < 1e-6:
-                    psi = float(x[2])
-                    v = np.array([np.cos(psi), np.sin(psi)], dtype=float)
-                    d = 1e-6
-
-                v_hat = v / d
-                t = np.array([-v_hat[1], v_hat[0]], dtype=float)
-
-                e = np.array([np.cos(float(x[2])), np.sin(float(x[2]))], dtype=float)
-                if np.dot(t, e) < 0.0:
-                    t = -t
-
-                penetration = float(np.clip((R_safe - d) / max(R_safe - r, 1e-6), 0.0, 1.0))
-                offset = max_defl * penetration
-
-                p_target_old = p_target.copy()
-                p_target = p_obs + R_safe * v_hat + offset * t
-
-                # ---- DEBUG: deflessione tangenziale effettivamente applicata ----
-                self.get_logger().info(
-                    f'TGT/defl | ostacolo=({ox:+.3f},{oy:+.3f},r={r:.3f}) d={d:.3f}<R_safe={R_safe:.3f} '
-                    f'pen={penetration:.2f} offset={offset:.3f} '
-                    f'({p_target_old[0]:+.3f},{p_target_old[1]:+.3f}) -> '
-                    f'({p_target[0]:+.3f},{p_target[1]:+.3f})'
-                )
-
-        # ---- Obstacle-deflection coast --------------------------------
-        # deflected_this_tick is True iff the loop above actually moved
-        # p_target away from the raw centerline point (i.e. some obstacle in
-        # THIS frame's corridor["obstacles_world"] was inside R_safe of it).
-        deflected_this_tick = not np.allclose(p_target, p_target_raw)
-
-        if deflected_this_tick:
-            self.last_deflection_vec = p_target - p_target_raw
-            self.deflection_decay_remaining = self.deflection_decay_ticks
-        elif self.deflection_decay_remaining > 0:
-            # The obstacle that was deflecting the target is no longer in this
-            # frame's list (missed detection, merged away, or genuinely
-            # cleared) -- coast the deflection down to zero over
-            # deflection_decay_ticks ticks instead of snapping back to the raw
-            # centerline on this very first clear tick. Decrement BEFORE
-            # computing the fraction so this first coast tick already shows
-            # partial decay (not another full-strength tick) -- reaches
-            # exactly zero after deflection_decay_ticks ticks, not ticks+1.
-            self.deflection_decay_remaining -= 1
-            decay_fraction = self.deflection_decay_remaining / self.deflection_decay_ticks
-            p_target = p_target_raw + decay_fraction * self.last_deflection_vec
-            self.get_logger().info(
-                f'TGT/coast | no live deflection this tick, coasting '
-                f'({self.deflection_decay_remaining}/{self.deflection_decay_ticks} '
-                f'ticks left) -> ({p_target[0]:+.3f},{p_target[1]:+.3f})'
-            )
-        # else: no deflection this tick and none coasting -- p_target is
-        # already the raw centerline point, nothing to do.
-
-        # ---- Exponential smoothing on the final (possibly coasted) point ---
-        if self.smoothed_target is None:
-            self.smoothed_target = p_target.copy()
-        else:
-            alpha = self.target_smoothing_alpha
-            self.smoothed_target = alpha * p_target + (1.0 - alpha) * self.smoothed_target
-
-        return self.smoothed_target
+        return p_target
 
     # ==========================================
     # TRASFORMAZIONE ROBOT -> GLOBALE

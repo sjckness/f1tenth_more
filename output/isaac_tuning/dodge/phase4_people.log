@@ -1,0 +1,76 @@
+[isaac_tuning 05:55:45] preflight ok {'free_disk_gb': 15.8, 'free_vram_mib': 7010}
+[isaac_tuning 05:55:47] discovery server {'port': 11878, 'pgid': 3966385}
+[isaac_tuning 05:56:07] isaac up {'wall_s': 20.1}
+[isaac_tuning 05:56:07] stack starting {'pgid': 3967720, 'log': 'stack_P1_r0.log'}
+[isaac_tuning 05:56:41] P1 r0: success score=84.77738453256468 margin=0.024968942020322515 wall=33.9s
+[isaac_tuning 05:57:08] P1 r1: success score=75.46792773919354 margin=0.4442974218159903 wall=27.2s
+[isaac_tuning 05:57:39] P1 r2: success score=65.53398058252428 margin=0.12345746042714634 wall=30.6s
+[isaac_tuning 05:58:05] P2 r0: collision score=0.0 margin=-0.7599127746511618 wall=26.2s
+[isaac_tuning 05:58:40] P2 r1: collision score=0.0 margin=-0.735553669005656 wall=34.5s
+[isaac_tuning 06:01:42] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/phase4_people/P2_r2', 'code': 2}
+[isaac_tuning 06:01:42] stopping stack: SIGTERM to process group 3967720
+[isaac_tuning 06:01:42] stopping stack: SIGTERM to what is left of process group 3967720
+[isaac_tuning 06:01:44] stack stopped {'wall_s': 2.8, 'leftovers': 0}
+[isaac_tuning 06:01:44] stack starting {'pgid': 3981750, 'log': 'stack_P2_r2.log'}
+[isaac_tuning 06:02:15] P2 r2: invalid score=None margin=None wall=30.5s
+[isaac_tuning 06:02:29] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/phase4_people/P3_r0', 'code': 4}
+[isaac_tuning 06:02:29] stopping stack: SIGTERM to process group 3981750
+[isaac_tuning 06:02:30] stopping stack: SIGTERM to what is left of process group 3981750
+[isaac_tuning 06:02:32] stack stopped {'wall_s': 3.3, 'leftovers': 0}
+[isaac_tuning 06:02:32] stack starting {'pgid': 3984237, 'log': 'stack_P3_r0.log'}
+[isaac_tuning 06:03:11] P3 r0: success score=77.80114229525688 margin=0.21085091168044023 wall=38.2s
+[isaac_tuning 06:03:44] P3 r1: success score=68.10256410301857 margin=0.0492052476213416 wall=33.7s
+[isaac_tuning 06:04:17] P3 r2: success score=69.03606781026716 margin=0.10970821187032032 wall=33.0s
+[isaac_tuning 06:04:41] P4 r0: success score=92.27839605794289 margin=0.10901425604527448 wall=23.0s
+[isaac_tuning 06:05:05] P4 r1: success score=90.05092460010562 margin=0.14662471167434488 wall=24.4s
+[isaac_tuning 06:05:29] P4 r2: success score=92.58629207234465 margin=0.051702494030291035 wall=23.6s
+[isaac_tuning 06:05:29] overlays changed: restarting the stack {'scenario': 'P1u'}
+[isaac_tuning 06:05:29] stopping stack: SIGTERM to process group 3984237
+[isaac_tuning 06:05:29] stopping stack: SIGTERM to what is left of process group 3984237
+[isaac_tuning 06:05:32] stack stopped {'wall_s': 3.3, 'leftovers': 0}
+[isaac_tuning 06:05:32] stack starting {'pgid': 3991849, 'log': 'stack_P1u_r0.log'}
+[isaac_tuning 06:06:49] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/phase4_people/P1u_r0', 'code': 4}
+[isaac_tuning 06:06:49] stopping stack: SIGTERM to process group 3991849
+[isaac_tuning 06:06:49] stopping stack: SIGTERM to what is left of process group 3991849
+[isaac_tuning 06:06:54] stopping stack: SIGKILL to what is left of process group 3991849
+[isaac_tuning 06:07:01] stack stopped {'wall_s': 11.3, 'leftovers': 0}
+[isaac_tuning 06:07:01] stack starting {'pgid': 3995569, 'log': 'stack_P1u_r0.log'}
+[isaac_tuning 06:07:38] P1u r0: success score=56.20370265162131 margin=-0.06717729152856577 wall=37.6s
+[isaac_tuning 06:08:47] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/phase4_people/P1u_r1', 'code': 4}
+[isaac_tuning 06:08:47] stopping stack: SIGTERM to process group 3995569
+[isaac_tuning 06:08:47] stopping stack: SIGTERM to what is left of process group 3995569
+[isaac_tuning 06:08:50] stack stopped {'wall_s': 3.0, 'leftovers': 0}
+[isaac_tuning 06:08:50] stack starting {'pgid': 4000258, 'log': 'stack_P1u_r1.log'}
+[isaac_tuning 06:09:27] P1u r1: success score=66.40504735480913 margin=0.42046132588691365 wall=36.7s
+[isaac_tuning 06:10:04] P1u r2: success score=70.78264450272063 margin=0.41441484767851633 wall=36.8s
+[isaac_tuning 06:11:10] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/phase4_people/P2u_r0', 'code': 4}
+[isaac_tuning 06:11:10] stopping stack: SIGTERM to process group 4000258
+[isaac_tuning 06:11:10] stopping stack: SIGTERM to what is left of process group 4000258
+[isaac_tuning 06:11:14] stack stopped {'wall_s': 3.3, 'leftovers': 0}
+[isaac_tuning 06:11:14] stack starting {'pgid': 4006174, 'log': 'stack_P2u_r0.log'}
+[isaac_tuning 06:11:44] P2u r0: collision score=0.0 margin=-0.8288407152314485 wall=30.0s
+[isaac_tuning 06:14:46] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/phase4_people/P2u_r1', 'code': 2}
+[isaac_tuning 06:14:46] stopping stack: SIGTERM to process group 4006174
+[isaac_tuning 06:14:46] stopping stack: SIGTERM to what is left of process group 4006174
+[isaac_tuning 06:14:50] stack stopped {'wall_s': 4.0, 'leftovers': 0}
+[isaac_tuning 06:14:50] stack starting {'pgid': 4014441, 'log': 'stack_P2u_r1.log'}
+[isaac_tuning 06:15:18] P2u r1: invalid score=None margin=None wall=28.1s
+[isaac_tuning 06:15:33] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/phase4_people/P2u_r2', 'code': 4}
+[isaac_tuning 06:15:33] stopping stack: SIGTERM to process group 4014441
+[isaac_tuning 06:15:34] stopping stack: SIGTERM to what is left of process group 4014441
+[isaac_tuning 06:15:35] stack stopped {'wall_s': 2.0, 'leftovers': 0}
+[isaac_tuning 06:15:36] stack starting {'pgid': 4016795, 'log': 'stack_P2u_r2.log'}
+[isaac_tuning 06:16:14] P2u r2: collision score=0.0 margin=-0.7386322257460787 wall=38.0s
+[isaac_tuning 06:16:44] P3u r0: success score=58.564359216497365 margin=0.2041504220367698 wall=29.9s
+[isaac_tuning 06:17:16] P3u r1: success score=69.41389536281908 margin=0.0217464479378795 wall=32.0s
+[isaac_tuning 06:17:41] P3u r2: success score=76.95663946556222 margin=0.21771466957243435 wall=25.2s
+[isaac_tuning 06:18:06] P4u r0: success score=92.09175225260915 margin=0.11054694846335056 wall=24.6s
+[isaac_tuning 06:18:29] P4u r1: success score=90.50800225083944 margin=0.12552675464722118 wall=23.4s
+[isaac_tuning 06:18:54] P4u r2: success score=92.99213358686448 margin=0.07137295705761382 wall=24.7s
+[isaac_tuning 06:18:54] stopping stack: SIGTERM to process group 4016795
+[isaac_tuning 06:18:54] stopping stack: SIGTERM to what is left of process group 4016795
+[isaac_tuning 06:18:56] stack stopped {'wall_s': 2.5, 'leftovers': 0}
+[isaac_tuning 06:18:58] stopping isaac: SIGTERM to process group 3966497
+[isaac_tuning 06:18:58] stopping discovery server: SIGINT to process group 3966385
+[isaac_tuning 06:18:58] session closed {'container': False, 'leftovers': 0}
+[isaac_tuning 06:18:58] set phase4: score 54.4, all_good True, 24 runs in 1389.4 s

@@ -1,0 +1,71 @@
+start 2026-10-23T20:20:35+02:00 F1TENTH_CORRIDOR_IMPL=rust
+colcon test --packages-select mpc_controller f1tenth_params f1tenth_bringup f1tenth_mpc_core f1tenth_control f1tenth_navigation --packages-ignore $SKIP --test-result-base /tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r1/colcon_test_rust
+Starting >>> f1tenth_params
+Starting >>> f1tenth_mpc_core
+Finished <<< f1tenth_mpc_core [0.65s]
+Finished <<< f1tenth_params [1.08s]
+Starting >>> f1tenth_navigation
+Finished <<< f1tenth_navigation [1.13s]
+Starting >>> mpc_controller
+--- stderr: mpc_controller
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=2347825) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+[Processing: mpc_controller]
+Finished <<< mpc_controller [5min 43s]	[ with test failures ]
+Starting >>> f1tenth_control
+Finished <<< f1tenth_control [1.75s]
+Starting >>> f1tenth_bringup
+--- stderr: f1tenth_bringup
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=2354044) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+Finished <<< f1tenth_bringup [3.87s]	[ with test failures ]
+
+Summary: 6 packages finished [5min 52s]
+  2 packages had stderr output: f1tenth_bringup mpc_controller
+  2 packages had test failures: f1tenth_bringup mpc_controller
+
+real	5m51.770s
+user	5m48.613s
+sys	0m12.200s
+colcon test exit 0
+/tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r1/colcon_test_rust/f1tenth_bringup/pytest.xml: 88 tests, 0 errors, 3 failures, 0 skipped
+/tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r1/colcon_test_rust/f1tenth_control/pytest.xml: 67 tests, 0 errors, 0 failures, 0 skipped
+/tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r1/colcon_test_rust/f1tenth_navigation/pytest.xml: 12 tests, 0 errors, 0 failures, 0 skipped
+/tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r1/colcon_test_rust/f1tenth_params/pytest.xml: 80 tests, 0 errors, 0 failures, 0 skipped
+/tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r1/colcon_test_rust/mpc_controller/pytest.xml: 1546 tests, 0 errors, 13 failures, 3 skipped
+
+Summary: 1793 tests, 0 errors, 16 failures, 3 skipped
+test-result exit 1
+end 2026-10-23T20:26:27+02:00

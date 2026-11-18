@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_costmap_boundary_rs</name>
+  <version>0.1.0</version>
+  <description>costmap_boundary_node in Rust (rclrs): interface-identical port of f1tenth_costmap's nearest-cell path</description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- The interface packages whose messages the node uses (through ros-env, src/rust/Cargo.toml):
+       Cargo.toml names none of them, so these tags are what makes colcon build and install them
+       before this package, and what puts their prefixes on its AMENT_PREFIX_PATH. -->
+  <depend>builtin_interfaces</depend>
+  <depend>std_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>f1tenth_messages</depend>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>

@@ -13,6 +13,10 @@
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
   <depend>f1tenth_messages</depend>
+  <!-- /mpc/steering_model_diag (_publish_steering_model_diag, behind
+       steering_model_diag_enabled, default off): a DiagnosticArray needs no
+       new message definition, so this diagnostic cost nothing to add. -->
+  <depend>diagnostic_msgs</depend>
   <!-- /scan (MPC_corr.py's scan_callback) for the wall_turn wall tracker
        (wall_tracker.py), plus the JointState/Imu imports that predate this
        entry and were never declared. Best-effort subscriber: it cannot
@@ -64,6 +68,18 @@
        only; no cycle (f1tenth_hardware does not depend back on this
        package). -->
   <test_depend>f1tenth_hardware</test_depend>
+  <!-- NO dependency on f1tenth_mpc_core (src/rust/f1tenth_mpc_core,
+       ament_cargo), deliberately: libf1tenth_mpc_core.so is the Rust corridor
+       geometry (main-jazzy-rust R1) and RTI solver core (R2) mpc_native.py
+       loads with ctypes only when corridor_impl or mpc_solver_impl is rust,
+       found through ament_index in the sourced workspace, the
+       corridor_perception / libextract_lines pattern. Any declared
+       dependency, exec or test, makes this package unbuildable on a colcon
+       without colcon-ros-cargo, where the Rust package cannot be built
+       (measured 2026-10-23: "Failed to find ... f1tenth_mpc_core/package.sh",
+       the CLAUDE.md Thor trap), and the MPC must build everywhere. Not built:
+       corridor_impl / mpc_solver_impl rust refuse mpc_corr's start, and the
+       rust corridor and solver tests skip. -->
 
   <export>
     <build_type>ament_python</build_type>

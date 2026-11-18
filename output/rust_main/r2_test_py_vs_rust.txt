@@ -1,0 +1,13 @@
+f1tenth_bringup  py             88 tests  passed    85  failure   3  error   0  skipped   0  differs from py 0
+f1tenth_bringup  rust           88 tests  passed    85  failure   3  error   0  skipped   0  differs from py 0
+f1tenth_control  py             70 tests  passed    70  failure   0  error   0  skipped   0  differs from py 0
+f1tenth_control  rust           70 tests  passed    70  failure   0  error   0  skipped   0  differs from py 0
+f1tenth_navigation py             12 tests  passed    12  failure   0  error   0  skipped   0  differs from py 0
+f1tenth_navigation rust           12 tests  passed    12  failure   0  error   0  skipped   0  differs from py 0
+f1tenth_params   py             80 tests  passed    80  failure   0  error   0  skipped   0  differs from py 0
+f1tenth_params   rust           80 tests  passed    80  failure   0  error   0  skipped   0  differs from py 0
+mpc_controller   py           1650 tests  passed  1634  failure  13  error   0  skipped   3  differs from py 0
+mpc_controller   rust         1650 tests  passed  1634  failure  13  error   0  skipped   3  differs from py 0
+IDENTICAL OUTCOMES
+junit_compare exit 0
+failing sets py / rust identical

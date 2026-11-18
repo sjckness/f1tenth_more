@@ -1,0 +1,3 @@
+status: OK
+READY: NO  (failing: odometry, scan, tf_map_base_link, battery)
+processes:

@@ -1,0 +1,1 @@
+{"t": 195.8, "move_id": "move_0_straight", "move_type": "drive", "stop_reason": "stop_condition:distance_reached", "duration_s": 10.810890197753906, "commanded": NaN, "actual": NaN, "score_percent": NaN}

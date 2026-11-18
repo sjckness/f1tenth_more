@@ -226,6 +226,9 @@ class SemanticObject:
         self.seen_through = False
         #: When a detection upgraded this track from 'unknown' (else None).
         self.upgraded_sec = None
+        #: The RAW measurement of the latest real update, (stamp, x_map, y_map): the detection or
+        #: the LiDAR cluster centroid before the EMA. track_velocity.py's input (mpc-dodge).
+        self.last_meas = (float(stamp_sec), float(x_map), float(y_map))
 
     @property
     def is_unknown(self):
@@ -271,6 +274,7 @@ class SemanticObject:
         # blended below, velocity just isn't re-estimated off a non-positive
         # dt -- keeps the existing velocity estimate rather than divide-by-
         # zero or a garbage sign flip.
+        self.last_meas = (float(stamp_sec), float(x_map), float(y_map))
         self.x_map = alpha * float(x_map) + (1.0 - alpha) * self.x_map
         self.y_map = alpha * float(y_map) + (1.0 - alpha) * self.y_map
         width = _valid_width(width)
@@ -666,6 +670,7 @@ def update_unknown_batch(tracks: list, candidates: list, stamp_sec: float, p,
                     stats['absorbed'] += 1
                     continue
                 stats['matched'] += 1
+                trk.last_meas = (stamp_sec, float(cand.x), float(cand.y))
                 trk.x_map = alpha * cand.x + (1.0 - alpha) * trk.x_map
                 trk.y_map = alpha * cand.y + (1.0 - alpha) * trk.y_map
                 ext = (cand.length, cand.width)

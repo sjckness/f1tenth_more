@@ -139,3 +139,34 @@ class TestSeedCoupling:
         arg = _declared(costmap.generate_launch_description())['costmap_boundary_max_range_m']
         max_range = float(_text(arg.default_value, LaunchContext()))
         assert max_range == get_value('lidar_front_wall_seed_max_valid_m')
+
+
+class TestWallTrackerImpl:
+    """wall_tracker_impl:=py|rust (R6, f1tenth_perception/wall_tracker_backend.py)."""
+
+    def _resolved(self, override=None):
+        from launch_ros.utilities import evaluate_parameters, normalize_parameters
+        launch_description = _wall_launch().generate_launch_description()
+        context = LaunchContext()
+        if override is not None:
+            context.launch_configurations['wall_tracker_impl'] = override
+        for arg in _declared(launch_description).values():
+            arg.visit(context)
+        node = _nodes(launch_description)[0]
+        flat = {}
+        for item in evaluate_parameters(context, normalize_parameters(node._Node__parameters)):
+            if isinstance(item, dict):
+                flat.update(item)
+        return _declared(launch_description)['wall_tracker_impl'], flat
+
+    def test_declared_with_its_choices_and_the_stack_default(self):
+        arg, _params = self._resolved()
+        assert arg.choices == ['py', 'rust']
+        assert _text(arg.default_value, LaunchContext()) == str(get_value('wall_tracker_impl'))
+        assert get_value('wall_tracker_impl') == 'py'
+
+    def test_reaches_the_node_as_a_string(self):
+        for override, expected in ((None, 'py'), ('rust', 'rust'), ('py', 'py')):
+            _arg, params = self._resolved(override)
+            assert params['wall_tracker_impl'] == expected
+            assert isinstance(params['wall_tracker_impl'], str)

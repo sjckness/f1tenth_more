@@ -1,0 +1,10 @@
+{
+ "scenario": "S5",
+ "rep": 0,
+ "outcome": "invalid",
+ "valid": false,
+ "score": null,
+ "recorder_code": 1,
+ "wall_recorder_s": 1.2,
+ "isaac_alive_after": true
+}

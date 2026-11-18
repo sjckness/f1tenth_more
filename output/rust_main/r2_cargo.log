@@ -1,0 +1,25 @@
+$ cargo fmt --all --check
+exit 0
+$ cargo clippy --all-targets -- -D warnings
+    Updating crates.io index
+    Finished `dev` profile [optimized + debuginfo] target(s) in 5.51s
+exit 0
+$ cargo test
+     Running unittests src/lib.rs (target/debug/deps/f1tenth_costmap_boundary_rs-7a9a59cff3769f6d)
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/main.rs (target/debug/deps/costmap_boundary_node-4142fe6067e89b6e)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/bin/costmap_boundary_replay.rs (target/debug/deps/costmap_boundary_replay-6433c9bc34096b2d)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/f1tenth_mpc_core-175020e1c3129e92)
+test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/f1tenth_proximity_guard-c99a1ce87b6d6c5e)
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/main.rs (target/debug/deps/proximity_guard_node-73792126a8c50db7)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/bin/proximity_guard_replay.rs (target/debug/deps/proximity_guard_replay-b925876c2b1055f4)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+exit 0

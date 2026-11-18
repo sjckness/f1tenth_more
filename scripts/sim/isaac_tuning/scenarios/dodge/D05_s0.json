@@ -1,0 +1,141 @@
+{
+ "id": "D05_s0",
+ "family": "D",
+ "d": 5,
+ "seed": 0,
+ "candidate_seed": 500001,
+ "rejected_candidates": 1,
+ "description": "dodge d=5: 3 levels, cylinders at 0.7 m/s, 1 diagonal",
+ "scene": "base_room",
+ "layout": "dodge",
+ "car_start": {
+  "x": 0.5,
+  "y": 3.0,
+  "yaw_deg": 0.0
+ },
+ "mission": {
+  "distance_m": 4.5,
+  "speed_mps": 0.5,
+  "timeout_s": 17.0
+ },
+ "ramp": {
+  "speed": 0.7,
+  "diag_frac": 0.5,
+  "n_levels": 3
+ },
+ "levels": [
+  {
+   "level": 0,
+   "ahead_m": 1.5,
+   "n": 1,
+   "diameters": [
+    0.3
+   ],
+   "theta_deg": -17.47567438202199,
+   "direction": 1.0,
+   "speed": 0.7,
+   "segment_m": 3.9959925480325142,
+   "spacing_m": 0.0
+  },
+  {
+   "level": 1,
+   "ahead_m": 2.5,
+   "n": 1,
+   "diameters": [
+    0.3
+   ],
+   "theta_deg": 0.0,
+   "direction": -1.0,
+   "speed": 0.7,
+   "segment_m": 5.6000000000000005,
+   "spacing_m": 0.0
+  },
+  {
+   "level": 2,
+   "ahead_m": 3.5,
+   "n": 1,
+   "diameters": [
+    0.5
+   ],
+   "theta_deg": 0.0,
+   "direction": 1.0,
+   "speed": 0.7,
+   "segment_m": 5.4,
+   "spacing_m": 0.0
+  }
+ ],
+ "obstacles": [
+  {
+   "id": "c030_0",
+   "level": 0,
+   "ahead_m": 1.492,
+   "lateral_m": 0.0255,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     2.1,
+     -1.9058
+    ],
+    "b": [
+     0.9,
+     1.9058
+    ],
+    "speed": 0.7,
+    "s0": 2.0247,
+    "delay_s": 0.0
+   }
+  },
+  {
+   "id": "c030_1",
+   "level": 1,
+   "ahead_m": 2.5,
+   "lateral_m": -0.5004,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     2.5,
+     2.8
+    ],
+    "b": [
+     2.5,
+     -2.8
+    ],
+    "speed": 0.7,
+    "s0": 3.3004,
+    "delay_s": 0.0
+   }
+  },
+  {
+   "id": "c050_0",
+   "level": 2,
+   "ahead_m": 3.5,
+   "lateral_m": -0.6852,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     3.5,
+     -2.7
+    ],
+    "b": [
+     3.5,
+     2.7
+    ],
+    "speed": 0.7,
+    "s0": 2.0148,
+    "delay_s": 0.0
+   }
+  }
+ ],
+ "jitter": {
+  "seed": 7050,
+  "xy_m": 0.05,
+  "yaw_deg": 3.0
+ },
+ "oracle": {
+  "start_lag_s": 0.6,
+  "time_slack_s": 0.25,
+  "buffer_m": 0.0,
+  "dt_s": 0.2,
+  "wall_clearance_m": 0.45
+ }
+}

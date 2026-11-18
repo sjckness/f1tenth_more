@@ -1,0 +1,45 @@
+[INFO] [1792878084.402097599] [hs_rs_sim]: hard_stop_node (rust) build: cargo profile debug, opt-level 3, debug_assertions on
+[INFO] [1792878084.406054922] [hs_rs_sim]: HARD STOP enabled: range <= 0.200 m from the laser at x=0.305 (bumper 0.405), debounce 2 scans, clear hold 0.50 s, self-mask x[-0.120,+0.425] y[-0.156,+0.156], stop -> /live/rs_sim_stop as base_link/hard_stop, reverse allowed past an obstacle ahead
+[INFO] [1792878084.406087840] [hs_rs_sim]: hard_stop_node (rust): clock ROS time (/clock), republish every 50000000 ns on it, subscribed ["/live/scan", "/teleop", "/calibration_drive", "/drive"]
+[WARN] [1792878120.068331756] [hs_rs_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792878120.094489643] [hs_rs_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #1]
+[INFO] [1792878121.181669498] [hs_rs_sim]: hard stop RELEASED after 0.50 s clear (trigger #1)
+[WARN] [1792878122.763001874] [hs_rs_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792878122.789081927] [hs_rs_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #2]
+[INFO] [1792878123.871215115] [hs_rs_sim]: hard stop RELEASED after 0.50 s clear (trigger #2)
+[WARN] [1792878125.557488481] [hs_rs_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792878125.583854123] [hs_rs_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #3]
+[INFO] [1792878126.681754381] [hs_rs_sim]: hard stop RELEASED after 0.50 s clear (trigger #3)
+[WARN] [1792878128.602140732] [hs_rs_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792878128.628265263] [hs_rs_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #4]
+[INFO] [1792878129.703909292] [hs_rs_sim]: hard stop RELEASED on the clear hold with no further scans (trigger #4)
+[WARN] [1792878132.148180665] [hs_rs_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792878132.172850138] [hs_rs_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #5]
+[INFO] [1792878133.250908389] [hs_rs_sim]: hard stop RELEASED on the clear hold with no further scans (trigger #5)
+[WARN] [1792878134.951337154] [hs_rs_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792878134.978958676] [hs_rs_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #6]
+[INFO] [1792878136.200297396] [hs_rs_sim]: hard stop RELEASED on the clear hold with no further scans (trigger #6)
+[WARN] [1792878137.645921878] [hs_rs_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792878137.672025276] [hs_rs_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #7]
+[INFO] [1792878139.004856671] [hs_rs_sim]: hard stop RELEASED on the clear hold with no further scans (trigger #7)
+[WARN] [1792878140.440530582] [hs_rs_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792878140.466691246] [hs_rs_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #8]
+[INFO] [1792878142.049553527] [hs_rs_sim]: hard stop RELEASED on the clear hold with no further scans (trigger #8)
+[WARN] [1792878143.486164894] [hs_rs_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792878143.512413003] [hs_rs_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #9]
+[INFO] [1792878145.600189976] [hs_rs_sim]: hard stop RELEASED on the clear hold with no further scans (trigger #9)
+[WARN] [1792878147.030797983] [hs_rs_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792878147.056799619] [hs_rs_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #10]
+[INFO] [1792878148.408843869] [hs_rs_sim]: hard stop RELEASED after 0.50 s clear (trigger #10)
+[WARN] [1792878149.835260849] [hs_rs_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792878149.861327670] [hs_rs_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #11]
+[WARN] [1792878150.849549437] [hs_rs_sim]: HARD STOP ENGAGED (40/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[INFO] [1792878151.889579861] [hs_rs_sim]: hard stop RELEASED after 0.50 s clear (trigger #11)
+[WARN] [1792878153.315933155] [hs_rs_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792878153.342053231] [hs_rs_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #12]
+[WARN] [1792878154.330184034] [hs_rs_sim]: HARD STOP ENGAGED (40/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[INFO] [1792878155.518004704] [hs_rs_sim]: hard stop RELEASED on the clear hold with no further scans (trigger #12)
+[WARN] [1792878156.952769798] [hs_rs_sim]: HARD STOP pending (1/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[WARN] [1792878156.978796739] [hs_rs_sim]: HARD STOP ENGAGED (2/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001) [trigger #13]
+[WARN] [1792878157.966904777] [hs_rs_sim]: HARD STOP ENGAGED (40/2): 3 return(s) within 0.20 m, nearest 0.180 m at -0.3 deg (base_link +0.485,-0.001)
+[INFO] [1792878159.423088760] [hs_rs_sim]: hard stop RELEASED after 0.50 s clear (trigger #13)

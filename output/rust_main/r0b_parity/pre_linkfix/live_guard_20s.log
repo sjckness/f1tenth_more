@@ -1,0 +1,63 @@
+## python3 tools/rust_parity/proximity/live_guard_test.py --out /home/andreas/dev_ws/f1tenth_more_r0b/output/rust_main/r0b_parity/live_guard.json (2026-10-24T23:38:21+02:00, load 5.70 7.88 5.72)
+{
+ "domain": "172",
+ "subscribers": 3,
+ "A": {
+  "scans": 792,
+  "trip_scans": 158,
+  "rs_stop_latency_ms": {
+   "n": 156,
+   "missing": 2,
+   "p50": 0.6103985,
+   "p95": 1.32602925,
+   "max": 10.852573,
+   "mean": 0.8465683589743589
+  },
+  "py_event_stop_latency_ms": {
+   "n": 158,
+   "missing": 0,
+   "p50": 1.0321609999999999,
+   "p95": 2.412778450000001,
+   "max": 9.772295,
+   "mean": 1.2881699936708861
+  },
+  "rs_stops": 158,
+  "py_stops": 158,
+  "rs_shadow_stops": 0,
+  "rs_decisions": 790,
+  "rs_compute_us": {
+   "p50": 39.9,
+   "p95": 48.3,
+   "max": 170.2
+  },
+  "cpu_ms_per_scan": {
+   "rs_active": 0.2777777777777778,
+   "rs_shadow": 0.25252525252525254,
+   "py_host": 0.6818181818181817
+  },
+  "tf_fallback_seen": false
+ },
+ "B": {
+  "rs_first_stale_stop_after_last_scan_ms": 240.623419,
+  "rs_stale_stops_in_2s": 36,
+  "py_stops_in_2s": 0,
+  "rs_stale_decisions": 36,
+  "rs_max_gap_between_stale_stops_ms": 50.921191,
+  "rs_shadow_stops": 0
+ },
+ "C": {
+  "rs_stops_total": 0,
+  "rs_stops_after_100ms": 0,
+  "py_stops": 0
+ },
+ "D": {
+  "scans": 40,
+  "rs_stops": 40,
+  "py_stops": 0,
+  "rs_reasons": [
+   "invalid_beams"
+  ],
+  "rs_shadow_stops": 0
+ }
+}
+## exit 0, 29 s

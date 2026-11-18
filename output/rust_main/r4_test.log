@@ -1,0 +1,60 @@
+## colcon test --parallel-workers 3 --packages-select f1tenth_control f1tenth_hard_stop_rs f1tenth_bringup --packages-ignore zed_components zed_wrapper zed_debug zed_ros2 vesc_driver vesc  --test-result-base output/rust_main/r4_test_results   (2026-10-23T23:03:59+02:00, ROS_DOMAIN_ID=96 LOCALHOST)
+Starting >>> f1tenth_control
+Starting >>> f1tenth_hard_stop_rs
+Finished <<< f1tenth_hard_stop_rs [0.66s]
+Finished <<< f1tenth_control [1.86s]
+Starting >>> f1tenth_bringup
+--- stderr: f1tenth_bringup
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=2614995) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+Finished <<< f1tenth_bringup [5.90s]	[ with test failures ]
+
+Summary: 3 packages finished [8.22s]
+  1 package had stderr output: f1tenth_bringup
+  1 package had test failures: f1tenth_bringup
+
+real	0m8.469s
+user	0m6.873s
+sys	0m0.784s
+exit 0
+## colcon test-result --all --test-result-base output/rust_main/r4_test_results
+output/rust_main/r4_test_results/f1tenth_bringup/pytest.xml: 90 tests, 0 errors, 3 failures, 0 skipped
+output/rust_main/r4_test_results/f1tenth_control/pytest.xml: 77 tests, 0 errors, 0 failures, 0 skipped
+output/rust_main/r4_test_results/f1tenth_hard_stop_rs_cargo_test.xml: 2 tests, 0 errors, 0 failures, 0 skipped
+
+Summary: 169 tests, 0 errors, 3 failures, 0 skipped
+exit 1
+## python3 tools/r3_failing_ids.py output/rust_main/r4_test_results output/jazzy_main/test_failing_ids.txt --out output/rust_main/r4_test_failing_ids.txt
+| Package | Tests | Pass | Failures | Errors | Skipped |
+|---|---:|---:|---:|---:|---:|
+| f1tenth_bringup | 90 | 87 | 3 | 0 | 0 |
+| f1tenth_control | 77 | 77 | 0 | 0 | 0 |
+
+failures+errors: 3; NEW (not in baseline): 0
+baseline failures of these packages that now pass: 0
+exit 0
+## f1tenth_hard_stop_rs (colcon-cargo unit + fmt): build/f1tenth_hard_stop_rs/cargo_test.xml
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+    <testsuite name="cargo_test" errors="0" failures="0" skipped="0" tests="2">
+        <testcase name="unit"/>
+        <testcase name="fmt"/>
+    </testsuite>
+</testsuites>
+colcon_test.rc: 0
+test result: ok. 57 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

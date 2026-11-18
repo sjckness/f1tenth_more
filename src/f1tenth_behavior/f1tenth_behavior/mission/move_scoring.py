@@ -79,6 +79,7 @@ MISMATCH_ANGLE_FLOOR_DEG = 3.0
 class MoveOutcome:
     move_id: str
     move_type: str  # 'turn' | 'goal_distance' | 'goal_pose' | 'drive' | 'go_to_object'
+                    # | 'enter_door'
     stop_reason: str
     start_time: float  # time.monotonic()
     end_time: float
@@ -147,6 +148,7 @@ def build_move_outcome(
     end_global_yaw: Optional[float],
     global_turn_accum_deg: Optional[float],
     object_record=None,
+    door_record=None,
 ) -> MoveOutcome:
     """Pure function: everything record_move_outcome() (the ROS-adjacent
     caller-facing entry point below) needs, minus the actual state mutation
@@ -167,6 +169,11 @@ def build_move_outcome(
         return _object_outcome(
             move, stop_reason, start_time, end_time, start_global_xy, end_global_xy,
             start_global_yaw, end_global_yaw, object_record)
+
+    if getattr(move, 'enter_door', None) is not None:
+        return _door_outcome(
+            move, stop_reason, start_time, end_time, start_global_xy, end_global_xy,
+            start_global_yaw, end_global_yaw, door_record)
 
     if move.turn is not None:
         move_type = 'turn'
@@ -263,6 +270,55 @@ def build_move_outcome(
     )
 
 
+def _door_outcome(move, stop_reason, start_time, end_time, start_global_xy,
+                  end_global_xy, start_global_yaw, end_global_yaw, record):
+    """enter_door: all three errors reported, NOT scored into a percentage.
+
+    A door move has three tolerances, in different units, and none is a
+    quantity the mission commanded the car to produce -- along_tol,
+    lateral_tol and yaw_tol_deg are limits, not targets, so "actual /
+    commanded" would read as 100 % at the tolerance and better than 100 %
+    inside it, which is the opposite of what both other scored types mean.
+    The three measured errors go in the record and the note, where they can
+    be read, and the pass/fail answer stays where it belongs: the
+    stop_reason and the outcome.
+
+    commanded/actual carry the LATERAL error specifically, not along: it is
+    the real jamb-clearance number (see DoorSpec's own comment) and the one
+    that tells apart a clean pass-through from a jamb clip the along error
+    alone cannot. along's own number is still in the note, in full.
+    """
+    spec = move.enter_door
+    along_err = getattr(record, 'along_error_m', None) if record is not None else None
+    lateral_err = getattr(record, 'lateral_error_m', None) if record is not None else None
+    yaw_err = getattr(record, 'yaw_error_deg', None) if record is not None else None
+    frame = getattr(record, 'frame_id', None) if record is not None else None
+    # The tolerances enter_door really applied (EnterDoor writes them into the
+    # record every tick); the spec's are only the fallback for a move that
+    # ended before a door was resolved.
+    lat_tol = getattr(record, 'lat_tol_m', None) if record is not None else None
+    yaw_tol = getattr(record, 'yaw_tol_deg', None) if record is not None else None
+    lat_tol = float(spec.lateral_tol) if lat_tol is None else float(lat_tol)
+    yaw_tol = float(spec.yaw_tol_deg) if yaw_tol is None else float(yaw_tol)
+    note = (f'enter_door moves are not scored: final along error='
+            + (f'{along_err:.3f} m' if along_err is not None else 'n/a')
+            + f' (tol {spec.along_tol:.3f}), lateral error='
+            + (f'{lateral_err:.3f} m' if lateral_err is not None else 'n/a')
+            + f' (tol {lat_tol:.3f}), yaw error='
+            + (f'{yaw_err:.1f} deg' if yaw_err is not None else 'n/a')
+            + f' (tol {yaw_tol:.1f}), door='
+            + (frame or f'unresolved ({spec.door})'))
+    return MoveOutcome(
+        move_id=move.id, move_type='enter_door', stop_reason=stop_reason,
+        start_time=start_time, end_time=end_time,
+        start_global_xy=start_global_xy, end_global_xy=end_global_xy,
+        start_global_yaw=start_global_yaw, end_global_yaw=end_global_yaw,
+        commanded=lat_tol, actual=lateral_err,
+        outcome=(getattr(record, 'outcome', None) if record is not None else None),
+        arrival_bearing_error_deg=yaw_err, note=note,
+    )
+
+
 def _object_outcome(move, stop_reason, start_time, end_time, start_global_xy,
                     end_global_xy, start_global_yaw, end_global_yaw, record):
     """go_to_object scoring -- see the module docstring."""
@@ -324,6 +380,7 @@ def record_move_outcome(state, logger, move, stop_reason: str, now: float,
         end_global_yaw=end_global_yaw,
         global_turn_accum_deg=global_turn_accum_deg,
         object_record=getattr(state, 'object_record', None),
+        door_record=getattr(state, 'door_record', None),
     )
     state.move_outcomes.append(outcome)
 

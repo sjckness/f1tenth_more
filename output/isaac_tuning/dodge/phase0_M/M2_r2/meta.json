@@ -1,0 +1,119 @@
+{
+ "instance": {
+  "scenario": "M2",
+  "rep": 2,
+  "car": {
+   "x": 0.5284564184224605,
+   "y": 2.975112741365372,
+   "yaw_deg": 1.9817727012908
+  },
+  "obstacles": {
+   "cyl050": [
+    4.0,
+    3.0
+   ]
+  },
+  "motion": {
+   "cyl050": {
+    "v": [
+     -0.25,
+     0.0
+    ],
+    "delay_s": 0.0,
+    "duration_s": 8.0
+   }
+  },
+  "obstacle_info": [
+   {
+    "id": "cyl050",
+    "x": 4.0,
+    "y": 3.0,
+    "ahead_m": 3.5,
+    "lateral_m": 0.0,
+    "radius_m": 0.25,
+    "motion": {
+     "v": [
+      -0.25,
+      0.0
+     ],
+     "delay_s": 0.0,
+     "duration_s": 8.0
+    }
+   }
+  ],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "output/isaac_tuning/dodge/phase0_M/M2_r2/mission.json",
+ "wall_start": 1794960652.9030952,
+ "phases": {
+  "ready": 13.36,
+  "params": 0.193,
+  "scenario": 0.008,
+  "reset": 60.003
+ },
+ "exit": {
+  "code": 4,
+  "reason": "/reset_all failed: {'success': None, 'message': None}"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64
+  },
+  "semantic_layer_node": {
+   "unknown_objects_mode": "active"
+  }
+ },
+ "scenario_applied": {
+  "seq": 6035005,
+  "ok": true,
+  "message": "reset #15: car and person at start poses",
+  "sim_time": 316.75,
+  "car": {
+   "x": 0.5284564184224605,
+   "y": 2.975112741365372,
+   "yaw_deg": 1.9817727012908
+  },
+  "obstacles": {
+   "cyl050": [
+    4.0,
+    3.0
+   ],
+   "cyl100": null
+  },
+  "motion": {
+   "cyl050": {
+    "v": [
+     -0.25,
+     0.0
+    ],
+    "delay_s": 0.0,
+    "duration_s": 8.0
+   }
+  }
+ },
+ "reset_all": {
+  "success": null,
+  "message": null
+ },
+ "mission_states": [
+  [
+   316.55,
+   "IDLE"
+  ]
+ ],
+ "wall_end": 1794960726.5622284
+}

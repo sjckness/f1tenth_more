@@ -1,0 +1,58 @@
+# Cargo workspace for the Rust ports (output/rust/setup.md). colcon-cargo
+# finds the members through this virtual manifest; each member is its own
+# ament_cargo package (Cargo.toml + package.xml).
+#
+# Members do NOT inherit from this file (no `x.workspace = true`):
+# cargo-ament-build installs each lib crate's manifest into
+# install/<pkg>/share/<pkg>/rust, where there is no workspace root to
+# inherit from, and colcon-ros-cargo then fails to parse it. Dependency
+# versions and lints are therefore repeated in every member.
+#
+# The rclrs members pin rclrs =0.8.0 and ros-env =0.3.0 (R0b, 2026-10-24):
+# the versions for the ROS snapshot every machine shares
+# (snapshots.ros.org/jazzy/2026-09-11, ros-jazzy-rosidl-generator-rs 0.5.0:
+# linus, the Thor, the Orin image). Messages come through ros-env
+# (`use ros_env::sensor_msgs::msg::LaserScan`). Its build script include!()s
+# the generated sources of every interface package on AMENT_PREFIX_PATH
+# (share/<pkg>/rust, opted in by `[package.metadata.ros-env] include = true`)
+# and compiles them against its own rosidl_runtime_rs 0.7, the one rclrs 0.8
+# uses. cargo never resolves the generated crates' own Cargo.toml (which
+# says rosidl_runtime_rs = "0.6"), so the members declare no message crates.
+# What follows from that:
+# - an interface package is visible to a member only if its install prefix
+#   is on AMENT_PREFIX_PATH when the member builds. Each package.xml keeps
+#   its <depend>s for colcon's build order, and the image builds the Rust
+#   packages in a second colcon run after everything else
+#   (output/rust_main/r0b.md);
+# - ros-env compiles every interface package it finds (about 60), and one
+#   broken generated crate on the prefix breaks every rclrs member;
+# - rclrs 0.8 vendors no test_msgs / example_interfaces (0.6 and 0.7 did,
+#   ros2-rust/ros2_rust#557): neither is a dependency any more;
+# - colcon-ros-cargo still writes a [patch.crates-io] entry per generated
+#   crate into .cargo/config.toml. None is used; cargo records them as
+#   [[patch.unused]] in Cargo.lock on every build. Those blocks are
+#   machine-specific and are not committed (output/rust/setup.md).
+#
+# f1tenth_mpc_core's osqp-sys builds OSQP C with CMake, and OSQP's CMake
+# takes QDLDL from third_party/qdldl instead of github.com when
+# build_env.sh is sourced (third_party/README.md).
+[workspace]
+resolver = "2"
+members = [
+    "f1tenth_proximity_guard",
+    "f1tenth_costmap_boundary_rs",
+    "f1tenth_mpc_core",
+    "f1tenth_hard_stop_rs",
+    "f1tenth_wall_tracker_core",
+]
+
+# colcon-ros-cargo builds with `cargo ament-build` and no `--release`, i.e.
+# cargo's dev profile: every installed Rust binary was an opt-level 0 build
+# until 2026-10-23 (R0). Profiles are read from the workspace root only, so
+# this applies to every member and to their dependencies (rclrs, serde_json).
+# debug_assertions and overflow checks stay on (dev defaults); each binary
+# logs its build at startup (src/build_info.rs in each member). Rust never
+# contracts or reassociates float operations, so the opt-level does not change
+# results (parity re-run in output/rust_main/r0.md).
+[profile.dev]
+opt-level = 3

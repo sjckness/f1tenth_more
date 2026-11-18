@@ -295,6 +295,19 @@ _DEFAULT_TOPICS = [
     # is an ORIGINAL, not a relay copy: see _RECORDED_VIZ_ORIGINALS.
     '/perception/doors',
     '/viz/doors',
+    # The map-frame doors (door_source 'freespace', the default, or
+    # 'semantic'): what enter_door picks its door from. freespace_door_node or
+    # semantic_layer_node publish them under the same names. Without these a
+    # door mission's bag says where the car was sent (/mpc/goal_pose, the
+    # pre-point) but not which door that was or what else was on offer --
+    # 2026-11-05T14-25-46 straight_2m_then_left_door had only the log line
+    # "'left' resolved to 'door_2'". The debug JSON is freespace_door_node's
+    # per-candidate gate verdicts. /viz/doors_semantic is an original, like
+    # /viz/doors: see _RECORDED_VIZ_ORIGINALS.
+    '/perception/doors_semantic',
+    '/viz/doors_semantic',
+    '/costmap/semantic_doors',
+    '/costmap/freespace_doors/debug',
     '/perception/stereo_wall',
     '/perception/scene_labels',
     '/perception/scene_labels_debug',
@@ -439,8 +452,10 @@ _NEVER_RECORDED_PREFIXES = ('/viz/', '/viz_internal/')
 # ...except these, which live under /viz/ but are published by a node in
 # their own right, not relayed from a source a bag already has: /viz/doors is
 # lidar_front_wall_node's door markers (door_markers.py), the only record of
-# the doors as Foxglove drew them.
-_RECORDED_VIZ_ORIGINALS = ('/viz/doors',)
+# the doors as Foxglove drew them; /viz/doors_semantic is the same for the
+# map-frame doors (freespace_door_node / semantic_layer_node,
+# semantic_door_markers.py).
+_RECORDED_VIZ_ORIGINALS = ('/viz/doors', '/viz/doors_semantic')
 
 
 def _relay_copy(topic):
@@ -829,6 +844,42 @@ def read_image_provenance(sources_path, car_sync_path):
     if read_any:
         info['source'] = 'image'
     return info
+
+
+def planner_mode_from_node_names(names):
+    """Pure: the planner_controller_mode whose controller node is in `names`.
+
+    Exactly one controller node alive -> its mode. None, or more than one (a
+    stale node from the previous mode inside the DDS lease) -> 'unknown': the
+    manifest never guesses. The mode in stack_params.yaml is NOT consulted, it
+    is only the default and says corridor_mpc for a corridor_rrt run.
+    """
+    from f1tenth_params.planner_modes import CONTROLLER_NODE_NAMES
+    names = set(names)
+    alive = [mode for mode, node in CONTROLLER_NODE_NAMES.items() if node in names]
+    return alive[0] if len(alive) == 1 else 'unknown'
+
+
+def stack_launch_cmd(proc_root='/proc'):
+    """Best effort: the command line of the stack's top-level launch, else None.
+
+    Read from /proc, so it sees the launch arguments the stack really got
+    (profile + ~/.config/f1tenth_car/stack_args), which resolved_params cannot.
+    """
+    try:
+        pids = sorted((e for e in os.listdir(proc_root) if e.isdigit()), key=int)
+    except OSError:
+        return None
+    for pid in pids:
+        try:
+            with open(os.path.join(proc_root, pid, 'cmdline'), 'rb') as fh:
+                argv = [a for a in fh.read().decode(errors='replace').split('\0') if a]
+        except OSError:
+            continue
+        if any(a.endswith(('supervisor_bringup.launch.py', 'stack_bringup.launch.py'))
+               for a in argv):
+            return ' '.join(argv)
+    return None
 
 
 def write_archive_trigger(path, run_id):
@@ -1338,7 +1389,29 @@ class MissionLoggerNode(Node):
         except Exception as exc:  # noqa: BLE001
             self.get_logger().warn(f'could not snapshot stack_params.yaml: {exc}')
 
+    def _planner_controller_mode(self):
+        """The mode in effect, from which controller node is alive; 'unknown' if unsure.
+
+        Node names come from the graph and from the publishers of
+        /mpc/object_status (every mode publishes it), so a partial view under
+        the Discovery Server still finds the controller.
+        """
+        try:
+            names = {name for name, _ns in self.get_node_names_and_namespaces()}
+            names |= {info.node_name
+                      for info in self.get_publishers_info_by_topic('/mpc/object_status')}
+        except Exception as exc:  # noqa: BLE001 - the manifest must still be written
+            self.get_logger().warn(f'could not read the graph for planner_controller_mode: {exc}')
+            return 'unknown'
+        return planner_mode_from_node_names(names)
+
     def _write_manifest(self, run):
+        # Sticky once known, retried while 'unknown' (the controller may not have
+        # been discovered yet when the manifest is first written at LOADED).
+        if run.get('planner_controller_mode') in (None, 'unknown'):
+            run['planner_controller_mode'] = self._planner_controller_mode()
+        if run.get('stack_launch_cmd') is None:
+            run['stack_launch_cmd'] = stack_launch_cmd()
         payload = dict(run)
         payload['resolved_params'] = self._resolved_params()
         payload['git'] = self._git_state()

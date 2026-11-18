@@ -1,0 +1,6 @@
+# Extra dodge seeds (3, 4, 5) at levels 0-2 for the variants the phase 2 A/B could not separate
+# from the noise with 3 seeds (evaluate.py --families D --d-levels 0,1,2 --seeds 3,4,5).
+baseline: {}
+alpha: {mpc_obs_vel_trust: 1.0}
+alpha_return: {mpc_obs_vel_trust: 1.0, corridor_lateral_reanchor: false, mpc_return_gain: 1.0,
+               mpc_return_lookahead_ratio: 2.5, mpc_return_psi_scale: 0.5}

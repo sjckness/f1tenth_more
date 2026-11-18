@@ -1,0 +1,12 @@
+[isaac_tuning 01:15:19] preflight ok {'free_disk_gb': 17.2, 'free_vram_mib': 6781}
+[isaac_tuning 01:15:21] discovery server {'port': 11878, 'pgid': 3222173}
+[isaac_tuning 01:15:41] isaac up {'wall_s': 20.3}
+[isaac_tuning 01:15:41] stack starting {'pgid': 3224072, 'log': 'stack_D03_s0_r0.log'}
+[isaac_tuning 01:16:26] D03_s0 r0: collision score=0.0 margin=-0.22034863284575237 wall=44.4s
+[isaac_tuning 01:16:26] stopping stack: SIGTERM to process group 3224072
+[isaac_tuning 01:16:27] stopping stack: SIGTERM to what is left of process group 3224072
+[isaac_tuning 01:16:29] stack stopped {'wall_s': 2.8, 'leftovers': 0}
+[isaac_tuning 01:16:30] stopping isaac: SIGTERM to process group 3222297
+[isaac_tuning 01:16:30] stopping discovery server: SIGINT to process group 3222173
+[isaac_tuning 01:16:30] session closed {'container': False, 'leftovers': 0}
+[isaac_tuning 01:16:30] done: 0/1 success, score 0.0 +- 0.0, orphans 0, out output/isaac_tuning/dodge/smoke_D03

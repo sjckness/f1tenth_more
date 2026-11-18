@@ -37,7 +37,8 @@ def test_warm_up_sends_the_planner_request_shape(mock_post):
     args, kwargs = mock_post.call_args
     assert args[0] == 'http://x/completion'
     # same raw-prompt contract as llm_planner_node._completion, only n_predict differs
-    assert set(kwargs['json']) == {'prompt', 'n_predict', 'temperature'}
+    assert set(kwargs['json']) == {'prompt', 'n_predict', 'temperature', 'cache_prompt'}
+    assert kwargs['json']['cache_prompt'] is True
     assert kwargs['json']['prompt'].startswith('SYSTEM\ncomando: "')
     assert kwargs['json']['prompt'].endswith('"\nrisposta:')
     assert kwargs['json']['n_predict'] == 1 and kwargs['json']['temperature'] == 0.0

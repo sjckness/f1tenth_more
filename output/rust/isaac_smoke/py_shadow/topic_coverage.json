@@ -1,0 +1,2045 @@
+{
+ "summary": {
+  "SIM": 11,
+  "STACK": 112,
+  "MISSING": 13,
+  "UNUSED_SIM": 10
+ },
+ "nodes": 62,
+ "missing": [
+  "/calibration_drive",
+  "/cmd_vel_nav",
+  "/ekf_global/set_pose",
+  "/imu",
+  "/mission/load_path",
+  "/model/virtual_robot/odometry",
+  "/perception/d_wall/psi_correction",
+  "/sensors/core",
+  "/set_pose",
+  "/slam_toolbox/feedback",
+  "/teleop",
+  "/test_campaign/logger_status",
+  "/zed2/joint_states"
+ ],
+ "missing_not_allowed": [
+  "/perception/d_wall/psi_correction"
+ ],
+ "rows": [
+  {
+   "topic": "/ackermann_drive",
+   "types": [
+    "ackermann_msgs/msg/AckermannDriveStamped"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/ackermann_mux"
+   ],
+   "subscribers": [
+    "/isaac_f1tenth_sim",
+    "/swept_clearance_node"
+   ]
+  },
+  {
+   "topic": "/behavior/tree_status",
+   "types": [
+    "f1tenth_messages/msg/BehaviorTreeStatus"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/behavior_executor_node"
+   ],
+   "subscribers": [
+    "/guard_vs_bt"
+   ]
+  },
+  {
+   "topic": "/bond",
+   "types": [
+    "bond/msg/Status"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/lifecycle_manager_map",
+    "/map_server"
+   ],
+   "subscribers": [
+    "/lifecycle_manager_map",
+    "/map_server"
+   ]
+  },
+  {
+   "topic": "/bt/tree_visualization",
+   "types": [
+    "sensor_msgs/msg/CompressedImage"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/behavior_executor_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/calibration/in_progress",
+   "types": [
+    "std_msgs/msg/Bool"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/diagnostics_server_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/calibration_drive",
+   "types": [
+    "ackermann_msgs/msg/AckermannDriveStamped"
+   ],
+   "class": "MISSING",
+   "publishers": [],
+   "subscribers": [
+    "/ackermann_mux"
+   ]
+  },
+  {
+   "topic": "/camera/camera_info",
+   "types": [
+    "sensor_msgs/msg/CameraInfo"
+   ],
+   "class": "SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [
+    "/yolo_detector_node"
+   ]
+  },
+  {
+   "topic": "/camera/debug_image/compressed",
+   "types": [
+    "sensor_msgs/msg/CompressedImage"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/yolo_detector_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/camera/detection_markers",
+   "types": [
+    "visualization_msgs/msg/MarkerArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/detection_3d_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/camera/detection_masks",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/yolo_detector_node"
+   ],
+   "subscribers": [
+    "/detection_3d_node",
+    "/front_clearance_node"
+   ]
+  },
+  {
+   "topic": "/camera/detections",
+   "types": [
+    "vision_msgs/msg/Detection2DArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/yolo_detector_node"
+   ],
+   "subscribers": [
+    "/behavior_executor_node",
+    "/detection_3d_node",
+    "/front_clearance_node"
+   ]
+  },
+  {
+   "topic": "/camera/detections_3d",
+   "types": [
+    "vision_msgs/msg/Detection3DArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/detection_3d_node"
+   ],
+   "subscribers": [
+    "/lidar_front_wall_node",
+    "/obstacle_projector_node",
+    "/semantic_layer_node",
+    "/yolo_detector_node"
+   ]
+  },
+  {
+   "topic": "/camera/image_annotated",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/yolo_detector_node"
+   ],
+   "subscribers": [
+    "/image_annotated_viz_throttle"
+   ]
+  },
+  {
+   "topic": "/camera/image_annotated/viz",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/image_annotated_viz_throttle"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/camera/image_raw",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [
+    "/front_clearance_node",
+    "/image_raw_viz_throttle",
+    "/yolo_detector_node"
+   ]
+  },
+  {
+   "topic": "/camera/image_raw/viz",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/image_raw_viz_throttle"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/clock",
+   "types": [
+    "rosgraph_msgs/msg/Clock"
+   ],
+   "class": "SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [
+    "/ackermann_mux",
+    "/behavior_executor_node",
+    "/costmap_boundary_node",
+    "/costmap_renderer_node",
+    "/depth_throttle_5hz",
+    "/detection_3d_node",
+    "/diagnostics_server_node",
+    "/ekf_filter_node",
+    "/ekf_global/ekf_global_filter_node",
+    "/ekf_global/transform_listener_impl_5e604cd6cf20",
+    "/foxglove_bridge",
+    "/front_clearance_node",
+    "/image_annotated_viz_throttle",
+    "/image_raw_viz_throttle",
+    "/joint_state_publisher",
+    "/lidar_front_wall_node",
+    "/lifecycle_manager_map",
+    "/map_server",
+    "/mission_logger_node",
+    "/mpc_corr",
+    "/obstacle_clearance_node",
+    "/obstacle_projector_node",
+    "/proximity_guard_node",
+    "/reset_manager",
+    "/robot_state_publisher",
+    "/semantic_layer_node",
+    "/slam_pose_relay_node",
+    "/slam_toolbox",
+    "/static_baselink_to_imu",
+    "/static_baselink_to_laser",
+    "/static_baselink_to_zed2",
+    "/swept_clearance_node",
+    "/system_observer_node",
+    "/transform_listener_impl_567abe7ec440",
+    "/transform_listener_impl_5b8744305c90",
+    "/twist_to_ackermann_node",
+    "/viz_jpeg_node",
+    "/viz_relay_container",
+    "/viz_throttle_bt_tree_visualization",
+    "/viz_throttle_camera_image_annotated",
+    "/viz_throttle_costmap_front_clearance",
+    "/viz_throttle_costmap_visualization",
+    "/viz_throttle_diagnostics_system_status",
+    "/viz_throttle_drive",
+    "/viz_throttle_ekf_global_odometry_filtered",
+    "/viz_throttle_mpc_corridor_markers",
+    "/viz_throttle_perception_d_wall",
+    "/viz_throttle_perception_front_clearance",
+    "/viz_throttle_perception_front_distance",
+    "/viz_throttle_perception_lidar_front_wall_virtual",
+    "/viz_throttle_perception_obstacles_2d",
+    "/viz_throttle_scan",
+    "/viz_throttle_sensors_core",
+    "/viz_throttle_slam_pose",
+    "/viz_throttle_slam_pose_calibrated",
+    "/yolo_detector_node",
+    "/zed2/zed2_state_publisher"
+   ]
+  },
+  {
+   "topic": "/cmd_vel_nav",
+   "types": [
+    "geometry_msgs/msg/Twist"
+   ],
+   "class": "MISSING",
+   "publishers": [],
+   "subscribers": [
+    "/twist_to_ackermann_node"
+   ]
+  },
+  {
+   "topic": "/corridor",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/mpc_corr"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/costmap/boundaries",
+   "types": [
+    "f1tenth_messages/msg/BoundaryConstraintArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/costmap_boundary_node"
+   ],
+   "subscribers": [
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/costmap/front_clearance",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/costmap_boundary_node"
+   ],
+   "subscribers": [
+    "/lidar_front_wall_node"
+   ]
+  },
+  {
+   "topic": "/costmap/safe_corridor_report",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/costmap_boundary_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/costmap/semantic_markers",
+   "types": [
+    "visualization_msgs/msg/MarkerArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/semantic_layer_node"
+   ],
+   "subscribers": [
+    "/costmap_renderer_node"
+   ]
+  },
+  {
+   "topic": "/costmap/semantic_tracks",
+   "types": [
+    "vision_msgs/msg/Detection3DArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/semantic_layer_node"
+   ],
+   "subscribers": [
+    "/behavior_executor_node",
+    "/yolo_detector_node"
+   ]
+  },
+  {
+   "topic": "/costmap/visualization",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/costmap_renderer_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/costmap/wall_cell_ids",
+   "types": [
+    "std_msgs/msg/Int32MultiArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/semantic_layer_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/costmap/wall_cells",
+   "types": [
+    "nav_msgs/msg/OccupancyGrid"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/semantic_layer_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/diagnostics",
+   "types": [
+    "diagnostic_msgs/msg/DiagnosticArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/ackermann_mux",
+    "/behavior_executor_node",
+    "/ekf_filter_node",
+    "/ekf_global/ekf_global_filter_node",
+    "/lifecycle_manager_map"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/diagnostics/battery_status",
+   "types": [
+    "f1tenth_messages/msg/BatteryStatus"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/diagnostics_server_node"
+   ],
+   "subscribers": [
+    "/behavior_executor_node"
+   ]
+  },
+  {
+   "topic": "/diagnostics/system_status",
+   "types": [
+    "f1tenth_messages/msg/SystemStatus"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/system_observer_node"
+   ],
+   "subscribers": [
+    "/behavior_executor_node",
+    "/diagnostics_server_node"
+   ]
+  },
+  {
+   "topic": "/drive",
+   "types": [
+    "ackermann_msgs/msg/AckermannDriveStamped"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/mpc_corr",
+    "/twist_to_ackermann_node"
+   ],
+   "subscribers": [
+    "/ackermann_mux"
+   ]
+  },
+  {
+   "topic": "/ekf_global/odometry/filtered",
+   "types": [
+    "nav_msgs/msg/Odometry"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/ekf_global/ekf_global_filter_node"
+   ],
+   "subscribers": [
+    "/behavior_executor_node",
+    "/costmap_boundary_node",
+    "/semantic_layer_node"
+   ]
+  },
+  {
+   "topic": "/ekf_global/set_pose",
+   "types": [
+    "geometry_msgs/msg/PoseWithCovarianceStamped"
+   ],
+   "class": "MISSING",
+   "publishers": [],
+   "subscribers": [
+    "/ekf_global/ekf_global_filter_node"
+   ]
+  },
+  {
+   "topic": "/imu",
+   "types": [
+    "sensor_msgs/msg/Imu"
+   ],
+   "class": "MISSING",
+   "publishers": [],
+   "subscribers": [
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/joint_states",
+   "types": [
+    "sensor_msgs/msg/JointState"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/joint_state_publisher"
+   ],
+   "subscribers": [
+    "/mpc_corr",
+    "/robot_state_publisher"
+   ]
+  },
+  {
+   "topic": "/map",
+   "types": [
+    "nav_msgs/msg/OccupancyGrid"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/map_server"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/map_server/transition_event",
+   "types": [
+    "lifecycle_msgs/msg/TransitionEvent"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/map_server"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/mission/load_path",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "MISSING",
+   "publishers": [],
+   "subscribers": [
+    "/behavior_executor_node"
+   ]
+  },
+  {
+   "topic": "/mission/move_outcome",
+   "types": [
+    "f1tenth_messages/msg/MoveOutcome"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/behavior_executor_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/mission/status",
+   "types": [
+    "f1tenth_messages/msg/MissionStatus"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/behavior_executor_node"
+   ],
+   "subscribers": [
+    "/behavior_executor_node",
+    "/mission_logger_node",
+    "/yolo_detector_node"
+   ]
+  },
+  {
+   "topic": "/model/virtual_robot/odometry",
+   "types": [
+    "nav_msgs/msg/Odometry"
+   ],
+   "class": "MISSING",
+   "publishers": [],
+   "subscribers": [
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/mpc/corridor_markers",
+   "types": [
+    "visualization_msgs/msg/MarkerArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/mpc_corr"
+   ],
+   "subscribers": [
+    "/costmap_boundary_node"
+   ]
+  },
+  {
+   "topic": "/mpc/drive_clamp",
+   "types": [
+    "f1tenth_messages/msg/DriveClamp"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/mpc_corr"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/mpc/goal_distance",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/behavior_executor_node"
+   ],
+   "subscribers": [
+    "/behavior_executor_node",
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/mpc/goal_drive",
+   "types": [
+    "f1tenth_messages/msg/DriveCommand"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/behavior_executor_node"
+   ],
+   "subscribers": [
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/mpc/goal_object",
+   "types": [
+    "f1tenth_messages/msg/ObjectGoal"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/behavior_executor_node"
+   ],
+   "subscribers": [
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/mpc/goal_object_end",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/behavior_executor_node"
+   ],
+   "subscribers": [
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/mpc/goal_pose",
+   "types": [
+    "geometry_msgs/msg/PoseStamped"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/behavior_executor_node"
+   ],
+   "subscribers": [
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/mpc/goal_reached",
+   "types": [
+    "std_msgs/msg/Bool"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/mpc_corr"
+   ],
+   "subscribers": [
+    "/behavior_executor_node"
+   ]
+  },
+  {
+   "topic": "/mpc/goal_turn",
+   "types": [
+    "f1tenth_messages/msg/TurnGoal"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/behavior_executor_node"
+   ],
+   "subscribers": [
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/mpc/hold",
+   "types": [
+    "std_msgs/msg/Bool"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/behavior_executor_node"
+   ],
+   "subscribers": [
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/mpc/min_obstacle_distance",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/mpc_corr"
+   ],
+   "subscribers": [
+    "/behavior_executor_node"
+   ]
+  },
+  {
+   "topic": "/mpc/min_obstacle_distance_forward",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/mpc_corr"
+   ],
+   "subscribers": [
+    "/behavior_executor_node"
+   ]
+  },
+  {
+   "topic": "/mpc/object_status",
+   "types": [
+    "f1tenth_messages/msg/ObjectApproachStatus"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/mpc_corr"
+   ],
+   "subscribers": [
+    "/behavior_executor_node"
+   ]
+  },
+  {
+   "topic": "/mpc/predicted_min_clearance",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/mpc_corr"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/mpc/solver_status",
+   "types": [
+    "f1tenth_messages/msg/MpcSolverStatus"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/mpc_corr"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/mpc/status",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/mpc_corr"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/obstacle_clearance",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/obstacle_clearance_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/odom",
+   "types": [
+    "nav_msgs/msg/Odometry"
+   ],
+   "class": "SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [
+    "/ekf_filter_node"
+   ]
+  },
+  {
+   "topic": "/odometry/filtered",
+   "types": [
+    "nav_msgs/msg/Odometry"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/ekf_filter_node"
+   ],
+   "subscribers": [
+    "/behavior_executor_node",
+    "/ekf_global/ekf_global_filter_node",
+    "/lidar_front_wall_node",
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/parameter_events",
+   "types": [
+    "rcl_interfaces/msg/ParameterEvent"
+   ],
+   "class": "SIM",
+   "publishers": [
+    "/ackermann_mux",
+    "/behavior_executor_node",
+    "/component_supervisor_node",
+    "/costmap_boundary_node",
+    "/costmap_renderer_node",
+    "/depth_throttle_5hz",
+    "/detection_3d_node",
+    "/diagnostics_server_node",
+    "/ekf_filter_node",
+    "/ekf_global/ekf_global_filter_node",
+    "/foxglove_bridge",
+    "/front_clearance_node",
+    "/guard_vs_bt",
+    "/image_annotated_viz_throttle",
+    "/image_raw_viz_throttle",
+    "/isaac_f1tenth_sim",
+    "/joint_state_publisher",
+    "/launch_ros_958354",
+    "/launch_ros_958361",
+    "/lidar_front_wall_node",
+    "/lifecycle_manager_map",
+    "/map_server",
+    "/mission_logger_node",
+    "/mpc_corr",
+    "/obstacle_clearance_node",
+    "/obstacle_projector_node",
+    "/reset_manager",
+    "/robot_state_publisher",
+    "/semantic_layer_node",
+    "/slam_pose_relay_node",
+    "/slam_toolbox",
+    "/static_baselink_to_imu",
+    "/static_baselink_to_laser",
+    "/static_baselink_to_zed2",
+    "/swept_clearance_node",
+    "/system_observer_node",
+    "/twist_to_ackermann_node",
+    "/viz_jpeg_node",
+    "/viz_throttle_bt_tree_visualization",
+    "/viz_throttle_camera_image_annotated",
+    "/viz_throttle_costmap_front_clearance",
+    "/viz_throttle_costmap_visualization",
+    "/viz_throttle_diagnostics_system_status",
+    "/viz_throttle_drive",
+    "/viz_throttle_ekf_global_odometry_filtered",
+    "/viz_throttle_mpc_corridor_markers",
+    "/viz_throttle_perception_d_wall",
+    "/viz_throttle_perception_front_clearance",
+    "/viz_throttle_perception_front_distance",
+    "/viz_throttle_perception_lidar_front_wall_virtual",
+    "/viz_throttle_perception_obstacles_2d",
+    "/viz_throttle_scan",
+    "/viz_throttle_sensors_core",
+    "/viz_throttle_slam_pose",
+    "/viz_throttle_slam_pose_calibrated",
+    "/yolo_detector_node",
+    "/zed2/zed2_state_publisher"
+   ],
+   "subscribers": [
+    "/ackermann_mux",
+    "/depth_throttle_5hz",
+    "/ekf_filter_node",
+    "/ekf_global/ekf_global_filter_node",
+    "/ekf_global/transform_listener_impl_5e604cd6cf20",
+    "/foxglove_bridge",
+    "/image_annotated_viz_throttle",
+    "/image_raw_viz_throttle",
+    "/lifecycle_manager_map",
+    "/map_server",
+    "/robot_state_publisher",
+    "/slam_toolbox",
+    "/static_baselink_to_imu",
+    "/static_baselink_to_laser",
+    "/static_baselink_to_zed2",
+    "/transform_listener_impl_567abe7ec440",
+    "/transform_listener_impl_5b8744305c90",
+    "/viz_relay_container",
+    "/viz_throttle_bt_tree_visualization",
+    "/viz_throttle_camera_image_annotated",
+    "/viz_throttle_costmap_front_clearance",
+    "/viz_throttle_costmap_visualization",
+    "/viz_throttle_diagnostics_system_status",
+    "/viz_throttle_drive",
+    "/viz_throttle_ekf_global_odometry_filtered",
+    "/viz_throttle_mpc_corridor_markers",
+    "/viz_throttle_perception_d_wall",
+    "/viz_throttle_perception_front_clearance",
+    "/viz_throttle_perception_front_distance",
+    "/viz_throttle_perception_lidar_front_wall_virtual",
+    "/viz_throttle_perception_obstacles_2d",
+    "/viz_throttle_scan",
+    "/viz_throttle_sensors_core",
+    "/viz_throttle_slam_pose",
+    "/viz_throttle_slam_pose_calibrated",
+    "/zed2/zed2_state_publisher"
+   ]
+  },
+  {
+   "topic": "/perception/d_wall/psi_correction",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "MISSING",
+   "publishers": [],
+   "subscribers": [
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/perception/debug/front_wall",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [
+    "/yolo_detector_node"
+   ]
+  },
+  {
+   "topic": "/perception/front_blocked",
+   "types": [
+    "std_msgs/msg/Bool"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/perception/front_clearance",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/perception/front_distance",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/perception/front_wall",
+   "types": [
+    "std_msgs/msg/Bool"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/perception/lidar_front_wall",
+   "types": [
+    "f1tenth_messages/msg/WallLineFit"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/lidar_front_wall_node"
+   ],
+   "subscribers": [
+    "/front_clearance_node"
+   ]
+  },
+  {
+   "topic": "/perception/lidar_front_wall_virtual",
+   "types": [
+    "f1tenth_messages/msg/WallEstimate"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/lidar_front_wall_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/perception/obstacles_2d",
+   "types": [
+    "f1tenth_messages/msg/Obstacle2DArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/obstacle_projector_node"
+   ],
+   "subscribers": [
+    "/front_clearance_node",
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/perception/scene_labels",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [
+    "/detection_3d_node",
+    "/yolo_detector_node"
+   ]
+  },
+  {
+   "topic": "/perception/scene_labels/classes",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [
+    "/lidar_front_wall_node"
+   ]
+  },
+  {
+   "topic": "/perception/scene_labels/depth_mm",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [
+    "/lidar_front_wall_node"
+   ]
+  },
+  {
+   "topic": "/perception/scene_labels/health",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/perception/scene_labels/image",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/perception/scene_labels/stats",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/perception/scene_labels_debug",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [
+    "/yolo_detector_node"
+   ]
+  },
+  {
+   "topic": "/perception/stereo_columns",
+   "types": [
+    "f1tenth_messages/msg/StereoColumns"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [
+    "/lidar_front_wall_node"
+   ]
+  },
+  {
+   "topic": "/perception/stereo_wall",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [
+    "/lidar_front_wall_node"
+   ]
+  },
+  {
+   "topic": "/perception/swept_clearance",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/swept_clearance_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/perception/swept_clearance/camera",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/swept_clearance_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/perception/swept_clearance/lidar",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/swept_clearance_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/perception/swept_clearance/steering",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/swept_clearance_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/perception/unclassified_obstacles",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [
+    "/yolo_detector_node"
+   ]
+  },
+  {
+   "topic": "/perception/virtual_wall",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/lidar_front_wall_node"
+   ],
+   "subscribers": [
+    "/behavior_executor_node",
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/perception/virtual_wall/debug",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/lidar_front_wall_node"
+   ],
+   "subscribers": [
+    "/yolo_detector_node"
+   ]
+  },
+  {
+   "topic": "/perception/wall_observations",
+   "types": [
+    "f1tenth_messages/msg/WallObservationArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/lidar_front_wall_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/perception/wall_planes",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/lidar_front_wall_node"
+   ],
+   "subscribers": [
+    "/front_clearance_node"
+   ]
+  },
+  {
+   "topic": "/perception/wall_points",
+   "types": [
+    "sensor_msgs/msg/PointCloud2"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [
+    "/lidar_front_wall_node"
+   ]
+  },
+  {
+   "topic": "/perception/walls",
+   "types": [
+    "f1tenth_messages/msg/MultiWallTrackArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/lidar_front_wall_node"
+   ],
+   "subscribers": [
+    "/semantic_layer_node",
+    "/yolo_detector_node"
+   ]
+  },
+  {
+   "topic": "/perception/walls/markers",
+   "types": [
+    "visualization_msgs/msg/MarkerArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/lidar_front_wall_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/proximity_guard/decision",
+   "types": [
+    "diagnostic_msgs/msg/DiagnosticStatus"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/proximity_guard_node"
+   ],
+   "subscribers": [
+    "/guard_vs_bt"
+   ]
+  },
+  {
+   "topic": "/robot_description",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/robot_state_publisher"
+   ],
+   "subscribers": [
+    "/joint_state_publisher"
+   ]
+  },
+  {
+   "topic": "/rosout",
+   "types": [
+    "rcl_interfaces/msg/Log"
+   ],
+   "class": "UNUSED_SIM",
+   "publishers": [
+    "/ackermann_mux",
+    "/behavior_executor_node",
+    "/component_supervisor_node",
+    "/costmap_boundary_node",
+    "/costmap_renderer_node",
+    "/depth_throttle_5hz",
+    "/detection_3d_node",
+    "/diagnostics_server_node",
+    "/ekf_filter_node",
+    "/ekf_global/ekf_global_filter_node",
+    "/ekf_global/transform_listener_impl_5e604cd6cf20",
+    "/foxglove_bridge",
+    "/front_clearance_node",
+    "/guard_vs_bt",
+    "/image_annotated_viz_throttle",
+    "/image_raw_viz_throttle",
+    "/isaac_f1tenth_sim",
+    "/joint_state_publisher",
+    "/launch_ros_958354",
+    "/launch_ros_958361",
+    "/lidar_front_wall_node",
+    "/lifecycle_manager_map",
+    "/map_server",
+    "/mission_logger_node",
+    "/mpc_corr",
+    "/obstacle_clearance_node",
+    "/obstacle_projector_node",
+    "/reset_manager",
+    "/robot_state_publisher",
+    "/semantic_layer_node",
+    "/slam_pose_relay_node",
+    "/slam_toolbox",
+    "/static_baselink_to_imu",
+    "/static_baselink_to_laser",
+    "/static_baselink_to_zed2",
+    "/swept_clearance_node",
+    "/system_observer_node",
+    "/transform_listener_impl_567abe7ec440",
+    "/transform_listener_impl_5b8744305c90",
+    "/twist_to_ackermann_node",
+    "/viz_jpeg_node",
+    "/viz_relay_container",
+    "/viz_throttle_bt_tree_visualization",
+    "/viz_throttle_camera_image_annotated",
+    "/viz_throttle_costmap_front_clearance",
+    "/viz_throttle_costmap_visualization",
+    "/viz_throttle_diagnostics_system_status",
+    "/viz_throttle_drive",
+    "/viz_throttle_ekf_global_odometry_filtered",
+    "/viz_throttle_mpc_corridor_markers",
+    "/viz_throttle_perception_d_wall",
+    "/viz_throttle_perception_front_clearance",
+    "/viz_throttle_perception_front_distance",
+    "/viz_throttle_perception_lidar_front_wall_virtual",
+    "/viz_throttle_perception_obstacles_2d",
+    "/viz_throttle_scan",
+    "/viz_throttle_sensors_core",
+    "/viz_throttle_slam_pose",
+    "/viz_throttle_slam_pose_calibrated",
+    "/yolo_detector_node",
+    "/zed2/zed2_state_publisher"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/safety/event",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/behavior_executor_node",
+    "/obstacle_clearance_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/safety_stop",
+   "types": [
+    "ackermann_msgs/msg/AckermannDriveStamped"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/behavior_executor_node",
+    "/reset_manager"
+   ],
+   "subscribers": [
+    "/ackermann_mux",
+    "/guard_vs_bt"
+   ]
+  },
+  {
+   "topic": "/scan",
+   "types": [
+    "sensor_msgs/msg/LaserScan"
+   ],
+   "class": "SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [
+    "/behavior_executor_node",
+    "/front_clearance_node",
+    "/guard_vs_bt",
+    "/lidar_front_wall_node",
+    "/obstacle_clearance_node",
+    "/proximity_guard_node",
+    "/slam_toolbox",
+    "/swept_clearance_node"
+   ]
+  },
+  {
+   "topic": "/sensors/core",
+   "types": [
+    "vesc_msgs/msg/VescStateStamped"
+   ],
+   "class": "MISSING",
+   "publishers": [],
+   "subscribers": [
+    "/diagnostics_server_node"
+   ]
+  },
+  {
+   "topic": "/sensors/imu/raw",
+   "types": [
+    "sensor_msgs/msg/Imu"
+   ],
+   "class": "SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [
+    "/ekf_filter_node"
+   ]
+  },
+  {
+   "topic": "/set_pose",
+   "types": [
+    "geometry_msgs/msg/PoseWithCovarianceStamped"
+   ],
+   "class": "MISSING",
+   "publishers": [],
+   "subscribers": [
+    "/ekf_filter_node"
+   ]
+  },
+  {
+   "topic": "/sim/ground_truth/front_range",
+   "types": [
+    "sensor_msgs/msg/Range"
+   ],
+   "class": "UNUSED_SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/sim/ground_truth/objects",
+   "types": [
+    "vision_msgs/msg/Detection3DArray"
+   ],
+   "class": "UNUSED_SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/sim/ground_truth/odom",
+   "types": [
+    "nav_msgs/msg/Odometry"
+   ],
+   "class": "UNUSED_SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/sim/ground_truth/person_pose",
+   "types": [
+    "geometry_msgs/msg/PoseStamped"
+   ],
+   "class": "UNUSED_SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/sim/ground_truth/start_pose",
+   "types": [
+    "geometry_msgs/msg/PoseStamped"
+   ],
+   "class": "UNUSED_SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/slam/map",
+   "types": [
+    "nav_msgs/msg/OccupancyGrid"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/slam_toolbox"
+   ],
+   "subscribers": [
+    "/costmap_boundary_node",
+    "/costmap_renderer_node",
+    "/slam_toolbox"
+   ]
+  },
+  {
+   "topic": "/slam/map_metadata",
+   "types": [
+    "nav_msgs/msg/MapMetaData"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/slam_toolbox"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/slam/pose",
+   "types": [
+    "geometry_msgs/msg/PoseWithCovarianceStamped"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/slam_toolbox"
+   ],
+   "subscribers": [
+    "/slam_pose_relay_node"
+   ]
+  },
+  {
+   "topic": "/slam/pose_calibrated",
+   "types": [
+    "geometry_msgs/msg/PoseWithCovarianceStamped"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/slam_pose_relay_node"
+   ],
+   "subscribers": [
+    "/ekf_global/ekf_global_filter_node"
+   ]
+  },
+  {
+   "topic": "/slam_toolbox/feedback",
+   "types": [
+    "visualization_msgs/msg/InteractiveMarkerFeedback"
+   ],
+   "class": "MISSING",
+   "publishers": [],
+   "subscribers": [
+    "/slam_toolbox"
+   ]
+  },
+  {
+   "topic": "/slam_toolbox/graph_visualization",
+   "types": [
+    "visualization_msgs/msg/MarkerArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/slam_toolbox"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/slam_toolbox/scan_visualization",
+   "types": [
+    "sensor_msgs/msg/LaserScan"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/slam_toolbox"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/slam_toolbox/transition_event",
+   "types": [
+    "lifecycle_msgs/msg/TransitionEvent"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/slam_toolbox"
+   ],
+   "subscribers": [
+    "/launch_ros_958354"
+   ]
+  },
+  {
+   "topic": "/slam_toolbox/update",
+   "types": [
+    "visualization_msgs/msg/InteractiveMarkerUpdate"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/slam_toolbox"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/teleop",
+   "types": [
+    "ackermann_msgs/msg/AckermannDriveStamped"
+   ],
+   "class": "MISSING",
+   "publishers": [],
+   "subscribers": [
+    "/ackermann_mux"
+   ]
+  },
+  {
+   "topic": "/test/mission_event",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/behavior_executor_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/test_campaign/logger_status",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "MISSING",
+   "publishers": [],
+   "subscribers": [
+    "/mpc_corr"
+   ]
+  },
+  {
+   "topic": "/tf",
+   "types": [
+    "tf2_msgs/msg/TFMessage"
+   ],
+   "class": "SIM",
+   "publishers": [
+    "/ekf_filter_node",
+    "/ekf_global/ekf_global_filter_node",
+    "/isaac_f1tenth_sim",
+    "/robot_state_publisher",
+    "/slam_toolbox",
+    "/zed2/zed2_state_publisher"
+   ],
+   "subscribers": [
+    "/detection_3d_node",
+    "/ekf_global/transform_listener_impl_5e604cd6cf20",
+    "/mpc_corr",
+    "/obstacle_projector_node",
+    "/transform_listener_impl_567abe7ec440",
+    "/transform_listener_impl_5b8744305c90"
+   ]
+  },
+  {
+   "topic": "/tf_static",
+   "types": [
+    "tf2_msgs/msg/TFMessage"
+   ],
+   "class": "SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim",
+    "/robot_state_publisher",
+    "/static_baselink_to_imu",
+    "/static_baselink_to_laser",
+    "/static_baselink_to_zed2",
+    "/zed2/zed2_state_publisher"
+   ],
+   "subscribers": [
+    "/behavior_executor_node",
+    "/detection_3d_node",
+    "/ekf_global/transform_listener_impl_5e604cd6cf20",
+    "/front_clearance_node",
+    "/guard_vs_bt",
+    "/lidar_front_wall_node",
+    "/mpc_corr",
+    "/obstacle_clearance_node",
+    "/obstacle_projector_node",
+    "/proximity_guard_node",
+    "/semantic_layer_node",
+    "/swept_clearance_node",
+    "/transform_listener_impl_567abe7ec440",
+    "/transform_listener_impl_5b8744305c90",
+    "/yolo_detector_node"
+   ]
+  },
+  {
+   "topic": "/viz/bt/tree_visualization",
+   "types": [
+    "sensor_msgs/msg/CompressedImage"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_bt_tree_visualization"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/camera/image_annotated/compressed",
+   "types": [
+    "sensor_msgs/msg/CompressedImage"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_jpeg_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/costmap/front_clearance",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_costmap_front_clearance"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/costmap/visualization/compressed",
+   "types": [
+    "sensor_msgs/msg/CompressedImage"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_jpeg_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/diagnostics/system_status",
+   "types": [
+    "f1tenth_messages/msg/SystemStatus"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_diagnostics_system_status"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/drive",
+   "types": [
+    "ackermann_msgs/msg/AckermannDriveStamped"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_drive"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/ekf_global/odometry/filtered",
+   "types": [
+    "nav_msgs/msg/Odometry"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_ekf_global_odometry_filtered"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/mpc/corridor_markers",
+   "types": [
+    "visualization_msgs/msg/MarkerArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_mpc_corridor_markers"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/perception/front_clearance",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_perception_front_clearance"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/perception/front_distance",
+   "types": [
+    "std_msgs/msg/Float32"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_perception_front_distance"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/perception/lidar_front_wall_virtual",
+   "types": [
+    "f1tenth_messages/msg/WallEstimate"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_perception_lidar_front_wall_virtual"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/perception/obstacles_2d",
+   "types": [
+    "f1tenth_messages/msg/Obstacle2DArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_perception_obstacles_2d"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/scan",
+   "types": [
+    "sensor_msgs/msg/LaserScan"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_scan"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/slam/pose",
+   "types": [
+    "geometry_msgs/msg/PoseWithCovarianceStamped"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_slam_pose"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/slam/pose_calibrated",
+   "types": [
+    "geometry_msgs/msg/PoseWithCovarianceStamped"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_slam_pose_calibrated"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz/walls",
+   "types": [
+    "visualization_msgs/msg/MarkerArray"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/lidar_front_wall_node"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz_internal/camera/image_annotated",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_camera_image_annotated"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/viz_internal/costmap/visualization",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/viz_throttle_costmap_visualization"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/zed2/joint_states",
+   "types": [
+    "sensor_msgs/msg/JointState"
+   ],
+   "class": "MISSING",
+   "publishers": [],
+   "subscribers": [
+    "/zed2/zed2_state_publisher"
+   ]
+  },
+  {
+   "topic": "/zed2/zed2_description",
+   "types": [
+    "std_msgs/msg/String"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/zed2/zed2_state_publisher"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/zed2/zed_node/depth/camera_info",
+   "types": [
+    "sensor_msgs/msg/CameraInfo"
+   ],
+   "class": "SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [
+    "/detection_3d_node",
+    "/front_clearance_node",
+    "/swept_clearance_node"
+   ]
+  },
+  {
+   "topic": "/zed2/zed_node/depth/depth_registered",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [
+    "/depth_throttle_5hz",
+    "/detection_3d_node",
+    "/front_clearance_node",
+    "/swept_clearance_node"
+   ]
+  },
+  {
+   "topic": "/zed2/zed_node/depth/depth_registered_5hz",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "STACK",
+   "publishers": [
+    "/depth_throttle_5hz"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/zed2/zed_node/left/camera_info",
+   "types": [
+    "sensor_msgs/msg/CameraInfo"
+   ],
+   "class": "UNUSED_SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/zed2/zed_node/left/image_rect_color",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "UNUSED_SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/zed2/zed_node/right/camera_info",
+   "types": [
+    "sensor_msgs/msg/CameraInfo"
+   ],
+   "class": "UNUSED_SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": []
+  },
+  {
+   "topic": "/zed2/zed_node/right/image_rect_color",
+   "types": [
+    "sensor_msgs/msg/Image"
+   ],
+   "class": "UNUSED_SIM",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": []
+  }
+ ]
+}

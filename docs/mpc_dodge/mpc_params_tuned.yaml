@@ -1,0 +1,22 @@
+# mpc-dodge (2026-11-18): ONLY the parameters that differ from stack_params.yaml on mpc-dodge-mpc.
+# Source: the phase 2 A/B redo in Isaac (docs/mpc_dodge/REPORT.md §3, output/isaac_tuning/dodge/
+# ab_phase2c/body/alpha_wake_body), NOT the phase 3 loop (not redone, §4). Variant "alpha + wake +
+# body probes": dodge 13/18 good on levels 0-2 (baseline 5/18), M1-M4 8/12 (baseline 3/12),
+# S1-S5 9/13 (= baseline). Do not overwrite stack_params.yaml with this file: on the car the
+# defaults are changed in stack_params.yaml on a deploy commit (REPORT.md §9).
+
+semantic_layer_node:
+  semantic_track_velocity_enabled: true   # per-track odom velocity on Obstacle2D (id, vx, vy, v_valid)
+
+mpc_corr:
+  mpc_obs_vel_trust: 1.0          # predicted discs p + alpha v t_k (0 = static, today)
+  mpc_obs_wake_weight: 150.0      # wake ahead of an approaching obstacle's motion (0 = off)
+  mpc_obs_body_probes: true       # obstacle term also on the rear bumper and the axle midpoint
+
+  # The return onto the move's line (phase 2b). Measured with alpha alone (dodge 12/18, M 8/12,
+  # S 9/13, final offset on S1-S3 0.59 m vs 1.23 m, overshoot 0), NOT together with the wake and
+  # the body probes above: enable after the loop (REPORT.md §8.1) has measured the combination.
+  # corridor_lateral_reanchor: false
+  # mpc_return_gain: 1.0
+  # mpc_return_lookahead_ratio: 2.5
+  # mpc_return_psi_scale: 0.5

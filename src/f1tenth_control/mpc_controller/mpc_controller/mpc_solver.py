@@ -109,8 +109,8 @@ stage. The slack-free byte-identical case is the one where the flag is
 explicitly turned off, or where costmap_boundary_node's staleness gating is
 withholding data.
 
-Purely additive: does not remove or weaken w_obs/compute_local_target's
-existing soft deflection -- boundaries is an EXTRA set of hard rows on
+Purely additive: does not remove or weaken the soft w_obs obstacle cost
+-- boundaries is an EXTRA set of hard rows on
 top of everything _solve_rti already builds, empty by default (`[]`),
 matching solve_mpc_step's/_solve_slsqp's existing "boundaries not
 implemented there" scope (SLSQP is the legacy/rollback path, not what
@@ -124,6 +124,7 @@ import numpy as np
 from f1tenth_params.object_geometry import SOLVER_FRONT_POINT_OFFSETS_M
 from scipy.optimize import minimize
 
+from mpc_controller import mpc_native, solver_backend
 from mpc_controller.vehicle_model import (
     f1tenth_state_fcn_dt_beta,
     f1tenth_state_fcn_dt_beta_jacobian,
@@ -263,6 +264,9 @@ STAGE_WEIGHT_REF_HORIZON = 7
 _STAGE_WEIGHT_KEYS = (
     "w_v",
     "w_obs",
+    # The wake ahead of a moving obstacle (obstacle_motion.py, mpc-dodge): the same per-stage
+    # soft term as w_obs, on its own discs. Absent unless mpc_obs_wake_weight > 0.
+    'w_obs_wake',
     "w_corr",
     # Cross-track to the TARGET LINE on the object branch. Per-stage for the
     # same reason w_corr is, and separated from it because the two now own
@@ -347,6 +351,7 @@ def solve_mpc_step(
     control_period: Optional[float] = None,
     stage_spec: Optional[Dict] = None,
     speed_model: Optional[Dict] = None,
+    impl: Optional[str] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """
     Replica MATLAB:
@@ -425,11 +430,22 @@ def solve_mpc_step(
                       'slack_weight' * (s^2 + s) like the boundary slack.
     RTI only (SLSQP raises), and not combined with stage_spec. x_pred keeps
     its four columns; the predicted command is info['v_cmd_pred'].
+
+    impl: which implementation solves an rti tick WITHOUT a stage_spec
+    (solver_backend.py, main-jazzy-rust R2): 'py' this module's _solve_rti,
+    'rust' the bit-identical port in f1tenth_mpc_core
+    (output/rust/parity_mpc_solver.md). None (default) is
+    solver_backend.DEFAULT_IMPL: stack_params' mpc_solver_impl unless the
+    F1TENTH_MPC_SOLVER_IMPL test hook overrides it. SLSQP and stage_spec
+    calls always run the Python, whatever impl says.
     """
+    # The weights as handed in, for the parity capture (solver_backend).
+    weights_in = weights
     # Horizon-invariant stage/terminal balance -- see scale_stage_weights.
     # Done here, once, so both backends and the true_cost they report are
     # evaluated against identical weights.
     weights = scale_stage_weights(weights, horizon)
+    impl = solver_backend.resolve(impl)
 
     if stage_spec is not None and solver != 'rti':
         raise ValueError('stage_spec (reverse candidates) needs the rti solver')
@@ -442,6 +458,39 @@ def solve_mpc_step(
         return _solve_slsqp(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
             weights, obstacles, dmin, vdes, control_period=control_period)
+    elif solver == 'rti' and stage_spec is None:
+        rti_kwargs = {
+            'boundaries': boundaries, 'warm_start_z': warm_start_z,
+            'control_period': control_period,
+            'boundary_max_sources': boundary_max_sources,
+            'boundary_hard': boundary_hard,
+            'boundary_slack_weight': boundary_slack_weight,
+            'boundary_slack_max': boundary_slack_max,
+            'speed_model': speed_model}
+        if impl == 'rust' and (corridor.get('obstacles_world_stages') is not None
+                               or corridor.get('wake_world_stages') is not None
+                               or corridor.get('body_probe_offsets')):
+            # The Rust core takes one (x, y, r) list for every stage: it cannot
+            # see predicted discs or a wake. Refuse rather than drop them.
+            raise ValueError('per-stage obstacles (mpc_obs_vel_trust / mpc_obs_wake_weight) '
+                             'need mpc_solver_impl py')
+        if impl == 'rust':
+            u0, info = mpc_native.solve_rti(
+                x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
+                weights, obstacles, dmin, vdes,
+                front_offsets=SOLVER_FRONT_POINT_OFFSETS_M, **rti_kwargs)
+        else:
+            u0, info = _solve_rti(
+                x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
+                weights, obstacles, dmin, vdes, stage_spec=None, **rti_kwargs)
+        if solver_backend.capture_dir() is not None:
+            solver_backend.capture({
+                'x0': x0, 'last_u': last_u, 'pref_nom': pref_nom, 'corridor': corridor,
+                'horizon': horizon, 'ts': ts, 'params': params, 'limits': limits,
+                'weights': weights_in, 'obstacles': obstacles, 'dmin': dmin,
+                'vdes': vdes, 'solver': solver, 'stage_spec': None, **rti_kwargs},
+                impl, u0, info)
+        return u0, info
     elif solver == 'rti':
         return _solve_rti(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
@@ -1137,6 +1186,16 @@ def _solve_rti(
     obstacles_world = corridor.get("obstacles_world", obstacles)
     car_radius = corridor.get("car_radius", 0.0)
     avoidance_margin = corridor.get("avoidance_margin", 0.12)
+    # MOVING OBSTACLES (obstacle_motion.py, mpc-dodge). None (the default, every corridor that
+    # does not carry them) is today's QP: the same static list at every stage, no wake rows.
+    stage_obstacles = corridor.get('obstacles_world_stages')
+    stage_wake = corridor.get('wake_world_stages')
+    w_wake = float(weights.get('w_obs_wake', 0.0))
+    # BODY PROBES (mpc_obs_body_probes, mpc-dodge): extra probe points along the car's own axis
+    # (base_link + offset * heading) in every stage's obstacle term, so an obstacle closing in on
+    # the car's flank or tail costs too -- the nose probes alone are blind to it once the nose is
+    # past. Same mechanism as the reverse stages' rear probes. None (default) = today's probes.
+    body_offsets = tuple(corridor.get('body_probe_offsets') or ())
 
     for k in range(N):
         xk1_idx = x_idx(k + 1)
@@ -1176,14 +1235,24 @@ def _solve_rti(
         # obstacle soft cost: local quadratic model (see
         # _linearize_obstacle_cost_rti).
         M_obs, b_obs = _linearize_obstacle_cost_rti(
-            x_ref_k1[:4], params["L"], car_radius, avoidance_margin, obstacles_world,
-            rear_offsets=(rear_offsets if spec is not None and rear_stage[k] else None))
+            x_ref_k1[:4], params['L'], car_radius, avoidance_margin,
+            obstacles_world if stage_obstacles is None else stage_obstacles[k],
+            rear_offsets=(tuple(rear_offsets if spec is not None and rear_stage[k] else ())
+                          + body_offsets) or None)
         if n_x > 4:
             # The command state does not enter the obstacle term.
             M_obs = np.pad(M_obs, ((0, n_x - 4), (0, n_x - 4)))
             b_obs = np.pad(b_obs, (0, n_x - 4))
         P[xk1_idx, xk1_idx] += 2.0 * weights["w_obs"] * M_obs
         q[xk1_idx] += weights["w_obs"] * b_obs
+        if stage_wake is not None and w_wake > 0.0 and stage_wake[k]:
+            M_w, b_w = _linearize_obstacle_cost_rti(
+                x_ref_k1[:4], params['L'], car_radius, avoidance_margin, stage_wake[k])
+            if n_x > 4:
+                M_w = np.pad(M_w, ((0, n_x - 4), (0, n_x - 4)))
+                b_w = np.pad(b_w, (0, n_x - 4))
+            P[xk1_idx, xk1_idx] += 2.0 * w_wake * M_w
+            q[xk1_idx] += w_wake * b_w
 
         # corridor lateral bound: exact linear inequality at the frozen
         # nearest index.
@@ -1201,7 +1270,7 @@ def _solve_rti(
         # -2 E^T p pattern as the terminal position cost below.
         #
         # The bound alone is a WALL: anywhere inside half_w costs nothing, so
-        # a car pushed off-center by an obstacle deflection had no reason to
+        # a car pushed off-center by an obstacle had no reason to
         # come back. This term is the gradient that makes it come back. It was
         # previously present only as a commented-out line in
         # planner_cost_corridor (the SLSQP objective), which the default RTI
@@ -1565,10 +1634,16 @@ def planner_cost_corridor(
             p_base = np.array([x[0], x[1]], dtype=float)
             front_points = front_points + [
                 p_base + float(o) * e for o in stage_spec.get('rear_offsets', ())]
+        if corridor.get('body_probe_offsets'):
+            p_base = np.array([x[0], x[1]], dtype=float)
+            front_points = front_points + [
+                p_base + float(o) * e for o in corridor['body_probe_offsets']]
 
+        _stage_obs = corridor.get('obstacles_world_stages')
         d_front = 1e6
         for pF in front_points:
-            for ox, oy, r in corridor["obstacles_world"]:
+            for ox, oy, r in (corridor['obstacles_world'] if _stage_obs is None
+                              else _stage_obs[k]):
                 d = np.hypot(pF[0] - ox, pF[1] - oy) - r
                 d_front = min(d_front, d)
 
@@ -1585,6 +1660,14 @@ def planner_cost_corridor(
         pen = softplus(s, beta=10.0)
 
         J += weights["w_obs"] * pen ** 2
+        _wake = corridor.get('wake_world_stages')
+        if _wake is not None and weights.get('w_obs_wake', 0.0) and _wake[k]:
+            d_w = 1e6
+            for pF in front_points:
+                for ox, oy, r in _wake[k]:
+                    d_w = min(d_w, np.hypot(pF[0] - ox, pF[1] - oy) - r)
+            J += weights['w_obs_wake'] * softplus((car_radius + avoidance_margin) - d_w,
+                                                  beta=10.0) ** 2
 
         # ================= velocità =================
         vdes_k = vdes if stage_spec is None else float(stage_spec['vdes'][k])

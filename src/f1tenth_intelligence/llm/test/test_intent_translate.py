@@ -509,7 +509,7 @@ def test_the_prompt_ships_all_its_worked_examples():
     bare command with go_to "front_object"). The go_to prompt also switched
     its examples to the comando:/risposta: framing the real request uses.
     """
-    assert len(intent_prompt_examples()) == 14
+    assert len(intent_prompt_examples()) == 15
     assert len(intent_prompt_examples(INTENT_PROMPT_NO_GO_TO_FILENAME)) == 8
 
 

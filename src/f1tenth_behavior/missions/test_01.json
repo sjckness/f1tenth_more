@@ -1,27 +1,22 @@
 {
-  "mission_id": "test_01_clearance_turn_odom",
-  "schema_version": "2.0",
+  "mission_id": "straight_until_potted_plant",
+  "schema_version": "5.0",
+  "description": "Drive straight on the start heading and stop as soon as the camera detector reports a potted plant (object_seen on /camera/detections, score >= 0.5, sighting fresher than 1 s). object_seen has no distance or bearing: a plant anywhere in the camera's field of view ends the move, including one already in view at the start.",
   "moves": [
     {
-      "id": "approach_wall",
-      "goal_pose": { "x": 2.0, "y": 0.0, "yaw": 0.0 },
-      "stop_condition": { "type": "goal_reached" },
-      "timeout_sec": 60,
-      "on_timeout": "abort"
-    },
-    {
-      "id": "turn_left_90",
-      "turn": { "heading_delta_deg": 90, "speed": 0.5, "steering": "full_lock" },
-      "stop_condition": { "type": "orientation_delta", "value": 90 },
+      "id": "move_0_straight_until_potted_plant",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.4
+      },
+      "stop_condition": {
+        "type": " ",
+        "class": "chair",
+        "min_confidence": 0.5
+      },
       "timeout_sec": 30,
-      "on_timeout": "abort"
-    },
-    {
-      "id": "short_odom_leg",
-      "goal_pose": { "x": 3.0, "y": 2.0, "yaw": 1.57 },
-      "stop_condition": { "type": "goal_reached" },
-      "timeout_sec": 20,
-      "on_timeout": "abort"
-    } 
-  ]
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ] 
 }

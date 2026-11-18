@@ -1,0 +1,44 @@
+# The car's Jazzy container as a systemd USER unit (plan P6.5).
+#
+# Installed (symlinked into ~/.config/systemd/user) by
+# docker/orin/host/install.sh, NOT enabled: until the cutover (plan P12) the
+# native Humble stack stays the car's default, and the container is started
+# on purpose with
+#   docker/orin/host/stack_mode.sh container      (installed as ~/.local/bin/stack_mode)
+# which stops the native side completely and then starts this unit. Cutover:
+#   systemctl --user disable f1tenth-gateway; systemctl --user enable f1tenth-car-container
+#
+# ExecStartPre waits (F1T_WAIT_HOST_S, 120 s) for dockerd and /run/jtop.sock:
+# a user unit cannot be ordered after the system's docker.service and
+# jtop.service, so at boot (after the cutover) `up` could otherwise run first
+# and refuse. On a running system it returns at once.
+# ExecStart is `docker_orin.sh up`: pinned image, group/device checks, the
+# guard, the drift check, wait for healthy; the container itself runs
+# detached (compose), so the unit is a oneshot that stays "active (exited)"
+# while the container runs, and `docker_orin.sh status` is the truth about the
+# container. The unit stays "active" after the container exits or crashes by
+# itself or is taken down by hand: `stack_mode container` stops such a stale
+# unit before it starts it again. ExecStop is the graceful
+# `docker_orin.sh down` (exit 3 = it left something behind, listed in its
+# output and in the history; no container at all = nothing to stop, exit 0).
+#
+# Conflicts= with the native gateway: both bind TCP 8770 (tailscale serve
+# forwards the PWA there); starting either unit stops the other.
+# --archive / --allow-drift: from the EnvironmentFile stack_mode.sh writes.
+[Unit]
+Description=f1tenth car: the Jazzy container (compose project f1tenth_car)
+Conflicts=f1tenth-gateway.service
+After=f1tenth-gateway.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-%h/.config/f1tenth/car_container.env
+ExecStartPre=%h/.local/bin/docker_orin wait-host
+ExecStart=%h/.local/bin/docker_orin up
+ExecStop=%h/.local/bin/docker_orin down
+TimeoutStartSec=420
+TimeoutStopSec=200
+
+[Install]
+WantedBy=default.target

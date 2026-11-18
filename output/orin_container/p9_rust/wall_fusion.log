@@ -1,0 +1,6 @@
+library /opt/f1tenth_ws/install/lib/f1tenth_wall_tracker_core/libf1tenth_wall_tracker_core.so (build: cargo profile debug, opt-level 3, debug_assertions on)
+robust_line     3000 cases  2331 mismatches  first ((330, 2), 0.06, 800, (-0.05570496056312755, -0.9984472732040789, 3.4885562449622047, 330, 0.002156798261632708), (-0.05570496056312755, -0.9984472732040789, 3.488556244962205, 330, 0.002156798261632691))
+fusion          3000 cases  1828 mismatches  first (1, 1, 0, 0)
+rectangles       600 cases  0 mismatches
+coverage {'columns_agree': 69904, 'columns_lidar_only': 29418, 'columns_stereo_only': 208460, 'columns_disagree': 37727, 'observations': 4582, 'stereo_only_obs': 451, 'both_obs': 1752, 'rejected': 366, 'rect_segments': 3326, 'rect_informative': 939}
+TOTAL mismatches: 4159

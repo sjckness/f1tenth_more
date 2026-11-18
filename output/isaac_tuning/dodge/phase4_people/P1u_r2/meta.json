@@ -1,0 +1,197 @@
+{
+ "instance": {
+  "scenario": "P1u",
+  "rep": 2,
+  "car": {
+   "x": 0.4567308331512514,
+   "y": 2.9633902395799496,
+   "yaw_deg": -2.9360567718528054
+  },
+  "obstacles": {
+   "p0": [
+    3.0,
+    0.6
+   ]
+  },
+  "motion": {
+   "p0": {
+    "type": "waypoints",
+    "points": [
+     [
+      3.0,
+      0.6
+     ],
+     [
+      3.0,
+      5.4
+     ]
+    ],
+    "speed": 1.0,
+    "delay_s": 0.5
+   }
+  },
+  "obstacle_info": [
+   {
+    "id": "p0",
+    "x": 3.0,
+    "y": 0.6000000000000001,
+    "ahead_m": 2.5,
+    "lateral_m": -2.4,
+    "radius_m": 0.29,
+    "class": "person",
+    "motion": {
+     "type": "waypoints",
+     "points": [
+      [
+       3.0,
+       0.6
+      ],
+      [
+       3.0,
+       5.4
+      ]
+     ],
+     "speed": 1.0,
+     "delay_s": 0.5
+    }
+   }
+  ],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "output/isaac_tuning/dodge/phase4_people/P1u_r2/mission.json",
+ "wall_start": 1794978568.796737,
+ "phases": {
+  "ready": 4.187,
+  "params": 0.199,
+  "scenario": 8.016,
+  "reset": 9.045,
+  "start": 0.015,
+  "record": 13.502
+ },
+ "exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64,
+   "mpc_w_psi": 4.5,
+   "mpc_w_v": 4.2857,
+   "mpc_prediction_dt_s": 0.1,
+   "mpc_obs_vel_trust": 1.0,
+   "mpc_obs_wake_weight": 0.0,
+   "mpc_obs_wake_horizon_s": 1.0,
+   "mpc_obs_vel_lead_s": 0.0,
+   "mpc_obstacle_side_mode": "fixed",
+   "corridor_lateral_reanchor": false,
+   "mpc_return_gain": 1.0,
+   "mpc_return_lookahead_ratio": 2.5,
+   "mpc_return_psi_scale": 0.5,
+   "mpc_return_max_heading_deg": 35.0,
+   "mpc_return_overshoot_max_m": 0.15
+  },
+  "semantic_layer_node": {
+   "obstacle_class_margin_m": "{\"person\": 0.5, \"unknown\": 0.0}",
+   "unknown_objects_mode": "active",
+   "semantic_track_velocity_enabled": true
+  }
+ },
+ "scenario_applied": {
+  "seq": 7774714,
+  "ok": true,
+  "message": "reset #33: car and person at start poses",
+  "sim_time": 814.7333333333333,
+  "car": {
+   "x": 0.4567308331512514,
+   "y": 2.9633902395799496,
+   "yaw_deg": -2.9360567718528054
+  },
+  "obstacles": {
+   "p0": [
+    3.0,
+    0.6
+   ],
+   "p1": null
+  },
+  "motion": {
+   "p0": {
+    "type": "waypoints",
+    "points": [
+     [
+      3.0,
+      0.6
+     ],
+     [
+      3.0,
+      5.4
+     ]
+    ],
+    "speed": 1.0,
+    "delay_s": 0.5
+   }
+  }
+ },
+ "reset_all": {
+  "success": true,
+  "message": "reset done in 7.1 s: stop 0.9s, wheel_odom 0.1s, ekf_local 0.0s, slam 6.0s, ekf_global 0.0s, nav2 skipped, hooks 0.0s"
+ },
+ "load_mission": {
+  "success": true,
+  "message": "loaded 'isaac_tuning_P1u_r2', 1 moves"
+ },
+ "start_mission": {
+  "success": true,
+  "message": "started 'isaac_tuning_P1u_r2'"
+ },
+ "t_running": 823.8,
+ "t_go": 823.8,
+ "t_end": 835.3,
+ "end_reason": "mission COMPLETE",
+ "rows": {
+  "gt": 676,
+  "odom": 616,
+  "drive": 135,
+  "mux": 135,
+  "mission": 3,
+  "solver": 115,
+  "status": 115,
+  "hard_stop": 541,
+  "bt": 135,
+  "obstacles": 445,
+  "cpu": 67,
+  "movers": 270
+ },
+ "mission_states": [
+  [
+   798.4,
+   "COMPLETE"
+  ],
+  [
+   823.783333333,
+   "LOADED"
+  ],
+  [
+   823.783333333,
+   "RUNNING"
+  ],
+  [
+   835.3,
+   "COMPLETE"
+  ]
+ ],
+ "wall_end": 1794978603.8934057
+}

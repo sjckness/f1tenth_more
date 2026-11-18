@@ -1,0 +1,19 @@
+# M1: cylinder D0.5 crossing from the right at 0.4 m/s, 2.5 m ahead (crosses the line at ~3 s)
+id: M1
+description: "cylinder D0.5 crossing from the right at 0.4 m/s, 2.5 m ahead (crosses the line at ~3 s)"
+scene: base_room
+layout: tuning               # ~/isaac_ws config/scenes/base_room.yaml (branch mpc-tuning)
+car_start: {x: 0.5, y: 3.0, yaw_deg: 0.0}
+mission:
+  distance_m: 4.0
+  speed_mps: 0.5
+  timeout_s: 20.0
+# MOVING obstacle: placed at ahead_m / lateral_m (nominal start frame), it starts moving when the
+# mission goes RUNNING (/sim/scenario_go) + delay_s, at v_along / v_lat (m/s, nominal frame,
+# left-positive) for duration_s, then stands still. Kinematic: it does not react to the car.
+obstacles:
+  - id: cyl050
+    ahead_m: 2.5
+    lateral_m: -1.2
+    motion: {v_along: 0.0, v_lat: 0.4, delay_s: 0.0, duration_s: 6.0}
+jitter: {seed: 1101, xy_m: 0.05, yaw_deg: 3.0}

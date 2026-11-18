@@ -1,0 +1,1221 @@
+## python3 tools/rust_parity/mpc/parity_solver.py --sweep 3000 --capture-dir /tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r2/capture_suite --json /home/andreas/dev_ws/f1tenth_more_r0b/output/rust_main/r0b_parity/parity_mpc_solver.json (2026-10-24T23:34:25+02:00)
+fixture: 723 ticks
+sweep: 3000 perturbed ticks (seed 20261023)
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convexKKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elem
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ents. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+ThERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convexe problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-conv
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convexlive captures: 39587 ticks from ['/tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r2/capture_suite']
+
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+PASS  L1 sparsity identical on every tick
+PASS  L1 values within 1e-14 (target 0 ulp)
+PASS  L1 warm start identical
+PASS  L1 fixture qp_sha256 equal
+PASS  L2 x bit-identical
+PASS  L2 iterations/status/info identical
+PASS  L2 settings identical
+PASS  L3 fixture/matrix: >= 99% within 1e-09, status identical
+PASS  L3 fixture/matrix: every outlier <= 0.001
+PASS  L3 fixture/matrix: exceptions identical
+PASS  L3 fixture/matrix: Rust equals the recorded outputs
+PASS  L3 fixture/approach: >= 99% within 1e-09, status identical
+PASS  L3 fixture/approach: every outlier <= 0.001
+PASS  L3 fixture/approach: exceptions identical
+PASS  L3 fixture/approach: Rust equals the recorded outputs
+PASS  L3 fixture/edge: >= 99% within 1e-09, status identical
+PASS  L3 fixture/edge: every outlier <= 0.001
+PASS  L3 fixture/edge: exceptions identical
+PASS  L3 fixture/edge: Rust equals the recorded outputs
+PASS  L3 sweep: >= 99% within 1e-09, status identical
+PASS  L3 sweep: every outlier <= 0.001
+PASS  L3 sweep: exceptions identical
+PASS  L3 capture: >= 99% within 1e-09, status identical
+PASS  L3 capture: every outlier <= 0.001
+PASS  L3 capture: exceptions identical
+PASS  L3 capture: Rust equals the recorded outputs
+L1: 42909 QPs, pattern 42909, bit-identical 42909, sha 723/723, max abs 0, max ulp 0
+L2: 42909 solves, x bit-identical 42909, info 42909, settings 42909
+L3 fixture/matrix: 523 ticks, bit-identical 523, within 1e-09 523, status 523, max 0, exceptions 0 matched / 0 not, recorded 523/523, statuses {'1': 262, '2': 175, '7': 67, '3': 19}
+L3 fixture/approach: 160 ticks, bit-identical 160, within 1e-09 160, status 160, max 0, exceptions 0 matched / 0 not, recorded 160/160, statuses {'1': 156, '2': 4}
+L3 fixture/edge: 40 ticks, bit-identical 40, within 1e-09 40, status 40, max 0, exceptions 0 matched / 0 not, recorded 40/40, statuses {'7': 17, '1': 6, '4': 2, '3': 6, '2': 9}
+L3 sweep: 2599 ticks, bit-identical 2599, within 1e-09 2599, status 2599, max 0, exceptions 401 matched / 0 not, recorded 0/0, statuses {'7': 716, '3': 621, '2': 290, '1': 841, '4': 131}
+L3 capture: 39587 ticks, bit-identical 39587, within 1e-09 39587, status 39587, max 0, exceptions 0 matched / 0 not, recorded 39401/39401, statuses {'1': 32804, '4': 1, '7': 116, '2': 6658, '3': 8}
+GATE PASS
+elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex.
+## exit 0, 511 s

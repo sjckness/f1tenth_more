@@ -1,0 +1,13 @@
+{
+ "mpc_corr": {
+  "mpc_w_obs": 200.0,
+  "mpc_w_term": 9.0,
+  "mpc_w_corr": 3.5714,
+  "mpc_w_du_delta": 8.33,
+  "avoidance_margin": 0.12,
+  "corr_half_width_start_m": 0.64
+ },
+ "semantic_layer_node": {
+  "unknown_objects_mode": "active"
+ }
+}

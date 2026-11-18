@@ -1,0 +1,233 @@
+{
+ "host": "linus",
+ "cpu": "x86_64",
+ "python": "3.12.3",
+ "loadavg": [
+  2.3896484375,
+  2.46630859375,
+  2.62744140625
+ ],
+ "results": [
+  {
+   "bag": "/home/andreas/bags/yolo_gpu/corridor10m_20261015T171753",
+   "cycles_mode": "every",
+   "stereo": "rec",
+   "cycles": 2292,
+   "cycles_with_tracker": 2292,
+   "repeat": 3,
+   "overrides": {
+    "wall_tracker_impl": "rust"
+   },
+   "tracker_ms": {
+    "n": 2292,
+    "p50": 2.5726,
+    "p95": 3.3128,
+    "mean": 2.5211,
+    "max": 3.9704
+   },
+   "scan_callback_ms": {
+    "n": 2292,
+    "p50": 3.2283,
+    "p95": 5.0248,
+    "mean": 3.4565,
+    "max": 6.4358
+   },
+   "tracker_ms_instrumented": {
+    "n": 2292,
+    "p50": 2.7005,
+    "p95": 3.5434,
+    "mean": 2.6887,
+    "max": 26.3109
+   },
+   "overhead_ms_p50": 0.1279,
+   "stages_exclusive_ms": {
+    "fusion.confidence": {
+     "n": 2292,
+     "p50": 0.0,
+     "p95": 0.0246,
+     "mean": 0.0062,
+     "max": 0.0495,
+     "calls_per_cycle": 2.37
+    },
+    "mwt.extract_lines": {
+     "n": 2292,
+     "p50": 0.4309,
+     "p95": 0.4988,
+     "mean": 0.4325,
+     "max": 0.6589,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.front_distances": {
+     "n": 2292,
+     "p50": 0.0174,
+     "p95": 0.0336,
+     "mean": 0.0193,
+     "max": 0.0666,
+     "calls_per_cycle": 1.12
+    },
+    "mwt.line_to_wall_line": {
+     "n": 2292,
+     "p50": 0.1256,
+     "p95": 0.1545,
+     "mean": 0.126,
+     "max": 0.2127,
+     "calls_per_cycle": 8.54
+    },
+    "mwt.propagate_objects": {
+     "n": 2292,
+     "p50": 0.033,
+     "p95": 0.0385,
+     "mean": 0.03,
+     "max": 0.0869,
+     "calls_per_cycle": 0.97
+    },
+    "mwt.scan_in_base_link": {
+     "n": 2292,
+     "p50": 0.1992,
+     "p95": 0.2907,
+     "mean": 0.2113,
+     "max": 0.3911,
+     "calls_per_cycle": 2.0
+    },
+    "mwt.segment_in_base_link": {
+     "n": 2292,
+     "p50": 0.0306,
+     "p95": 0.0606,
+     "mean": 0.0344,
+     "max": 0.1039,
+     "calls_per_cycle": 1.12
+    },
+    "mwt.to_wall_line": {
+     "n": 2292,
+     "p50": 0.0,
+     "p95": 0.0,
+     "mean": 0.0002,
+     "max": 0.0254,
+     "calls_per_cycle": 0.01
+    },
+    "mwt.track_in_base_link": {
+     "n": 2292,
+     "p50": 0.0632,
+     "p95": 0.1157,
+     "mean": 0.0693,
+     "max": 0.2001,
+     "calls_per_cycle": 1.13
+    },
+    "node._publish": {
+     "n": 2292,
+     "p50": 0.0148,
+     "p95": 0.019,
+     "mean": 0.0154,
+     "max": 0.0583,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_observations": {
+     "n": 2292,
+     "p50": 1.139,
+     "p95": 1.4891,
+     "mean": 1.0121,
+     "max": 1.8815,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_virtual": {
+     "n": 2292,
+     "p50": 0.0524,
+     "p95": 0.0665,
+     "mean": 0.0542,
+     "max": 0.1151,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_walls": {
+     "n": 2292,
+     "p50": 0.1414,
+     "p95": 0.246,
+     "mean": 0.1509,
+     "max": 0.479,
+     "calls_per_cycle": 1.0
+    },
+    "node._sectors": {
+     "n": 2292,
+     "p50": 0.0266,
+     "p95": 0.0328,
+     "mean": 0.0261,
+     "max": 0.0752,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_payload": {
+     "n": 2292,
+     "p50": 0.0005,
+     "p95": 0.0007,
+     "mean": 0.0006,
+     "max": 0.0054,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_walls": {
+     "n": 2292,
+     "p50": 0.062,
+     "p95": 0.6691,
+     "mean": 0.153,
+     "max": 1.19,
+     "calls_per_cycle": 1.0
+    },
+    "node._verify_tracks": {
+     "n": 2292,
+     "p50": 0.005,
+     "p95": 0.0058,
+     "mean": 0.0052,
+     "max": 0.0309,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.apply_rect_verdicts": {
+     "n": 2292,
+     "p50": 0.1484,
+     "p95": 0.1868,
+     "mean": 0.1533,
+     "max": 0.3687,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.front_reason": {
+     "n": 2292,
+     "p50": 0.011,
+     "p95": 0.0207,
+     "mean": 0.0122,
+     "max": 0.0485,
+     "calls_per_cycle": 1.12
+    },
+    "tracker.front_track": {
+     "n": 2292,
+     "p50": 0.0447,
+     "p95": 0.0511,
+     "mean": 0.0459,
+     "max": 0.1102,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.published": {
+     "n": 2292,
+     "p50": 0.0398,
+     "p95": 0.0453,
+     "mean": 0.0407,
+     "max": 0.0983,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.step": {
+     "n": 2292,
+     "p50": 0.3569,
+     "p95": 0.5061,
+     "mean": 0.3831,
+     "max": 24.0773,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_roles": {
+     "n": 2292,
+     "p50": 0.1377,
+     "p95": 0.1749,
+     "mean": 0.1426,
+     "max": 0.3712,
+     "calls_per_cycle": 1.0
+    }
+   },
+   "rect_cycles": 0,
+   "wall_s": 34.2
+  }
+ ]
+}

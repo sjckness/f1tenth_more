@@ -1,0 +1,26 @@
+[isaac_tuning 00:21:01] night loop in /home/andreas/dev_ws/f1tenth_isaac_tuning/output/isaac_tuning/night_20261118_0021: GPU service stop rc=0 now inactive
+[isaac_tuning 00:21:01] preflight ok {'free_disk_gb': 21.8, 'free_vram_mib': 6909}
+[isaac_tuning 00:21:03] discovery server {'port': 11878, 'pgid': 2990447}
+[isaac_tuning 00:21:22] isaac up {'wall_s': 19.7}
+[isaac_tuning 00:21:22] stack starting {'pgid': 2994263, 'log': 'stack_S1_r0.log'}
+[isaac_tuning 00:21:56] S1 r0: success score=95.48357906176057 margin=0.08436686813235938 wall=34.0s
+[isaac_tuning 00:22:22] S1 r1: success score=96.5571652762598 margin=0.1263511243863349 wall=25.0s
+[isaac_tuning 00:22:54] S1 r2: success score=89.89377117486352 margin=0.02346196691716096 wall=32.5s
+[isaac_tuning 00:23:36] S2 r0: collision score=0.0 margin=-0.08635680721048733 wall=41.7s
+[isaac_tuning 00:23:59] S2 r1: success score=90.90368437501006 margin=-0.01654754582342388 wall=23.3s
+[isaac_tuning 00:24:13] S2 r2: invalid score=None margin=None wall=13.7s
+[isaac_tuning 00:24:29] S3 r0: invalid score=None margin=None wall=16.4s
+[isaac_tuning 00:24:44] S3 r1: invalid score=None margin=None wall=14.5s
+[isaac_tuning 00:25:14] S3 r2: invalid score=None margin=None wall=29.9s
+[isaac_tuning 00:25:28] S4 r0: invalid score=None margin=None wall=14.4s
+[isaac_tuning 00:25:49] S4 r1: invalid score=None margin=None wall=20.7s
+[isaac_tuning 00:26:06] S4 r2: invalid score=None margin=None wall=16.4s
+[isaac_tuning 00:26:23] S5 r0: invalid score=None margin=None wall=17.0s
+[isaac_tuning 00:26:23] stopping stack: SIGTERM to process group 2994263
+[isaac_tuning 00:26:23] stopping stack: SIGTERM to what is left of process group 2994263
+[isaac_tuning 00:26:28] stopping stack: SIGKILL to what is left of process group 2994263
+[isaac_tuning 00:26:34] stack stopped {'wall_s': 11.8, 'leftovers': 0}
+[isaac_tuning 00:26:48] stopping isaac: SIGTERM to process group 2990549
+[isaac_tuning 00:26:48] stopping discovery server: SIGINT to process group 2990447
+[isaac_tuning 00:26:48] session closed {'container': False, 'leftovers': 0}
+[isaac_tuning 00:26:48] night loop done: stopped by request; best 18.21139940519203 {'mpc_w_obs': 200.0, 'mpc_w_term': 9.0, 'mpc_w_corr': 3.5714, 'mpc_w_du_delta': 8.33, 'avoidance_margin': 0.12, 'corr_half_width_start_m': 0.64}; GPU service start rc=0 now active

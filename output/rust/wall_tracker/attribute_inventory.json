@@ -1,0 +1,324 @@
+{
+ "bags": [
+  "/home/andreas/bags/corridor10m_20261016T144537",
+  "/home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T14-35-30_mission-straight_until_potted_plant"
+ ],
+ "cycles": "car",
+ "runtime": {
+  "MultiWallTracker": {
+   "_last_stamp": {
+    "lidar_front_wall_node.py:_publish_walls": 1561,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "apply_rect_verdicts": {
+    "lidar_front_wall_node.py:_verify_tracks": 989
+   },
+   "confirm_reason": {
+    "lidar_front_wall_node.py:_track_payload": 420
+   },
+   "front_confidence": {
+    "lidar_front_wall_node.py:_publish_walls": 1561,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "front_reason": {
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "front_status": {
+    "lidar_front_wall_node.py:_track_walls": 989
+   },
+   "front_track": {
+    "lidar_front_wall_node.py:_track_walls": 989
+   },
+   "is_front": {
+    "lidar_front_wall_node.py:_publish_walls": 1561,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "label": {
+    "lidar_front_wall_node.py:_publish_walls": 1561
+   },
+   "n_gap_rejected": {
+    "lidar_front_wall_node.py:_publish_virtual": 989
+   },
+   "n_merge_gap_refused": {
+    "lidar_front_wall_node.py:_publish_virtual": 989
+   },
+   "n_negative_killed": {
+    "lidar_front_wall_node.py:_publish_virtual": 989
+   },
+   "n_short_dropped": {
+    "lidar_front_wall_node.py:_publish_virtual": 989
+   },
+   "n_stereo_near_rejected": {
+    "lidar_front_wall_node.py:_publish_virtual": 989,
+    "lidar_front_wall_node.py:_track_walls": 1601
+   },
+   "p": {
+    "lidar_front_wall_node.py:_count_objects_behind_walls": 603,
+    "lidar_front_wall_node.py:_track_walls": 612
+   },
+   "published": {
+    "lidar_front_wall_node.py:_track_walls": 989
+   },
+   "rejections": {
+    "lidar_front_wall_node.py:_publish_virtual": 989
+   },
+   "step": {
+    "lidar_front_wall_node.py:_track_walls": 989
+   },
+   "strip": {
+    "lidar_front_wall_node.py:_publish_virtual": 989,
+    "lidar_front_wall_node.py:_track_walls": 1006
+   },
+   "tracks": {
+    "lidar_front_wall_node.py:_count_objects_behind_walls": 619,
+    "lidar_front_wall_node.py:_door_cycle": 989,
+    "lidar_front_wall_node.py:_track_payload": 989,
+    "lidar_front_wall_node.py:_verify_tracks": 989
+   },
+   "update_roles": {
+    "lidar_front_wall_node.py:_track_walls": 989
+   }
+  },
+  "Track": {
+   "P": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_publish_walls": 1561
+   },
+   "born": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_publish_walls": 1561,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "conf_hist": {
+    "<string>:__eq__": 856
+   },
+   "confidence": {
+    "<string>:__eq__": 856
+   },
+   "confirm_obs": {
+    "<string>:__eq__": 856
+   },
+   "contradicted": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_count_objects_behind_walls": 1491,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "endpoints": {
+    "lidar_front_wall_node.py:_publish_walls": 1561
+   },
+   "ever_confirmed": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_count_objects_behind_walls": 1763,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "glass": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "has_both": {
+    "<string>:__eq__": 856
+   },
+   "has_lidar": {
+    "<string>:__eq__": 856
+   },
+   "height_measured": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_publish_walls": 3122
+   },
+   "hits": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_publish_walls": 1561,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "id": {
+    "<string>:__eq__": 856,
+    "door_detection.py:_wall_bl": 1384,
+    "lidar_front_wall_node.py:_publish_walls": 7805,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "last_seen": {
+    "<string>:__eq__": 856
+   },
+   "length": {
+    "door_detection.py:update": 3583,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "lidar_hist": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "miss": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "obs_ext": {
+    "<string>:__eq__": 856
+   },
+   "occluded": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "odo_at_last_seen": {
+    "<string>:__eq__": 856
+   },
+   "rect_beyond_share": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "rect_coverage": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "rect_informative": {
+    "<string>:__eq__": 856
+   },
+   "rect_reject_streak": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "rect_support": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "rho": {
+    "lidar_front_wall_node.py:_publish_walls": 1561
+   },
+   "role": {
+    "<string>:__eq__": 856,
+    "door_detection.py:is_host": 2382
+   },
+   "source": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_publish_walls": 3122,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "state": {
+    "<string>:__eq__": 856,
+    "door_detection.py:is_host": 3253,
+    "door_detection.py:update": 3253,
+    "lidar_front_wall_node.py:_publish_walls": 3122,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "strip_miss": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "strip_pred_m": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "strip_verdict": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "t0": {
+    "<string>:__eq__": 856
+   },
+   "t1": {
+    "<string>:__eq__": 856
+   },
+   "theta": {
+    "door_detection.py:_wall_bl": 2768,
+    "door_detection.py:update": 1201,
+    "lidar_front_wall_node.py:_publish_walls": 1561
+   },
+   "verify": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_track_payload": 3253
+   },
+   "x": {
+    "<string>:__eq__": 856
+   },
+   "z_max": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_publish_walls": 1561
+   },
+   "z_min": {
+    "<string>:__eq__": 856,
+    "lidar_front_wall_node.py:_publish_walls": 1561
+   }
+  }
+ },
+ "static": {
+  "tracker_attrs": {
+   "laser_xy": 1,
+   "camera_fresh": 1,
+   "front_status": 1,
+   "n_stereo_near_rejected": 3,
+   "tracks": 5,
+   "apply_rect_verdicts": 3,
+   "camera_xy": 1,
+   "step": 1,
+   "update_roles": 1,
+   "published": 1,
+   "front_track": 1,
+   "rect": 2,
+   "strip": 3,
+   "p": 2,
+   "label": 1,
+   "_last_stamp": 2,
+   "front_confidence": 2,
+   "is_front": 2,
+   "front_reason": 1,
+   "confirm_reason": 1,
+   "n_gap_rejected": 1,
+   "n_merge_gap_refused": 1,
+   "n_short_dropped": 1,
+   "n_negative_killed": 1,
+   "rejections": 1
+  },
+  "track_attrs": {
+   "id": 8,
+   "state": 3,
+   "hits": 2,
+   "rotation": 13,
+   "translation": 12,
+   "doors": 2,
+   "n_strikes": 1,
+   "n_deleted_by_strikes": 1,
+   "n_confirmed": 1,
+   "endpoints": 1,
+   "rho": 1,
+   "theta": 1,
+   "source": 3,
+   "height_measured": 2,
+   "ever_confirmed": 2,
+   "strip_verdict": 1,
+   "born": 3,
+   "z_min": 1,
+   "z_max": 1,
+   "contradicted": 2,
+   "length": 1,
+   "verify": 1,
+   "glass": 1,
+   "occluded": 1,
+   "miss": 1,
+   "rect_coverage": 1,
+   "rect_support": 1,
+   "rect_beyond_share": 1,
+   "rect_reject_streak": 1,
+   "strip_miss": 1,
+   "strip_pred_m": 1,
+   "lidar_hist": 1,
+   "P": 1
+  },
+  "mwt_calls": {
+   "TrackerParams": 1,
+   "extraction_params": 1,
+   "PoseHistory": 1,
+   "extract_lines": 1,
+   "scan_in_base_link": 1,
+   "contract_reason": 1,
+   "propagate_objects": 3,
+   "ray_blocked_by": 1,
+   "MultiWallTracker": 1,
+   "segment_in_base_link": 2,
+   "to_wall_line": 1,
+   "track_in_base_link": 2,
+   "front_distances": 3,
+   "reported_role": 2,
+   "line_to_wall_line": 1,
+   "side_distance": 1
+  }
+ }
+}

@@ -1,0 +1,19 @@
+{
+ "scenario": "M3",
+ "rep": 1,
+ "recorder_exit": {
+  "code": 3,
+  "reason": "parameters not applied: semantic_layer_node.obstacle_class_margin_m: want '{\"person\": 0.5, \"unknown\": 0.0}', live None; semantic_layer_node.unknown_objects_mode: want 'active', live None; semantic_layer_node.semantic_track_velocity_enabled: want True, live None"
+ },
+ "end_reason": null,
+ "phases_wall_s": {
+  "ready": 41.833,
+  "params": 35.078
+ },
+ "outcome": "invalid",
+ "score": null,
+ "valid": false,
+ "recorder_code": 3,
+ "wall_recorder_s": 78.3,
+ "isaac_alive_after": true
+}

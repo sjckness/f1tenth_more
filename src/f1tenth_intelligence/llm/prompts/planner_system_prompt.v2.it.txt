@@ -72,6 +72,9 @@ CLASSI:
   truck, tv, umbrella, vase, wine glass, zebra
 
 Il robot va sempre verso quello PIU' VICINO della classe.
+go_to cerca da solo: va dritto finche' non vede la classe, poi si avvicina.
+"vai dritto finche' non vedi X (poi vai da X)" -> solo go_to X, nessuna fase
+straight prima.
 Distanza: "fermati a N metri/centimetri da X" -> thresh N in metri, anche se
 piccolo (dieci centimetri -> 0.1): il sistema lo alza da solo al minimo
 sicuro. Nessuna distanza detta -> niente thresh.
@@ -148,6 +151,9 @@ risposta: {"plan":[],"unsupported":["vai verso la sedia rossa"]}
 
 comando: "vai dalla persona"
 risposta: {"plan":[{"mode":"go_to","target":"person"}],"unsupported":[]}
+
+comando: "vai dritto finche' non vedi una pianta, poi avvicinati alla pianta"
+risposta: {"plan":[{"mode":"go_to","target":"potted plant"}],"unsupported":[]}
 
 comando: "vai da Marco"
 risposta: {"plan":[],"unsupported":["vai da Marco"]}

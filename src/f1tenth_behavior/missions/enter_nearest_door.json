@@ -1,0 +1,24 @@
+{
+  "mission_id": "enter_nearest_door",
+  "schema_version": "6.0",
+  "description": "Drive to the CONFIRMED door nearest the car and stop in it, facing the way through. Needs a door detector publishing /perception/doors_semantic (door_source picks which one; 'freespace' is the stack default) and global localization; with no confirmed door within 5 s the move fails door_not_found and the mission aborts. The move runs in two phases: it first drives to a pre-point back on the door's own axis (clamp(1.3 R_min, 0.8, 1.6) m, 1.24 m on this car), carrying the door's yaw, so the car is square to the opening before it reaches the jambs, then straight down that axis to the origin; the pre-point is skipped if the car is already in the doorway. Entered means the car is within 0.15 m of the door frame's origin ALONG its own x axis (through the opening) and within 0.05 m of that same axis SIDEWAYS (the jamb-clearance budget), and within 10 deg of the axis itself -- standing in the doorway, pointing through it, NOT on the far side, and never during the approach phase. This along/lateral split replaces a single xy_tol radius, which let the car read as 'entered' while sitting flush against a jamb.",
+  "moves": [
+    {
+      "id": "move_0_enter_nearest_door",
+      "enter_door": {
+        "type": "enter_door",
+        "door": "nearest",
+        "along_tol": 0.15,
+        "lateral_tol": 0.05,
+        "yaw_tol_deg": 10,
+        "acquire_timeout_sec": 5.0
+      },
+      "stop_condition": {
+        "type": "door_entered"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}

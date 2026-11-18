@@ -1,0 +1,43 @@
+[sim_isaac 19:27:45] sourced host setup /home/andreas/dev_ws/jc_env.sh
+== ROS env (net local, domain 42, Discovery Server 127.0.0.1:11811, super client) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/home/andreas/dev_ws/f1tenth_more_rust/src/f1tenth_bringup/config/sim/dds/local.xml
+cmd: python3 /home/andreas/dev_ws/f1tenth_more_rust/tools/rust_parity/proximity/guard_vs_bt.py --seconds 75 --out /home/andreas/dev_ws/f1tenth_more_rust/output/rust/isaac_smoke/r_b2_shadow_py/guard_vs_bt.json
+[INFO] [1792344475.010304936] [guard_vs_bt]: [IsProximityTooClose] DIAG /scan layout (first message): angle_min=-2.3562 rad (-135.0 deg), angle_max=2.3562 rad (+135.0 deg), angle_increment=0.004363 rad (0.2500 deg), range_min=0.020 m, len(ranges)=1081
+[WARN] [1792344475.010867871] [guard_vs_bt]: [IsProximityTooClose] no base_link <- "laser" on /tf_static yet: front cone measured as if the LiDAR sat at base_link (trips early, never late).
+[INFO] [1792344475.011675090] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=1.885 front_min(from bumper)=2.354
+[INFO] [1792344477.042566961] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=1.874 front_min(from bumper)=2.625
+[INFO] [1792344479.049882794] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=2.122 front_min(from bumper)=2.478
+[INFO] [1792344481.088415098] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=2.111 front_min(from bumper)=2.481
+[INFO] [1792344483.108127019] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=2.101 front_min(from bumper)=2.488
+[INFO] [1792344485.111166030] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=2.090 front_min(from bumper)=2.496
+[INFO] [1792344487.129056433] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=2.080 front_min(from bumper)=2.504
+[INFO] [1792344489.131606908] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=2.069 front_min(from bumper)=2.505
+[INFO] [1792344491.155143418] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=2.058 front_min(from bumper)=2.514
+[INFO] [1792344493.183194292] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=2.048 front_min(from bumper)=2.522
+[INFO] [1792344495.184149775] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=2.037 front_min(from bumper)=2.527
+[INFO] [1792344497.186840698] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=2.026 front_min(from bumper)=2.532
+[INFO] [1792344499.196232371] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=2.016 front_min(from bumper)=2.540
+[INFO] [1792344501.196742094] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=2.005 front_min(from bumper)=2.548
+[INFO] [1792344503.203215760] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=2.462 front_min(from bumper)=2.266
+[INFO] [1792344505.241921129] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=1.584 front_min(from bumper)=1.330
+[INFO] [1792344507.252310456] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.643 front_min(from bumper)=0.362
+[INFO] [1792344509.288126648] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.264 front_min(from bumper)=0.090
+[INFO] [1792344511.305374802] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.275 front_min(from bumper)=0.098
+[INFO] [1792344513.311764135] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.285 front_min(from bumper)=0.105
+[INFO] [1792344515.329550543] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.295 front_min(from bumper)=0.113
+[INFO] [1792344517.354846928] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.305 front_min(from bumper)=0.120
+[INFO] [1792344519.357485360] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.316 front_min(from bumper)=0.128
+[INFO] [1792344521.384165759] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.326 front_min(from bumper)=0.135
+[INFO] [1792344523.389844219] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.336 front_min(from bumper)=0.142
+[INFO] [1792344525.397115069] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.346 front_min(from bumper)=0.150
+[INFO] [1792344527.401277169] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.347 front_min(from bumper)=0.150
+[INFO] [1792344529.442646869] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.357 front_min(from bumper)=0.158
+[INFO] [1792344531.450841782] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.368 front_min(from bumper)=0.165
+[INFO] [1792344533.487068779] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.378 front_min(from bumper)=0.173
+[INFO] [1792344535.487487151] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.388 front_min(from bumper)=0.180
+[INFO] [1792344537.489482370] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.398 front_min(from bumper)=0.188
+[INFO] [1792344539.491288540] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.408 front_min(from bumper)=0.195
+[INFO] [1792344541.506754567] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.419 front_min(from bumper)=0.202
+[INFO] [1792344543.508139751] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.429 front_min(from bumper)=0.210
+[INFO] [1792344545.529902381] [guard_vs_bt]: [IsProximityTooClose] DIAG scan: total=1081 in_window=721 excluded_by_filter=0 min_in_window=0.439 front_min(from bumper)=0.217
+{"scans_seen": 2869, "guard_scan_decisions": 2877, "matched": 2869, "front_agree": 2869, "front_disagree": 0, "py_front_trips": 759, "rs_trips": 759, "rs_stop_decisions": 759, "guard_reasons": {"clear": 2118, "tripped": 759}, "guard_no_data_decisions": {}, "guard_tf_fallback": 0, "guard_latency_ms": {"p50": 0.0, "p95": 0.0, "max": 0.0}, "guard_compute_us": {"p50": 77.4, "p95": 108.23999999999997, "max": 1851.6}, "bt_ticks": 728, "bt_emergency_episode_count": 2, "safety_stop_by_frame_id": {"base_link/emergency": 952}}

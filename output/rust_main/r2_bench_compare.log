@@ -1,0 +1,40 @@
+group                                  py p50   py p95  rust p50  rust p95  speed-up p95
+all ticks                               7.511   10.435     1.272     2.012          5.2x  GATE ok
+approach                                6.639    7.269     0.524     1.010          7.2x
+edge/legacy                             7.640    8.272     1.614     1.849          4.5x
+edge/offset_free                        9.726   10.629     1.916     2.114          5.0x
+matrix/legacy                           7.141    8.383     1.276     1.720          4.9x
+matrix/legacy/obs0/walls0               5.489    6.147     0.769     1.242          4.9x
+matrix/legacy/obs0/walls4               6.126    6.914     1.515     1.702          4.1x
+matrix/legacy/obs1/walls0               6.979    7.704     0.885     1.402          5.5x
+matrix/legacy/obs1/walls4               7.467    8.246     1.593     1.743          4.7x
+matrix/legacy/obs8/walls0               7.557    8.228     0.930     1.417          5.8x
+matrix/legacy/obs8/walls4               8.109    8.973     1.630     1.894          4.7x
+matrix/offset_free                      9.482   10.847     1.689     2.067          5.2x
+matrix/offset_free/obs0/walls0          7.509    8.071     1.099     1.422          5.7x
+matrix/offset_free/obs0/walls4          8.284    8.995     1.903     2.107          4.3x
+matrix/offset_free/obs1/walls0          9.343   10.036     1.307     1.658          6.1x
+matrix/offset_free/obs1/walls4          9.793   10.573     1.941     2.093          5.1x
+matrix/offset_free/obs8/walls0          9.943   11.037     1.321     1.731          6.4x
+matrix/offset_free/obs8/walls4         10.435   11.102     1.992     2.154          5.2x  GATE ok
+GATE PASS (p95 rust <= p95 py)
+group                                  py p50   py p95  rust p50  rust p95  speed-up p95
+all ticks                               7.597   10.404     1.257     1.991          5.2x  GATE ok
+approach                                6.589    7.230     0.522     0.996          7.3x
+edge/legacy                             7.564    8.213     1.592     1.780          4.6x
+edge/offset_free                        9.801   10.782     1.900     2.138          5.0x
+matrix/legacy                           7.206    8.477     1.260     1.713          4.9x
+matrix/legacy/obs0/walls0               5.596    6.219     0.777     1.265          4.9x
+matrix/legacy/obs0/walls4               6.274    6.873     1.493     1.668          4.1x
+matrix/legacy/obs1/walls0               6.968    7.770     0.880     1.356          5.7x
+matrix/legacy/obs1/walls4               7.683    8.325     1.578     1.753          4.7x
+matrix/legacy/obs8/walls0               7.638    8.486     0.894     1.401          6.1x
+matrix/legacy/obs8/walls4               8.169    8.745     1.618     1.792          4.9x
+matrix/offset_free                      9.477   10.815     1.686     2.065          5.2x
+matrix/offset_free/obs0/walls0          7.597    8.127     1.089     1.489          5.5x
+matrix/offset_free/obs0/walls4          8.433    9.001     1.896     2.063          4.4x
+matrix/offset_free/obs1/walls0          9.313    9.950     1.293     1.690          5.9x
+matrix/offset_free/obs1/walls4          9.792   10.397     1.932     2.094          5.0x
+matrix/offset_free/obs8/walls0          9.846   10.584     1.296     1.681          6.3x
+matrix/offset_free/obs8/walls4         10.583   11.321     1.976     2.317          4.9x  GATE ok
+GATE PASS (p95 rust <= p95 py)

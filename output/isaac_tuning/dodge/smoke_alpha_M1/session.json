@@ -1,0 +1,58 @@
+{
+ "started": "2026-11-18T01:47:42",
+ "domain": 78,
+ "ds_port": 11878,
+ "events": [
+  {
+   "t": 1794962862.4,
+   "what": "preflight ok",
+   "free_disk_gb": 17.2,
+   "free_vram_mib": 6766
+  },
+  {
+   "t": 1794962864.4,
+   "what": "discovery server",
+   "port": 11878,
+   "pgid": 3311016
+  },
+  {
+   "t": 1794962883.9,
+   "what": "isaac up",
+   "wall_s": 19.5
+  },
+  {
+   "t": 1794962883.9,
+   "what": "stack starting",
+   "pgid": 3312684,
+   "log": "stack_M1_r0.log"
+  },
+  {
+   "t": 1794962944.2,
+   "what": "stack stopped",
+   "wall_s": 1.1,
+   "leftovers": 0
+  },
+  {
+   "t": 1794962945.8,
+   "what": "session closed",
+   "container": false,
+   "leftovers": 0
+  }
+ ],
+ "wall": {
+  "isaac_start_s": 19.5,
+  "stack_stop_s": [
+   1.1
+  ]
+ },
+ "orphans": [],
+ "preflight": {
+  "free_disk_gb": 17.2,
+  "free_vram_mib": 6766
+ },
+ "final_check": {
+  "container_running": false,
+  "install_processes": []
+ },
+ "ended": "2026-11-18T01:49:05"
+}

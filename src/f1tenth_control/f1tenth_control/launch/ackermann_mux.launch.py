@@ -16,13 +16,23 @@ behaviour tree -- so it must not share the `behavior` supervisor component,
 whose whole job is to be restartable. It shares `control` with the mux instead,
 which is the honest coupling: the mux is the one process whose death already
 means nothing can command a stop at all.
+
+hard_stop_impl:=py|rust (supervisor_bringup/stack_bringup hard_stop_impl:=,
+default py from stack_params.yaml) picks the implementation: the Python
+hard_stop_node or its Rust port (src/rust/f1tenth_hard_stop_rs, parity in
+output/rust/parity_hard_stop.md). Never both: same node name, same topics. The
+Rust node gets the same parameters plus the two footprint values the Python
+node computes as its own defaults (the URDF bumper and stack_params' body
+half-width, through the Python node's own helpers so they cannot disagree).
 """
 
-from f1tenth_params.param_defaults import get_path_default
+from f1tenth_control.hard_stop_node import _default_front_x, _default_half_width
+from f1tenth_params.param_defaults import get_default, get_path_default
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -75,23 +85,45 @@ def generate_launch_description():
                     "manoeuvre can back the car out. false: it stops every "
                     "direction, as before.")
 
+    hard_stop_impl_default, hard_stop_impl_desc = get_default('hard_stop_impl')
+    hard_stop_impl_la = DeclareLaunchArgument(
+        'hard_stop_impl', default_value=str(hard_stop_impl_default), choices=['py', 'rust'],
+        description=hard_stop_impl_desc)
+
+    hard_stop_params = {
+        'hard_stop_enabled': ParameterValue(
+            LaunchConfiguration('hard_stop_enabled'), value_type=bool),
+        'hard_stop_range_m': ParameterValue(
+            LaunchConfiguration('hard_stop_range_m'), value_type=float),
+        'hard_stop_debounce_scans': ParameterValue(
+            LaunchConfiguration('hard_stop_debounce_scans'), value_type=int),
+        'hard_stop_clear_s': ParameterValue(
+            LaunchConfiguration('hard_stop_clear_s'), value_type=float),
+        'hard_stop_allow_reverse': ParameterValue(
+            LaunchConfiguration('hard_stop_allow_reverse'), value_type=bool),
+    }
+
+    def _impl_is(value):
+        return IfCondition(PythonExpression(
+            ["'", LaunchConfiguration('hard_stop_impl'), f"' == '{value}'"]))
+
     hard_stop_node = Node(
         package='f1tenth_control',
         executable='hard_stop_node',
         name='hard_stop_node',
         output='screen',
-        parameters=[{
-            'hard_stop_enabled': ParameterValue(
-                LaunchConfiguration('hard_stop_enabled'), value_type=bool),
-            'hard_stop_range_m': ParameterValue(
-                LaunchConfiguration('hard_stop_range_m'), value_type=float),
-            'hard_stop_debounce_scans': ParameterValue(
-                LaunchConfiguration('hard_stop_debounce_scans'), value_type=int),
-            'hard_stop_clear_s': ParameterValue(
-                LaunchConfiguration('hard_stop_clear_s'), value_type=float),
-            'hard_stop_allow_reverse': ParameterValue(
-                LaunchConfiguration('hard_stop_allow_reverse'), value_type=bool),
-        }],
+        condition=_impl_is('py'),
+        parameters=[hard_stop_params],
+    )
+    hard_stop_node_rs = Node(
+        package='f1tenth_hard_stop_rs',
+        executable='hard_stop_node',
+        name='hard_stop_node',
+        output='screen',
+        condition=_impl_is('rust'),
+        parameters=[dict(hard_stop_params,
+                         footprint_front_x_m=_default_front_x(),
+                         footprint_half_width_m=_default_half_width())],
     )
 
     ackermann_mux_node = Node(
@@ -105,5 +137,6 @@ def generate_launch_description():
     return LaunchDescription([
         mux_la, hard_stop_enabled_la, hard_stop_range_la,
         hard_stop_debounce_la, hard_stop_clear_la, hard_stop_allow_reverse_la,
-        ackermann_mux_node, hard_stop_node,
+        hard_stop_impl_la,
+        ackermann_mux_node, hard_stop_node, hard_stop_node_rs,
     ])

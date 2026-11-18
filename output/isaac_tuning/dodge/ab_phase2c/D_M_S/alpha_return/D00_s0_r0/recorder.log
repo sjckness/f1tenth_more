@@ -1,0 +1,1 @@
+recorder: start_mission failed: {'success': False, 'message': "cannot start: preflight liveness check failed -- mpc_corr: node 'mpc_corr' not found in the ROS graph (needed because every move type (goal_distance/goal_pose/turn/drive) is driven through it)"} (exit 4)

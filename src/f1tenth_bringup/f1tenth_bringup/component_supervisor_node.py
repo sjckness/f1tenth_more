@@ -289,6 +289,7 @@ import yaml
 
 from f1tenth_messages.srv import ComponentControl, RestartComponent
 from f1tenth_params.param_defaults import get_value
+from f1tenth_params.planner_modes import validate_planner_controller_mode
 
 import rclpy
 from rclpy.node import Node
@@ -402,6 +403,71 @@ _SIM_REPLACEMENTS = {
 _SIM_WRAPPER = ('f1tenth_bringup', 'sim_component.launch.py')
 
 
+# Rust ports (output/rust/): each switch is a supervisor parameter AND the
+# launch argument it becomes, written into every registry entry that launches
+# its file. {argument: (launch_file, choices)}; the first choice is the default
+# (off / py), the stack exactly as it is without the ports.
+#   guard:=         -> behavior_bringup.launch.py proximity_guard:=off|shadow|active
+#   impl:=          -> costmap.launch.py          costmap_boundary_impl:=py|rust
+#   corridor_impl:= -> navigation.launch.py       corridor_impl:=py|rust (forwarded
+#                      to mpc_corr.launch.py: MPC_corr's corridor geometry, R1)
+#   mpc_solver_impl:= -> navigation.launch.py     mpc_solver_impl:=py|rust (forwarded
+#                      to mpc_corr.launch.py: the RTI solver core, R2)
+#   hard_stop_impl:= -> ackermann_mux.launch.py   hard_stop_impl:=py|rust (the
+#                      `control` component's last-resort LiDAR stop, R4)
+#   wall_tracker_impl:= -> lidar_front_wall.launch.py  wall_tracker_impl:=py|rust
+#                      (lidar_front_wall_node's wall tracker and fusion, R6)
+# Keyed by argument, not by launch file, because one file can take several
+# (navigation.launch.py takes both MPC switches).
+_RUST_SWITCHES = {
+    'proximity_guard': ('behavior_bringup.launch.py', ('off', 'shadow', 'active')),
+    'costmap_boundary_impl': ('costmap.launch.py', ('py', 'rust')),
+    'corridor_impl': ('navigation.launch.py', ('py', 'rust')),
+    'mpc_solver_impl': ('navigation.launch.py', ('py', 'rust')),
+    'hard_stop_impl': ('ackermann_mux.launch.py', ('py', 'rust')),
+    'wall_tracker_impl': ('lidar_front_wall.launch.py', ('py', 'rust')),
+}
+
+
+def rust_switch_defaults():
+    """{argument: default} for every switch: off / py."""
+    return {arg: choices[0] for arg, (_launch_file, choices) in _RUST_SWITCHES.items()}
+
+
+def validate_rust_switches(values):
+    """
+    Raise ValueError for an unknown switch or a value its launch file refuses.
+
+    `values` is {argument: value}, e.g. {'corridor_impl': 'rust'}.
+    """
+    unknown = sorted(set(values) - set(_RUST_SWITCHES))
+    if unknown:
+        raise ValueError(f'unknown Rust switch {unknown}, known: {sorted(_RUST_SWITCHES)}')
+    for arg, value in values.items():
+        choices = _RUST_SWITCHES[arg][1]
+        if value not in choices:
+            raise ValueError(f'{arg} must be one of {choices}, got {value!r}')
+
+
+def apply_rust_switches(registry, values):
+    """Write each switch into the args of the entries that launch its file.
+
+    `values` is {argument: value}. Found by launch_file, like
+    _apply_mission_logger_override, so moving an entry to another component
+    cannot disconnect a switch. The defaults (off, py) are written too: a
+    components.yaml literal cannot silently disagree with the supervisor's
+    own parameter.
+    """
+    validate_rust_switches(values)
+    for entries in registry.values():
+        for entry in entries:
+            launch_file = str(entry.get('launch_file', ''))
+            for arg, value in values.items():
+                if launch_file == _RUST_SWITCHES[arg][0]:
+                    entry.setdefault('args', {})[arg] = value
+    return registry
+
+
 def apply_sim_mode(registry, component_args=None):
     """Pure: the registry as it runs in sim. Returns a deep-enough copy, never edits the input.
 
@@ -451,6 +517,28 @@ def load_sim_component_args(*overlay_paths):
         for comp, args in (section.get('sim_component_args') or {}).items():
             merged.setdefault(comp, {}).update(args or {})
     return merged
+
+
+#: The components whose launch files take planner_controller_mode: navigation
+#: (which node backs the drive lane) and behavior (which node the mission
+#: preflight requires). Found by launch_file, like the logger toggle.
+_PLANNER_MODE_LAUNCH_FILES = ('navigation.launch.py', 'behavior_bringup.launch.py')
+
+
+def apply_planner_controller_mode(registry, mode):
+    """Pure: write planner_controller_mode into the args of the entries that take it.
+
+    Edits ``registry`` in place (the supervisor's freshly parsed copy) and
+    returns it. Both ends get the same value from the same place, so the
+    controller that is started and the one the preflight looks for can never
+    disagree.
+    """
+    mode = validate_planner_controller_mode(mode)
+    for entries in registry.values():
+        for entry in entries:
+            if str(entry.get('launch_file', '')) in _PLANNER_MODE_LAUNCH_FILES:
+                entry.setdefault('args', {})['planner_controller_mode'] = mode
+    return registry
 
 
 def _declare_if_overridden(node, name, default):
@@ -635,10 +723,39 @@ class ComponentSupervisorNode(Node):
         # It exists because the supervisor launches each component with the
         # args in components.yaml and does NOT forward its own CLI args, so
         # without this `supervisor_bringup.launch.py enable_mission_logger:=
-        # true` would be silently ignored -- the component would still run
-        # mission_logger.launch.py with its own (now false) default.
+        # false` would be silently ignored -- the component would still run
+        # mission_logger.launch.py with its own stack_params.yaml default
+        # (true again since 2026-10-23, see that key's own description).
         self.enable_mission_logger = bool(
             self.declare_parameter('enable_mission_logger', False).value)
+        # Rust ports (output/rust/): supervisor_bringup.launch.py guard:= and
+        # impl:=, the same shape as enable_mission_logger and for the same
+        # reason. Validated here as well as by the launch arguments' choices:
+        # a bare `ros2 run` must not start a guard mode nobody asked for.
+        # corridor_impl (R1), mpc_solver_impl (R2) and hard_stop_impl (R4): default from
+        # stack_params.yaml like the launch arguments', so a bare `ros2 run`
+        # agrees with the bringups.
+        self.proximity_guard = str(self.declare_parameter('proximity_guard', 'off').value)
+        self.costmap_boundary_impl = str(
+            self.declare_parameter('costmap_boundary_impl', 'py').value)
+        self.corridor_impl = str(
+            self.declare_parameter('corridor_impl', str(get_value('corridor_impl'))).value)
+        self.mpc_solver_impl = str(self.declare_parameter(
+            'mpc_solver_impl', str(get_value('mpc_solver_impl'))).value)
+        self.hard_stop_impl = str(
+            self.declare_parameter('hard_stop_impl', str(get_value('hard_stop_impl'))).value)
+        # wall_tracker_impl (R6): the same shape, for the lidar_front_wall component.
+        self.wall_tracker_impl = str(self.declare_parameter(
+            'wall_tracker_impl', str(get_value('wall_tracker_impl'))).value)
+        self.rust_switches = {
+            'proximity_guard': self.proximity_guard,
+            'costmap_boundary_impl': self.costmap_boundary_impl,
+            'corridor_impl': self.corridor_impl,
+            'mpc_solver_impl': self.mpc_solver_impl,
+            'hard_stop_impl': self.hard_stop_impl,
+            'wall_tracker_impl': self.wall_tracker_impl,
+        }
+        validate_rust_switches(self.rust_switches)
         # component-auto-start pass: whether 'intelligence' (llama-server) auto-
         # starts -- same "declared parameter, wired from supervisor_bringup.
         # launch.py's own launch argument, default sourced from stack_params.yaml"
@@ -666,6 +783,14 @@ class ComponentSupervisorNode(Node):
         # file's own enable_comms (false).
         self.enable_comms = bool(
             self.declare_parameter('enable_comms', bool(get_value('enable_comms'))).value)
+        # Which planner-controller backs the drive lane (f1tenth_params/
+        # planner_modes.py). The same declared-parameter shape again, so
+        # `supervisor_bringup.launch.py planner_controller_mode:=corridor_rrt`
+        # switches a test session without editing stack_params.yaml. Validated
+        # here so a typo stops the bringup instead of starting no controller.
+        self.planner_controller_mode = validate_planner_controller_mode(
+            self.declare_parameter('planner_controller_mode',
+                                   str(get_value('planner_controller_mode'))).value)
         # Simulation mode (supervisor_bringup.launch.py sim:=isaac, use_sim_time:=true).
         # Declared only when the launch passes them, so the car's supervisor keeps its
         # old parameter set. This node itself stays on wall time: its watchdog must keep
@@ -732,6 +857,19 @@ class ComponentSupervisorNode(Node):
         # After the sim rewrite, on whichever registry is final: the logger
         # toggle is by launch_file, so it applies to the car and to sim alike.
         self._apply_mission_logger_override()
+        apply_rust_switches(self._registry, self.rust_switches)
+        if self.rust_switches != rust_switch_defaults():
+            self.get_logger().info(
+                f'[component_supervisor] Rust ports: guard:={self.proximity_guard} '
+                f'impl:={self.costmap_boundary_impl} '
+                f'corridor_impl:={self.corridor_impl} '
+                f'mpc_solver_impl:={self.mpc_solver_impl} '
+                f'hard_stop_impl:={self.hard_stop_impl} '
+                f'wall_tracker_impl:={self.wall_tracker_impl} (output/rust/)')
+        apply_planner_controller_mode(self._registry, self.planner_controller_mode)
+        self.get_logger().info(
+            f'[component_supervisor] planner_controller_mode: '
+            f'{self.planner_controller_mode}')
 
         # Some individual launch files within a multi-launch component legitimately
         # do nothing at all when their own feature flag is off -- an empty (or
@@ -1175,10 +1313,15 @@ class ComponentSupervisorNode(Node):
     def _apply_mission_logger_override(self):
         """Pass enable_mission_logger down to the one component that launches it.
 
-        Recording is opt-in since 2026-10-16 (stack_params.yaml's own
-        enable_mission_logger description says why), and this supervisor
+        Recording defaulted to opt-in from 2026-10-16 to 2026-10-23
+        (stack_params.yaml's own enable_mission_logger description says why);
+        an unrelated cherry-pick (6137165f9) flipped that yaml default back
+        to true with no mention of logging in its message, so recording is
+        on by default again and the CPU/bag-rate cost that motivated the
+        opt-in default has not been re-accepted. Pass enable_mission_logger:
+        =false explicitly to opt back out. Either direction, this supervisor
         launches every component with the args components.yaml gives it and
-        nothing else. So the live declared parameter is written into the args
+        nothing else, so the live declared parameter is written into the args
         of whichever 'diagnostics' entry launches mission_logger.launch.py --
         found by launch_file rather than by position, so reordering that
         component cannot quietly disconnect the toggle. Same in-place mutation

@@ -213,7 +213,13 @@ def probe(spec: dict) -> dict:
 
 
 def monitor(spec: dict) -> int:
-    """Rewrite the snapshot file every `period_s` until SIGINT/SIGTERM."""
+    """
+    Rewrite the snapshot file every `period_s` until SIGINT/SIGTERM.
+
+    With spec['mission_sock'] it also serves mission-load / mission-start over that unix
+    socket (missiond.py): one request at a time, run from this loop, which keeps writing
+    snapshots while a request waits on the loader.
+    """
     import signal
 
     import rclpy
@@ -235,12 +241,13 @@ def monitor(spec: dict) -> int:
     window = max(float(spec.get('window_s', 1.0)), 2.0)
     period = float(spec.get('period_s', 0.5))
     started = time.time()
-    next_write = time.monotonic() + period
-    while not stop['now'] and rclpy.ok():
-        ex.spin_once(timeout_sec=0.02)
-        if time.monotonic() < next_write:
-            continue
-        next_write = time.monotonic() + period
+    state = {'next_write': time.monotonic() + period}
+
+    def write_snapshot(now=None):
+        now = time.monotonic() if now is None else now
+        if now < state['next_write']:
+            return
+        state['next_write'] = now + period
         snap = {'time': time.time(), 'started': started, 'pid': os.getpid(),
                 'spec_id': spec.get('spec_id'), 'window_s': window,
                 'measured': meter.measure(window), 'nodes': _nodes(node)}
@@ -248,10 +255,55 @@ def monitor(spec: dict) -> int:
         with open(tmp, 'w') as f:
             json.dump(snap, f)
         os.replace(tmp, out_path)
+
+    server = _mission_daemon(node, ex, spec, meter, write_snapshot)
+    while not stop['now'] and rclpy.ok():
+        ex.spin_once(timeout_sec=0.02)
+        if server is not None:
+            server.poll()
+        write_snapshot()
+    if server is not None:
+        server.close()
     ex.remove_node(node)
     node.destroy_node()
     _shutdown()
     return 0
+
+
+def _mission_daemon(node, ex, spec, meter, tick):
+    """Start the mission socket server on the monitor's node, or return None (any trouble)."""
+    path = spec.get('mission_sock')
+    if not path:
+        return None
+    try:
+        from collections import deque
+
+        from rosidl_runtime_py.utilities import get_service
+        from std_srvs.srv import Trigger
+
+        from . import missiond, ready
+
+        def log(message):
+            print(f'[{time.strftime("%H:%M:%S")}] {message}', flush=True)
+
+        statuses = deque(maxlen=64)
+        ops_box = {}
+        _status_sub(node, spec, statuses,
+                    on_sample=lambda: ops_box['ops'].note_status() if ops_box else None)
+        load_type = get_service('f1tenth_messages/srv/LoadMission')
+        load_cli = node.create_client(load_type, spec.get('load_service', '/mission/load_mission'))
+        start_cli = node.create_client(Trigger, spec.get('start_service',
+                                                         '/mission/start_mission'))
+        ops = missiond.RosOps(node, ex, statuses, load_cli, start_cli, load_type, meter,
+                              spec.get('checks', []), spec, tick=tick, core=mission_core,
+                              ready=ready.evaluate, estop_latched=ready.estop_latched)
+        ops_box['ops'] = ops
+        server = missiond.Server(path, ops.execute, log=log)
+        ops.tick = lambda now: (tick(now), server.beat())
+        return server if server.start() else None
+    except Exception as exc:  # noqa: BLE001 - the READY monitor must run without the daemon
+        print(f'missiond: not started: {type(exc).__name__}: {exc}', flush=True)
+        return None
 
 
 def step_record(status: str, message: str, duration_s: float, **extra) -> dict:
@@ -479,12 +531,14 @@ class ZeroDrive:
         return step_record('ok' if ok else 'failed', message, span, **extra)
 
 
-def _status_sub(node, spec, store):
+def _status_sub(node, spec, store, on_sample=None):
     from rosidl_runtime_py.utilities import get_message
 
     def cb(msg):
         store.append((time.monotonic(), bool(msg.emergency_stop_active), msg.state,
                       msg.json_path))
+        if on_sample:
+            on_sample()
     node.create_subscription(get_message(spec.get('status_type',
                                                   'f1tenth_messages/msg/MissionStatus')),
                              spec.get('status_topic', '/mission/status'), cb,
@@ -707,6 +761,21 @@ def mission(spec: dict) -> dict:
         ready = {'load': load_cli, 'start': start_cli}.get(op)
         if statuses and (ready is None or ready.service_is_ready()):
             break
+    out = mission_core(spec, ex, statuses, load_cli, start_cli, load_type)
+    _close(ex, node)
+    return out
+
+
+def mission_core(spec: dict, ex, statuses: list, load_cli, start_cli, load_type,
+                 tick=None) -> dict:
+    """
+    Run load | start | status once on an already discovered node.
+
+    Shared by the CLI's one-shot probe and the monitor's mission daemon, so both make the
+    same checks. `statuses` is the node's /mission/status samples, (time, e-stop, state,
+    path); `tick` is called while waiting, to keep a long-lived caller's own work going.
+    """
+    op = spec.get('op')
     out = {}
     if statuses:
         _, latched, state, json_path = statuses[-1]
@@ -715,12 +784,10 @@ def mission(spec: dict) -> dict:
         out['ok'] = bool(statuses)
         if not statuses:
             out['error'] = 'no /mission/status: is behavior running?'
-        _close(ex, node)
         return out
 
     def refuse(why):
         out.update(ok=False, error=why)
-        _close(ex, node)
         return out
 
     if not statuses:
@@ -738,7 +805,7 @@ def mission(spec: dict) -> dict:
             return refuse('/mission/load_mission not available')
         req = load_type.Request()
         req.path = spec['path']
-        out['load'] = _call(ex, load_cli, req, 5.0)
+        out['load'] = _call(ex, load_cli, req, 5.0, tick)
         target = spec['path']
     elif op == 'start':
         if out['emergency_stop_active']:
@@ -749,7 +816,8 @@ def mission(spec: dict) -> dict:
             return refuse(f"the loaded mission is not this one ({out['json_path']})")
         if not start_cli.service_is_ready():
             return refuse('/mission/start_mission not available')
-        out['start'] = _call(ex, start_cli, Trigger.Request(), 5.0)
+        from std_srvs.srv import Trigger
+        out['start'] = _call(ex, start_cli, Trigger.Request(), 5.0, tick)
         target = None
     else:
         return refuse(f'unknown op {op!r}')
@@ -762,12 +830,13 @@ def mission(spec: dict) -> dict:
     end = t_after + 2.0
     while time.monotonic() < end:
         ex.spin_once(timeout_sec=0.02)
+        if tick:
+            tick(time.monotonic())
         if statuses[-1][0] >= t_after - 0.5 and (target is None or statuses[-1][3] == target):
             break
     _, latched, state, json_path = statuses[-1]
     out['after'] = {'ros_state': state, 'json_path': json_path,
                     'emergency_stop_active': latched}
-    _close(ex, node)
     return out
 
 

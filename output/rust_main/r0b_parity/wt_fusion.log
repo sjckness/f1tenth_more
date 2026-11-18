@@ -1,0 +1,8 @@
+## python3 tools/rust_parity/wall_tracker/fusion_cases.py --n 3000 --json /home/andreas/dev_ws/f1tenth_more_r0b/output/rust_main/r0b_parity/wt_fusion_cases.json (2026-10-24T23:43:50+02:00)
+library /home/andreas/dev_ws/f1tenth_more_r0b/install/f1tenth_wall_tracker_core/lib/f1tenth_wall_tracker_core/libf1tenth_wall_tracker_core.so (build: cargo profile debug, opt-level 3, debug_assertions on)
+robust_line     3000 cases  0 mismatches
+fusion          3000 cases  0 mismatches
+rectangles       600 cases  0 mismatches
+coverage {'columns_agree': 69904, 'columns_lidar_only': 29418, 'columns_stereo_only': 208460, 'columns_disagree': 37727, 'observations': 4582, 'stereo_only_obs': 451, 'both_obs': 1752, 'rejected': 366, 'rect_segments': 3326, 'rect_informative': 939}
+TOTAL mismatches: 0
+## exit 0, 11 s

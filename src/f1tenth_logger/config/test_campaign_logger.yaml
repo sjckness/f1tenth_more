@@ -39,3 +39,7 @@ test_campaign_logger:
     plan_result_topic: /test/plan_result
     mission_event_topic: /test/mission_event
     best_effort_sensors: true
+    # true: /mission/status START opens a test, COMPLETE/ABORTED/e-stop closes it
+    # (auto_trigger.py); plan_result/mission_event are then not subscribed.
+    auto_mode: false
+    mission_status_topic: /mission/status

@@ -1,0 +1,21 @@
+{
+ "scenario": "D02_s0",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 4,
+  "reason": "/reset_all failed: {'success': False, 'message': 'a reset is already running; this call was refused'}"
+ },
+ "end_reason": null,
+ "phases_wall_s": {
+  "ready": 13.733,
+  "params": 0.174,
+  "scenario": 0.007,
+  "reset": 60.993
+ },
+ "outcome": "invalid",
+ "score": null,
+ "valid": false,
+ "recorder_code": 4,
+ "wall_recorder_s": 76.2,
+ "isaac_alive_after": true
+}

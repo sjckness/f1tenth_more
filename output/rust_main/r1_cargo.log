@@ -1,0 +1,158 @@
+## cargo fmt --all --check
+exit 0
+## cargo clippy --all-targets -- -D warnings
+    Updating crates.io index
+  |
+  = help: perhaps you meant one of the following:
+          	/home/andreas/dev_ws/f1tenth_more_rust/src/rust/f1tenth_costmap_boundary_rs
+  |
+  = help: perhaps you meant one of the following:
+          	/home/andreas/dev_ws/f1tenth_more_rust/src/rust/f1tenth_mpc_core
+  |
+  = help: perhaps you meant one of the following:
+          	/home/andreas/dev_ws/f1tenth_more_rust/src/rust/f1tenth_proximity_guard
+   Compiling f1tenth_costmap_boundary_rs v0.1.0 (/home/andreas/dev_ws/f1tenth_more_rust/src/rust/f1tenth_costmap_boundary_rs)
+   Compiling f1tenth_proximity_guard v0.1.0 (/home/andreas/dev_ws/f1tenth_more_rust/src/rust/f1tenth_proximity_guard)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 3.41s
+exit 0
+## cargo test
+    Updating crates.io index
+  |
+  = help: perhaps you meant one of the following:
+          	/home/andreas/dev_ws/f1tenth_more_rust/src/rust/f1tenth_costmap_boundary_rs
+  |
+  = help: perhaps you meant one of the following:
+          	/home/andreas/dev_ws/f1tenth_more_rust/src/rust/f1tenth_mpc_core
+  |
+  = help: perhaps you meant one of the following:
+          	/home/andreas/dev_ws/f1tenth_more_rust/src/rust/f1tenth_proximity_guard
+   Compiling f1tenth_mpc_core v0.1.0 (/home/andreas/dev_ws/f1tenth_more_rust/src/rust/f1tenth_mpc_core)
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.85s
+     Running unittests src/lib.rs (target/debug/deps/f1tenth_costmap_boundary_rs-7a9a59cff3769f6d)
+
+running 18 tests
+test build_info::tests::built_optimised ... ok
+test build_info::tests::the_summary_names_profile_opt_level_and_assertions ... ok
+test config::tests::a_switch_and_a_missing_value_are_both_reported ... ok
+test config::tests::both_cleanup_switches_are_reported_together ... ok
+test config::tests::each_unported_switch_is_refused_with_its_own_name ... ok
+test config::tests::the_message_pattern_is_the_one_use_convex_polytope_always_had ... ok
+test config::tests::the_rate_must_be_positive_and_finite ... ok
+test config::tests::the_defaults_start ... ok
+test config::tests::the_vehicle_frames_values_are_required ... ok
+test extraction::tests::bad_inputs_are_errors ... ok
+test extraction::tests::far_outside_the_map_is_permissive ... ok
+test extraction::tests::beside_the_car_is_not_front_clearance ... ok
+test extraction::tests::wall_ahead_and_sides ... ok
+test extraction::tests::clearance_contact_band_reads_min_distance ... ok
+test extraction::tests::yaw_formula ... ok
+test replay::tests::one_wall_cell ... ok
+test extraction::tests::empty_map_has_no_constraints_and_reads_clear ... ok
+test extraction::tests::unknown_is_never_occupied ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/costmap_boundary_node-4142fe6067e89b6e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/costmap_boundary_replay.rs (target/debug/deps/costmap_boundary_replay-6433c9bc34096b2d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/f1tenth_mpc_core-856a8ab0616fc766)
+
+running 28 tests
+test build_info::tests::built_optimised ... ok
+test build_info::tests::the_summary_names_profile_opt_level_and_assertions ... ok
+test corridor::tests::constants_are_the_python_ones ... ok
+test corridor::tests::a_straight_corridor_is_straight_and_ends_at_length ... ok
+test corridor::tests::n_two_and_zero_length_do_not_fail ... ok
+test corridor::tests::the_ramp_clamp_widens_and_reports ... ok
+test ffi::tests::the_abi_reports_itself ... ok
+test corridor::tests::too_few_samples_and_domain_errors_are_reported ... ok
+test ffi::tests::the_frame_query_round_trips ... ok
+test ffi::tests::the_ffi_reports_errors ... ok
+test corridor::tests::the_pose_corridor_ends_on_both_poses ... ok
+test corridor::tests::trapezoid_walls_are_two_half_widths_apart ... ok
+test npcompat::tests::cumsum_is_sequential ... ok
+test npcompat::tests::argmin_first_index_and_nan ... ok
+test npcompat::tests::diff_and_gradient ... ok
+test npcompat::tests::dot2_starts_from_positive_zero ... ok
+test npcompat::tests::interp_edges_nan_and_exact_points ... ok
+test npcompat::tests::linspace_endpoints_and_steps ... ok
+test npcompat::tests::max_reduce_propagates_nan ... ok
+test npcompat::tests::np_clip_semantics ... ok
+test npcompat::tests::np_maximum_propagates_nan_from_either_side ... ok
+test npcompat::tests::py_atan2_special_cases ... ok
+test npcompat::tests::python_max_min_keep_the_first_argument ... ok
+test query::tests::the_frame_gives_lateral_offset_and_heading ... ok
+test query::tests::the_nearest_sample_is_the_first_minimum ... ok
+test ffi::tests::the_ffi_writes_what_the_library_computes ... ok
+test npcompat::tests::binary_search_with_guess_matches_a_plain_search_on_sorted_input ... ok
+test npcompat::tests::pow3_is_libm_pow_not_two_multiplications ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/f1tenth_proximity_guard-c99a1ce87b6d6c5e)
+
+running 21 tests
+test build_info::tests::built_optimised ... ok
+test build_info::tests::the_summary_names_profile_opt_level_and_assertions ... ok
+test decision::tests::bad_layout_stops ... ok
+test decision::tests::empty_scan_stops ... ok
+test decision::tests::mostly_nan_front_stops ... ok
+test decision::tests::nan_and_inf_are_skipped_like_the_python ... ok
+test decision::tests::negative_infinity_in_cone_stops ... ok
+test decision::tests::missing_tf_fallback_trips_earlier ... ok
+test decision::tests::open_scan_is_clear ... ok
+test decision::tests::rear_only_scan_has_no_front_beams ... ok
+test decision::tests::wrap_pi_stays_in_range ... ok
+test replay::tests::parses_non_finite_ranges ... ok
+test replay::tests::rejects_garbage ... ok
+test static_tf::tests::chain_and_inverse ... ok
+test static_tf::tests::direct_child ... ok
+test decision::tests::straight_ahead_trips_by_bumper_distance ... ok
+test watchdog::tests::car_is_steady_only_and_unchanged ... ok
+test static_tf::tests::disconnected_and_cyclic ... ok
+test watchdog::tests::ros_age_handles_backwards_clock ... ok
+test watchdog::tests::sim_follows_ros_time ... ok
+test decision::tests::return_behind_bumper_is_not_front ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/proximity_guard_node-73792126a8c50db7)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/proximity_guard_replay.rs (target/debug/deps/proximity_guard_replay-b925876c2b1055f4)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests f1tenth_costmap_boundary_rs
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests f1tenth_mpc_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests f1tenth_proximity_guard
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+exit 0

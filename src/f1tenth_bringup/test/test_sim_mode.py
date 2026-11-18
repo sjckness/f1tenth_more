@@ -168,3 +168,36 @@ def test_sim_camera_tf_uses_the_cars_node_name_and_v4_frame_names():
                   'zed2_right_camera_optical_frame'):
         assert f'name="{frame}"' in text
     assert 'frame_optical"' not in text   # no v5 link names (zed2_left_camera_frame_optical)
+
+
+class TestPlannerControllerMode:
+    """apply_planner_controller_mode: navigation and behavior get the same mode."""
+
+    def _with_mode(self, mode):
+        from component_supervisor_node import apply_planner_controller_mode
+        return apply_planner_controller_mode(_registry(), mode)
+
+    @pytest.mark.parametrize('mode', ['corridor_mpc', 'corridor_rrt', 'p2p_geometric'])
+    def test_both_ends_get_it(self, mode):
+        reg = self._with_mode(mode)
+        nav = [e for e in reg['navigation'] if e['launch_file'] == 'navigation.launch.py']
+        beh = [e for e in reg['behavior'] if e['launch_file'] == 'behavior_bringup.launch.py']
+        assert nav and beh
+        assert all(e['args']['planner_controller_mode'] == mode for e in nav + beh)
+
+    def test_nothing_else_gets_it(self):
+        reg = self._with_mode('corridor_rrt')
+        others = [e for name, entries in reg.items() for e in entries
+                  if e['launch_file'] not in ('navigation.launch.py',
+                                              'behavior_bringup.launch.py')]
+        assert all('planner_controller_mode' not in e['args'] for e in others)
+
+    def test_a_typo_stops_the_bringup(self):
+        with pytest.raises(ValueError):
+            self._with_mode('corridor-rrt')
+
+    def test_it_survives_the_sim_rewrite(self):
+        from component_supervisor_node import apply_planner_controller_mode
+        reg = apply_planner_controller_mode(apply_sim_mode(_registry(), {}), 'p2p_geometric')
+        nav = [e for e in reg['navigation'] if e['launch_file'] == 'navigation.launch.py']
+        assert nav[0]['args']['planner_controller_mode'] == 'p2p_geometric'

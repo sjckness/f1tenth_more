@@ -1,0 +1,21 @@
+{
+ "scenario": "D01_s3",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 4,
+  "reason": "/reset_all failed: {'success': False, 'message': 'a reset is already running; this call was refused'}"
+ },
+ "end_reason": null,
+ "phases_wall_s": {
+  "ready": 14.776,
+  "params": 0.111,
+  "scenario": 0.014,
+  "reset": 61.001
+ },
+ "outcome": "invalid",
+ "score": null,
+ "valid": false,
+ "recorder_code": 4,
+ "wall_recorder_s": 77.2,
+ "isaac_alive_after": true
+}

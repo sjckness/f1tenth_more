@@ -1,0 +1,77 @@
+{
+ "scenario": "M3",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "end_reason": "mission COMPLETE",
+ "phases_wall_s": {
+  "ready": 4.864,
+  "params": 0.193,
+  "scenario": 0.016,
+  "reset": 6.459,
+  "start": 0.007,
+  "record": 12.569
+ },
+ "valid": true,
+ "start_pose_map_sim": {
+  "x": 0.4551044533548553,
+  "y": 2.9975922552372105,
+  "yaw_deg": 2.6481587262076607
+ },
+ "progress_m": 4.0214761990390775,
+ "max_lateral_error_m": 0.4702376524360557,
+ "final_lateral_error_m": 0.4667469889328552,
+ "final_heading_error_rad": 0.0148107333350933,
+ "duration_s": 10.566666666999993,
+ "time_to_goal_s": 10.566666666999993,
+ "obstacles": [
+  {
+   "id": "cyl050",
+   "r": 0.25,
+   "min_centre_dist_m": 0.5897487086549501,
+   "r_safe_ref_m": 0.5700000000000001,
+   "margin_m": 0.019748708654950042
+  }
+ ],
+ "min_margin_m": 0.019748708654950042,
+ "min_body_clearance_m": 0.08512075950536213,
+ "steer_sign_changes": 1,
+ "solver_ticks": 104,
+ "solve_failures": 0,
+ "max_n_obstacles_seen": 29,
+ "solve_time_ms_p95": 0.0,
+ "mpc_cpu_ms_per_tick": 67.40384615384617,
+ "perceived_r_max_m": 0.2862422466278076,
+ "safety": {
+  "hard_stop_engaged": true,
+  "bt_trip": true,
+  "mux_safety_lanes": [
+   "base_link/emergency",
+   "base_link/hard_stop"
+  ],
+  "contact_event": false,
+  "events": [
+   {
+    "event": "estop",
+    "cause": "IsProximityTooClose",
+    "source": "behavior_tree",
+    "lane": "emergency"
+   }
+  ]
+ },
+ "outcome": "estop",
+ "mission_final_state": "COMPLETE",
+ "score": 0.0,
+ "score_terms": null,
+ "nominal": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "recorder_code": 0,
+ "frames": 26,
+ "wall_recorder_s": 25.7,
+ "isaac_alive_after": true
+}

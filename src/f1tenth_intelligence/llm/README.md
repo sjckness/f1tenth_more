@@ -224,6 +224,33 @@ falls back to it** — a silent downgrade would produce a mission from a
 different prompt with different semantics and the display would still look
 reasonable.
 
+## Request cost
+
+A request is the system prompt plus a short `comando: "..."` tail.
+`cache_prompt: true` keeps that prefix in llama-server's KV cache, so only the
+tail is re-read. This only holds while the prompt stays **byte-identical**: one
+changed byte in `prompts/*.txt` or `SYSTEM_PROMPT` invalidates the cache and
+every latency benchmark. `LLAMA_STOP` (`}` then a newline or a space) ends
+generation where the model stops answering. Without it, the no_go_to and
+legacy prompts repeated the answer or added prose up to the token cap: 11 s.
+A valid answer is one line of compact JSON, so it cannot contain either
+string. llama-server strips the stop string, closing `}` included, so
+`_completion()` puts `stopping_word` back before parsing. `LLAMA_N_PREDICT`
+(1184) is 1.5x the longest answer the schema allows. A `limit` stop logs a
+truncation WARNING. At startup, `_wait_for_llama_server(warm_prompt=...)`
+sends the real system prompt in `_completion()`'s format. That one request
+loads the model and caches the prefix, so the first command is as fast as
+the rest. `llm_warmup` (started by `llm.launch.py`) primes the same prefix.
+`models.yaml` gives the planner's server `-np 1`, a single slot, so no other
+request can evict the cached prefix. Every command logs one
+`latenza: llm=… traduzione=… servizi=… totale=…` line, and the RESULT line
+carries the same numbers under `latency`.
+
+End to end on the live stack (process start, LLM, services, start to RUNNING):
+`tools/bench/planner_to_start_orin.sh -- --car-is-safe --suite`. It **starts
+real missions**: run it only with the car lifted or the motor output off. See
+the tool's header.
+
 ## Failure handling
 
 | Condition | Behaviour |

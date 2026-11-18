@@ -65,6 +65,9 @@ class Config:
     # read, write and pool.
     force_ipv4: bool = True
     timeout_s: float = 20.0
+    # How long one `planner-log` may block on the car waiting for the plan (long-poll,
+    # see planner.WAIT_S). 0 turns it off: the old 2 s polling.
+    planner_wait_s: float = 8.0
     transcription: Transcription = field(default_factory=Transcription)
 
     def timeout(self, cmd: str) -> float:
@@ -104,10 +107,16 @@ def from_dict(data: dict) -> Config:
         raise ConfigError('telegram.timeout_s must be a number of seconds') from exc
     if timeout_s <= 0:
         raise ConfigError('telegram.timeout_s must be > 0')
+    try:
+        planner_wait_s = float(tg.get('planner_wait_s', 8.0))
+    except (TypeError, ValueError) as exc:
+        raise ConfigError('telegram.planner_wait_s must be a number of seconds') from exc
+    if planner_wait_s < 0:
+        raise ConfigError('telegram.planner_wait_s must be >= 0')
     return Config(target=target, timeouts=timeouts, allowed_user_ids=ids,
                   max_command_age_s=float(tg.get('max_command_age_s', 10.0)),
                   token_env_file=tg.get('token_env_file', '~/.config/f1tenth_telegram/env'),
-                  force_ipv4=force_ipv4, timeout_s=timeout_s,
+                  force_ipv4=force_ipv4, timeout_s=timeout_s, planner_wait_s=planner_wait_s,
                   transcription=_transcription(data.get('transcription') or {}))
 
 

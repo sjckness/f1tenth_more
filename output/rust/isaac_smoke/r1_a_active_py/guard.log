@@ -1,0 +1,3 @@
+[INFO] [proximity_guard_node-1]: process started with pid [1316834]
+[proximity_guard_node-1] [INFO] [1792344108.161895893] [proximity_guard_node]: proximity_guard_node started: mode=active threshold=0.150 m from base_front (x=0.405 m), cone +-45.0 deg, scan timeout 200 ms (ros clock), max invalid fraction 0.50, decisions on /proximity_guard/decision, stops on safety_stop (frame_id base_link/proximity_guard)
+[proximity_guard_node-1] [WARN] [1792344108.214302735] [proximity_guard_node]: front proximity no_scan_yet: no /scan for 63 ms (timeout 200 ms): STOPPING

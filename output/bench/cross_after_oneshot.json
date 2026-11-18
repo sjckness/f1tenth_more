@@ -1,0 +1,424 @@
+{
+ "meta": {
+  "git_head": "5802e16f+dirty",
+  "ros_domain_id": "0",
+  "rmw_implementation": "rmw_fastrtps_cpp",
+  "ros_discovery_server": "127.0.0.1:11811",
+  "fastdds_profile": "/opt/f1tenth_ws/src/f1tenth_bringup/config/fastdds_profile.xml",
+  "mode": "oneshot",
+  "planner_pythonpath": null,
+  "time": "2026-11-09T10:45:54",
+  "image_sources": [
+   "commit 5802e16fb500eedb4abbb8b86e8ea5d5f9348365",
+   "subject llm: planner llama-server -c 4096 (one slot, 144 MiB of KV instead of 1152)",
+   "branch door-goal-debug",
+   "describe night-start/pwa-control-origin-224-g5802e16fb500"
+  ],
+  "llama_server_cmdline": "/opt/llama.cpp/bin/llama-server -m /home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf --port 8083 -ngl 999 -np 1 -c 4096",
+  "ros2_daemon_running": false,
+  "llama_server_props": {
+   "model_path": "/home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf",
+   "total_slots": 1,
+   "build_info": "b1-42532af",
+   "n_ctx": 4096
+  },
+  "planner_module": "/opt/f1tenth_ws/install/lib/python3.12/site-packages/llm/llm_planner_node.py"
+ },
+ "runs": [
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 0,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.336933972022962,
+    "t_server_ready": 2.5517103000020143,
+    "t_ready": 2.5609645710210316,
+    "t_planned": 3.087089400010882,
+    "t_loaded_log": 3.59390134899877,
+    "t_loaded": 3.5930085010186303,
+    "t_running": null,
+    "t_exit": 3.8953028560208622,
+    "t_llm_done": 3.0709645710210314
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.526,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.506,
+     "translate_s": 0.02,
+     "services_s": 0.509,
+     "total_s": 1.036
+    }
+   },
+   "latency": {
+    "llm_s": 0.51,
+    "translate_s": 0.02,
+    "services_s": 0.51,
+    "total_s": 1.04
+   },
+   "error": "[ERROR] [1794217561.877114046] [llm_planner_node]: start_mission FALLITO: cannot start: preflight liveness check failed -- ackermann_to_vesc_node: node 'ackermann_to_vesc_node' not found in the ROS graph (needed because converts mpc_corr's drive command into actual VESC commands -- the exact node a prior battery-precheck launch race left silently missing while mpc_corr/ackermann_mux/EKF all looked healthy); localization (/odom): alive but no data received yet on its expected topic (needed because CheckStopCondition's distance/heading tracking needs it for every move); lidar_front_wall_node (/perception/virtual_wall): alive but no data received yet on its expected topic (needed because a 'front_clearance' stop_condition (or resume_condition) is used)",
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5609645710210316,
+    "llm": 0.51,
+    "translate": 0.02,
+    "services": null,
+    "start_to_running": null,
+    "total_to_start": null,
+    "total_to_running": null
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "",
+    "missione generata in 0.53s (v2), 1 move:",
+    "  0. vai dritto",
+    "       id       move_0_straight",
+    "       velocita 0.5 m/s",
+    "       fino a   muro entro 2.0 m per 3 tick consecutivi",
+    "       timeout  65 s -> abort",
+    "       note     TERMINALE",
+    "",
+    "JSON (llm_2b356aac445f):",
+    "{",
+    "  \"mission_id\": \"llm_2b356aac445f\",",
+    "  \"schema_version\": \"3.0\",",
+    "  \"moves\": [",
+    "    {",
+    "      \"id\": \"move_0_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"front_clearance\",",
+    "        \"distance\": 2.0,",
+    "        \"debounce_ticks\": 3",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794217561.368672142] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "[INFO] [1794217561.871149670] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794217561.874276592] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_2b356aac445f', 1 moves -- start_mission subito",
+    "[ERROR] [1794217561.877114046] [llm_planner_node]: start_mission FALLITO: cannot start: preflight liveness check failed -- ackermann_to_vesc_node: node 'ackermann_to_vesc_node' not found in the ROS graph (needed because converts mpc_corr's drive command into actual VESC commands -- the exact node a prior battery-precheck launch race left silently missing while mpc_corr/ackermann_mux/EKF all looked healthy); localization (/odom): alive but no data received yet on its expected topic (needed because CheckStopCondition's distance/heading tracking needs it for every move); lidar_front_wall_node (/perception/virtual_wall): alive but no data received yet on its expected topic (needed because a 'front_clearance' stop_condition (or resume_condition) is used)",
+    "[INFO] [1794217561.877905873] [llm_planner_node]: latenza: llm=0.51s traduzione=0.02s servizi=0.51s totale=1.04s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"n_moves\": 1, \"plan_seconds\": 0.526, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 2.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json\", \"latency\": {\"llm_s\": 0.506, \"translate_s\": 0.02, \"services_s\": 0.509, \"total_s\": 1.036}}"
+   ]
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 1,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.3285562689998187,
+    "t_server_ready": 2.5387274579843506,
+    "t_ready": 2.547898914985126,
+    "t_planned": 3.0730940269713756,
+    "t_loaded_log": 5.330345247988589,
+    "t_loaded": 5.329210707976017,
+    "t_running": null,
+    "t_exit": 5.628034238994587,
+    "t_llm_done": 3.0578989149851257
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.525,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.505,
+     "translate_s": 0.019,
+     "services_s": 2.26,
+     "total_s": 2.786
+    }
+   },
+   "latency": {
+    "llm_s": 0.51,
+    "translate_s": 0.02,
+    "services_s": 2.26,
+    "total_s": 2.79
+   },
+   "error": "[ERROR] [1794217567.531746387] [llm_planner_node]: start_mission FALLITO: cannot start: preflight liveness check failed -- ackermann_to_vesc_node: node 'ackermann_to_vesc_node' not found in the ROS graph (needed because converts mpc_corr's drive command into actual VESC commands -- the exact node a prior battery-precheck launch race left silently missing while mpc_corr/ackermann_mux/EKF all looked healthy); localization (/odom): alive but no data received yet on its expected topic (needed because CheckStopCondition's distance/heading tracking needs it for every move); lidar_front_wall_node (/perception/virtual_wall): alive but no data received yet on its expected topic (needed because a 'front_clearance' stop_condition (or resume_condition) is used)",
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.547898914985126,
+    "llm": 0.51,
+    "translate": 0.02,
+    "services": null,
+    "start_to_running": null,
+    "total_to_start": null,
+    "total_to_running": null
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "",
+    "missione generata in 0.52s (v2), 1 move:",
+    "  0. vai dritto",
+    "       id       move_0_straight",
+    "       velocita 0.5 m/s",
+    "       fino a   muro entro 2.0 m per 3 tick consecutivi",
+    "       timeout  65 s -> abort",
+    "       note     TERMINALE",
+    "",
+    "JSON (llm_2b356aac445f):",
+    "{",
+    "  \"mission_id\": \"llm_2b356aac445f\",",
+    "  \"schema_version\": \"3.0\",",
+    "  \"moves\": [",
+    "    {",
+    "      \"id\": \"move_0_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"front_clearance\",",
+    "        \"distance\": 2.0,",
+    "        \"debounce_ticks\": 3",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794217565.271885836] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "[INFO] [1794217567.274046939] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): /mission/abort_mission non disponibile (nessun server attivo?)",
+    "[INFO] [1794217567.528100819] [llm_planner_node]: load_mission OK in 0.25s: loaded 'llm_2b356aac445f', 1 moves -- start_mission subito",
+    "[ERROR] [1794217567.531746387] [llm_planner_node]: start_mission FALLITO: cannot start: preflight liveness check failed -- ackermann_to_vesc_node: node 'ackermann_to_vesc_node' not found in the ROS graph (needed because converts mpc_corr's drive command into actual VESC commands -- the exact node a prior battery-precheck launch race left silently missing while mpc_corr/ackermann_mux/EKF all looked healthy); localization (/odom): alive but no data received yet on its expected topic (needed because CheckStopCondition's distance/heading tracking needs it for every move); lidar_front_wall_node (/perception/virtual_wall): alive but no data received yet on its expected topic (needed because a 'front_clearance' stop_condition (or resume_condition) is used)",
+    "[INFO] [1794217567.532604900] [llm_planner_node]: latenza: llm=0.51s traduzione=0.02s servizi=2.26s totale=2.79s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"n_moves\": 1, \"plan_seconds\": 0.525, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 2.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json\", \"latency\": {\"llm_s\": 0.505, \"translate_s\": 0.019, \"services_s\": 2.26, \"total_s\": 2.786}}"
+   ]
+  },
+  {
+   "command": "vai dritto e fermati a due metri dal muro",
+   "run": 2,
+   "tag": "warm",
+   "mode": "oneshot",
+   "t": {
+    "t_process_up": 2.2995243890036363,
+    "t_server_ready": 2.510344267997425,
+    "t_ready": 2.5206221690168604,
+    "t_planned": 3.0529120299906936,
+    "t_loaded_log": 3.059327982016839,
+    "t_loaded": 3.0583697269903496,
+    "t_running": null,
+    "t_exit": 3.358656622003764,
+    "t_llm_done": 3.03062216901686
+   },
+   "result": {
+    "status": "ok",
+    "stage": "translator",
+    "error_type": null,
+    "error_message": null,
+    "attempts": 1,
+    "rejections": [],
+    "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\", \"thresh\": 2.0}], \"unsupported\": []}",
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "n_moves": 1,
+    "plan_seconds": 0.532,
+    "unsupported": [],
+    "notes": [],
+    "mission": {
+     "mission_id": "llm_2b356aac445f",
+     "schema_version": "3.0",
+     "moves": [
+      {
+       "id": "move_0_straight",
+       "drive": {
+        "mode": "straight",
+        "speed": 0.5
+       },
+       "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+       },
+       "timeout_sec": 65,
+       "on_timeout": "abort",
+       "terminal": true
+      }
+     ]
+    },
+    "mission_path": "/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "latency": {
+     "llm_s": 0.512,
+     "translate_s": 0.02,
+     "services_s": 0.008,
+     "total_s": 0.541
+    }
+   },
+   "latency": {
+    "llm_s": 0.51,
+    "translate_s": 0.02,
+    "services_s": 0.01,
+    "total_s": 0.54
+   },
+   "error": "[ERROR] [1794217570.914852058] [llm_planner_node]: start_mission FALLITO: cannot start: preflight liveness check failed -- ackermann_to_vesc_node: node 'ackermann_to_vesc_node' not found in the ROS graph (needed because converts mpc_corr's drive command into actual VESC commands -- the exact node a prior battery-precheck launch race left silently missing while mpc_corr/ackermann_mux/EKF all looked healthy); localization (/odom): alive but no data received yet on its expected topic (needed because CheckStopCondition's distance/heading tracking needs it for every move); lidar_front_wall_node (/perception/virtual_wall): alive but no data received yet on its expected topic (needed because a 'front_clearance' stop_condition (or resume_condition) is used)",
+   "state_before": "ABORTED",
+   "deltas": {
+    "process_start": 2.5206221690168604,
+    "llm": 0.51,
+    "translate": 0.02,
+    "services": null,
+    "start_to_running": null,
+    "total_to_start": null,
+    "total_to_running": null
+   },
+   "attempts": 1,
+   "status": "ok",
+   "output_tail": [
+    "",
+    "missione generata in 0.53s (v2), 1 move:",
+    "  0. vai dritto",
+    "       id       move_0_straight",
+    "       velocita 0.5 m/s",
+    "       fino a   muro entro 2.0 m per 3 tick consecutivi",
+    "       timeout  65 s -> abort",
+    "       note     TERMINALE",
+    "",
+    "JSON (llm_2b356aac445f):",
+    "{",
+    "  \"mission_id\": \"llm_2b356aac445f\",",
+    "  \"schema_version\": \"3.0\",",
+    "  \"moves\": [",
+    "    {",
+    "      \"id\": \"move_0_straight\",",
+    "      \"drive\": {",
+    "        \"mode\": \"straight\",",
+    "        \"speed\": 0.5",
+    "      },",
+    "      \"stop_condition\": {",
+    "        \"type\": \"front_clearance\",",
+    "        \"distance\": 2.0,",
+    "        \"debounce_ticks\": 3",
+    "      },",
+    "      \"timeout_sec\": 65,",
+    "      \"on_timeout\": \"abort\",",
+    "      \"terminal\": true",
+    "    }",
+    "  ]",
+    "}",
+    "[INFO] [1794217570.907032130] [llm_planner_node]: missione identica gia' presente, riusata: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "scritta in: /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json",
+    "",
+    "[INFO] [1794217570.909060415] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)",
+    "[INFO] [1794217570.912252647] [llm_planner_node]: load_mission OK in 0.00s: loaded 'llm_2b356aac445f', 1 moves -- start_mission subito",
+    "[ERROR] [1794217570.914852058] [llm_planner_node]: start_mission FALLITO: cannot start: preflight liveness check failed -- ackermann_to_vesc_node: node 'ackermann_to_vesc_node' not found in the ROS graph (needed because converts mpc_corr's drive command into actual VESC commands -- the exact node a prior battery-precheck launch race left silently missing while mpc_corr/ackermann_mux/EKF all looked healthy); localization (/odom): alive but no data received yet on its expected topic (needed because CheckStopCondition's distance/heading tracking needs it for every move); lidar_front_wall_node (/perception/virtual_wall): alive but no data received yet on its expected topic (needed because a 'front_clearance' stop_condition (or resume_condition) is used)",
+    "[INFO] [1794217570.915641388] [llm_planner_node]: latenza: llm=0.51s traduzione=0.02s servizi=0.01s totale=0.54s",
+    "RESULT {\"status\": \"ok\", \"stage\": \"translator\", \"error_type\": null, \"error_message\": null, \"attempts\": 1, \"rejections\": [], \"llm_raw\": \"{\\\"plan\\\": [{\\\"mode\\\": \\\"straight\\\", \\\"guard\\\": \\\"wall\\\", \\\"thresh\\\": 2.0}], \\\"unsupported\\\": []}\", \"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"n_moves\": 1, \"plan_seconds\": 0.532, \"unsupported\": [], \"notes\": [], \"mission\": {\"mission_id\": \"llm_2b356aac445f\", \"schema_version\": \"3.0\", \"moves\": [{\"id\": \"move_0_straight\", \"drive\": {\"mode\": \"straight\", \"speed\": 0.5}, \"stop_condition\": {\"type\": \"front_clearance\", \"distance\": 2.0, \"debounce_ticks\": 3}, \"timeout_sec\": 65, \"on_timeout\": \"abort\", \"terminal\": true}]}, \"mission_path\": \"/opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json\", \"latency\": {\"llm_s\": 0.512, \"translate_s\": 0.02, \"services_s\": 0.008, \"total_s\": 0.541}}"
+   ]
+  }
+ ],
+ "summary": {
+  "per_command": {},
+  "overall": {
+   "process_start": null,
+   "llm": null,
+   "translate": null,
+   "services": null,
+   "start_to_running": null,
+   "total_to_start": null,
+   "total_to_running": null
+  },
+  "excluded": [
+   {
+    "command": "vai dritto e fermati a due metri dal muro",
+    "run": 0,
+    "why": "[ERROR] [1794217561.877114046] [llm_planner_node]: start_mission FALLITO: cannot start: preflight liveness check failed -- ackermann_to_vesc_node: node 'ackermann_to_vesc_node' not found in the ROS graph (needed because converts mpc_corr's drive command into actual VESC commands -- the exact node a prior battery-precheck launch race left silently missing while mpc_corr/ackermann_mux/EKF all looked healthy); localization (/odom): alive but no data received yet on its expected topic (needed because CheckStopCondition's distance/heading tracking needs it for every move); lidar_front_wall_node (/perception/virtual_wall): alive but no data received yet on its expected topic (needed because a 'front_clearance' stop_condition (or resume_condition) is used)"
+   },
+   {
+    "command": "vai dritto e fermati a due metri dal muro",
+    "run": 1,
+    "why": "[ERROR] [1794217567.531746387] [llm_planner_node]: start_mission FALLITO: cannot start: preflight liveness check failed -- ackermann_to_vesc_node: node 'ackermann_to_vesc_node' not found in the ROS graph (needed because converts mpc_corr's drive command into actual VESC commands -- the exact node a prior battery-precheck launch race left silently missing while mpc_corr/ackermann_mux/EKF all looked healthy); localization (/odom): alive but no data received yet on its expected topic (needed because CheckStopCondition's distance/heading tracking needs it for every move); lidar_front_wall_node (/perception/virtual_wall): alive but no data received yet on its expected topic (needed because a 'front_clearance' stop_condition (or resume_condition) is used)"
+   },
+   {
+    "command": "vai dritto e fermati a due metri dal muro",
+    "run": 2,
+    "why": "[ERROR] [1794217570.914852058] [llm_planner_node]: start_mission FALLITO: cannot start: preflight liveness check failed -- ackermann_to_vesc_node: node 'ackermann_to_vesc_node' not found in the ROS graph (needed because converts mpc_corr's drive command into actual VESC commands -- the exact node a prior battery-precheck launch race left silently missing while mpc_corr/ackermann_mux/EKF all looked healthy); localization (/odom): alive but no data received yet on its expected topic (needed because CheckStopCondition's distance/heading tracking needs it for every move); lidar_front_wall_node (/perception/virtual_wall): alive but no data received yet on its expected topic (needed because a 'front_clearance' stop_condition (or resume_condition) is used)"
+   }
+  ],
+  "kept": 0
+ },
+ "complete": true,
+ "final_state": "ABORTED"
+}

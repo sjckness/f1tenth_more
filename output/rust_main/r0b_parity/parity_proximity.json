@@ -1,0 +1,1015 @@
+{
+ "groups": {
+  "synthetic": {
+   "cases": 3184,
+   "py_trips": 444,
+   "rs_trips": 444,
+   "trip_diff": 0,
+   "stop_ne_py": 12
+  },
+  "bag": {
+   "cases": 145368,
+   "py_trips": 9841,
+   "rs_trips": 9841,
+   "trip_diff": 0,
+   "stop_ne_py": 0
+  },
+  "bag+obstacle": {
+   "cases": 101813,
+   "py_trips": 30858,
+   "rs_trips": 30858,
+   "trip_diff": 0,
+   "stop_ne_py": 0
+  }
+ },
+ "trip_diffs": [],
+ "min_presence_diffs": [],
+ "max_min_abs_diff": 0.0,
+ "max_min_case": null,
+ "min_bitexact": 244462,
+ "min_compared": 244462,
+ "fail_safe_reasons": {
+  "invalid_beams": 7,
+  "too_close_unquantified": 3,
+  "empty_scan": 1,
+  "no_front_beams": 1
+ },
+ "fail_safe_examples": {
+  "invalid_beams": [
+   "front_all_nan",
+   "all_nan",
+   "front_all_below_range_min",
+   "all_below_range_min",
+   "front_all_zero"
+  ],
+  "too_close_unquantified": [
+   "one_ninf_ahead",
+   "front_all_ninf",
+   "all_ninf"
+  ],
+  "empty_scan": [
+   "empty"
+  ],
+  "no_front_beams": [
+   "rear_only_layout"
+  ]
+ },
+ "unexplained_stop_diffs": [],
+ "py_time_s": 42.63597501584445,
+ "rs_time_s": 31.178615671989974,
+ "bags": [
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-00-06_mission-llm_plan_1788274806/bag",
+   "cases": 1113
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-03-07_mission-bottle_then_person/bag",
+   "cases": 462
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-04-45_mission-bottle_then_person/bag",
+   "cases": 1472
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-06-45_mission-llm_plan_1788275205/bag",
+   "cases": 697
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-08-12_mission-llm_plan_1788275291/bag",
+   "cases": 1347
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-09-43_mission-bottle_then_person/bag",
+   "cases": 1857
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-11-29_mission-bottle_then_person/bag",
+   "cases": 1147
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-33-43_mission-llm_plan_1788341623/bag",
+   "cases": 801
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-34-40_mission-llm_plan_1788341680/bag",
+   "cases": 1285
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-35-04_mission-llm_plan_1788341702/bag",
+   "cases": 1011
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-35-23_mission-llm_plan_1788341723/bag",
+   "cases": 468
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-37-08_mission-llm_plan_1788341827/bag",
+   "cases": 504
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-40-44_mission-bottle_then_person/bag",
+   "cases": 1151
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-44-30_mission-bottle_then_person/bag",
+   "cases": 618
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-46-43_mission-bottle_then_person/bag",
+   "cases": 635
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-48-45_mission-bottle_then_person/bag",
+   "cases": 1393
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-51-30_mission-bottle_then_person/bag",
+   "cases": 860
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-54-30_mission-llm_plan_1788342870/bag",
+   "cases": 717
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-13-32_mission-bottle_then_person/bag",
+   "cases": 1550
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-15-50_mission-bottle_then_person/bag",
+   "cases": 1679
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-17-49_mission-bottle_then_person/bag",
+   "cases": 1631
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-19-52_mission-bottle_then_person/bag",
+   "cases": 867
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-21-57_mission-bottle_then_person/bag",
+   "cases": 831
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-24-27_mission-bottle_then_person/bag",
+   "cases": 565
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-26-23_mission-bottle_then_person/bag",
+   "cases": 624
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-27-43_mission-bottle_then_person/bag",
+   "cases": 604
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-29-24_mission-llm_plan_1788362958/bag",
+   "cases": 378
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-31-05_mission-llm_plan_1788363065/bag",
+   "cases": 354
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-34-45_mission-bottle_then_person/bag",
+   "cases": 1018
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-36-16_mission-bottle_then_person/bag",
+   "cases": 575
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-37-53_mission-bottle_then_person/bag",
+   "cases": 947
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-03T12-45-06_mission-bottle_then_person/bag",
+   "cases": 644
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-03T12-48-40_mission-llm_plan_1788439720/bag",
+   "cases": 295
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-03T12-49-07_mission-llm_plan_1788439746/bag",
+   "cases": 44
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T13-22-23_mission-bottle_then_person/bag",
+   "cases": 802
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T14-12-39_mission-bottle_then_person/bag",
+   "cases": 444
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T14-15-16_mission-bottle_then_person/bag",
+   "cases": 433
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T14-31-49_mission-bottle_then_person/bag",
+   "cases": 652
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-18-08_mission-bottle_then_person/bag",
+   "cases": 426
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-21-20_mission-bottle_then_person/bag",
+   "cases": 994
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-23-48_mission-bottle_then_person/bag",
+   "cases": 1429
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-55-27_mission-bottle_then_person/bag",
+   "cases": 1717
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-58-24_mission-bottle_then_person/bag",
+   "cases": 632
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T16-02-20_mission-bottle_then_person/bag",
+   "cases": 990
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-04T16-05-43_mission-bottle_then_person/bag",
+   "cases": 1260
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T11-49-54_mission-bottle_then_person/bag",
+   "cases": 1029
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-10-13_mission-bottle_then_person/bag",
+   "cases": 1127
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-14-03_mission-bottle_then_person/bag",
+   "cases": 1534
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-20-37_mission-bottle_then_person/bag",
+   "cases": 454
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-22-13_mission-bottle_then_person/bag",
+   "cases": 730
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-29-52_mission-bottle_then_person/bag",
+   "cases": 71
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-39-23_mission-bottle_then_person/bag",
+   "cases": 1267
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-41-14_mission-bottle_then_person/bag",
+   "cases": 776
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-48-40_mission-bottle_then_person/bag",
+   "cases": 1558
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T11-41-39_mission-bottle_then_person/bag",
+   "cases": 820
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T11-43-06_mission-bottle_then_person/bag",
+   "cases": 580
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T11-51-59_mission-bottle_then_person/bag",
+   "cases": 309
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T12-23-20_mission-bottle_then_person/bag",
+   "cases": 1103
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T12-27-37_mission-bottle_then_person/bag",
+   "cases": 3136
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T12-36-28_mission-bottle_then_person/bag",
+   "cases": 517
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-09-57_mission-bottle_then_person/bag",
+   "cases": 148
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-22-34_mission-bottle_then_person/bag",
+   "cases": 1173
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-27-00_mission-bottle_then_person/bag",
+   "cases": 1639
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-46-47_mission-bottle_then_person/bag",
+   "cases": 256
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-48-35_mission-bottle_then_person/bag",
+   "cases": 294
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-50-52_mission-bottle_then_person/bag",
+   "cases": 589
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-08T16-25-59_mission-bottle_then_person/bag",
+   "cases": 914
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-24-35_mission-bottle_then_person/bag",
+   "cases": 1596
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-25-04_mission-bottle_then_person/bag",
+   "cases": 1450
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-25-48_mission-bottle_then_person/bag",
+   "cases": 4006
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-34-24_mission-llm_plan_1788964463/bag",
+   "cases": 1560
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-47-40_mission-llm_plan_1788965258/bag",
+   "cases": 36
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-49-58_mission-llm_plan_1788965397/bag",
+   "cases": 449
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-54-12_mission-bottle_then_person/bag",
+   "cases": 342
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-55-31_mission-test_04_turn_accuracy/bag",
+   "cases": 304
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T15-09-11_mission-bottle_then_person/bag",
+   "cases": 646
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T15-12-08_mission-test_04_turn_accuracy/bag",
+   "cases": 438
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-18-35_mission-bottle_then_person/bag",
+   "cases": 1264
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-19-03_mission-bottle_then_person/bag",
+   "cases": 405
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-20-58_mission-bottle_then_person/bag",
+   "cases": 853
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-24-11_mission-bottle_then_person/bag",
+   "cases": 3760
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-25-45_mission-bottle_then_person/bag",
+   "cases": 830
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-09-41_mission-bottle_then_person/bag",
+   "cases": 319
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-09-54_mission-bottle_then_person/bag",
+   "cases": 378
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-18-28_mission-bottle_then_person/bag",
+   "cases": 91
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-25-17_mission-bottle_then_person/bag",
+   "cases": 716
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-33-01_mission-bottle_then_person/bag",
+   "cases": 258
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-34-38_mission-test_04_turn_accuracy/bag",
+   "cases": 586
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-35-05_mission-test_04_turn_accuracy/bag",
+   "cases": 72
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-44-55_mission-bottle_then_person/bag",
+   "cases": 706
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-45-34_mission-bottle_then_person/bag",
+   "cases": 581
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-46-06_mission-bottle_then_person/bag",
+   "cases": 44
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-46-38_mission-bottle_then_person/bag",
+   "cases": 86
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-47-08_mission-bottle_then_person/bag",
+   "cases": 105
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-48-19_mission-bottle_then_person/bag",
+   "cases": 200
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-07-04_mission-drive_turn_180/bag",
+   "cases": 326
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-10-58_mission-drive_turn_180/bag",
+   "cases": 50
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-31-58_mission-wall_turn/bag",
+   "cases": 296
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-34-09_mission-wall_turn/bag",
+   "cases": 463
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-35-06_mission-wall_turn/bag",
+   "cases": 103
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-39-04_mission-wall_turn/bag",
+   "cases": 512
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-57-23_mission-wall_turn/bag",
+   "cases": 406
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-33-46_mission-wall_turn/bag",
+   "cases": 1179
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-35-24_mission-straight_then_wall_turn_3m/bag",
+   "cases": 1335
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-40-16_mission-drive_stop_2m_from_wall/bag",
+   "cases": 77
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-42-13_mission-drive_stop_2m_from_wall/bag",
+   "cases": 56
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-42-31_mission-drive_stop_2m_from_wall/bag",
+   "cases": 177
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-44-26_mission-drive_stop_2m_from_wall/bag",
+   "cases": 16
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-53-36_mission-drive_stop_2m_from_wall/bag",
+   "cases": 78
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-54-57_mission-drive_stop_2m_from_wall/bag",
+   "cases": 32
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-56-51_mission-wall_turn/bag",
+   "cases": 1164
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-10T16-15-47_mission-drive_stop_2m_from_wall/bag",
+   "cases": 344
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T12-48-03_mission-wall_turn/bag",
+   "cases": 9
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T12-54-50_mission-drive_stop_2m_from_wall/bag",
+   "cases": 1997
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-30-26_mission-turn_90_left/bag",
+   "cases": 155
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-37-27_mission-drive_stop_2m_from_wall/bag",
+   "cases": 1589
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-39-45_mission-drive_stop_2m_from_wall/bag",
+   "cases": 912
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-42-06_mission-drive_stop_2m_from_wall/bag",
+   "cases": 3346
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-49-54_mission-wall_turn/bag",
+   "cases": 3642
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-58-53_mission-drive_stop_2m_from_wall/bag",
+   "cases": 351
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T14-00-39_mission-drive_stop_2m_from_wall/bag",
+   "cases": 1875
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T14-03-25_mission-drive_stop_2m_from_wall/bag",
+   "cases": 2476
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T14-14-24_mission-llm_plan_1789136064/bag",
+   "cases": 4871
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T16-11-08_mission-drive_stop_2m_from_wall/bag",
+   "cases": 2034
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-11T16-16-35_mission-drive_stop_2m_from_wall/bag",
+   "cases": 1405
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-26-04_mission-wall_turn/bag",
+   "cases": 3692
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-28-28_mission-wall_turn/bag",
+   "cases": 2780
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-32-08_mission-wall_turn/bag",
+   "cases": 3559
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-37-48_mission-drive_stop_2m_from_wall/bag",
+   "cases": 1435
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-40-10_mission-drive_stop_2m_from_wall/bag",
+   "cases": 59
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-54-42_mission-wall_turn/bag",
+   "cases": 748
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T14-05-47_mission-wall_turn/bag",
+   "cases": 531
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-14T14-07-58_mission-wall_turn/bag",
+   "cases": 1069
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-20-04_mission-llm_d364fea9685e/bag",
+   "cases": 1945
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-22-38_mission-llm_d364fea9685e/bag",
+   "cases": 661
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-24-53_mission-llm_926f7913d041/bag",
+   "cases": 173
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-29-53_mission-llm_2b356aac445f/bag",
+   "cases": 400
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-32-12_mission-llm_d364fea9685e/bag",
+   "cases": 813
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-42-05_mission-llm_d364fea9685e/bag",
+   "cases": 1910
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-47-59_mission-llm_18fef65c3e62/bag",
+   "cases": 1944
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-17T12-44-24_mission-go_to_person/bag",
+   "cases": 87
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-17T12-59-58_mission-llm_f7c3305e21e1/bag",
+   "cases": 849
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-17T14-12-24_mission-llm_a32488caaaff/bag",
+   "cases": 403
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T11-32-15_mission-llm_fd5d8fd4f171/bag",
+   "cases": 1085
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T11-37-16_mission-llm_fd5d8fd4f171/bag",
+   "cases": 165
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T11-38-24_mission-llm_fd5d8fd4f171/bag",
+   "cases": 22
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-24-55_mission-llm_86cff518e42d/bag",
+   "cases": 524
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-35-12_mission-llm_86cff518e42d/bag",
+   "cases": 2407
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-37-10_mission-llm_fd5d8fd4f171/bag",
+   "cases": 277
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-41-53_mission-llm_fd5d8fd4f171/bag",
+   "cases": 81
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-43-47_mission-llm_fd5d8fd4f171/bag",
+   "cases": 93
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-45-23_mission-llm_fd5d8fd4f171/bag",
+   "cases": 187
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-47-34_mission-llm_fd5d8fd4f171/bag",
+   "cases": 5
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-52-54_mission-llm_fd5d8fd4f171/bag",
+   "cases": 225
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-55-11_mission-llm_fd5d8fd4f171/bag",
+   "cases": 231
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-57-14_mission-llm_fd5d8fd4f171/bag",
+   "cases": 215
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-58-58_mission-llm_fd5d8fd4f171/bag",
+   "cases": 270
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T13-00-26_mission-llm_fd5d8fd4f171/bag",
+   "cases": 210
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-21T13-02-00_mission-llm_fd5d8fd4f171/bag",
+   "cases": 238
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-16-25_mission-llm_926f7913d041/bag",
+   "cases": 56
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-19-13_mission-llm_926f7913d041/bag",
+   "cases": 117
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-21-08_mission-llm_926f7913d041/bag",
+   "cases": 168
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-24-28_mission-llm_926f7913d041/bag",
+   "cases": 3
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-30-53_mission-llm_926f7913d041/bag",
+   "cases": 182
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-34-02_mission-llm_926f7913d041/bag",
+   "cases": 39
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-57-03_mission-llm_926f7913d041/bag",
+   "cases": 170
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-23-22_mission-llm_2b356aac445f/bag",
+   "cases": 338
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-25-27_mission-llm_2b356aac445f/bag",
+   "cases": 179
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-27-15_mission-llm_2b356aac445f/bag",
+   "cases": 68
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-29-02_mission-llm_2b356aac445f/bag",
+   "cases": 222
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-31-01_mission-llm_2b356aac445f/bag",
+   "cases": 119
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-32-48_mission-llm_2b356aac445f/bag",
+   "cases": 209
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-37-43_mission-llm_536cba700065/bag",
+   "cases": 158
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-38-59_mission-llm_536cba700065/bag",
+   "cases": 134
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-23T15-00-02_mission-llm_536cba700065/bag",
+   "cases": 59
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-23T15-12-28_mission-llm_2b356aac445f/bag",
+   "cases": 669
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-23T15-17-59_mission-llm_2b356aac445f/bag",
+   "cases": 2737
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-47-02_mission-llm_536cba700065/bag",
+   "cases": 228
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-49-14_mission-llm_536cba700065/bag",
+   "cases": 188
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-51-44_mission-llm_536cba700065/bag",
+   "cases": 42
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-53-44_mission-llm_536cba700065/bag",
+   "cases": 215
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-02-02_mission-llm_e8f5ca47b036/bag",
+   "cases": 1257
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-04-33_mission-llm_e8f5ca47b036/bag",
+   "cases": 1183
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-09-55_mission-llm_e8f5ca47b036/bag",
+   "cases": 1041
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-13-06_mission-llm_e8f5ca47b036/bag",
+   "cases": 1136
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-15-33_mission-llm_e8f5ca47b036/bag",
+   "cases": 1226
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-19-28_mission-llm_e8f5ca47b036/bag",
+   "cases": 1218
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-22-01_mission-llm_e8f5ca47b036/bag",
+   "cases": 974
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-24-22_mission-llm_e8f5ca47b036/bag",
+   "cases": 934
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-28-19_mission-llm_fd5d8fd4f171/bag",
+   "cases": 422
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-30-03_mission-llm_d467d7d7ba04/bag",
+   "cases": 452
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-31-28_mission-llm_d467d7d7ba04/bag",
+   "cases": 1699
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-34-28_mission-llm_d467d7d7ba04/bag",
+   "cases": 304
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-36-35_mission-llm_d467d7d7ba04/bag",
+   "cases": 517
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-38-17_mission-llm_d467d7d7ba04/bag",
+   "cases": 388
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-39-54_mission-llm_d467d7d7ba04/bag",
+   "cases": 394
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-16-37_mission-llm_536cba700065/bag",
+   "cases": 221
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-19-14_mission-llm_536cba700065/bag",
+   "cases": 607
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-22-05_mission-llm_536cba700065/bag",
+   "cases": 407
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-24-50_mission-llm_536cba700065/bag",
+   "cases": 433
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-29-36_mission-llm_536cba700065/bag",
+   "cases": 237
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-33-02_mission-llm_536cba700065/bag",
+   "cases": 493
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-36-57_mission-llm_536cba700065/bag",
+   "cases": 445
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-08T11-27-18_mission-llm_926f7913d041/bag",
+   "cases": 23748
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-08T11-34-26_mission-llm_926f7913d041/bag",
+   "cases": 4842
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-08T11-39-35_mission-llm_926f7913d041/bag",
+   "cases": 78
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-08T12-25-10_mission-llm_2b356aac445f/bag",
+   "cases": 53
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-08T12-29-44_mission-llm_2b356aac445f/bag",
+   "cases": 2145
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-13T11-10-47_mission-llm_2b356aac445f/bag",
+   "cases": 1460
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-13T11-17-36_mission-llm_2b356aac445f/bag",
+   "cases": 1096
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-13T11-33-21_mission-llm_2b356aac445f/bag",
+   "cases": 736
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-13T15-05-41_mission-llm_2b356aac445f/bag",
+   "cases": 1238
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-13T15-13-56_mission-llm_2b356aac445f/bag",
+   "cases": 1550
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-14T13-11-30_mission-llm_be55eb2392c4/bag",
+   "cases": 772
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-14T13-12-37_mission-llm_2b356aac445f/bag",
+   "cases": 344
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-14T13-15-20_mission-llm_2b356aac445f/bag",
+   "cases": 114
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-15T15-18-27_mission-llm_86cff518e42d/bag",
+   "cases": 1006
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-21T12-25-22_mission-20261021T142038-bf7938.mission/bag",
+   "cases": 1406
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-22T12-05-38_mission-llm_5e38c1a86f41/bag",
+   "cases": 38
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-22T12-07-54_mission-20261022T140738-2661d2.mission/bag",
+   "cases": 760
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-22T12-09-17_mission-20261022T140856-2661d2.mission/bag",
+   "cases": 216
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-22T12-11-04_mission-20261022T141051-bf7938.mission/bag",
+   "cases": 2574
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-35-30_mission-straight_until_potted_plant/bag",
+   "cases": 3662
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-41-16_mission-straight_until_potted_plant/bag",
+   "cases": 1770
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-50-53_mission-person_then_potted_plant/bag",
+   "cases": 790
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-54-01_mission-person_then_potted_plant/bag",
+   "cases": 158
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-55-23_mission-person_then_potted_plant/bag",
+   "cases": 2248
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-56-20_mission-straight_until_potted_plant/bag",
+   "cases": 1126
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-22T15-40-33_mission-go_to_person/bag",
+   "cases": 2670
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-22T15-46-24_mission-go_to_person_1m/bag",
+   "cases": 1296
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-22T15-50-16_mission-go_to_person_1m/bag",
+   "cases": 3306
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-23T13-55-40_mission-llm_38d747d91edf/bag",
+   "cases": 918
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-01-54_mission-llm_38d747d91edf/bag",
+   "cases": 9562
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-08-26_mission-approach_wall_then_chair/bag",
+   "cases": 2888
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-09-11_mission-approach_wall_then_chair/bag",
+   "cases": 1182
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-09-51_mission-approach_wall_then_chair/bag",
+   "cases": 260
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-13-35_mission-approach_wall_then_chair/bag",
+   "cases": 5472
+  },
+  {
+   "bag": "/home/andreas/f1tenth_archive/mission_row/2026-10-23T15-26-28_mission-llm_ac24d6eb5bda/bag",
+   "cases": 812
+  }
+ ],
+ "seed": 20261018
+}

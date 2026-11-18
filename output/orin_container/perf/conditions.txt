@@ -1,0 +1,3 @@
+NV Power Mode: MODE_50W
+3
+ 21:06:02 up 2 days,  3:50,  0 users,  load average: 0.41, 0.47, 0.52

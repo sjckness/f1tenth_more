@@ -15,11 +15,25 @@
   },
   "requires_confirmation": false,
   "mission": {
-    "mission_id": "llm_6409e61cced7",
+    "mission_id": "llm_3bc98b7f9846",
     "schema_version": "5.0",
     "moves": [
       {
-        "id": "move_0_go_to",
+        "id": "move_0_search",
+        "drive": {
+          "mode": "straight",
+          "speed": 0.5
+        },
+        "stop_condition": {
+          "type": "object_seen",
+          "class": "bottle",
+          "min_confidence": 0.5
+        },
+        "timeout_sec": 65,
+        "on_timeout": "abort"
+      },
+      {
+        "id": "move_1_go_to",
         "go_to_object": {
           "target_class": "bottle",
           "gap_m": 0.6,
@@ -34,7 +48,7 @@
         "on_timeout": "abort"
       },
       {
-        "id": "move_1_turn",
+        "id": "move_2_turn",
         "drive": {
           "mode": "wall_turn",
           "turn_sign": -1.0,

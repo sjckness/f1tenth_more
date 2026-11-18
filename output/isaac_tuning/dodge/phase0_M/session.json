@@ -1,0 +1,96 @@
+{
+ "started": "2026-11-18T01:05:25",
+ "domain": 78,
+ "ds_port": 11878,
+ "events": [
+  {
+   "t": 1794960326.0,
+   "what": "preflight ok",
+   "free_disk_gb": 18.3,
+   "free_vram_mib": 6863
+  },
+  {
+   "t": 1794960328.0,
+   "what": "discovery server",
+   "port": 11878,
+   "pgid": 3180653
+  },
+  {
+   "t": 1794960350.7,
+   "what": "isaac up",
+   "wall_s": 22.7
+  },
+  {
+   "t": 1794960350.7,
+   "what": "stack starting",
+   "pgid": 3184116,
+   "log": "stack_M1_r0.log"
+  },
+  {
+   "t": 1794960382.8,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/phase0_M/M1_r0",
+   "code": 4
+  },
+  {
+   "t": 1794960388.5,
+   "what": "stack stopped",
+   "wall_s": 5.8,
+   "leftovers": 0
+  },
+  {
+   "t": 1794960388.6,
+   "what": "stack starting",
+   "pgid": 3186894,
+   "log": "stack_M1_r0.log"
+  },
+  {
+   "t": 1794960648.6,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/phase0_M/M2_r2",
+   "code": 4
+  },
+  {
+   "t": 1794960651.9,
+   "what": "stack stopped",
+   "wall_s": 3.3,
+   "leftovers": 0
+  },
+  {
+   "t": 1794960651.9,
+   "what": "stack starting",
+   "pgid": 3201520,
+   "log": "stack_M2_r2.log"
+  },
+  {
+   "t": 1794960891.1,
+   "what": "stack stopped",
+   "wall_s": 2.3,
+   "leftovers": 0
+  },
+  {
+   "t": 1794960893.0,
+   "what": "session closed",
+   "container": false,
+   "leftovers": 0
+  }
+ ],
+ "wall": {
+  "isaac_start_s": 22.7,
+  "stack_stop_s": [
+   5.8,
+   3.3,
+   2.3
+  ]
+ },
+ "orphans": [],
+ "preflight": {
+  "free_disk_gb": 18.3,
+  "free_vram_mib": 6863
+ },
+ "final_check": {
+  "container_running": false,
+  "install_processes": []
+ },
+ "ended": "2026-11-18T01:14:52"
+}

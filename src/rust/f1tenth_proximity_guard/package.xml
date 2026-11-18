@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_proximity_guard</name>
+  <version>0.1.0</version>
+  <description>Front-proximity guard (rclrs): the front check of IsProximityTooClose as its own node, shadow or active</description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- The interface packages whose messages the node uses (through ros-env, src/rust/Cargo.toml):
+       Cargo.toml names none of them, so these tags are what makes colcon build and install them
+       before this package, and what puts their prefixes on its AMENT_PREFIX_PATH. -->
+  <depend>builtin_interfaces</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>tf2_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>ackermann_msgs</depend>
+  <depend>diagnostic_msgs</depend>
+  <!-- Not used by this crate; build order only. ros-env compiles every generated message crate
+       it finds on AMENT_PREFIX_PATH, and a rebuild with the workspace sourced sees the
+       workspace-built f1tenth_messages: waiting for it means it is never compiled half-installed.
+       (Until R0b this line was needed for cargo to resolve the src/rust workspace at all.) -->
+  <build_depend>f1tenth_messages</build_depend>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>

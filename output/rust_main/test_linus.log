@@ -1,0 +1,2541 @@
+start 2026-10-23T18:22:25+02:00
+Starting >>> f1tenth_costmap
+Starting >>> f1tenth_behavior
+Starting >>> f1tenth_costmap_boundary_rs
+Starting >>> f1tenth_proximity_guard
+--- output: f1tenth_costmap_boundary_rs
+
+running 18 tests
+..................
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+---
+Finished <<< f1tenth_costmap_boundary_rs [0.55s]
+--- output: f1tenth_proximity_guard
+
+running 21 tests
+.....................
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+---
+Finished <<< f1tenth_proximity_guard [0.64s]
+--- output: f1tenth_costmap
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-7.4.4, pluggy-1.4.0
+cachedir: /home/andreas/dev_ws/f1tenth_more_rust/build/f1tenth_costmap/.pytest_cache
+rootdir: /home/andreas/dev_ws/f1tenth_more_rust/src/f1tenth_costmap
+plugins: launch-testing-3.4.10, ament-lint-0.17.5, launch-testing-ros-0.26.11, ament-xmllint-0.17.5, ament-pep257-0.17.5, ament-copyright-0.17.5, ament-flake8-0.17.5, cov-4.1.0, colcon-core-0.20.1, typeguard-4.1.5
+collected 405 items
+
+test/test_costmap_boundary.py ......................................     [  9%]
+test/test_costmap_boundary_impl_launch.py .............                  [ 12%]
+test/test_costmap_boundary_node.py ..........                            [ 15%]
+test/test_costmap_component_filter.py ................................   [ 22%]
+test/test_costmap_renderer.py ...................                        [ 27%]
+test/test_object_memory.py ............................................. [ 38%]
+...........                                                              [ 41%]
+test/test_object_memory_node.py ...................                      [ 46%]
+test/test_safe_corridor.py .................................             [ 54%]
+test/test_safe_corridor_node.py ..........................               [ 60%]
+test/test_semantic_layer.py ............................................ [ 71%]
+.......                                                                  [ 73%]
+test/test_semantic_layer_node.py ......                                  [ 74%]
+test/test_semantic_layer_uncertainty.py ......................           [ 80%]
+test/test_semantic_merge.py ..........                                   [ 82%]
+test/test_semantic_tracks_stamp.py .......                               [ 84%]
+test/test_unknown_objects.py ........................                    [ 90%]
+test/test_unknown_objects_node.py ...........                            [ 93%]
+test/test_wall_raster.py ............................                    [100%]
+
+- generated xml file: /tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/test_results/f1tenth_costmap/pytest.xml -
+============================= 405 passed in 3.53s ==============================
+---
+Finished <<< f1tenth_costmap [4.37s]
+--- output: f1tenth_behavior
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-7.4.4, pluggy-1.4.0
+cachedir: /home/andreas/dev_ws/f1tenth_more_rust/build/f1tenth_behavior/.pytest_cache
+rootdir: /home/andreas/dev_ws/f1tenth_more_rust/src/f1tenth_behavior
+plugins: launch-testing-3.4.10, ament-lint-0.17.5, launch-testing-ros-0.26.11, ament-xmllint-0.17.5, ament-pep257-0.17.5, ament-copyright-0.17.5, ament-flake8-0.17.5, cov-4.1.0, colcon-core-0.20.1, typeguard-4.1.5
+collected 532 items
+
+test/test_battery_low_runtime_estop.py .........                         [  1%]
+test/test_bt_reverse_integration.py ........                             [  3%]
+test/test_bt_tick_and_event_estop.py ................................... [  9%]
+....................                                                     [ 13%]
+test/test_condition_debounce.py ...............                          [ 16%]
+test/test_condition_eval.py .............                                [ 18%]
+test/test_drive_move_schema.py ....................................      [ 25%]
+test/test_every_abort_holds.py .......                                   [ 26%]
+test/test_go_to_object_behaviour.py .............                        [ 29%]
+test/test_go_to_object_schema.py ....................................... [ 36%]
+..............................                                           [ 42%]
+test/test_goal_reached_latch_per_run.py .......                          [ 43%]
+test/test_is_obstacle_detected.py ....                                   [ 44%]
+test/test_is_proximity_too_close.py ..........................           [ 49%]
+test/test_mission_countdown.py ....................                      [ 53%]
+test/test_mission_loader_hold_release.py ....                            [ 53%]
+test/test_mission_report_atomic.py .........                             [ 55%]
+test/test_mission_status_republish.py ......                             [ 56%]
+test/test_move_outcome_published.py ..                                   [ 56%]
+test/test_move_scoring.py ............................                   [ 62%]
+test/test_object_handler.py .................................            [ 68%]
+test/test_preflight.py ...............                                   [ 71%]
+test/test_proximity_guard_launch.py ......                               [ 72%]
+test/test_qos_events_fallback.py ........                                [ 73%]
+test/test_safety_event_published.py .......                              [ 75%]
+test/test_safety_stop_config.py ...............                          [ 78%]
+test/test_stop_ramp_arrival.py .....................                     [ 81%]
+test/test_wall_distance_freshness.py ...............                     [ 84%]
+test/test_wall_lock.py ..................................                [ 91%]
+test/test_wall_lock_behaviour.py .........................               [ 95%]
+
+=============================== warnings summary ===============================
+test/test_mission_report_atomic.py::TestInterruptedWrite::test_the_old_writer_leaves_a_zero_byte_file
+test/test_mission_report_atomic.py::TestInterruptedWrite::test_the_atomic_writer_leaves_the_destination_absent
+test/test_mission_report_atomic.py::TestInterruptedWrite::test_an_interrupted_write_does_not_damage_the_previous_report
+  Warning: This process (pid=2183418) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+test/test_watch_objects.py ......................                        [100%]
+- generated xml file: /tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/test_results/f1tenth_behavior/pytest.xml -
+======================= 532 passed, 3 warnings in 4.41s ========================
+---
+--- stderr: f1tenth_behavior
+
+=============================== warnings summary ===============================
+test/test_mission_report_atomic.py::TestInterruptedWrite::test_the_old_writer_leaves_a_zero_byte_file
+test/test_mission_report_atomic.py::TestInterruptedWrite::test_the_atomic_writer_leaves_the_destination_absent
+test/test_mission_report_atomic.py::TestInterruptedWrite::test_an_interrupted_write_does_not_damage_the_previous_report
+  Warning: This process (pid=2183418) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+Finished <<< f1tenth_behavior [5.50s]
+Starting >>> f1tenth_bringup
+--- output: f1tenth_bringup
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-7.4.4, pluggy-1.4.0
+cachedir: /home/andreas/dev_ws/f1tenth_more_rust/build/f1tenth_bringup/.pytest_cache
+rootdir: /home/andreas/dev_ws/f1tenth_more_rust/src/f1tenth_bringup
+plugins: launch-testing-3.4.10, ament-lint-0.17.5, launch-testing-ros-0.26.11, ament-xmllint-0.17.5, ament-pep257-0.17.5, ament-copyright-0.17.5, ament-flake8-0.17.5, cov-4.1.0, colcon-core-0.20.1, typeguard-4.1.5
+collected 81 items
+
+test/test_comms_component.py ......                                      [  7%]
+test/test_copyright.py F                                                 [  8%]
+test/test_diagnostics_group_logger_off.py ...                            [ 12%]
+test/test_ekf_reverse_visible.py ...                                     [ 16%]
+test/test_flake8.py F                                                    [ 17%]
+test/test_foxglove_whitelists.py ..                                      [ 19%]
+test/test_lidar_front_wall_component.py ....                             [ 24%]
+test/test_localization_deferred_start.py ...................             [ 48%]
+test/test_obstacle_clearance_component.py ...                            [ 51%]
+test/test_pep257.py F                                                    [ 53%]
+test/test_reset_manager_component.py ....                                [ 58%]
+test/test_reset_manager_idle.py ....                                     [ 62%]
+test/test_rust_switches.py .....                                         [ 69%]
+test/test_sim_mode.py ...............                                    [ 87%]
+test/test_stack_bringup_llm2_gate.py ....                                [ 92%]
+test/test_wall_distance_component.py ......                              [100%]
+
+=================================== FAILURES ===================================
+________________________________ test_copyright ________________________________
+test/test_copyright.py:23: in test_copyright
+    assert rc == 0, 'Found errors'
+E   AssertionError: Found errors
+E   assert 1 == 0
+----------------------------- Captured stderr call -----------------------------
+f1tenth_bringup/component_supervisor_node.py: could not find copyright notice
+f1tenth_bringup/reset_manager_node.py: could not find copyright notice
+f1tenth_bringup/stack_startup_sequence.py: could not find copyright notice
+f1tenth_bringup/viz_jpeg_node.py: could not find copyright notice
+launch/foxglove_bridge.launch.py: could not find copyright notice
+launch/reset_manager.launch.py: could not find copyright notice
+launch/sim_camera_tf.launch.py: could not find copyright notice
+launch/sim_component.launch.py: could not find copyright notice
+launch/sim_hardware_tf.launch.py: could not find copyright notice
+launch/stack_bringup.launch.py: could not find copyright notice
+launch/startup_sequence.launch.py: could not find copyright notice
+launch/supervisor_bringup.launch.py: could not find copyright notice
+launch/viz_relays.launch.py: could not find copyright notice
+scripts/ensure_discovery_server.py: could not find copyright notice
+test/test_comms_component.py: could not find copyright notice
+test/test_diagnostics_group_logger_off.py: could not find copyright notice
+test/test_ekf_reverse_visible.py: could not find copyright notice
+test/test_foxglove_whitelists.py: could not find copyright notice
+test/test_lidar_front_wall_component.py: could not find copyright notice
+test/test_localization_deferred_start.py: could not find copyright notice
+test/test_obstacle_clearance_component.py: could not find copyright notice
+test/test_reset_manager_component.py: could not find copyright notice
+test/test_reset_manager_idle.py: could not find copyright notice
+test/test_rust_switches.py: could not find copyright notice
+test/test_sim_mode.py: could not find copyright notice
+test/test_stack_bringup_llm2_gate.py: could not find copyright notice
+test/test_wall_distance_component.py: could not find copyright notice
+27 errors, checked 31 files
+_________________________________ test_flake8 __________________________________
+test/test_flake8.py:23: in test_flake8
+    assert rc == 0, \
+E   AssertionError: Found 112 code style errors / warnings:
+E     ./f1tenth_bringup/component_supervisor_node.py:1:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:290:1: I100 Import statements are in the wrong order. 'from f1tenth_messages.srv import ComponentControl, RestartComponent' should be before 'import yaml'
+E     ./f1tenth_bringup/component_supervisor_node.py:575:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:575:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:890:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:890:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:921:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:921:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:934:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:934:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:961:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:961:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:993:25: Q000 Double quotes found but single quotes preferred
+E     ./f1tenth_bringup/component_supervisor_node.py:1013:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1013:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1021:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1021:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1058:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1058:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1093:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1093:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1179:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1179:1: D209 Multi-line docstring closing quotes should be on a separate line
+E     ./f1tenth_bringup/component_supervisor_node.py:1179:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1258:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1258:1: D209 Multi-line docstring closing quotes should be on a separate line
+E     ./f1tenth_bringup/component_supervisor_node.py:1258:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1258:1: D401 First line should be in imperative mood; try rephrasing
+E     ./f1tenth_bringup/component_supervisor_node.py:1272:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1272:1: D209 Multi-line docstring closing quotes should be on a separate line
+E     ./f1tenth_bringup/component_supervisor_node.py:1272:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1272:1: D401 First line should be in imperative mood
+E     ./f1tenth_bringup/component_supervisor_node.py:1337:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1337:1: D209 Multi-line docstring closing quotes should be on a separate line
+E     ./f1tenth_bringup/component_supervisor_node.py:1337:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1358:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1358:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1403:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1403:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1415:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1415:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1477:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1477:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1513:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1513:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1617:47: E127 continuation line over-indented for visual indent
+E     ./f1tenth_bringup/component_supervisor_node.py:1655:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1655:1: D209 Multi-line docstring closing quotes should be on a separate line
+E     ./f1tenth_bringup/component_supervisor_node.py:1655:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1702:34: E127 continuation line over-indented for visual indent
+E     ./f1tenth_bringup/component_supervisor_node.py:1709:1: D205 1 blank line required between summary line and description
+E     ./f1tenth_bringup/component_supervisor_node.py:1709:1: D400 First line should end with a period
+E     ./f1tenth_bringup/component_supervisor_node.py:1754:13: Q003 Change outer quotes to avoid escaping inner quotes
+E     ./f1tenth_bringup/component_supervisor_node.py:1756:13: Q003 Change outer quotes to avoid escaping inner quotes
+E     ./f1tenth_bringup/reset_manager_node.py:72:1: I100 Import statements are in the wrong order. 'from ackermann_msgs.msg import AckermannDriveStamped' should be before 'import rclpy'
+E     ./f1tenth_bringup/reset_manager_node.py:84:1: I100 Import statements are in the wrong order. 'from f1tenth_messages.srv import RestartComponent' should be before 'from std_srvs.srv import Trigger'
+E     ./f1tenth_bringup/reset_manager_node.py:241:100: E501 line too long (104 > 99 characters)
+E     ./f1tenth_bringup/reset_manager_node.py:303:100: E501 line too long (102 > 99 characters)
+E     ./f1tenth_bringup/stack_startup_sequence.py:13:1: I100 Import statements are in the wrong order. 'from ackermann_msgs.msg import AckermannDriveStamped' should be before 'from rclpy.node import Node'
+E     ./f1tenth_bringup/stack_startup_sequence.py:94:11: W292 no newline at end of file
+E     ./launch/foxglove_bridge.launch.py:1:1: D205 1 blank line required between summary line and description
+E     ./launch/foxglove_bridge.launch.py:1:1: D400 First line should end with a period
+E     ./launch/foxglove_bridge.launch.py:124:21: Q000 Double quotes found but single quotes preferred
+E     ./launch/foxglove_bridge.launch.py:126:21: Q000 Double quotes found but single quotes preferred
+E     ./launch/foxglove_bridge.launch.py:128:21: Q000 Double quotes found but single quotes preferred
+E     ./launch/foxglove_bridge.launch.py:129:21: Q000 Double quotes found but single quotes preferred
+E     ./launch/foxglove_bridge.launch.py:134:21: Q000 Double quotes found but single quotes preferred
+E     ./launch/foxglove_bridge.launch.py:139:21: Q000 Double quotes found but single quotes preferred
+E     ./launch/foxglove_bridge.launch.py:140:21: Q000 Double quotes found but single quotes preferred
+E     ./launch/stack_bringup.launch.py:78:1: I100 Import statements are in the wrong order. 'from launch.conditions import IfCondition, UnlessCondition' should be before 'from launch.substitutions import LaunchConfiguration'
+E     ./launch/stack_bringup.launch.py:79:1: I100 Import statements are in the wrong order. 'from ament_index_python.packages import get_package_share_directory' should be before 'from launch.conditions import IfCondition, UnlessCondition'
+E     ./launch/stack_bringup.launch.py:149:5: F841 local variable 'camera_source' is assigned to but never used
+E     ./launch/supervisor_bringup.launch.py:1:1: D205 1 blank line required between summary line and description
+E     ./launch/supervisor_bringup.launch.py:1:1: D301 Use r""" if any backslashes in a docstring
+E     ./launch/supervisor_bringup.launch.py:1:1: D400 First line should end with a period
+E     ./launch/viz_relays.launch.py:28:1: I100 Import statements are in the wrong order. 'from ament_index_python.packages import get_package_share_directory' should be before 'import yaml'
+E     ./launch/viz_relays.launch.py:43:1: D401 First line should be in imperative mood; try rephrasing
+E     ./scripts/ensure_discovery_server.py:2:1: D205 1 blank line required between summary line and description
+E     ./scripts/ensure_discovery_server.py:2:1: D400 First line should end with a period
+E     ./scripts/ensure_discovery_server.py:44:1: D205 1 blank line required between summary line and description
+E     ./scripts/ensure_discovery_server.py:44:1: D400 First line should end with a period
+E     ./scripts/ensure_discovery_server.py:44:1: D401 First line should be in imperative mood; try rephrasing
+E     ./scripts/ensure_discovery_server.py:79:15: Q003 Change outer quotes to avoid escaping inner quotes
+E     ./scripts/ensure_discovery_server.py:80:15: Q003 Change outer quotes to avoid escaping inner quotes
+E     ./scripts/ensure_discovery_server.py:120:28: E127 continuation line over-indented for visual indent
+E     ./setup.py:2:1: I100 Import statements are in the wrong order. 'import os' should be before 'from setuptools import setup' and in a different group.
+E     ./setup.py:2:1: I201 Missing newline between import groups. 'import os' is identified as Stdlib and 'from setuptools import setup' is identified as Third Party.
+E     ./setup.py:3:1: I100 Import statements are in the wrong order. 'from glob import glob' should be before 'import os'
+E     ./test/test_foxglove_whitelists.py:24:1: D401 First line should be in imperative mood; try rephrasing
+E     ./test/test_lidar_front_wall_component.py:19:1: I100 Import statements are in the wrong order. 'from component_supervisor_node import _ALWAYS_AUTO_START' should be before 'import yaml'
+E     ./test/test_localization_deferred_start.py:1:1: D205 1 blank line required between summary line and description
+E     ./test/test_localization_deferred_start.py:1:1: D400 First line should end with a period
+E     ./test/test_localization_deferred_start.py:33:1: I100 Import statements are in the wrong order. 'from component_supervisor_node import ComponentSupervisorNode' should be before 'import pytest'
+E     ./test/test_localization_deferred_start.py:45:1: D205 1 blank line required between summary line and description
+E     ./test/test_localization_deferred_start.py:45:1: D209 Multi-line docstring closing quotes should be on a separate line
+E     ./test/test_localization_deferred_start.py:45:1: D400 First line should end with a period
+E     ./test/test_localization_deferred_start.py:97:1: D205 1 blank line required between summary line and description
+E     ./test/test_localization_deferred_start.py:97:1: D209 Multi-line docstring closing quotes should be on a separate line
+E     ./test/test_localization_deferred_start.py:97:1: D400 First line should end with a period
+E     ./test/test_localization_deferred_start.py:146:1: D205 1 blank line required between summary line and description
+E     ./test/test_localization_deferred_start.py:146:1: D209 Multi-line docstring closing quotes should be on a separate line
+E     ./test/test_localization_deferred_start.py:146:1: D400 First line should end with a period
+E     ./test/test_localization_deferred_start.py:210:1: D205 1 blank line required between summary line and description
+E     ./test/test_localization_deferred_start.py:210:1: D209 Multi-line docstring closing quotes should be on a separate line
+E     ./test/test_localization_deferred_start.py:210:1: D400 First line should end with a period
+E     ./test/test_localization_deferred_start.py:226:1: D205 1 blank line required between summary line and description
+E     ./test/test_localization_deferred_start.py:226:1: D209 Multi-line docstring closing quotes should be on a separate line
+E     ./test/test_obstacle_clearance_component.py:21:1: I100 Import statements are in the wrong order. 'from component_supervisor_node import _ALWAYS_AUTO_START, _CONDITIONAL_AUTO_START, _NEVER_AUTO_START' should be before 'import yaml'
+E     ./test/test_reset_manager_component.py:23:1: I100 Import statements are in the wrong order. 'from component_supervisor_node import _ALWAYS_AUTO_START, _CONDITIONAL_AUTO_START, _NEVER_AUTO_START' should be before 'import yaml'
+E     ./test/test_sim_mode.py:18:1: I100 Import statements are in the wrong order. 'from component_supervisor_node import _ComponentProcess, _SIM_DRIVER_LAUNCH_FILES, _SIM_REPLACEMENTS, apply_sim_mode, load_sim_component_args' should be before 'import yaml'
+E     ./test/test_wall_distance_component.py:27:1: I100 Import statements are in the wrong order. 'from component_supervisor_node import _ALWAYS_AUTO_START, _CONDITIONAL_AUTO_START' should be before 'import yaml'
+E   assert 1 == 0
+----------------------------- Captured stdout call -----------------------------
+
+./f1tenth_bringup/component_supervisor_node.py:1:1: D205 1 blank line required between summary line and description
+"""component_supervisor_node: spawns and independently restarts named "components"
+(functional groups of the F1TENTH stack -- hardware, localization, perception,
+lidar_front_wall, control, navigation, behavior, diagnostics, intelligence,
+dev_tools, plus the
+on-demand-only calibrate_hardware/startup_sequence) as separate `ros2 launch`
+subprocesses, each in
+its own process group (subprocess.Popen(..., start_new_session=True)), and exposes
+two services:
+  - f1tenth_messages/srv/RestartComponent: kill-and-relaunch one component.
+  - f1tenth_messages/srv/ComponentControl: SHUTDOWN (kill and leave down --
+    excluded from watchdog auto-respawn until explicitly START/RESTART-ed again),
+    START (spawn if not already running), or RESTART (kill-if-running then
+    respawn regardless) for one component.
+
+A watchdog timer (watchdog_period_sec) polls every tracked subprocess and
+auto-respawns any that exited on their own (a crash, not a supervisor-initiated
+stop) -- except ones a ComponentControl SHUTDOWN marked manually_stopped. Each
+subprocess has its own restart budget (max_auto_restarts within a trailing
+restart_budget_window_sec): once exhausted, the watchdog stops trying and leaves
+it down, logging clearly, until a manual START/RESTART (via either service)
+resets it by replacing the process with a fresh one.
+
+~/run_calibration (std_srvs/srv/Trigger): a purpose-named, fire-and-forget wrapper
+around what a raw ComponentControl(component_name='calibrate_hardware', action=
+RESTART) call already does today -- returns as soon as the two components are
+(re)started, not once calibration actually finishes (that takes ~60-130s; watch
+/calibration/in_progress, published by f1tenth_diagnostics' diagnostics_server_node,
+or this component's own log for that). Also stops 'hardware' FIRST, which
+ComponentControl on 'calibrate_hardware' alone does NOT do: both components' launch
+trees open the same VESC serial port, and the vendored driver doesn't open it
+exclusively -- running them concurrently risks two processes actually contending
+for the same UART, not just a clean failure. Deliberately does NOT auto-restart
+'hardware' once calibration finishes (same "not auto-sequenced" scope boundary
+calibrate_hardware's own localization/navigation follow-up already has, see below)
+-- watch /calibration/in_progress go back to false, then START/RESTART 'hardware'
+yourself to resume driving with the fresh values.
+
+This is the parallel bringup path alongside stack_bringup.launch.py (which stays
+untouched as a working fallback -- single process, no per-component restart). See
+f1tenth_bringup/config/components.yaml for the structural registry (WHAT each
+component runs) -- WHICH components auto-start, and how navigation/behavior/
+intelligence are modified or skipped, is decided here, once, at startup, by reading
+the same 4 stack-wide branching values (f1tenth_params/config/stack_params.yaml)
+that stack_bringup.launch.py itself uses, PLUS this node's own enable_intelligence
+parameter for 'intelligence' specifically (component-auto-start pass -- a real,
+CLI-overridable launch arg via supervisor_bringup.launch.py, calibration-style, NOT
+one of the 4 stack-wide values; see self.enable_intelligence and stack_params.yaml's
+own enable_intelligence comment for why this one component needed its own separate,
+CLI-overridable flag instead of a baked-in-at-parse-time stack-wide value):
+
+  behavior      auto-starts only if use_behavior_tree
+  intelligence  auto-starts only if enable_intelligence (this node's own declared
+                parameter, NOT a stack_params.yaml get_value() lookup -- see above). Starts
+                ONLY llama-server (llm.launch.py's own start_server launch-arg
+                now itself defaults 'true' -- components.yaml's intelligence
+                entry doesn't need to override it any more) -- never
+                llm_planner_node itself, which stays a separately,
+                manually-invoked CLI tool regardless of this flag (see
+                llm.launch.py's own module docstring for why).
+  control       always auto-starts; f1tenth_control/ackermann_mux.launch.py only --
+                safety_stop_controller was retired (superseded by the BT's own
+                unconditional handle_obstacle lane, see f1tenth_behavior)
+  navigation    always auto-starts; f1tenth_navigation/navigation.launch.py (its
+                one launches-list entry) branches Nav2 vs. mpc_corr on enable_nav2
+                itself -- component_supervisor_node doesn't gate this one, same as
+                dev_tools/enable_foxglove below
+  dev_tools     always auto-starts; foxglove_bridge.launch.py's own enable_foxglove
+                param (default true) decides whether the Node inside it actually
+                launches -- component_supervisor_node itself doesn't gate this one
+  slam          always auto-starts; f1tenth_navigation/slam.launch.py's own
+                enable_slam param (default TRUE -- corrected here, this
+                comment previously said FALSE, stale since whenever the
+                stack_params.yaml default was actually flipped) decides
+                whether the actual async_slam_toolbox_node Node inside it
+                actually launches -- component_supervisor_node itself
+                doesn't gate this one, same pattern as dev_tools/
+                enable_foxglove above (not navigation/enable_nav2, which
+                IS one of the 4 stack-wide branching values)
+  lidar_front_wall
+                always auto-starts; lidar_front_wall.launch.py self-gates on
+                use_lidar. Its own component, NOT part of perception, on
+                purpose: restarting perception restarts urg_node, the e-stop's
+                /scan (see components.yaml's comment on this entry)
+  everything else (hardware, localization, perception, diagnostics)
+                always auto-starts
+  calibrate_hardware, startup_sequence
+                NEVER auto-start -- registered (valid, restartable
+                component_names) but only ever brought up on an explicit
+                RestartComponent/ComponentControl request. startup_sequence
+                moved here from always-auto-start on request: it's a
+                steering-sweep visual "the stack is alive" check
+                (f1tenth_bringup/stack_startup_sequence.py), not a
+                functional dependency of anything else in the stack (no
+                other node reads its output or waits on it) -- confirmed
+                via a full grep before this change. Still available via
+                `ros2 service call /restart_component
+                f1tenth_messages/srv/RestartComponent
+                "{component_name: 'startup_sequence'}"` if wanted on
+                demand. stack_bringup.launch.py's own separate, single-
+                process bringup path still includes it unconditionally --
+                that file is untouched, this change is scoped to the
+                supervisor's own auto-start behavior only.
+
+calibrate_hardware runs vesc.launch.py with calibration:=true release_downstream:=
+false: it cycles the VESC driver through a fresh calibration measurement exactly
+like stack_bringup.launch.py's calibration:=true path, but does NOT itself release
+ekf_node/Nav2 afterward (release_downstream:=false -- see vesc.launch.py), since
+those are this supervisor's own independently-tracked localization/navigation
+components, not nested includes of vesc.launch.py's own launch tree. This node does
+NOT auto-sequence a full recalibration workflow: after calling
+restart_component('calibrate_hardware') and confirming it finished (watch its log
+for "fresh driver group v2 up", or wait roughly calibration_duration_sec plus a few
+seconds), call restart_component('localization') and restart_component('navigation')
+yourself to pick up the freshly-calibrated values. That's a deliberate scope
+boundary -- RestartComponent's request is just a component_name, with no field for
+"and then also restart these other components once this one settles", so automatic
+cross-component sequencing would need a different service contract entirely.
+
+'localization' deferred-start (automatic first-boot path -- calibration-restart
+gap fix, following a live CPU-contention/EKF-audit investigation, see that pass's
+own report): the paragraph above documents the MANUAL recalibration path's own
+"restart localization yourself afterward" requirement -- the automatic first-boot
+path had no equivalent at all. Confirmed live: 'hardware' and 'localization' are
+both in _ALWAYS_AUTO_START, started from the same unordered `for name in
+auto_start` loop below with no sequencing between them (observed ~2ms apart) --
+ekf_filter_node/ekf_global_filter_node began integrating /odom + /sensors/imu/raw
+from driver group v1 (running on WHATEVER gyro_bias_z was already in vesc.yaml
+from the PREVIOUS calibration, not this boot's fresh one -- see f1tenth_hardware/
+vesc.launch.py's own module docstring for the v1/v2 split) through the v1->v2
+restart, with NO state reset once v2's freshly-calibrated stream came online
+~60-130s later. Any bias integrated during that window stayed permanently baked
+into the filter's running estimate -- the live-measured ~60deg static local-EKF
+yaw offset at rest, from the investigation this fix follows up on, is consistent
+with exactly this.
+
+Fixed by deferring 'localization's own auto-start (see _defer_localization_start())
+until /calibration/in_progress (f1tenth_diagnostics' diagnostics_server_node, pure
+ROS-graph introspection, unaffected by which of the three ways calibration actually
+got triggered -- see that node's own docstring) shows a genuine True->False
+transition, not merely "reads False" (a real race: this subscription attaches at
+__init__ time, essentially instantly, while the calibration nodes themselves don't
+appear in the graph until several seconds into 'hardware's own battery-check +
+driver-bringup sequence -- trusting the seeded-False initial value would silently
+skip the wait it exists for). Bounded by localization_calibration_wait_timeout_sec
+regardless (fail-open -- same "never block startup indefinitely" discipline vesc.
+launch.py's own calibration-failure handling already uses) so a genuinely stuck
+calibration, or the (structurally unlikely given the timing margin above, but not
+impossible) case of missing the True phase entirely, can't hang 'localization' from
+ever starting. Only 'localization' is deferred -- 'navigation' auto-starts
+immediately as before, unchanged; out of this fix's own explicit scope. A manual
+RestartComponent/ComponentControl request naming 'localization' while the wait is
+still pending cancels it and honors the manual request immediately (see
+_resolve_localization_deferral()'s own docstring) -- a human saying "start it now"
+always wins over the automatic wait.
+
+Scope note (flagged, not silently expanded): this fix does not touch or fold into
+any other outstanding calibration-path work -- searched this repository's git
+history, docs, and code comments for a "startup calibration audit" / prior
+blocker list to fold into and found none; if one exists outside this repo, this
+fix should be reconciled against it separately rather than assumed compatible.
+
+Process model: each component's command(s) are spawned via subprocess.Popen with
+start_new_session=True, which puts each ros2 launch invocation (and everything it in
+turn spawns) in its own new session/process group, distinct from
+component_supervisor_node's own -- and, since the immediate child becomes its own
+session leader, its pgid is definitionally its own pid, no os.getpgid() lookup
+needed. Restarting a component sends SIGINT to that whole process group
+(os.killpg), not just the top-level ros2 launch PID -- SIGINT alone to just that PID
+would leave every node ros2 launch spawned running as orphans. If the group hasn't
+exited within restart_timeout_sec, it gets SIGKILL.
+
+Clean shutdown: on a normal KeyboardInterrupt out of rclpy.spin() (Ctrl+C reaching
+this process), main()'s try/finally already called shutdown_all(). That alone isn't
+reliable for every way this node actually dies, though: plain SIGTERM has no Python
+exception to unwind through by default (the interpreter just exits, skipping
+finally, so shutdown_all() never runs), and a SIGKILL on this process's own pid
+can't run any Python code at all. main() also installs explicit SIGINT/SIGTERM
+handlers (signal.signal, registered just before rclpy.spin() starts) that call
+shutdown_all() directly and exit -- covering the SIGTERM gap.
+
+shutdown_all() stops every tracked component via _stop_all_components(), which
+SIGINTs all of them up front and then waits on all of them concurrently against
+one shared _SHUTDOWN_GRACE_SEC deadline (not sequentially, one full wait at a
+time) -- this matters because `ros2 launch` gives a managed Node like this one
+only ~5s after SIGINT before escalating to SIGTERM itself, and a sequential
+sum-of-waits across ~10 tracked components routinely exceeds that regardless of
+how short each individual wait is. When it does, that follow-up SIGTERM reaches
+this same signal handler again -- reentrantly, while the first shutdown_all()
+call is still paused mid-wait -- which is a real, observed failure mode, not a
+hypothetical one: shutdown_all() is guarded by _shutdown_started (set at the
+very start, before it's actually finished), so a second call from the reentrant
+signal would just hit that guard and return instantly, and the handler would
+then os._exit(0) anyway, abandoning whichever components the first call hadn't
+gotten to yet -- precisely the orphans this whole mechanism exists to prevent.
+The handler checks for exactly that (_shutdown_started True, _shutdown_done
+still False) and escalates instead: force_kill_all() SIGKILLs every still-
+tracked process group immediately, no waiting, so a second signal is always a
+hard guarantee of a clean exit no matter how slow anything was being.
+
+Single-instance lock (_SUPERVISOR_LOCK_PATH, claimed in main() before rclpy.init()):
+this node must be a singleton, and nothing enforced that until a live session ran
+three of them at once. Two supervisors don't merely duplicate work -- they actively
+break each other in three separate ways, all observed:
+  - Components holding an exclusive OS-level resource simply cannot start twice, so
+    the second supervisor's copy dies instantly with exit code 1 and then burns its
+    whole max_auto_restarts budget losing the same race: 'intelligence' (llama-server
+    binds a fixed TCP port -- "couldn't bind HTTP server socket ... port 8083") and
+    'diagnostics' (mission_logger_node's own single-instance lock, see f1tenth_logger/
+    mission_logger_node.py's own "-- single-instance lock" section, which this one
+    deliberately mirrors). Every other component tolerates a duplicate by merely
+    double-publishing, which is exactly why this failure mode reads as "only
+    diagnostics and intelligence are broken" rather than "the stack is launched twice".
+  - _pgid_file is a fixed path under log_dir, so both instances read, rewrite and
+    delete ONE shared file. The second instance's _sweep_stale_pgids() reads the
+    first's LIVE pids, passes _looks_like_ros2_launch() on them (they are genuine
+    `ros2 launch` processes), kills them as "stale", then _clear_pgid_file()s the
+    survivor's own tracking out from under it -- after which nothing on the machine
+    knows those process groups exist and the next SIGKILL orphans them permanently.
+    An orphaned supervisor tree reparented to init is how this was found.
+  - Per-component log files are opened 'w' (truncate) at a path derived only from
+    package + launch file, so both instances clobber and interleave the same logs,
+    which is what made the failure so hard to read.
+Note that per-instance paths would NOT have been a fix for the middle point: the
+stale sweep works precisely because the next instance knows where the previous one
+left its file. A hard singleton is what makes that shared path safe, so the lock is
+the whole fix rather than one half of it.
+
+Startup safety sweep: none of the above helps if this process itself gets SIGKILLed
+(a crash, an OOM kill, `kill -9`) -- nothing runs, so every process group it had
+spawned is orphaned (reparented to init) with nothing left to ever clean it up, and
+the next launch of this node would spawn a second full set on top, unaware the
+first set is still alive. To catch that: every live process group this node has
+spawned is mirrored to a small JSON file (self._pgid_file, under log_dir) on every
+start/stop/respawn, and cleared on a clean shutdown_all(). On startup, before
+spawning anything, _sweep_stale_pgids() checks that file: if it's non-empty, the
+previous instance didn't get to clean up after itself, so each recorded pid is
+checked for liveness and killed (SIGTERM, then SIGKILL after _SHUTDOWN_GRACE_SEC) if
+still around -- logged as a warning either way, since it means something skipped a
+graceful shutdown last time. A lightweight /proc/<pid>/cmdline check guards against
+the (unlikely but possible) case of the recorded pid having been reused by an
+unrelated process since the file was written.
+
+FastDDS shared-memory hygiene (_sweep_stale_fastrtps_shm): a completely separate
+concern from the process-group sweep above, root-caused live in the same session
+this was added. Clean process-group termination (SIGINT/SIGTERM/SIGKILL, all of the
+above) says nothing about whether the FastDDS SHM transport released its own
+/dev/shm segment/lock files before the owning process exited -- those files are
+independent OS-level artifacts that persist regardless of how cleanly the process
+that created them went away, and they accumulate silently across sessions (249
+found in one dev session, some >24h old). FastDDS's SHM transport draws from a
+small, fixed pool of "well-known" discovery ports; once enough of that pool is
+occupied by stale, orphaned files, new participants starting close together (this
+node's own ~11-tree, several-dozen-node burst at startup is exactly that) lose the
+race for a port and get stuck retrying indefinitely instead of failing cleanly or
+falling back -- which is what actually caused the VESC/odom/perception/diagnostics/
+behavior startup failures diagnosed earlier this session. Neither this node's own
+process-group hygiene above nor `ros2`/FastDDS itself does anything about this on
+its own, so it's swept explicitly here:
+  - matches /dev/shm/*fastrtps* -- one glob catches both the per-participant segment
+    family (fastrtps_<hex>, fastrtps_<hex>_el) and the well-known discovery-port
+    family (fastrtps_port<N>, fastrtps_port<N>_el, sem.fastrtps_port<N>_mutex); a
+    naive fastrtps_* prefix match misses the sem.fastrtps_* files
+  - a file only counts as orphaned if no live process anywhere on the system still
+    has it open (checked via /proc/<pid>/fd) or mapped (via /proc/<pid>/maps, since
+    POSIX shared memory is commonly mmap'd and then has its creating fd closed) --
+    never blanket-deleted
+  - refuses outright (logs an error, removes nothing) if another live
+    component_supervisor_node process is found, since that's the one case where
+    deleting a "seemingly orphaned" file could pull it out from under a legitimate
+    sibling instance
+  - runs at startup (from _sweep_stale_pgids(), so it always executes before the
+    first component tree is spawned, whether or not that call found any stale
+    pgids of its own) and at shutdown (end of both shutdown_all() and
+    force_kill_all(), once every tracked process group is confirmed gone) -- the
+    shutdown-side sweep exists because this node's own components can just as
+    easily leave this residue behind as anything else that's ever run on this
+    machine.
+"""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1:1: D400 First line should end with a period
+"""component_supervisor_node: spawns and independently restarts named "components"
+(functional groups of the F1TENTH stack -- hardware, localization, perception,
+lidar_front_wall, control, navigation, behavior, diagnostics, intelligence,
+dev_tools, plus the
+on-demand-only calibrate_hardware/startup_sequence) as separate `ros2 launch`
+subprocesses, each in
+its own process group (subprocess.Popen(..., start_new_session=True)), and exposes
+two services:
+  - f1tenth_messages/srv/RestartComponent: kill-and-relaunch one component.
+  - f1tenth_messages/srv/ComponentControl: SHUTDOWN (kill and leave down --
+    excluded from watchdog auto-respawn until explicitly START/RESTART-ed again),
+    START (spawn if not already running), or RESTART (kill-if-running then
+    respawn regardless) for one component.
+
+A watchdog timer (watchdog_period_sec) polls every tracked subprocess and
+auto-respawns any that exited on their own (a crash, not a supervisor-initiated
+stop) -- except ones a ComponentControl SHUTDOWN marked manually_stopped. Each
+subprocess has its own restart budget (max_auto_restarts within a trailing
+restart_budget_window_sec): once exhausted, the watchdog stops trying and leaves
+it down, logging clearly, until a manual START/RESTART (via either service)
+resets it by replacing the process with a fresh one.
+
+~/run_calibration (std_srvs/srv/Trigger): a purpose-named, fire-and-forget wrapper
+around what a raw ComponentControl(component_name='calibrate_hardware', action=
+RESTART) call already does today -- returns as soon as the two components are
+(re)started, not once calibration actually finishes (that takes ~60-130s; watch
+/calibration/in_progress, published by f1tenth_diagnostics' diagnostics_server_node,
+or this component's own log for that). Also stops 'hardware' FIRST, which
+ComponentControl on 'calibrate_hardware' alone does NOT do: both components' launch
+trees open the same VESC serial port, and the vendored driver doesn't open it
+exclusively -- running them concurrently risks two processes actually contending
+for the same UART, not just a clean failure. Deliberately does NOT auto-restart
+'hardware' once calibration finishes (same "not auto-sequenced" scope boundary
+calibrate_hardware's own localization/navigation follow-up already has, see below)
+-- watch /calibration/in_progress go back to false, then START/RESTART 'hardware'
+yourself to resume driving with the fresh values.
+
+This is the parallel bringup path alongside stack_bringup.launch.py (which stays
+untouched as a working fallback -- single process, no per-component restart). See
+f1tenth_bringup/config/components.yaml for the structural registry (WHAT each
+component runs) -- WHICH components auto-start, and how navigation/behavior/
+intelligence are modified or skipped, is decided here, once, at startup, by reading
+the same 4 stack-wide branching values (f1tenth_params/config/stack_params.yaml)
+that stack_bringup.launch.py itself uses, PLUS this node's own enable_intelligence
+parameter for 'intelligence' specifically (component-auto-start pass -- a real,
+CLI-overridable launch arg via supervisor_bringup.launch.py, calibration-style, NOT
+one of the 4 stack-wide values; see self.enable_intelligence and stack_params.yaml's
+own enable_intelligence comment for why this one component needed its own separate,
+CLI-overridable flag instead of a baked-in-at-parse-time stack-wide value):
+
+  behavior      auto-starts only if use_behavior_tree
+  intelligence  auto-starts only if enable_intelligence (this node's own declared
+                parameter, NOT a stack_params.yaml get_value() lookup -- see above). Starts
+                ONLY llama-server (llm.launch.py's own start_server launch-arg
+                now itself defaults 'true' -- components.yaml's intelligence
+                entry doesn't need to override it any more) -- never
+                llm_planner_node itself, which stays a separately,
+                manually-invoked CLI tool regardless of this flag (see
+                llm.launch.py's own module docstring for why).
+  control       always auto-starts; f1tenth_control/ackermann_mux.launch.py only --
+                safety_stop_controller was retired (superseded by the BT's own
+                unconditional handle_obstacle lane, see f1tenth_behavior)
+  navigation    always auto-starts; f1tenth_navigation/navigation.launch.py (its
+                one launches-list entry) branches Nav2 vs. mpc_corr on enable_nav2
+                itself -- component_supervisor_node doesn't gate this one, same as
+                dev_tools/enable_foxglove below
+  dev_tools     always auto-starts; foxglove_bridge.launch.py's own enable_foxglove
+                param (default true) decides whether the Node inside it actually
+                launches -- component_supervisor_node itself doesn't gate this one
+  slam          always auto-starts; f1tenth_navigation/slam.launch.py's own
+                enable_slam param (default TRUE -- corrected here, this
+                comment previously said FALSE, stale since whenever the
+                stack_params.yaml default was actually flipped) decides
+                whether the actual async_slam_toolbox_node Node inside it
+                actually launches -- component_supervisor_node itself
+                doesn't gate this one, same pattern as dev_tools/
+                enable_foxglove above (not navigation/enable_nav2, which
+                IS one of the 4 stack-wide branching values)
+  lidar_front_wall
+                always auto-starts; lidar_front_wall.launch.py self-gates on
+                use_lidar. Its own component, NOT part of perception, on
+                purpose: restarting perception restarts urg_node, the e-stop's
+                /scan (see components.yaml's comment on this entry)
+  everything else (hardware, localization, perception, diagnostics)
+                always auto-starts
+  calibrate_hardware, startup_sequence
+                NEVER auto-start -- registered (valid, restartable
+                component_names) but only ever brought up on an explicit
+                RestartComponent/ComponentControl request. startup_sequence
+                moved here from always-auto-start on request: it's a
+                steering-sweep visual "the stack is alive" check
+                (f1tenth_bringup/stack_startup_sequence.py), not a
+                functional dependency of anything else in the stack (no
+                other node reads its output or waits on it) -- confirmed
+                via a full grep before this change. Still available via
+                `ros2 service call /restart_component
+                f1tenth_messages/srv/RestartComponent
+                "{component_name: 'startup_sequence'}"` if wanted on
+                demand. stack_bringup.launch.py's own separate, single-
+                process bringup path still includes it unconditionally --
+                that file is untouched, this change is scoped to the
+                supervisor's own auto-start behavior only.
+
+calibrate_hardware runs vesc.launch.py with calibration:=true release_downstream:=
+false: it cycles the VESC driver through a fresh calibration measurement exactly
+like stack_bringup.launch.py's calibration:=true path, but does NOT itself release
+ekf_node/Nav2 afterward (release_downstream:=false -- see vesc.launch.py), since
+those are this supervisor's own independently-tracked localization/navigation
+components, not nested includes of vesc.launch.py's own launch tree. This node does
+NOT auto-sequence a full recalibration workflow: after calling
+restart_component('calibrate_hardware') and confirming it finished (watch its log
+for "fresh driver group v2 up", or wait roughly calibration_duration_sec plus a few
+seconds), call restart_component('localization') and restart_component('navigation')
+yourself to pick up the freshly-calibrated values. That's a deliberate scope
+boundary -- RestartComponent's request is just a component_name, with no field for
+"and then also restart these other components once this one settles", so automatic
+cross-component sequencing would need a different service contract entirely.
+
+'localization' deferred-start (automatic first-boot path -- calibration-restart
+gap fix, following a live CPU-contention/EKF-audit investigation, see that pass's
+own report): the paragraph above documents the MANUAL recalibration path's own
+"restart localization yourself afterward" requirement -- the automatic first-boot
+path had no equivalent at all. Confirmed live: 'hardware' and 'localization' are
+both in _ALWAYS_AUTO_START, started from the same unordered `for name in
+auto_start` loop below with no sequencing between them (observed ~2ms apart) --
+ekf_filter_node/ekf_global_filter_node began integrating /odom + /sensors/imu/raw
+from driver group v1 (running on WHATEVER gyro_bias_z was already in vesc.yaml
+from the PREVIOUS calibration, not this boot's fresh one -- see f1tenth_hardware/
+vesc.launch.py's own module docstring for the v1/v2 split) through the v1->v2
+restart, with NO state reset once v2's freshly-calibrated stream came online
+~60-130s later. Any bias integrated during that window stayed permanently baked
+into the filter's running estimate -- the live-measured ~60deg static local-EKF
+yaw offset at rest, from the investigation this fix follows up on, is consistent
+with exactly this.
+
+Fixed by deferring 'localization's own auto-start (see _defer_localization_start())
+until /calibration/in_progress (f1tenth_diagnostics' diagnostics_server_node, pure
+ROS-graph introspection, unaffected by which of the three ways calibration actually
+got triggered -- see that node's own docstring) shows a genuine True->False
+transition, not merely "reads False" (a real race: this subscription attaches at
+__init__ time, essentially instantly, while the calibration nodes themselves don't
+appear in the graph until several seconds into 'hardware's own battery-check +
+driver-bringup sequence -- trusting the seeded-False initial value would silently
+skip the wait it exists for). Bounded by localization_calibration_wait_timeout_sec
+regardless (fail-open -- same "never block startup indefinitely" discipline vesc.
+launch.py's own calibration-failure handling already uses) so a genuinely stuck
+calibration, or the (structurally unlikely given the timing margin above, but not
+impossible) case of missing the True phase entirely, can't hang 'localization' from
+ever starting. Only 'localization' is deferred -- 'navigation' auto-starts
+immediately as before, unchanged; out of this fix's own explicit scope. A manual
+RestartComponent/ComponentControl request naming 'localization' while the wait is
+still pending cancels it and honors the manual request immediately (see
+_resolve_localization_deferral()'s own docstring) -- a human saying "start it now"
+always wins over the automatic wait.
+
+Scope note (flagged, not silently expanded): this fix does not touch or fold into
+any other outstanding calibration-path work -- searched this repository's git
+history, docs, and code comments for a "startup calibration audit" / prior
+blocker list to fold into and found none; if one exists outside this repo, this
+fix should be reconciled against it separately rather than assumed compatible.
+
+Process model: each component's command(s) are spawned via subprocess.Popen with
+start_new_session=True, which puts each ros2 launch invocation (and everything it in
+turn spawns) in its own new session/process group, distinct from
+component_supervisor_node's own -- and, since the immediate child becomes its own
+session leader, its pgid is definitionally its own pid, no os.getpgid() lookup
+needed. Restarting a component sends SIGINT to that whole process group
+(os.killpg), not just the top-level ros2 launch PID -- SIGINT alone to just that PID
+would leave every node ros2 launch spawned running as orphans. If the group hasn't
+exited within restart_timeout_sec, it gets SIGKILL.
+
+Clean shutdown: on a normal KeyboardInterrupt out of rclpy.spin() (Ctrl+C reaching
+this process), main()'s try/finally already called shutdown_all(). That alone isn't
+reliable for every way this node actually dies, though: plain SIGTERM has no Python
+exception to unwind through by default (the interpreter just exits, skipping
+finally, so shutdown_all() never runs), and a SIGKILL on this process's own pid
+can't run any Python code at all. main() also installs explicit SIGINT/SIGTERM
+handlers (signal.signal, registered just before rclpy.spin() starts) that call
+shutdown_all() directly and exit -- covering the SIGTERM gap.
+
+shutdown_all() stops every tracked component via _stop_all_components(), which
+SIGINTs all of them up front and then waits on all of them concurrently against
+one shared _SHUTDOWN_GRACE_SEC deadline (not sequentially, one full wait at a
+time) -- this matters because `ros2 launch` gives a managed Node like this one
+only ~5s after SIGINT before escalating to SIGTERM itself, and a sequential
+sum-of-waits across ~10 tracked components routinely exceeds that regardless of
+how short each individual wait is. When it does, that follow-up SIGTERM reaches
+this same signal handler again -- reentrantly, while the first shutdown_all()
+call is still paused mid-wait -- which is a real, observed failure mode, not a
+hypothetical one: shutdown_all() is guarded by _shutdown_started (set at the
+very start, before it's actually finished), so a second call from the reentrant
+signal would just hit that guard and return instantly, and the handler would
+then os._exit(0) anyway, abandoning whichever components the first call hadn't
+gotten to yet -- precisely the orphans this whole mechanism exists to prevent.
+The handler checks for exactly that (_shutdown_started True, _shutdown_done
+still False) and escalates instead: force_kill_all() SIGKILLs every still-
+tracked process group immediately, no waiting, so a second signal is always a
+hard guarantee of a clean exit no matter how slow anything was being.
+
+Single-instance lock (_SUPERVISOR_LOCK_PATH, claimed in main() before rclpy.init()):
+this node must be a singleton, and nothing enforced that until a live session ran
+three of them at once. Two supervisors don't merely duplicate work -- they actively
+break each other in three separate ways, all observed:
+  - Components holding an exclusive OS-level resource simply cannot start twice, so
+    the second supervisor's copy dies instantly with exit code 1 and then burns its
+    whole max_auto_restarts budget losing the same race: 'intelligence' (llama-server
+    binds a fixed TCP port -- "couldn't bind HTTP server socket ... port 8083") and
+    'diagnostics' (mission_logger_node's own single-instance lock, see f1tenth_logger/
+    mission_logger_node.py's own "-- single-instance lock" section, which this one
+    deliberately mirrors). Every other component tolerates a duplicate by merely
+    double-publishing, which is exactly why this failure mode reads as "only
+    diagnostics and intelligence are broken" rather than "the stack is launched twice".
+  - _pgid_file is a fixed path under log_dir, so both instances read, rewrite and
+    delete ONE shared file. The second instance's _sweep_stale_pgids() reads the
+    first's LIVE pids, passes _looks_like_ros2_launch() on them (they are genuine
+    `ros2 launch` processes), kills them as "stale", then _clear_pgid_file()s the
+    survivor's own tracking out from under it -- after which nothing on the machine
+    knows those process groups exist and the next SIGKILL orphans them permanently.
+    An orphaned supervisor tree reparented to init is how this was found.
+  - Per-component log files are opened 'w' (truncate) at a path derived only from
+    package + launch file, so both instances clobber and interleave the same logs,
+    which is what made the failure so hard to read.
+Note that per-instance paths would NOT have been a fix for the middle point: the
+stale sweep works precisely because the next instance knows where the previous one
+left its file. A hard singleton is what makes that shared path safe, so the lock is
+the whole fix rather than one half of it.
+
+Startup safety sweep: none of the above helps if this process itself gets SIGKILLed
+(a crash, an OOM kill, `kill -9`) -- nothing runs, so every process group it had
+spawned is orphaned (reparented to init) with nothing left to ever clean it up, and
+the next launch of this node would spawn a second full set on top, unaware the
+first set is still alive. To catch that: every live process group this node has
+spawned is mirrored to a small JSON file (self._pgid_file, under log_dir) on every
+start/stop/respawn, and cleared on a clean shutdown_all(). On startup, before
+spawning anything, _sweep_stale_pgids() checks that file: if it's non-empty, the
+previous instance didn't get to clean up after itself, so each recorded pid is
+checked for liveness and killed (SIGTERM, then SIGKILL after _SHUTDOWN_GRACE_SEC) if
+still around -- logged as a warning either way, since it means something skipped a
+graceful shutdown last time. A lightweight /proc/<pid>/cmdline check guards against
+the (unlikely but possible) case of the recorded pid having been reused by an
+unrelated process since the file was written.
+
+FastDDS shared-memory hygiene (_sweep_stale_fastrtps_shm): a completely separate
+concern from the process-group sweep above, root-caused live in the same session
+this was added. Clean process-group termination (SIGINT/SIGTERM/SIGKILL, all of the
+above) says nothing about whether the FastDDS SHM transport released its own
+/dev/shm segment/lock files before the owning process exited -- those files are
+independent OS-level artifacts that persist regardless of how cleanly the process
+that created them went away, and they accumulate silently across sessions (249
+found in one dev session, some >24h old). FastDDS's SHM transport draws from a
+small, fixed pool of "well-known" discovery ports; once enough of that pool is
+occupied by stale, orphaned files, new participants starting close together (this
+node's own ~11-tree, several-dozen-node burst at startup is exactly that) lose the
+race for a port and get stuck retrying indefinitely instead of failing cleanly or
+falling back -- which is what actually caused the VESC/odom/perception/diagnostics/
+behavior startup failures diagnosed earlier this session. Neither this node's own
+process-group hygiene above nor `ros2`/FastDDS itself does anything about this on
+its own, so it's swept explicitly here:
+  - matches /dev/shm/*fastrtps* -- one glob catches both the per-participant segment
+    family (fastrtps_<hex>, fastrtps_<hex>_el) and the well-known discovery-port
+    family (fastrtps_port<N>, fastrtps_port<N>_el, sem.fastrtps_port<N>_mutex); a
+    naive fastrtps_* prefix match misses the sem.fastrtps_* files
+  - a file only counts as orphaned if no live process anywhere on the system still
+    has it open (checked via /proc/<pid>/fd) or mapped (via /proc/<pid>/maps, since
+    POSIX shared memory is commonly mmap'd and then has its creating fd closed) --
+    never blanket-deleted
+  - refuses outright (logs an error, removes nothing) if another live
+    component_supervisor_node process is found, since that's the one case where
+    deleting a "seemingly orphaned" file could pull it out from under a legitimate
+    sibling instance
+  - runs at startup (from _sweep_stale_pgids(), so it always executes before the
+    first component tree is spawned, whether or not that call found any stale
+    pgids of its own) and at shutdown (end of both shutdown_all() and
+    force_kill_all(), once every tracked process group is confirmed gone) -- the
+    shutdown-side sweep exists because this node's own components can just as
+    easily leave this residue behind as anything else that's ever run on this
+    machine.
+"""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:290:1: I100 Import statements are in the wrong order. 'from f1tenth_messages.srv import ComponentControl, RestartComponent' should be before 'import yaml'
+from f1tenth_messages.srv import ComponentControl, RestartComponent
+^
+
+./f1tenth_bringup/component_supervisor_node.py:575:1: D205 1 blank line required between summary line and description
+    """One tracked `ros2 launch` subprocess -- one entry per components.yaml launches
+    list item; several per component for e.g. perception (camera + detection).
+
+    manually_stopped and the auto-restart timestamp history are per-subprocess (not
+    per logical component) deliberately: _start_component always builds fresh
+    _ComponentProcess instances (see start()'s callers), so both reset for free
+    whenever a component is (re)started via either service -- no separate "clear"
+    step needed.
+    """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:575:1: D400 First line should end with a period
+    """One tracked `ros2 launch` subprocess -- one entry per components.yaml launches
+    list item; several per component for e.g. perception (camera + detection).
+
+    manually_stopped and the auto-restart timestamp history are per-subprocess (not
+    per logical component) deliberately: _start_component always builds fresh
+    _ComponentProcess instances (see start()'s callers), so both reset for free
+    whenever a component is (re)started via either service -- no separate "clear"
+    step needed.
+    """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:890:1: D205 1 blank line required between summary line and description
+        """Overwrite self._pgid_file with every currently-live process group this
+        node has spawned, keyed by component name. Called after every state change
+        (start/stop/respawn) so it's always an accurate snapshot -- if this process
+        dies uncleanly, the next instance's _sweep_stale_pgids() trusts whatever was
+        last written here.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:890:1: D400 First line should end with a period
+        """Overwrite self._pgid_file with every currently-live process group this
+        node has spawned, keyed by component name. Called after every state change
+        (start/stop/respawn) so it's always an accurate snapshot -- if this process
+        dies uncleanly, the next instance's _sweep_stale_pgids() trusts whatever was
+        last written here.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:921:1: D205 1 blank line required between summary line and description
+        """Best-effort guard against pid reuse: a pid recorded in a stale pgid file
+        could, in principle, have been recycled by the OS for an unrelated process
+        since that file was written. Cheap enough to always check before killpg-ing
+        something this instance never spawned itself.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:921:1: D400 First line should end with a period
+        """Best-effort guard against pid reuse: a pid recorded in a stale pgid file
+        could, in principle, have been recycled by the OS for an unrelated process
+        since that file was written. Cheap enough to always check before killpg-ing
+        something this instance never spawned itself.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:934:1: D205 1 blank line required between summary line and description
+        """SIGTERM-then-SIGKILL a process group by raw pid, polling for exit instead
+        of Popen.wait() -- used by the startup sweep for groups spawned by a
+        *previous*, now-dead instance of this node, so they aren't this process's
+        children and can't be waited on. Mirrors _stop_component's escalation shape;
+        SIGTERM rather than SIGINT since there's no live `ros2 launch` here for
+        SIGINT's graceful-nested-teardown semantics to matter -- these are already
+        orphaned, we just want them gone.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:934:1: D400 First line should end with a period
+        """SIGTERM-then-SIGKILL a process group by raw pid, polling for exit instead
+        of Popen.wait() -- used by the startup sweep for groups spawned by a
+        *previous*, now-dead instance of this node, so they aren't this process's
+        children and can't be waited on. Mirrors _stop_component's escalation shape;
+        SIGTERM rather than SIGINT since there's no live `ros2 launch` here for
+        SIGINT's graceful-nested-teardown semantics to matter -- these are already
+        orphaned, we just want them gone.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:961:1: D205 1 blank line required between summary line and description
+        """Startup safety net for an unclean previous exit (e.g. `kill -9` on this
+        node's own pid, an OOM kill -- anything that skips shutdown_all() entirely).
+        start_new_session=True means every spawned process group survives its
+        parent's death, reparented to init -- nothing else would ever notice or
+        clean them up, and the next launch of this node would spawn a second full
+        set on top of them. Called once, before anything is spawned.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:961:1: D400 First line should end with a period
+        """Startup safety net for an unclean previous exit (e.g. `kill -9` on this
+        node's own pid, an OOM kill -- anything that skips shutdown_all() entirely).
+        start_new_session=True means every spawned process group survives its
+        parent's death, reparented to init -- nothing else would ever notice or
+        clean them up, and the next launch of this node would spawn a second full
+        set on top of them. Called once, before anything is spawned.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:993:25: Q000 Double quotes found but single quotes preferred
+                        f"[component_supervisor] Stale pgid {pid} recorded for "
+                        ^
+
+./f1tenth_bringup/component_supervisor_node.py:1013:1: D205 1 blank line required between summary line and description
+        """Every /dev/shm entry that looks like FastDDS SHM transport state --
+        see module docstring for why a single glob is enough to catch both file
+        families this needs to match.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1013:1: D400 First line should end with a period
+        """Every /dev/shm entry that looks like FastDDS SHM transport state --
+        see module docstring for why a single glob is enough to catch both file
+        families this needs to match.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1021:1: D205 1 blank line required between summary line and description
+        """Every absolute path currently referenced by some live process's open
+        file descriptors or memory mappings -- one scan of /proc, reused against
+        every candidate file in the same sweep call rather than re-scanning per
+        file. Checks both /proc/<pid>/fd (an open()'d file or named semaphore)
+        and /proc/<pid>/maps (mmap'd shared memory can have its creating fd
+        closed right after the mapping is made, a common pattern for POSIX
+        shared memory -- relying on fd/ alone would misclassify those as
+        orphaned). Best-effort: a process that exits mid-scan, or whose /proc
+        entries this node can't read, is silently skipped rather than raising --
+        this is a hygiene sweep, not something any component's startup should
+        ever fail over.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1021:1: D400 First line should end with a period
+        """Every absolute path currently referenced by some live process's open
+        file descriptors or memory mappings -- one scan of /proc, reused against
+        every candidate file in the same sweep call rather than re-scanning per
+        file. Checks both /proc/<pid>/fd (an open()'d file or named semaphore)
+        and /proc/<pid>/maps (mmap'd shared memory can have its creating fd
+        closed right after the mapping is made, a common pattern for POSIX
+        shared memory -- relying on fd/ alone would misclassify those as
+        orphaned). Best-effort: a process that exits mid-scan, or whose /proc
+        entries this node can't read, is silently skipped rather than raising --
+        this is a hygiene sweep, not something any component's startup should
+        ever fail over.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1058:1: D205 1 blank line required between summary line and description
+        """Live component_supervisor_node processes other than this one. A direct,
+        explicit check kept separate from the generic liveness scan above: per
+        the requester's own callout, a second live supervisor instance is the one
+        case where "nothing has this fd open right now" isn't a good enough
+        reason to delete something, since that sibling's own components could
+        still (re)acquire it. Refuse outright rather than reason about it further.
+
+        Matches on argv element *basename* (os.path.basename(arg) ==
+        'component_supervisor_node'), not a substring search over the whole
+        cmdline blob -- caught live during this feature's own verification: a
+        naive substring check self-matched the verification harness's own
+        `python3 -c "...component_supervisor_node..."` invocation (the entire
+        -c script text is one argv element), which would have made this refuse
+        to ever sweep anything the moment it was tested. Checking argv basenames
+        instead only matches the actual launched executable path (.../lib/
+        f1tenth_bringup/component_supervisor_node, no extension, exactly how
+        ros2 run installs console-script-style entry points), not incidental
+        mentions of the name anywhere else in a command line.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1058:1: D400 First line should end with a period
+        """Live component_supervisor_node processes other than this one. A direct,
+        explicit check kept separate from the generic liveness scan above: per
+        the requester's own callout, a second live supervisor instance is the one
+        case where "nothing has this fd open right now" isn't a good enough
+        reason to delete something, since that sibling's own components could
+        still (re)acquire it. Refuse outright rather than reason about it further.
+
+        Matches on argv element *basename* (os.path.basename(arg) ==
+        'component_supervisor_node'), not a substring search over the whole
+        cmdline blob -- caught live during this feature's own verification: a
+        naive substring check self-matched the verification harness's own
+        `python3 -c "...component_supervisor_node..."` invocation (the entire
+        -c script text is one argv element), which would have made this refuse
+        to ever sweep anything the moment it was tested. Checking argv basenames
+        instead only matches the actual launched executable path (.../lib/
+        f1tenth_bringup/component_supervisor_node, no extension, exactly how
+        ros2 run installs console-script-style entry points), not incidental
+        mentions of the name anywhere else in a command line.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1093:1: D205 1 blank line required between summary line and description
+        """Remove /dev/shm FastDDS files nothing has open anymore. `context` is
+        just a short label for the log line (e.g. 'startup', 'shutdown') -- no
+        behavior depends on it. See module docstring's "FastDDS shared-memory
+        hygiene" paragraph for why this exists and when it's called.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1093:1: D400 First line should end with a period
+        """Remove /dev/shm FastDDS files nothing has open anymore. `context` is
+        just a short label for the log line (e.g. 'startup', 'shutdown') -- no
+        behavior depends on it. See module docstring's "FastDDS shared-memory
+        hygiene" paragraph for why this exists and when it's called.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1179:1: D205 1 blank line required between summary line and description
+        """calibration-single-source-of-truth pass: overwrites 'hardware's own
+        registered args with self.calibration (the live declared parameter,
+        wired from supervisor_bringup.launch.py's own `calibration` launch
+        argument, itself defaulting from f1tenth_params/config/stack_params.yaml's
+        `calibration` key) -- components.yaml's `hardware` entry no longer
+        carries a 'calibration' key of its own at all (see that file's own
+        `hardware` entry comment). Called once, from __init__, right after the
+        registry loads and before anything reads or launches from it -- both the
+        real `ros2 launch ... calibration:=<value>` invocation (_start_component,
+        via this same args dict) and _hardware_will_calibrate() (ditto) then see
+        the identical live value; there is no second read path. Deliberately
+        scoped to 'hardware' only, not 'calibrate_hardware' -- that component
+        stays an explicit, always-calibrate action, untouched by this toggle
+        (components.yaml itself still hardcodes 'true' there). Mutates each
+        entry's args dict in place -- safe: every entry in self._registry is
+        built fresh from this process's own yaml.safe_load() of components.yaml
+        (see __init__), not shared with anything else."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1179:1: D209 Multi-line docstring closing quotes should be on a separate line
+        """calibration-single-source-of-truth pass: overwrites 'hardware's own
+        registered args with self.calibration (the live declared parameter,
+        wired from supervisor_bringup.launch.py's own `calibration` launch
+        argument, itself defaulting from f1tenth_params/config/stack_params.yaml's
+        `calibration` key) -- components.yaml's `hardware` entry no longer
+        carries a 'calibration' key of its own at all (see that file's own
+        `hardware` entry comment). Called once, from __init__, right after the
+        registry loads and before anything reads or launches from it -- both the
+        real `ros2 launch ... calibration:=<value>` invocation (_start_component,
+        via this same args dict) and _hardware_will_calibrate() (ditto) then see
+        the identical live value; there is no second read path. Deliberately
+        scoped to 'hardware' only, not 'calibrate_hardware' -- that component
+        stays an explicit, always-calibrate action, untouched by this toggle
+        (components.yaml itself still hardcodes 'true' there). Mutates each
+        entry's args dict in place -- safe: every entry in self._registry is
+        built fresh from this process's own yaml.safe_load() of components.yaml
+        (see __init__), not shared with anything else."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1179:1: D400 First line should end with a period
+        """calibration-single-source-of-truth pass: overwrites 'hardware's own
+        registered args with self.calibration (the live declared parameter,
+        wired from supervisor_bringup.launch.py's own `calibration` launch
+        argument, itself defaulting from f1tenth_params/config/stack_params.yaml's
+        `calibration` key) -- components.yaml's `hardware` entry no longer
+        carries a 'calibration' key of its own at all (see that file's own
+        `hardware` entry comment). Called once, from __init__, right after the
+        registry loads and before anything reads or launches from it -- both the
+        real `ros2 launch ... calibration:=<value>` invocation (_start_component,
+        via this same args dict) and _hardware_will_calibrate() (ditto) then see
+        the identical live value; there is no second read path. Deliberately
+        scoped to 'hardware' only, not 'calibrate_hardware' -- that component
+        stays an explicit, always-calibrate action, untouched by this toggle
+        (components.yaml itself still hardcodes 'true' there). Mutates each
+        entry's args dict in place -- safe: every entry in self._registry is
+        built fresh from this process's own yaml.safe_load() of components.yaml
+        (see __init__), not shared with anything else."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1258:1: D205 1 blank line required between summary line and description
+        """True if any of 'hardware' component's own registered launch entries
+        passes calibration:=true -- as of the calibration-single-source-of-truth
+        pass, that's the live self.calibration parameter as injected by
+        _apply_calibration_override() above, not a components.yaml literal (see
+        that method's own docstring). Still read directly from the already-
+        parsed registry rather than re-deriving from self.calibration/stack_
+        params.yaml separately, so this can never disagree with what 'hardware'
+        is actually about to be launched with."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1258:1: D209 Multi-line docstring closing quotes should be on a separate line
+        """True if any of 'hardware' component's own registered launch entries
+        passes calibration:=true -- as of the calibration-single-source-of-truth
+        pass, that's the live self.calibration parameter as injected by
+        _apply_calibration_override() above, not a components.yaml literal (see
+        that method's own docstring). Still read directly from the already-
+        parsed registry rather than re-deriving from self.calibration/stack_
+        params.yaml separately, so this can never disagree with what 'hardware'
+        is actually about to be launched with."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1258:1: D400 First line should end with a period
+        """True if any of 'hardware' component's own registered launch entries
+        passes calibration:=true -- as of the calibration-single-source-of-truth
+        pass, that's the live self.calibration parameter as injected by
+        _apply_calibration_override() above, not a components.yaml literal (see
+        that method's own docstring). Still read directly from the already-
+        parsed registry rather than re-deriving from self.calibration/stack_
+        params.yaml separately, so this can never disagree with what 'hardware'
+        is actually about to be launched with."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1258:1: D401 First line should be in imperative mood; try rephrasing
+        """True if any of 'hardware' component's own registered launch entries
+        passes calibration:=true -- as of the calibration-single-source-of-truth
+        pass, that's the live self.calibration parameter as injected by
+        _apply_calibration_override() above, not a components.yaml literal (see
+        that method's own docstring). Still read directly from the already-
+        parsed registry rather than re-deriving from self.calibration/stack_
+        params.yaml separately, so this can never disagree with what 'hardware'
+        is actually about to be launched with."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1272:1: D205 1 blank line required between summary line and description
+        """Called at most once, from __init__, only when defer_localization was
+        True there (see that call site's own comment for the exact conditions).
+        Watches /calibration/in_progress (f1tenth_diagnostics' diagnostics_server_
+        node, TRANSIENT_LOCAL so a late-attaching subscription still gets the
+        current value immediately -- QoS matched exactly to that node's own
+        publisher) for a True->False transition, then starts 'localization'.
+        Bounded by localization_calibration_wait_timeout_sec regardless (fail-open
+        -- see module docstring)."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1272:1: D209 Multi-line docstring closing quotes should be on a separate line
+        """Called at most once, from __init__, only when defer_localization was
+        True there (see that call site's own comment for the exact conditions).
+        Watches /calibration/in_progress (f1tenth_diagnostics' diagnostics_server_
+        node, TRANSIENT_LOCAL so a late-attaching subscription still gets the
+        current value immediately -- QoS matched exactly to that node's own
+        publisher) for a True->False transition, then starts 'localization'.
+        Bounded by localization_calibration_wait_timeout_sec regardless (fail-open
+        -- see module docstring)."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1272:1: D400 First line should end with a period
+        """Called at most once, from __init__, only when defer_localization was
+        True there (see that call site's own comment for the exact conditions).
+        Watches /calibration/in_progress (f1tenth_diagnostics' diagnostics_server_
+        node, TRANSIENT_LOCAL so a late-attaching subscription still gets the
+        current value immediately -- QoS matched exactly to that node's own
+        publisher) for a True->False transition, then starts 'localization'.
+        Bounded by localization_calibration_wait_timeout_sec regardless (fail-open
+        -- see module docstring)."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1272:1: D401 First line should be in imperative mood
+        """Called at most once, from __init__, only when defer_localization was
+        True there (see that call site's own comment for the exact conditions).
+        Watches /calibration/in_progress (f1tenth_diagnostics' diagnostics_server_
+        node, TRANSIENT_LOCAL so a late-attaching subscription still gets the
+        current value immediately -- QoS matched exactly to that node's own
+        publisher) for a True->False transition, then starts 'localization'.
+        Bounded by localization_calibration_wait_timeout_sec regardless (fail-open
+        -- see module docstring)."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1337:1: D205 1 blank line required between summary line and description
+        """Idempotent: tears down the deferred-start machinery (subscription +
+        timeout timer) the FIRST time any of its three triggers reaches here (the
+        completion callback, the timeout callback, or a manual RestartComponent/
+        ComponentControl request naming 'localization' arriving mid-wait -- see
+        _on_restart_component/_on_control_component's own matching calls). Returns
+        True the first time (caller should go ahead and act -- start the
+        component, or just log the cancellation), False on every later call
+        (already resolved, caller should no-op) -- callers never need to check
+        self._localization_deferred_started directly, just this return value."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1337:1: D209 Multi-line docstring closing quotes should be on a separate line
+        """Idempotent: tears down the deferred-start machinery (subscription +
+        timeout timer) the FIRST time any of its three triggers reaches here (the
+        completion callback, the timeout callback, or a manual RestartComponent/
+        ComponentControl request naming 'localization' arriving mid-wait -- see
+        _on_restart_component/_on_control_component's own matching calls). Returns
+        True the first time (caller should go ahead and act -- start the
+        component, or just log the cancellation), False on every later call
+        (already resolved, caller should no-op) -- callers never need to check
+        self._localization_deferred_started directly, just this return value."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1337:1: D400 First line should end with a period
+        """Idempotent: tears down the deferred-start machinery (subscription +
+        timeout timer) the FIRST time any of its three triggers reaches here (the
+        completion callback, the timeout callback, or a manual RestartComponent/
+        ComponentControl request naming 'localization' arriving mid-wait -- see
+        _on_restart_component/_on_control_component's own matching calls). Returns
+        True the first time (caller should go ahead and act -- start the
+        component, or just log the cancellation), False on every later call
+        (already resolved, caller should no-op) -- callers never need to check
+        self._localization_deferred_started directly, just this return value."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1358:1: D205 1 blank line required between summary line and description
+        """SIGINT (then SIGKILL if needed) every tracked process for `name`. Returns
+        one status string per process, e.g. 'clean SIGINT exit in 1.2s' or 'killed
+        via SIGKILL after 10.0s timeout' -- so callers (the service response, or
+        shutdown logging) can tell whether each process was well-behaved.
+
+        timeout defaults to restart_timeout_sec (the RestartComponent/ComponentControl
+        RESTART paths' existing, unchanged behavior) -- shutdown_all() passes
+        _SHUTDOWN_GRACE_SEC instead, its own shorter, dedicated grace period.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1358:1: D400 First line should end with a period
+        """SIGINT (then SIGKILL if needed) every tracked process for `name`. Returns
+        one status string per process, e.g. 'clean SIGINT exit in 1.2s' or 'killed
+        via SIGKILL after 10.0s timeout' -- so callers (the service response, or
+        shutdown logging) can tell whether each process was well-behaved.
+
+        timeout defaults to restart_timeout_sec (the RestartComponent/ComponentControl
+        RESTART paths' existing, unchanged behavior) -- shutdown_all() passes
+        _SHUTDOWN_GRACE_SEC instead, its own shorter, dedicated grace period.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1403:1: D205 1 blank line required between summary line and description
+        """Like _stop_component, but also marks every tracked process for `name` as
+        manually_stopped -- unlike a plain restart, the watchdog must NOT bring these
+        back on its own afterward. Mutates the existing _ComponentProcess objects in
+        place (rather than replacing them, the way _start_component does), since
+        there's nothing to replace them with -- the component is meant to stay down.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1403:1: D400 First line should end with a period
+        """Like _stop_component, but also marks every tracked process for `name` as
+        manually_stopped -- unlike a plain restart, the watchdog must NOT bring these
+        back on its own afterward. Mutates the existing _ComponentProcess objects in
+        place (rather than replacing them, the way _start_component does), since
+        there's nothing to replace them with -- the component is meant to stay down.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1415:1: D205 1 blank line required between summary line and description
+        """shutdown_all()'s own stop routine -- NOT a loop over _stop_component(),
+        deliberately: that would SIGINT one component, wait up to `timeout` for it,
+        THEN move to the next, so total wall-clock cost is sum(per-component wait),
+        not max(per-component wait). With ~10 tracked components that summed cost
+        routinely exceeds `ros2 launch`'s own default ~5s patience for this node's
+        process to exit after SIGINT before it escalates to SIGTERM itself -- see
+        module docstring's "Clean shutdown" paragraph for how that surfaced live.
+
+        Here every process group gets SIGINT up front (a burst of os.killpg calls,
+        no waiting between them), then all of them are polled concurrently against
+        one shared deadline, with only the stragglers still alive once it passes
+        escalated to SIGKILL. Total cost is ~max(per-component exit time), not the
+        sum -- comfortably fits inside external patience for the normal case where
+        most components exit within a second or so of SIGINT.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1415:1: D400 First line should end with a period
+        """shutdown_all()'s own stop routine -- NOT a loop over _stop_component(),
+        deliberately: that would SIGINT one component, wait up to `timeout` for it,
+        THEN move to the next, so total wall-clock cost is sum(per-component wait),
+        not max(per-component wait). With ~10 tracked components that summed cost
+        routinely exceeds `ros2 launch`'s own default ~5s patience for this node's
+        process to exit after SIGINT before it escalates to SIGTERM itself -- see
+        module docstring's "Clean shutdown" paragraph for how that surfaced live.
+
+        Here every process group gets SIGINT up front (a burst of os.killpg calls,
+        no waiting between them), then all of them are polled concurrently against
+        one shared deadline, with only the stragglers still alive once it passes
+        escalated to SIGKILL. Total cost is ~max(per-component exit time), not the
+        sum -- comfortably fits inside external patience for the normal case where
+        most components exit within a second or so of SIGINT.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1477:1: D205 1 blank line required between summary line and description
+        """SIGKILL every still-tracked process group immediately, no SIGINT, no
+        waiting. Only reached when a second shutdown signal arrives while a first,
+        graceful shutdown_all() is still in progress (see main()'s _handle_signal)
+        -- e.g. `ros2 launch` itself escalating from SIGINT to SIGTERM because
+        the first attempt didn't finish within its own patience. At that point
+        trying to still be graceful is how components get abandoned (the actual
+        live bug this fix closes -- see module docstring): a repeat signal here
+        means "something is out of patience," so the only response that can't
+        leave orphans regardless of how slow anything is is an immediate,
+        unconditional kill.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1477:1: D400 First line should end with a period
+        """SIGKILL every still-tracked process group immediately, no SIGINT, no
+        waiting. Only reached when a second shutdown signal arrives while a first,
+        graceful shutdown_all() is still in progress (see main()'s _handle_signal)
+        -- e.g. `ros2 launch` itself escalating from SIGINT to SIGTERM because
+        the first attempt didn't finish within its own patience. At that point
+        trying to still be graceful is how components get abandoned (the actual
+        live bug this fix closes -- see module docstring): a repeat signal here
+        means "something is out of patience," so the only response that can't
+        leave orphans regardless of how slow anything is is an immediate,
+        unconditional kill.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1513:1: D205 1 blank line required between summary line and description
+        """Prune this process's auto-restart timestamps older than
+        restart_budget_window_sec, then check/record a new attempt. Returns True if
+        within budget (go ahead and respawn), False if exhausted (leave it down).
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1513:1: D400 First line should end with a period
+        """Prune this process's auto-restart timestamps older than
+        restart_budget_window_sec, then check/record a new attempt. Returns True if
+        within budget (go ahead and respawn), False if exhausted (leave it down).
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1617:47: E127 continuation line over-indented for visual indent
+                                              else 'was not running') +
+                                              ^
+
+./f1tenth_bringup/component_supervisor_node.py:1655:1: D205 1 blank line required between summary line and description
+        """See module docstring's ~/run_calibration paragraph for the full
+        reasoning (why 'hardware' is stopped first, why this doesn't wait for
+        calibration to actually finish, why it doesn't auto-restart 'hardware'
+        afterward)."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1655:1: D209 Multi-line docstring closing quotes should be on a separate line
+        """See module docstring's ~/run_calibration paragraph for the full
+        reasoning (why 'hardware' is stopped first, why this doesn't wait for
+        calibration to actually finish, why it doesn't auto-restart 'hardware'
+        afterward)."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1655:1: D400 First line should end with a period
+        """See module docstring's ~/run_calibration paragraph for the full
+        reasoning (why 'hardware' is stopped first, why this doesn't wait for
+        calibration to actually finish, why it doesn't auto-restart 'hardware'
+        afterward)."""
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1702:34: E127 continuation line over-indented for visual indent
+                                 else "'hardware' was not running"))
+                                 ^
+
+./f1tenth_bringup/component_supervisor_node.py:1709:1: D205 1 blank line required between summary line and description
+        """Stop every tracked component (in parallel -- see _stop_all_components)
+        and clear the pgid file. Guarded by _shutdown_started, not _shutdown_done,
+        so a second call while this one is still running (main()'s _handle_signal
+        reachable again mid-shutdown, e.g. a signal interrupting the wait loop
+        below) is a no-op here -- that case is main()'s to handle via
+        force_kill_all() instead, not by re-entering this method. Uses
+        _SHUTDOWN_GRACE_SEC rather than each component's normal restart_timeout_sec
+        so this can't compound into minutes if a few components are slow to exit.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1709:1: D400 First line should end with a period
+        """Stop every tracked component (in parallel -- see _stop_all_components)
+        and clear the pgid file. Guarded by _shutdown_started, not _shutdown_done,
+        so a second call while this one is still running (main()'s _handle_signal
+        reachable again mid-shutdown, e.g. a signal interrupting the wait loop
+        below) is a no-op here -- that case is main()'s to handle via
+        force_kill_all() instead, not by re-entering this method. Uses
+        _SHUTDOWN_GRACE_SEC rather than each component's normal restart_timeout_sec
+        so this can't compound into minutes if a few components are slow to exit.
+        """
+^
+
+./f1tenth_bringup/component_supervisor_node.py:1754:13: Q003 Change outer quotes to avoid escaping inner quotes
+            f'llama-server\'s TCP port, diagnostics/mission_logger_node\'s own lock) '
+            ^
+
+./f1tenth_bringup/component_supervisor_node.py:1756:13: Q003 Change outer quotes to avoid escaping inner quotes
+            f'corrupt each other\'s shared process tracking. Stop the running stack '
+            ^
+
+./f1tenth_bringup/reset_manager_node.py:72:1: I100 Import statements are in the wrong order. 'from ackermann_msgs.msg import AckermannDriveStamped' should be before 'import rclpy'
+from ackermann_msgs.msg import AckermannDriveStamped
+^
+
+./f1tenth_bringup/reset_manager_node.py:84:1: I100 Import statements are in the wrong order. 'from f1tenth_messages.srv import RestartComponent' should be before 'from std_srvs.srv import Trigger'
+from f1tenth_messages.srv import RestartComponent
+^
+
+./f1tenth_bringup/reset_manager_node.py:241:100: E501 line too long (104 > 99 characters)
+            f'{self.odom_component if self.odom_method == "restart_component" else self.odom_service}) '
+                                                                                                   ^
+
+./f1tenth_bringup/reset_manager_node.py:303:100: E501 line too long (102 > 99 characters)
+                    f'{last.pose.pose.position.y:+.3f}, yaw {_yaw(last.pose.pose.orientation):+.3f})')
+                                                                                                   ^
+
+./f1tenth_bringup/stack_startup_sequence.py:13:1: I100 Import statements are in the wrong order. 'from ackermann_msgs.msg import AckermannDriveStamped' should be before 'from rclpy.node import Node'
+from ackermann_msgs.msg import AckermannDriveStamped
+^
+
+./f1tenth_bringup/stack_startup_sequence.py:94:11: W292 no newline at end of file
+    main()          ^
+
+./launch/foxglove_bridge.launch.py:1:1: D205 1 blank line required between summary line and description
+"""foxglove_bridge -- a proper, independently-supervisable component: its own launch
+file (this one), a param toggle (enable_foxglove), and controllable via
+component_supervisor_node's generic ~/control_component / /restart_component services
+using component_name='dev_tools' (see components.yaml's dev_tools entry) -- the same
+generic mechanism every other component uses, nothing foxglove-specific needed there.
+
+Included by stack_bringup.launch.py's own DEV TOOLS section (no separate inline copy
+kept there anymore -- previously duplicated verbatim, now this is the one definition).
+
+Image throttle nodes (perception-optimization pass, following the foxglove CPU
+investigation): foxglove_bridge 3.3.0's own parameter set (read directly from
+the installed foxglove_bridge_launch.xml) has no per-topic/per-client rate
+control at all -- topic_whitelist/client_topic_whitelist are regex NAME
+filters, not Hz limiters. /camera/image_raw and /camera/image_annotated
+publish at 30Hz for the real perception pipeline (yolo_detector_node,
+detection_3d_node); a visualization client has no need for the full rate.
+topic_tools' throttle node (package topic_tools, exec throttle) republishes a
+slowed-down COPY on a separate *_viz topic -- the real 30Hz topics feeding the
+pipeline are untouched, only the visualization-only copy is throttled. Note
+from the same investigation: most of foxglove_bridge's own CPU cost turned out
+to be a steady-state cost roughly independent of whether a client is
+connected (38.5% with a client connected vs. 35-37% without, measured live) --
+almost certainly from topic_whitelist's default '.*' continuously introspecting
+the whole ROS graph, not from per-client data streaming. This throttle
+addresses the image-serialization/bandwidth cost a client incurs when actually
+viewing an image panel; it does not address that separate baseline cost.
+The topic and service whitelists below do: they drop the ZED wrapper's /zed2
+tree and the full-rate images, about half the graph (see stack_params.yaml's
+foxglove_topic_whitelist for the measurement).
+
+The topic whitelist is an allowlist: the rate-limited /viz/* copies that
+viz_relays.launch.py publishes (the dev_tools component's other launch), plus
+tf, latched and on-change topics. Everything else, including the *_viz
+throttle copies below, stays off the bridge unless foxglove_raw_debug:=true,
+which swaps the list for '.*' for a debugging session. Those two throttle
+nodes still run, untouched: the /viz relays were added beside them, not in
+place of them.
+
+throttle's CLI is positional argv (messages|bytes, in_topic, rate, [out_topic]),
+NOT ROS parameters -- despite "throttle_type"/"input_topic"/etc. appearing as
+strings inside the compiled binary (a red herring: those are internal/log
+names, not declared parameter names). Confirmed empirically: `ros2 run
+topic_tools throttle --ros-args -p throttle_type:=messages ...` fails with
+"Throttle type is missing", while `ros2 run topic_tools throttle messages
+<topic> <rate> <out_topic>` runs correctly. Use `arguments=[...]` here, not
+`parameters=[{...}]`.
+
+cpu_affinity (stack-wide CPU-budget investigation): foxglove_bridge is a
+vendored binary, pinned via a 'taskset -c' launch prefix (same mechanism/
+reasoning as f1tenth_localization/launch/ekf.launch.py's own ekf_node --
+see that file's own comment). Previously documented here as "~5% CPU,
+genuinely light... shares a pair with ekf_node/behavior_executor_node" --
+that figure was WRONG, and this file's own paragraph above already had the
+evidence: the 38.5%-with-client/35-37%-without measurement from the
+foxglove CPU investigation was dismissed as predating "this particular
+measurement environment" rather than reconciled, and the light-load
+assumption stuck.
+
+CORRECTED (core-remap pass, following a live CPU-contention investigation --
+see that pass's own report): a live `ps -o %cpu` measurement (at REST, no
+motion, no client connected) found foxglove_bridge at 52.2% CPU -- much
+closer to this file's own earlier 35-38% figure than the "~5%" this
+comment carried, confirming that was the anomaly, not the other way
+round. Sharing cores 0,1 with ekf_filter_node/ekf_global_filter_node/
+behavior_executor_node put ~152% combined demand on a 200% (2-core)
+budget -- confirmed saturated live (cpu0/cpu1 both 99%+ busy), and
+produced ekf_node's own "Failed to meet update rate!" warnings (see
+ekf.launch.py's own matching comment for the full picture). foxglove_
+bridge is viz-only and already latency-tolerant (the image throttle nodes
+above exist specifically because a viz client doesn't need the pipeline's
+full rate) -- moved to its own core (3) instead, off the EKF pair
+entirely, same reasoning slam_toolbox already gets a dedicated core
+(f1tenth_navigation/launch/slam.launch.py) rather than sharing.
+"""
+^
+
+./launch/foxglove_bridge.launch.py:1:1: D400 First line should end with a period
+"""foxglove_bridge -- a proper, independently-supervisable component: its own launch
+file (this one), a param toggle (enable_foxglove), and controllable via
+component_supervisor_node's generic ~/control_component / /restart_component services
+using component_name='dev_tools' (see components.yaml's dev_tools entry) -- the same
+generic mechanism every other component uses, nothing foxglove-specific needed there.
+
+Included by stack_bringup.launch.py's own DEV TOOLS section (no separate inline copy
+kept there anymore -- previously duplicated verbatim, now this is the one definition).
+
+Image throttle nodes (perception-optimization pass, following the foxglove CPU
+investigation): foxglove_bridge 3.3.0's own parameter set (read directly from
+the installed foxglove_bridge_launch.xml) has no per-topic/per-client rate
+control at all -- topic_whitelist/client_topic_whitelist are regex NAME
+filters, not Hz limiters. /camera/image_raw and /camera/image_annotated
+publish at 30Hz for the real perception pipeline (yolo_detector_node,
+detection_3d_node); a visualization client has no need for the full rate.
+topic_tools' throttle node (package topic_tools, exec throttle) republishes a
+slowed-down COPY on a separate *_viz topic -- the real 30Hz topics feeding the
+pipeline are untouched, only the visualization-only copy is throttled. Note
+from the same investigation: most of foxglove_bridge's own CPU cost turned out
+to be a steady-state cost roughly independent of whether a client is
+connected (38.5% with a client connected vs. 35-37% without, measured live) --
+almost certainly from topic_whitelist's default '.*' continuously introspecting
+the whole ROS graph, not from per-client data streaming. This throttle
+addresses the image-serialization/bandwidth cost a client incurs when actually
+viewing an image panel; it does not address that separate baseline cost.
+The topic and service whitelists below do: they drop the ZED wrapper's /zed2
+tree and the full-rate images, about half the graph (see stack_params.yaml's
+foxglove_topic_whitelist for the measurement).
+
+The topic whitelist is an allowlist: the rate-limited /viz/* copies that
+viz_relays.launch.py publishes (the dev_tools component's other launch), plus
+tf, latched and on-change topics. Everything else, including the *_viz
+throttle copies below, stays off the bridge unless foxglove_raw_debug:=true,
+which swaps the list for '.*' for a debugging session. Those two throttle
+nodes still run, untouched: the /viz relays were added beside them, not in
+place of them.
+
+throttle's CLI is positional argv (messages|bytes, in_topic, rate, [out_topic]),
+NOT ROS parameters -- despite "throttle_type"/"input_topic"/etc. appearing as
+strings inside the compiled binary (a red herring: those are internal/log
+names, not declared parameter names). Confirmed empirically: `ros2 run
+topic_tools throttle --ros-args -p throttle_type:=messages ...` fails with
+"Throttle type is missing", while `ros2 run topic_tools throttle messages
+<topic> <rate> <out_topic>` runs correctly. Use `arguments=[...]` here, not
+`parameters=[{...}]`.
+
+cpu_affinity (stack-wide CPU-budget investigation): foxglove_bridge is a
+vendored binary, pinned via a 'taskset -c' launch prefix (same mechanism/
+reasoning as f1tenth_localization/launch/ekf.launch.py's own ekf_node --
+see that file's own comment). Previously documented here as "~5% CPU,
+genuinely light... shares a pair with ekf_node/behavior_executor_node" --
+that figure was WRONG, and this file's own paragraph above already had the
+evidence: the 38.5%-with-client/35-37%-without measurement from the
+foxglove CPU investigation was dismissed as predating "this particular
+measurement environment" rather than reconciled, and the light-load
+assumption stuck.
+
+CORRECTED (core-remap pass, following a live CPU-contention investigation --
+see that pass's own report): a live `ps -o %cpu` measurement (at REST, no
+motion, no client connected) found foxglove_bridge at 52.2% CPU -- much
+closer to this file's own earlier 35-38% figure than the "~5%" this
+comment carried, confirming that was the anomaly, not the other way
+round. Sharing cores 0,1 with ekf_filter_node/ekf_global_filter_node/
+behavior_executor_node put ~152% combined demand on a 200% (2-core)
+budget -- confirmed saturated live (cpu0/cpu1 both 99%+ busy), and
+produced ekf_node's own "Failed to meet update rate!" warnings (see
+ekf.launch.py's own matching comment for the full picture). foxglove_
+bridge is viz-only and already latency-tolerant (the image throttle nodes
+above exist specifically because a viz client doesn't need the pipeline's
+full rate) -- moved to its own core (3) instead, off the EKF pair
+entirely, same reasoning slam_toolbox already gets a dedicated core
+(f1tenth_navigation/launch/slam.launch.py) rather than sharing.
+"""
+^
+
+./launch/foxglove_bridge.launch.py:124:21: Q000 Double quotes found but single quotes preferred
+        description="Comma-separated core ids to pin foxglove_bridge to via "
+                    ^
+
+./launch/foxglove_bridge.launch.py:126:21: Q000 Double quotes found but single quotes preferred
+                    "self-pin). Own dedicated core (moved off the EKF pair, "
+                    ^
+
+./launch/foxglove_bridge.launch.py:128:21: Q000 Double quotes found but single quotes preferred
+                    "docstring for the live measurement that motivated it). "
+                    ^
+
+./launch/foxglove_bridge.launch.py:129:21: Q000 Double quotes found but single quotes preferred
+                    "Must stay a valid, non-empty core list -- unlike this "
+                    ^
+
+./launch/foxglove_bridge.launch.py:134:21: Q000 Double quotes found but single quotes preferred
+                    "pinning.")
+                    ^
+
+./launch/foxglove_bridge.launch.py:139:21: Q000 Double quotes found but single quotes preferred
+                    "foxglove_topic_whitelist, to look at a raw topic for one session. "
+                    ^
+
+./launch/foxglove_bridge.launch.py:140:21: Q000 Double quotes found but single quotes preferred
+                    "Raw images over Wi-Fi will lag the link again.")
+                    ^
+
+./launch/stack_bringup.launch.py:78:1: I100 Import statements are in the wrong order. 'from launch.conditions import IfCondition, UnlessCondition' should be before 'from launch.substitutions import LaunchConfiguration'
+from launch.conditions import IfCondition, UnlessCondition
+^
+
+./launch/stack_bringup.launch.py:79:1: I100 Import statements are in the wrong order. 'from ament_index_python.packages import get_package_share_directory' should be before 'from launch.conditions import IfCondition, UnlessCondition'
+from ament_index_python.packages import get_package_share_directory
+^
+
+./launch/stack_bringup.launch.py:149:5: F841 local variable 'camera_source' is assigned to but never used
+    camera_source = get_value('camera_source')
+    ^
+
+./launch/supervisor_bringup.launch.py:1:1: D205 1 blank line required between summary line and description
+"""Parallel bringup path: launches component_supervisor_node, which spawns every
+component itself via subprocess (see component_supervisor_node.py's own docstring)
+and exposes /restart_component (f1tenth_messages/srv/RestartComponent) and
+~/control_component (f1tenth_messages/srv/ComponentControl) to restart, shut down,
+or start any one of them independently. This file's only job is starting that one
+node -- it is NOT a rewrite of stack_bringup.launch.py's grouping logic, and
+stack_bringup.launch.py is untouched and still works as a single-process fallback.
+
+Example:
+  ros2 launch f1tenth_bringup supervisor_bringup.launch.py
+  ros2 service call /restart_component f1tenth_messages/srv/RestartComponent \\
+      "{component_name: 'navigation'}"
+  ros2 service call /component_supervisor_node/control_component \\
+      f1tenth_messages/srv/ComponentControl "{component_name: 'navigation', action: 0}"
+
+Fast-DDS Discovery Server (EKF-pair-stall investigation follow-up -- see
+stack_params.yaml's own discovery_server_address/_port comment for the full
+root-cause writeup): started here, first, as a plain standalone process --
+deliberately NOT a components.yaml entry, so component_supervisor_node's own
+/restart_component has no way to touch it; it must outlive whatever component
+churns, not get restarted along with it. ROS_DISCOVERY_SERVER is set via
+SetEnvironmentVariable before component_supervisor_node's own Node() action
+below, so component_supervisor_node itself picks it up, and -- since component_
+supervisor_node.py's own subprocess.Popen() call never passes env= (confirmed
+by reading it: plain Python default, inherit the full parent environment) --
+every component IT spawns inherits it too, with zero changes needed there.
+Also set in ~/.bashrc (shell-level, covers any node started by hand outside
+this launch tree -- e.g. the manual `ros2 run`/`ros2 launch` commands this
+whole investigation's own diagnostic scripts use) and in stack_bringup.launch.py
+(the OTHER bringup path) -- deliberately in all three places: a partial
+rollout, where only some nodes see this env var, would leave the untouched
+ones still on SIMPLE discovery, defeating the point (they just wouldn't be
+found by/wouldn't find the Discovery-Server nodes at all, a much worse failure
+than the stall this is meant to fix).
+
+FASTRTPS_DEFAULT_PROFILES_FILE (old jazzy line, fix batch 5, backlog H1) is set
+right after ROS_DISCOVERY_SERVER, the same way and for the same reach:
+config/fastdds_profile.xml (5 s participant lease) for the Discovery Server,
+the supervisor and every component. Launch argument fastdds_profile overrides
+the file; scripts/sim/sim_isaac.sh passes its own sim profile (same lease)
+through it. scripts/env/jazzy.sh sets the same file for hand-started tools.
+
+Sim mode (sim:=isaac; default sim:=none = the car, unchanged): the SAME stack drives
+the Isaac Sim car. The supervisor drops the device-driver components' launch files
+(vesc.launch.py, lidar.launch.py; camera.launch.py -> sim_camera_tf.launch.py, the
+ZED frames only) and starts every component through sim_component.launch.py, which
+puts all its nodes on /clock (use_sim_time true) and loads config/sim/isaac.yaml
+(sim_overlay) and sim_overlay_extra after the normal parameters. use_sim_time:=true
+alone (sim:=none) only switches the clock. The supervisor itself stays on wall
+time (restart timers, watchdog). Normally started by scripts/sim/sim_isaac.sh;
+output/jazzy_port/phase3.md has the design and the default-path identity evidence.
+"""
+^
+
+./launch/supervisor_bringup.launch.py:1:1: D301 Use r""" if any backslashes in a docstring
+"""Parallel bringup path: launches component_supervisor_node, which spawns every
+component itself via subprocess (see component_supervisor_node.py's own docstring)
+and exposes /restart_component (f1tenth_messages/srv/RestartComponent) and
+~/control_component (f1tenth_messages/srv/ComponentControl) to restart, shut down,
+or start any one of them independently. This file's only job is starting that one
+node -- it is NOT a rewrite of stack_bringup.launch.py's grouping logic, and
+stack_bringup.launch.py is untouched and still works as a single-process fallback.
+
+Example:
+  ros2 launch f1tenth_bringup supervisor_bringup.launch.py
+  ros2 service call /restart_component f1tenth_messages/srv/RestartComponent \\
+      "{component_name: 'navigation'}"
+  ros2 service call /component_supervisor_node/control_component \\
+      f1tenth_messages/srv/ComponentControl "{component_name: 'navigation', action: 0}"
+
+Fast-DDS Discovery Server (EKF-pair-stall investigation follow-up -- see
+stack_params.yaml's own discovery_server_address/_port comment for the full
+root-cause writeup): started here, first, as a plain standalone process --
+deliberately NOT a components.yaml entry, so component_supervisor_node's own
+/restart_component has no way to touch it; it must outlive whatever component
+churns, not get restarted along with it. ROS_DISCOVERY_SERVER is set via
+SetEnvironmentVariable before component_supervisor_node's own Node() action
+below, so component_supervisor_node itself picks it up, and -- since component_
+supervisor_node.py's own subprocess.Popen() call never passes env= (confirmed
+by reading it: plain Python default, inherit the full parent environment) --
+every component IT spawns inherits it too, with zero changes needed there.
+Also set in ~/.bashrc (shell-level, covers any node started by hand outside
+this launch tree -- e.g. the manual `ros2 run`/`ros2 launch` commands this
+whole investigation's own diagnostic scripts use) and in stack_bringup.launch.py
+(the OTHER bringup path) -- deliberately in all three places: a partial
+rollout, where only some nodes see this env var, would leave the untouched
+ones still on SIMPLE discovery, defeating the point (they just wouldn't be
+found by/wouldn't find the Discovery-Server nodes at all, a much worse failure
+than the stall this is meant to fix).
+
+FASTRTPS_DEFAULT_PROFILES_FILE (old jazzy line, fix batch 5, backlog H1) is set
+right after ROS_DISCOVERY_SERVER, the same way and for the same reach:
+config/fastdds_profile.xml (5 s participant lease) for the Discovery Server,
+the supervisor and every component. Launch argument fastdds_profile overrides
+the file; scripts/sim/sim_isaac.sh passes its own sim profile (same lease)
+through it. scripts/env/jazzy.sh sets the same file for hand-started tools.
+
+Sim mode (sim:=isaac; default sim:=none = the car, unchanged): the SAME stack drives
+the Isaac Sim car. The supervisor drops the device-driver components' launch files
+(vesc.launch.py, lidar.launch.py; camera.launch.py -> sim_camera_tf.launch.py, the
+ZED frames only) and starts every component through sim_component.launch.py, which
+puts all its nodes on /clock (use_sim_time true) and loads config/sim/isaac.yaml
+(sim_overlay) and sim_overlay_extra after the normal parameters. use_sim_time:=true
+alone (sim:=none) only switches the clock. The supervisor itself stays on wall
+time (restart timers, watchdog). Normally started by scripts/sim/sim_isaac.sh;
+output/jazzy_port/phase3.md has the design and the default-path identity evidence.
+"""
+^
+
+./launch/supervisor_bringup.launch.py:1:1: D400 First line should end with a period
+"""Parallel bringup path: launches component_supervisor_node, which spawns every
+component itself via subprocess (see component_supervisor_node.py's own docstring)
+and exposes /restart_component (f1tenth_messages/srv/RestartComponent) and
+~/control_component (f1tenth_messages/srv/ComponentControl) to restart, shut down,
+or start any one of them independently. This file's only job is starting that one
+node -- it is NOT a rewrite of stack_bringup.launch.py's grouping logic, and
+stack_bringup.launch.py is untouched and still works as a single-process fallback.
+
+Example:
+  ros2 launch f1tenth_bringup supervisor_bringup.launch.py
+  ros2 service call /restart_component f1tenth_messages/srv/RestartComponent \\
+      "{component_name: 'navigation'}"
+  ros2 service call /component_supervisor_node/control_component \\
+      f1tenth_messages/srv/ComponentControl "{component_name: 'navigation', action: 0}"
+
+Fast-DDS Discovery Server (EKF-pair-stall investigation follow-up -- see
+stack_params.yaml's own discovery_server_address/_port comment for the full
+root-cause writeup): started here, first, as a plain standalone process --
+deliberately NOT a components.yaml entry, so component_supervisor_node's own
+/restart_component has no way to touch it; it must outlive whatever component
+churns, not get restarted along with it. ROS_DISCOVERY_SERVER is set via
+SetEnvironmentVariable before component_supervisor_node's own Node() action
+below, so component_supervisor_node itself picks it up, and -- since component_
+supervisor_node.py's own subprocess.Popen() call never passes env= (confirmed
+by reading it: plain Python default, inherit the full parent environment) --
+every component IT spawns inherits it too, with zero changes needed there.
+Also set in ~/.bashrc (shell-level, covers any node started by hand outside
+this launch tree -- e.g. the manual `ros2 run`/`ros2 launch` commands this
+whole investigation's own diagnostic scripts use) and in stack_bringup.launch.py
+(the OTHER bringup path) -- deliberately in all three places: a partial
+rollout, where only some nodes see this env var, would leave the untouched
+ones still on SIMPLE discovery, defeating the point (they just wouldn't be
+found by/wouldn't find the Discovery-Server nodes at all, a much worse failure
+than the stall this is meant to fix).
+
+FASTRTPS_DEFAULT_PROFILES_FILE (old jazzy line, fix batch 5, backlog H1) is set
+right after ROS_DISCOVERY_SERVER, the same way and for the same reach:
+config/fastdds_profile.xml (5 s participant lease) for the Discovery Server,
+the supervisor and every component. Launch argument fastdds_profile overrides
+the file; scripts/sim/sim_isaac.sh passes its own sim profile (same lease)
+through it. scripts/env/jazzy.sh sets the same file for hand-started tools.
+
+Sim mode (sim:=isaac; default sim:=none = the car, unchanged): the SAME stack drives
+the Isaac Sim car. The supervisor drops the device-driver components' launch files
+(vesc.launch.py, lidar.launch.py; camera.launch.py -> sim_camera_tf.launch.py, the
+ZED frames only) and starts every component through sim_component.launch.py, which
+puts all its nodes on /clock (use_sim_time true) and loads config/sim/isaac.yaml
+(sim_overlay) and sim_overlay_extra after the normal parameters. use_sim_time:=true
+alone (sim:=none) only switches the clock. The supervisor itself stays on wall
+time (restart timers, watchdog). Normally started by scripts/sim/sim_isaac.sh;
+output/jazzy_port/phase3.md has the design and the default-path identity evidence.
+"""
+^
+
+./launch/viz_relays.launch.py:28:1: I100 Import statements are in the wrong order. 'from ament_index_python.packages import get_package_share_directory' should be before 'import yaml'
+from ament_index_python.packages import get_package_share_directory
+^
+
+./launch/viz_relays.launch.py:43:1: D401 First line should be in imperative mood; try rephrasing
+    """The relay list from config/viz_relays.yaml."""
+^
+
+./scripts/ensure_discovery_server.py:2:1: D205 1 blank line required between summary line and description
+"""Idempotent launcher for the Fast-DDS Discovery Server (DDS-churn
+investigation follow-up -- see stack_params.yaml's own discovery_server_
+address/_port comment for the original root-cause writeup).
+
+Root problem this fixes: the discovery server is deliberately built to
+survive component_supervisor_node's own restarts and outlive individual
+launch sessions (see supervisor_bringup.launch.py/stack_bringup.launch.py's
+own module docstrings) -- but the ExecuteProcess action that starts it never
+checked whether one was ALREADY alive first. Confirmed live: relaunching the
+stack while an earlier session's server (deliberately still running, by
+design) still holds the port produces "Discovery Server wasn't able to
+allocate the specified listening port", and the launch action's own
+respawn=True then retries against the SAME still-occupied port forever,
+tangled with a second, genuinely separate "fast-discovery-server tool not
+found!" message -- confirmed by reading fastdds' own discovery/parser.py
+(eProsima's wrapper): that second message is a Python-level exception-
+handler string (subprocess.run() itself raising, e.g. because the target
+couldn't be exec'd at all), architecturally distinct from a normal nonzero
+exit from a real "port already in use" failure (which prints nothing extra
+of its own, just sys.exit(returncode)) -- NOT the same problem reworded,
+and not caused by a PATH/environment gap (checked: a genuinely fresh
+interactive shell resolves fastdds/fast-discovery-server identically to an
+already-working session; both already correctly land on /opt/ros/humble/bin
+via .bashrc). Most likely a transient side effect of the respawn loop
+itself hammering the same occupied port, not something with its own fix.
+
+This script is the actual fix: check once, up front, whether a UDP listener
+already answers at address:port. If yes, log that and idle harmlessly
+forever (respawn=True never even triggers, since this process never exits
+with an error) -- reusing the existing server instead of fighting it for
+the port. If no, exec the real fastdds discovery server directly (replacing
+this process, so respawn=True still works exactly as before if THIS
+instance ever dies).
+
+Usage: ensure_discovery_server.py <address> <port>
+"""
+^
+
+./scripts/ensure_discovery_server.py:2:1: D400 First line should end with a period
+"""Idempotent launcher for the Fast-DDS Discovery Server (DDS-churn
+investigation follow-up -- see stack_params.yaml's own discovery_server_
+address/_port comment for the original root-cause writeup).
+
+Root problem this fixes: the discovery server is deliberately built to
+survive component_supervisor_node's own restarts and outlive individual
+launch sessions (see supervisor_bringup.launch.py/stack_bringup.launch.py's
+own module docstrings) -- but the ExecuteProcess action that starts it never
+checked whether one was ALREADY alive first. Confirmed live: relaunching the
+stack while an earlier session's server (deliberately still running, by
+design) still holds the port produces "Discovery Server wasn't able to
+allocate the specified listening port", and the launch action's own
+respawn=True then retries against the SAME still-occupied port forever,
+tangled with a second, genuinely separate "fast-discovery-server tool not
+found!" message -- confirmed by reading fastdds' own discovery/parser.py
+(eProsima's wrapper): that second message is a Python-level exception-
+handler string (subprocess.run() itself raising, e.g. because the target
+couldn't be exec'd at all), architecturally distinct from a normal nonzero
+exit from a real "port already in use" failure (which prints nothing extra
+of its own, just sys.exit(returncode)) -- NOT the same problem reworded,
+and not caused by a PATH/environment gap (checked: a genuinely fresh
+interactive shell resolves fastdds/fast-discovery-server identically to an
+already-working session; both already correctly land on /opt/ros/humble/bin
+via .bashrc). Most likely a transient side effect of the respawn loop
+itself hammering the same occupied port, not something with its own fix.
+
+This script is the actual fix: check once, up front, whether a UDP listener
+already answers at address:port. If yes, log that and idle harmlessly
+forever (respawn=True never even triggers, since this process never exits
+with an error) -- reusing the existing server instead of fighting it for
+the port. If no, exec the real fastdds discovery server directly (replacing
+this process, so respawn=True still works exactly as before if THIS
+instance ever dies).
+
+Usage: ensure_discovery_server.py <address> <port>
+"""
+^
+
+./scripts/ensure_discovery_server.py:44:1: D205 1 blank line required between summary line and description
+    """The only reliable way to ask "is anything listening on this UDP
+    port" -- UDP has no connection state to query, so the real test is
+    trying to bind it ourselves. Bind succeeds -> nothing was there (and
+    this probe socket is closed immediately, freeing it again for the real
+    server to bind for real). Bind fails with OSError (EADDRINUSE) ->
+    something already holds it.
+    """
+^
+
+./scripts/ensure_discovery_server.py:44:1: D400 First line should end with a period
+    """The only reliable way to ask "is anything listening on this UDP
+    port" -- UDP has no connection state to query, so the real test is
+    trying to bind it ourselves. Bind succeeds -> nothing was there (and
+    this probe socket is closed immediately, freeing it again for the real
+    server to bind for real). Bind fails with OSError (EADDRINUSE) ->
+    something already holds it.
+    """
+^
+
+./scripts/ensure_discovery_server.py:44:1: D401 First line should be in imperative mood; try rephrasing
+    """The only reliable way to ask "is anything listening on this UDP
+    port" -- UDP has no connection state to query, so the real test is
+    trying to bind it ourselves. Bind succeeds -> nothing was there (and
+    this probe socket is closed immediately, freeing it again for the real
+    server to bind for real). Bind fails with OSError (EADDRINUSE) ->
+    something already holds it.
+    """
+^
+
+./scripts/ensure_discovery_server.py:79:15: Q003 Change outer quotes to avoid escaping inner quotes
+              'listener (an earlier session\'s server, deliberately still running '
+              ^
+
+./scripts/ensure_discovery_server.py:80:15: Q003 Change outer quotes to avoid escaping inner quotes
+              'by design -- see stack_params.yaml\'s own discovery_server_address/'
+              ^
+
+./scripts/ensure_discovery_server.py:120:28: E127 continuation line over-indented for visual indent
+                           '--udp-address', address, '--udp-port', str(port)])
+                           ^
+
+./setup.py:2:1: I100 Import statements are in the wrong order. 'import os' should be before 'from setuptools import setup' and in a different group.
+import os
+^
+
+./setup.py:2:1: I201 Missing newline between import groups. 'import os' is identified as Stdlib and 'from setuptools import setup' is identified as Third Party.
+import os
+^
+
+./setup.py:3:1: I100 Import statements are in the wrong order. 'from glob import glob' should be before 'import os'
+from glob import glob
+^
+
+./test/test_foxglove_whitelists.py:24:1: D401 First line should be in imperative mood; try rephrasing
+    """The default as a list of compiled patterns: a string is a list of one."""
+^
+
+./test/test_lidar_front_wall_component.py:19:1: I100 Import statements are in the wrong order. 'from component_supervisor_node import _ALWAYS_AUTO_START' should be before 'import yaml'
+from component_supervisor_node import _ALWAYS_AUTO_START  # noqa: E402
+^
+
+./test/test_localization_deferred_start.py:1:1: D205 1 blank line required between summary line and description
+"""Static/logic tests for the 'localization' deferred-start fix (calibration-
+restart gap -- see component_supervisor_node.py's own module docstring,
+'localization deferred-start' paragraph, and this pass's own report).
+
+No rclpy.init() / live ROS graph needed for these -- all pieces under test are
+plain-Python guard logic:
+  - _apply_calibration_override(): reads self.calibration (the live declared
+    parameter -- calibration-single-source-of-truth pass) and writes it into
+    self._registry['hardware']'s own args dict.
+  - _hardware_will_calibrate(): reads only self._registry, a plain dict built
+    from components.yaml at parse time (plus whatever
+    _apply_calibration_override() already wrote into it).
+  - _resolve_localization_deferral(): reads/writes only
+    self._localization_deferred_started/_localization_calib_sub/
+    _localization_calib_timeout_timer -- called here against a lightweight
+    stand-in object (duck-typed, not a real Node) rather than a constructed
+    ComponentSupervisorNode, so these tests don't need rclpy at all.
+
+What this does NOT cover (flagged, not silently skipped): the actual
+/calibration/in_progress subscription wiring and the True->False detection
+over a real topic -- that needs a live rclpy context and is out of scope for
+a no-hardware verification pass. See this pass's own report for what to
+re-check live once hardware is reconnected.
+"""
+^
+
+./test/test_localization_deferred_start.py:1:1: D400 First line should end with a period
+"""Static/logic tests for the 'localization' deferred-start fix (calibration-
+restart gap -- see component_supervisor_node.py's own module docstring,
+'localization deferred-start' paragraph, and this pass's own report).
+
+No rclpy.init() / live ROS graph needed for these -- all pieces under test are
+plain-Python guard logic:
+  - _apply_calibration_override(): reads self.calibration (the live declared
+    parameter -- calibration-single-source-of-truth pass) and writes it into
+    self._registry['hardware']'s own args dict.
+  - _hardware_will_calibrate(): reads only self._registry, a plain dict built
+    from components.yaml at parse time (plus whatever
+    _apply_calibration_override() already wrote into it).
+  - _resolve_localization_deferral(): reads/writes only
+    self._localization_deferred_started/_localization_calib_sub/
+    _localization_calib_timeout_timer -- called here against a lightweight
+    stand-in object (duck-typed, not a real Node) rather than a constructed
+    ComponentSupervisorNode, so these tests don't need rclpy at all.
+
+What this does NOT cover (flagged, not silently skipped): the actual
+/calibration/in_progress subscription wiring and the True->False detection
+over a real topic -- that needs a live rclpy context and is out of scope for
+a no-hardware verification pass. See this pass's own report for what to
+re-check live once hardware is reconnected.
+"""
+^
+
+./test/test_localization_deferred_start.py:33:1: I100 Import statements are in the wrong order. 'from component_supervisor_node import ComponentSupervisorNode' should be before 'import pytest'
+from component_supervisor_node import ComponentSupervisorNode  # noqa: E402
+^
+
+./test/test_localization_deferred_start.py:45:1: D205 1 blank line required between summary line and description
+    """Duck-typed stand-in for ComponentSupervisorNode -- exposes only the
+    attributes the methods under test actually touch, plus a
+    destroy_subscription() stub matching rclpy.node.Node's own signature."""
+^
+
+./test/test_localization_deferred_start.py:45:1: D209 Multi-line docstring closing quotes should be on a separate line
+    """Duck-typed stand-in for ComponentSupervisorNode -- exposes only the
+    attributes the methods under test actually touch, plus a
+    destroy_subscription() stub matching rclpy.node.Node's own signature."""
+^
+
+./test/test_localization_deferred_start.py:45:1: D400 First line should end with a period
+    """Duck-typed stand-in for ComponentSupervisorNode -- exposes only the
+    attributes the methods under test actually touch, plus a
+    destroy_subscription() stub matching rclpy.node.Node's own signature."""
+^
+
+./test/test_localization_deferred_start.py:97:1: D205 1 blank line required between summary line and description
+    """calibration-single-source-of-truth pass: reads the actual, real
+    components.yaml this workspace ships -- not a synthetic fixture.
+    'hardware's own entry no longer carries a 'calibration' key at all (see
+    that file's own header comment) -- stack_params.yaml's `calibration` key,
+    applied at runtime via _apply_calibration_override(), is now the only
+    thing that decides this. Confirms the structural absence first (a stale
+    literal reappearing here would silently defeat the override -- it would
+    still get overwritten, but that's exactly the kind of confusion this pass
+    removed), then runs the real override + gate for both live values."""
+^
+
+./test/test_localization_deferred_start.py:97:1: D209 Multi-line docstring closing quotes should be on a separate line
+    """calibration-single-source-of-truth pass: reads the actual, real
+    components.yaml this workspace ships -- not a synthetic fixture.
+    'hardware's own entry no longer carries a 'calibration' key at all (see
+    that file's own header comment) -- stack_params.yaml's `calibration` key,
+    applied at runtime via _apply_calibration_override(), is now the only
+    thing that decides this. Confirms the structural absence first (a stale
+    literal reappearing here would silently defeat the override -- it would
+    still get overwritten, but that's exactly the kind of confusion this pass
+    removed), then runs the real override + gate for both live values."""
+^
+
+./test/test_localization_deferred_start.py:97:1: D400 First line should end with a period
+    """calibration-single-source-of-truth pass: reads the actual, real
+    components.yaml this workspace ships -- not a synthetic fixture.
+    'hardware's own entry no longer carries a 'calibration' key at all (see
+    that file's own header comment) -- stack_params.yaml's `calibration` key,
+    applied at runtime via _apply_calibration_override(), is now the only
+    thing that decides this. Confirms the structural absence first (a stale
+    literal reappearing here would silently defeat the override -- it would
+    still get overwritten, but that's exactly the kind of confusion this pass
+    removed), then runs the real override + gate for both live values."""
+^
+
+./test/test_localization_deferred_start.py:146:1: D205 1 blank line required between summary line and description
+    """Even if a customized registry still had a 'calibration' key of its own,
+    the live parameter must win -- there is exactly one source of truth now,
+    not a components.yaml default with a param override only sometimes
+    applying."""
+^
+
+./test/test_localization_deferred_start.py:146:1: D209 Multi-line docstring closing quotes should be on a separate line
+    """Even if a customized registry still had a 'calibration' key of its own,
+    the live parameter must win -- there is exactly one source of truth now,
+    not a components.yaml default with a param override only sometimes
+    applying."""
+^
+
+./test/test_localization_deferred_start.py:146:1: D400 First line should end with a period
+    """Even if a customized registry still had a 'calibration' key of its own,
+    the live parameter must win -- there is exactly one source of truth now,
+    not a components.yaml default with a param override only sometimes
+    applying."""
+^
+
+./test/test_localization_deferred_start.py:210:1: D205 1 blank line required between summary line and description
+    """The whole point of this guard: whichever of the three triggers
+    (completion callback, timeout callback, manual service request) reaches
+    it FIRST wins; every later one must be a safe no-op, not a double
+    _start_component('localization') call."""
+^
+
+./test/test_localization_deferred_start.py:210:1: D209 Multi-line docstring closing quotes should be on a separate line
+    """The whole point of this guard: whichever of the three triggers
+    (completion callback, timeout callback, manual service request) reaches
+    it FIRST wins; every later one must be a safe no-op, not a double
+    _start_component('localization') call."""
+^
+
+./test/test_localization_deferred_start.py:210:1: D400 First line should end with a period
+    """The whole point of this guard: whichever of the three triggers
+    (completion callback, timeout callback, manual service request) reaches
+    it FIRST wins; every later one must be a safe no-op, not a double
+    _start_component('localization') call."""
+^
+
+./test/test_localization_deferred_start.py:226:1: D205 1 blank line required between summary line and description
+    """The default state (deferral never applied at all -- e.g.
+    calibration:=false, or a customized registry) must also be a safe no-op:
+    every call site in this file calls this unconditionally, without first
+    checking whether deferral ever applied."""
+^
+
+./test/test_localization_deferred_start.py:226:1: D209 Multi-line docstring closing quotes should be on a separate line
+    """The default state (deferral never applied at all -- e.g.
+    calibration:=false, or a customized registry) must also be a safe no-op:
+    every call site in this file calls this unconditionally, without first
+    checking whether deferral ever applied."""
+^
+
+./test/test_obstacle_clearance_component.py:21:1: I100 Import statements are in the wrong order. 'from component_supervisor_node import _ALWAYS_AUTO_START, _CONDITIONAL_AUTO_START, _NEVER_AUTO_START' should be before 'import yaml'
+from component_supervisor_node import (  # noqa: E402
+^
+
+./test/test_reset_manager_component.py:23:1: I100 Import statements are in the wrong order. 'from component_supervisor_node import _ALWAYS_AUTO_START, _CONDITIONAL_AUTO_START, _NEVER_AUTO_START' should be before 'import yaml'
+from component_supervisor_node import (  # noqa: E402
+^
+
+./test/test_sim_mode.py:18:1: I100 Import statements are in the wrong order. 'from component_supervisor_node import _ComponentProcess, _SIM_DRIVER_LAUNCH_FILES, _SIM_REPLACEMENTS, apply_sim_mode, load_sim_component_args' should be before 'import yaml'
+from component_supervisor_node import (  # noqa: E402
+^
+
+./test/test_wall_distance_component.py:27:1: I100 Import statements are in the wrong order. 'from component_supervisor_node import _ALWAYS_AUTO_START, _CONDITIONAL_AUTO_START' should be before 'import yaml'
+from component_supervisor_node import (  # noqa: E402
+^
+
+31    D205 1 blank line required between summary line and description
+10    D209 Multi-line docstring closing quotes should be on a separate line
+1     D301 Use r""" if any backslashes in a docstring
+30    D400 First line should end with a period
+5     D401 First line should be in imperative mood; try rephrasing
+3     E127 continuation line over-indented for visual indent
+2     E501 line too long (104 > 99 characters)
+1     F841 local variable 'camera_source' is assigned to but never used
+15    I100 Import statements are in the wrong order. 'from f1tenth_messages.srv import ComponentControl, RestartComponent' should be before 'import yaml'
+1     I201 Missing newline between import groups. 'import os' is identified as Stdlib and 'from setuptools import setup' is identified as Third Party.
+8     Q000 Double quotes found but single quotes preferred
+4     Q003 Change outer quotes to avoid escaping inner quotes
+1     W292 no newline at end of file
+
+32 files checked
+112 errors
+
+'D'-type errors: 77
+'E'-type errors: 5
+'F'-type errors: 1
+'I'-type errors: 16
+'Q'-type errors: 12
+'W'-type errors: 1
+
+Checked files:
+
+* ./setup.py
+* ./test/test_rust_switches.py
+* ./test/test_wall_distance_component.py
+* ./test/test_lidar_front_wall_component.py
+* ./test/test_localization_deferred_start.py
+* ./test/test_foxglove_whitelists.py
+* ./test/test_reset_manager_idle.py
+* ./test/test_sim_mode.py
+* ./test/test_reset_manager_component.py
+* ./test/test_diagnostics_group_logger_off.py
+* ./test/test_ekf_reverse_visible.py
+* ./test/test_copyright.py
+* ./test/test_flake8.py
+* ./test/test_pep257.py
+* ./test/test_comms_component.py
+* ./test/test_stack_bringup_llm2_gate.py
+* ./test/test_obstacle_clearance_component.py
+* ./launch/sim_camera_tf.launch.py
+* ./launch/viz_relays.launch.py
+* ./launch/sim_component.launch.py
+* ./launch/foxglove_bridge.launch.py
+* ./launch/stack_bringup.launch.py
+* ./launch/sim_hardware_tf.launch.py
+* ./launch/supervisor_bringup.launch.py
+* ./launch/startup_sequence.launch.py
+* ./launch/reset_manager.launch.py
+* ./scripts/ensure_discovery_server.py
+* ./f1tenth_bringup/stack_startup_sequence.py
+* ./f1tenth_bringup/reset_manager_node.py
+* ./f1tenth_bringup/__init__.py
+* ./f1tenth_bringup/component_supervisor_node.py
+* ./f1tenth_bringup/viz_jpeg_node.py
+_________________________________ test_pep257 __________________________________
+test/test_pep257.py:23: in test_pep257
+    assert rc == 0, 'Found code style errors / warnings'
+E   AssertionError: Found code style errors / warnings
+E   assert 1 == 0
+----------------------------- Captured stdout call -----------------------------
+checking ./f1tenth_bringup/__init__.py
+checking ./f1tenth_bringup/component_supervisor_node.py
+checking ./f1tenth_bringup/reset_manager_node.py
+checking ./f1tenth_bringup/stack_startup_sequence.py
+checking ./f1tenth_bringup/viz_jpeg_node.py
+checking ./launch/foxglove_bridge.launch.py
+checking ./launch/reset_manager.launch.py
+checking ./launch/sim_camera_tf.launch.py
+checking ./launch/sim_component.launch.py
+checking ./launch/sim_hardware_tf.launch.py
+checking ./launch/stack_bringup.launch.py
+checking ./launch/startup_sequence.launch.py
+checking ./launch/supervisor_bringup.launch.py
+checking ./launch/viz_relays.launch.py
+checking ./scripts/ensure_discovery_server.py
+checking ./setup.py
+checking ./test/test_comms_component.py
+checking ./test/test_copyright.py
+checking ./test/test_diagnostics_group_logger_off.py
+checking ./test/test_ekf_reverse_visible.py
+checking ./test/test_flake8.py
+checking ./test/test_foxglove_whitelists.py
+checking ./test/test_lidar_front_wall_component.py
+checking ./test/test_localization_deferred_start.py
+checking ./test/test_obstacle_clearance_component.py
+checking ./test/test_pep257.py
+checking ./test/test_reset_manager_component.py
+checking ./test/test_reset_manager_idle.py
+checking ./test/test_rust_switches.py
+checking ./test/test_sim_mode.py
+checking ./test/test_stack_bringup_llm2_gate.py
+checking ./test/test_wall_distance_component.py
+checking test/test_comms_component.py
+checking test/test_copyright.py
+checking test/test_diagnostics_group_logger_off.py
+checking test/test_ekf_reverse_visible.py
+checking test/test_flake8.py
+checking test/test_foxglove_whitelists.py
+checking test/test_lidar_front_wall_component.py
+checking test/test_localization_deferred_start.py
+checking test/test_obstacle_clearance_component.py
+checking test/test_pep257.py
+checking test/test_reset_manager_component.py
+checking test/test_reset_manager_idle.py
+checking test/test_rust_switches.py
+checking test/test_sim_mode.py
+checking test/test_stack_bringup_llm2_gate.py
+checking test/test_wall_distance_component.py
+----------------------------- Captured stderr call -----------------------------
+./f1tenth_bringup/component_supervisor_node.py:1 at module level: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1 at module level: D400: First line should end with a period (not '"')
+./f1tenth_bringup/component_supervisor_node.py:1 at module level: D415: First line should end with a period, question mark, or exclamation point (not '"')
+./f1tenth_bringup/component_supervisor_node.py:416 in public function `apply_rust_switches`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:435 in public function `apply_sim_mode`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:466 in public function `load_sim_component_args`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:486 in private function `_declare_if_overridden`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:509 in private function `_pid_alive`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:525 in public function `acquire_singleton_lock`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:562 in public function `release_singleton_lock`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:575 in private class `_ComponentProcess`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:575 in private class `_ComponentProcess`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:575 in private class `_ComponentProcess`: D400: First line should end with a period (not 's')
+./f1tenth_bringup/component_supervisor_node.py:575 in private class `_ComponentProcess`: D415: First line should end with a period, question mark, or exclamation point (not 's')
+./f1tenth_bringup/component_supervisor_node.py:890 in private method `_write_pgid_file`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:890 in private method `_write_pgid_file`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:890 in private method `_write_pgid_file`: D400: First line should end with a period (not 's')
+./f1tenth_bringup/component_supervisor_node.py:890 in private method `_write_pgid_file`: D415: First line should end with a period, question mark, or exclamation point (not 's')
+./f1tenth_bringup/component_supervisor_node.py:921 in private method `_looks_like_ros2_launch`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:921 in private method `_looks_like_ros2_launch`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:921 in private method `_looks_like_ros2_launch`: D400: First line should end with a period (not 'e')
+./f1tenth_bringup/component_supervisor_node.py:921 in private method `_looks_like_ros2_launch`: D415: First line should end with a period, question mark, or exclamation point (not 'e')
+./f1tenth_bringup/component_supervisor_node.py:934 in private method `_kill_pgid`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:934 in private method `_kill_pgid`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:934 in private method `_kill_pgid`: D400: First line should end with a period (not 'd')
+./f1tenth_bringup/component_supervisor_node.py:934 in private method `_kill_pgid`: D415: First line should end with a period, question mark, or exclamation point (not 'd')
+./f1tenth_bringup/component_supervisor_node.py:961 in private method `_sweep_stale_pgids`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:961 in private method `_sweep_stale_pgids`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:961 in private method `_sweep_stale_pgids`: D400: First line should end with a period (not 's')
+./f1tenth_bringup/component_supervisor_node.py:961 in private method `_sweep_stale_pgids`: D415: First line should end with a period, question mark, or exclamation point (not 's')
+./f1tenth_bringup/component_supervisor_node.py:1013 in private method `_fastrtps_shm_candidates`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1013 in private method `_fastrtps_shm_candidates`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1013 in private method `_fastrtps_shm_candidates`: D400: First line should end with a period (not '-')
+./f1tenth_bringup/component_supervisor_node.py:1013 in private method `_fastrtps_shm_candidates`: D415: First line should end with a period, question mark, or exclamation point (not '-')
+./f1tenth_bringup/component_supervisor_node.py:1021 in private method `_paths_open_by_any_process`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1021 in private method `_paths_open_by_any_process`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1021 in private method `_paths_open_by_any_process`: D400: First line should end with a period (not 'n')
+./f1tenth_bringup/component_supervisor_node.py:1021 in private method `_paths_open_by_any_process`: D415: First line should end with a period, question mark, or exclamation point (not 'n')
+./f1tenth_bringup/component_supervisor_node.py:1058 in private method `_other_supervisor_pids`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1058 in private method `_other_supervisor_pids`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1058 in private method `_other_supervisor_pids`: D400: First line should end with a period (not ',')
+./f1tenth_bringup/component_supervisor_node.py:1058 in private method `_other_supervisor_pids`: D415: First line should end with a period, question mark, or exclamation point (not ',')
+./f1tenth_bringup/component_supervisor_node.py:1093 in private method `_sweep_stale_fastrtps_shm`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1093 in private method `_sweep_stale_fastrtps_shm`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1093 in private method `_sweep_stale_fastrtps_shm`: D400: First line should end with a period (not 's')
+./f1tenth_bringup/component_supervisor_node.py:1093 in private method `_sweep_stale_fastrtps_shm`: D415: First line should end with a period, question mark, or exclamation point (not 's')
+./f1tenth_bringup/component_supervisor_node.py:1179 in private method `_apply_calibration_override`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1179 in private method `_apply_calibration_override`: D209: Multi-line docstring closing quotes should be on a separate line
+./f1tenth_bringup/component_supervisor_node.py:1179 in private method `_apply_calibration_override`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1179 in private method `_apply_calibration_override`: D400: First line should end with a period (not 'n')
+./f1tenth_bringup/component_supervisor_node.py:1179 in private method `_apply_calibration_override`: D415: First line should end with a period, question mark, or exclamation point (not 'n')
+./f1tenth_bringup/component_supervisor_node.py:1218 in private method `_apply_mission_logger_override`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1258 in private method `_hardware_will_calibrate`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1258 in private method `_hardware_will_calibrate`: D209: Multi-line docstring closing quotes should be on a separate line
+./f1tenth_bringup/component_supervisor_node.py:1258 in private method `_hardware_will_calibrate`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1258 in private method `_hardware_will_calibrate`: D400: First line should end with a period (not 's')
+./f1tenth_bringup/component_supervisor_node.py:1258 in private method `_hardware_will_calibrate`: D415: First line should end with a period, question mark, or exclamation point (not 's')
+./f1tenth_bringup/component_supervisor_node.py:1258 in private method `_hardware_will_calibrate`: D401: First line should be in imperative mood; try rephrasing (found 'True')
+./f1tenth_bringup/component_supervisor_node.py:1272 in private method `_defer_localization_start`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1272 in private method `_defer_localization_start`: D209: Multi-line docstring closing quotes should be on a separate line
+./f1tenth_bringup/component_supervisor_node.py:1272 in private method `_defer_localization_start`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1272 in private method `_defer_localization_start`: D400: First line should end with a period (not 's')
+./f1tenth_bringup/component_supervisor_node.py:1272 in private method `_defer_localization_start`: D415: First line should end with a period, question mark, or exclamation point (not 's')
+./f1tenth_bringup/component_supervisor_node.py:1272 in private method `_defer_localization_start`: D401: First line should be in imperative mood (perhaps 'Call', not 'Called')
+./f1tenth_bringup/component_supervisor_node.py:1337 in private method `_resolve_localization_deferral`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1337 in private method `_resolve_localization_deferral`: D209: Multi-line docstring closing quotes should be on a separate line
+./f1tenth_bringup/component_supervisor_node.py:1337 in private method `_resolve_localization_deferral`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1337 in private method `_resolve_localization_deferral`: D400: First line should end with a period (not '+')
+./f1tenth_bringup/component_supervisor_node.py:1337 in private method `_resolve_localization_deferral`: D415: First line should end with a period, question mark, or exclamation point (not '+')
+./f1tenth_bringup/component_supervisor_node.py:1358 in private method `_stop_component`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1358 in private method `_stop_component`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1358 in private method `_stop_component`: D400: First line should end with a period (not 's')
+./f1tenth_bringup/component_supervisor_node.py:1358 in private method `_stop_component`: D415: First line should end with a period, question mark, or exclamation point (not 's')
+./f1tenth_bringup/component_supervisor_node.py:1403 in private method `_shutdown_component`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1403 in private method `_shutdown_component`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1403 in private method `_shutdown_component`: D400: First line should end with a period (not 's')
+./f1tenth_bringup/component_supervisor_node.py:1403 in private method `_shutdown_component`: D415: First line should end with a period, question mark, or exclamation point (not 's')
+./f1tenth_bringup/component_supervisor_node.py:1415 in private method `_stop_all_components`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1415 in private method `_stop_all_components`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1415 in private method `_stop_all_components`: D400: First line should end with a period (not ',')
+./f1tenth_bringup/component_supervisor_node.py:1415 in private method `_stop_all_components`: D415: First line should end with a period, question mark, or exclamation point (not ',')
+./f1tenth_bringup/component_supervisor_node.py:1477 in public method `force_kill_all`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1477 in public method `force_kill_all`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1477 in public method `force_kill_all`: D400: First line should end with a period (not 'o')
+./f1tenth_bringup/component_supervisor_node.py:1477 in public method `force_kill_all`: D415: First line should end with a period, question mark, or exclamation point (not 'o')
+./f1tenth_bringup/component_supervisor_node.py:1513 in private method `_consume_restart_budget`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1513 in private method `_consume_restart_budget`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1513 in private method `_consume_restart_budget`: D400: First line should end with a period (not 'n')
+./f1tenth_bringup/component_supervisor_node.py:1513 in private method `_consume_restart_budget`: D415: First line should end with a period, question mark, or exclamation point (not 'n')
+./f1tenth_bringup/component_supervisor_node.py:1655 in private method `_on_run_calibration`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1655 in private method `_on_run_calibration`: D209: Multi-line docstring closing quotes should be on a separate line
+./f1tenth_bringup/component_supervisor_node.py:1655 in private method `_on_run_calibration`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1655 in private method `_on_run_calibration`: D400: First line should end with a period (not 'l')
+./f1tenth_bringup/component_supervisor_node.py:1655 in private method `_on_run_calibration`: D415: First line should end with a period, question mark, or exclamation point (not 'l')
+./f1tenth_bringup/component_supervisor_node.py:1709 in public method `shutdown_all`: D205: 1 blank line required between summary line and description (found 0)
+./f1tenth_bringup/component_supervisor_node.py:1709 in public method `shutdown_all`: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/component_supervisor_node.py:1709 in public method `shutdown_all`: D400: First line should end with a period (not ')')
+./f1tenth_bringup/component_supervisor_node.py:1709 in public method `shutdown_all`: D415: First line should end with a period, question mark, or exclamation point (not ')')
+./f1tenth_bringup/reset_manager_node.py:2 at module level: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/stack_startup_sequence.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./f1tenth_bringup/viz_jpeg_node.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./launch/foxglove_bridge.launch.py:1 at module level: D205: 1 blank line required between summary line and description (found 0)
+./launch/foxglove_bridge.launch.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./launch/foxglove_bridge.launch.py:1 at module level: D400: First line should end with a period (not 'h')
+./launch/foxglove_bridge.launch.py:1 at module level: D415: First line should end with a period, question mark, or exclamation point (not 'h')
+./launch/reset_manager.launch.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./launch/sim_camera_tf.launch.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./launch/sim_component.launch.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./launch/sim_hardware_tf.launch.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./launch/stack_bringup.launch.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./launch/startup_sequence.launch.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./launch/supervisor_bringup.launch.py:1 at module level: D205: 1 blank line required between summary line and description (found 0)
+./launch/supervisor_bringup.launch.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./launch/supervisor_bringup.launch.py:1 at module level: D301: Use r""" if any backslashes in a docstring
+./launch/supervisor_bringup.launch.py:1 at module level: D400: First line should end with a period (not 'y')
+./launch/supervisor_bringup.launch.py:1 at module level: D415: First line should end with a period, question mark, or exclamation point (not 'y')
+./launch/supervisor_bringup.launch.py:1 at module level: D413: Missing blank line after last section ('Example')
+./launch/supervisor_bringup.launch.py:1 at module level: D407: Missing dashed underline after section ('Example')
+./launch/viz_relays.launch.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./launch/viz_relays.launch.py:43 in public function `load_relays`: D401: First line should be in imperative mood; try rephrasing (found 'The')
+./scripts/ensure_discovery_server.py:2 at module level: D205: 1 blank line required between summary line and description (found 0)
+./scripts/ensure_discovery_server.py:2 at module level: D213: Multi-line docstring summary should start at the second line
+./scripts/ensure_discovery_server.py:2 at module level: D400: First line should end with a period (not 'n')
+./scripts/ensure_discovery_server.py:2 at module level: D415: First line should end with a period, question mark, or exclamation point (not 'n')
+./scripts/ensure_discovery_server.py:44 in public function `port_is_taken`: D205: 1 blank line required between summary line and description (found 0)
+./scripts/ensure_discovery_server.py:44 in public function `port_is_taken`: D213: Multi-line docstring summary should start at the second line
+./scripts/ensure_discovery_server.py:44 in public function `port_is_taken`: D400: First line should end with a period (not 'P')
+./scripts/ensure_discovery_server.py:44 in public function `port_is_taken`: D415: First line should end with a period, question mark, or exclamation point (not 'P')
+./scripts/ensure_discovery_server.py:44 in public function `port_is_taken`: D401: First line should be in imperative mood; try rephrasing (found 'The')
+./test/test_foxglove_whitelists.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./test/test_foxglove_whitelists.py:24 in private function `_patterns`: D401: First line should be in imperative mood; try rephrasing (found 'The')
+./test/test_lidar_front_wall_component.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./test/test_localization_deferred_start.py:1 at module level: D205: 1 blank line required between summary line and description (found 0)
+./test/test_localization_deferred_start.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./test/test_localization_deferred_start.py:1 at module level: D400: First line should end with a period (not '-')
+./test/test_localization_deferred_start.py:1 at module level: D415: First line should end with a period, question mark, or exclamation point (not '-')
+./test/test_localization_deferred_start.py:45 in private class `_FakeSupervisor`: D205: 1 blank line required between summary line and description (found 0)
+./test/test_localization_deferred_start.py:45 in private class `_FakeSupervisor`: D209: Multi-line docstring closing quotes should be on a separate line
+./test/test_localization_deferred_start.py:45 in private class `_FakeSupervisor`: D213: Multi-line docstring summary should start at the second line
+./test/test_localization_deferred_start.py:45 in private class `_FakeSupervisor`: D400: First line should end with a period (not 'e')
+./test/test_localization_deferred_start.py:45 in private class `_FakeSupervisor`: D415: First line should end with a period, question mark, or exclamation point (not 'e')
+./test/test_localization_deferred_start.py:97 in public function `test_hardware_will_calibrate_matches_real_components_yaml`: D205: 1 blank line required between summary line and description (found 0)
+./test/test_localization_deferred_start.py:97 in public function `test_hardware_will_calibrate_matches_real_components_yaml`: D209: Multi-line docstring closing quotes should be on a separate line
+./test/test_localization_deferred_start.py:97 in public function `test_hardware_will_calibrate_matches_real_components_yaml`: D213: Multi-line docstring summary should start at the second line
+./test/test_localization_deferred_start.py:97 in public function `test_hardware_will_calibrate_matches_real_components_yaml`: D400: First line should end with a period (not 'l')
+./test/test_localization_deferred_start.py:97 in public function `test_hardware_will_calibrate_matches_real_components_yaml`: D415: First line should end with a period, question mark, or exclamation point (not 'l')
+./test/test_localization_deferred_start.py:146 in public function `test_apply_calibration_override_overwrites_any_stale_literal`: D205: 1 blank line required between summary line and description (found 0)
+./test/test_localization_deferred_start.py:146 in public function `test_apply_calibration_override_overwrites_any_stale_literal`: D209: Multi-line docstring closing quotes should be on a separate line
+./test/test_localization_deferred_start.py:146 in public function `test_apply_calibration_override_overwrites_any_stale_literal`: D213: Multi-line docstring summary should start at the second line
+./test/test_localization_deferred_start.py:146 in public function `test_apply_calibration_override_overwrites_any_stale_literal`: D400: First line should end with a period (not ',')
+./test/test_localization_deferred_start.py:146 in public function `test_apply_calibration_override_overwrites_any_stale_literal`: D415: First line should end with a period, question mark, or exclamation point (not ',')
+./test/test_localization_deferred_start.py:210 in public function `test_resolve_localization_deferral_idempotent_on_repeat_calls`: D205: 1 blank line required between summary line and description (found 0)
+./test/test_localization_deferred_start.py:210 in public function `test_resolve_localization_deferral_idempotent_on_repeat_calls`: D209: Multi-line docstring closing quotes should be on a separate line
+./test/test_localization_deferred_start.py:210 in public function `test_resolve_localization_deferral_idempotent_on_repeat_calls`: D213: Multi-line docstring summary should start at the second line
+./test/test_localization_deferred_start.py:210 in public function `test_resolve_localization_deferral_idempotent_on_repeat_calls`: D400: First line should end with a period (not 's')
+./test/test_localization_deferred_start.py:210 in public function `test_resolve_localization_deferral_idempotent_on_repeat_calls`: D415: First line should end with a period, question mark, or exclamation point (not 's')
+./test/test_localization_deferred_start.py:226 in public function `test_resolve_localization_deferral_noop_when_nothing_was_pending`: D205: 1 blank line required between summary line and description (found 0)
+./test/test_localization_deferred_start.py:226 in public function `test_resolve_localization_deferral_noop_when_nothing_was_pending`: D209: Multi-line docstring closing quotes should be on a separate line
+./test/test_localization_deferred_start.py:226 in public function `test_resolve_localization_deferral_noop_when_nothing_was_pending`: D213: Multi-line docstring summary should start at the second line
+./test/test_obstacle_clearance_component.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./test/test_reset_manager_component.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./test/test_rust_switches.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./test/test_sim_mode.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+./test/test_wall_distance_component.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+test/test_foxglove_whitelists.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+test/test_foxglove_whitelists.py:24 in private function `_patterns`: D401: First line should be in imperative mood; try rephrasing (found 'The')
+test/test_lidar_front_wall_component.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+test/test_localization_deferred_start.py:1 at module level: D205: 1 blank line required between summary line and description (found 0)
+test/test_localization_deferred_start.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+test/test_localization_deferred_start.py:1 at module level: D400: First line should end with a period (not '-')
+test/test_localization_deferred_start.py:1 at module level: D415: First line should end with a period, question mark, or exclamation point (not '-')
+test/test_localization_deferred_start.py:45 in private class `_FakeSupervisor`: D205: 1 blank line required between summary line and description (found 0)
+test/test_localization_deferred_start.py:45 in private class `_FakeSupervisor`: D209: Multi-line docstring closing quotes should be on a separate line
+test/test_localization_deferred_start.py:45 in private class `_FakeSupervisor`: D213: Multi-line docstring summary should start at the second line
+test/test_localization_deferred_start.py:45 in private class `_FakeSupervisor`: D400: First line should end with a period (not 'e')
+test/test_localization_deferred_start.py:45 in private class `_FakeSupervisor`: D415: First line should end with a period, question mark, or exclamation point (not 'e')
+test/test_localization_deferred_start.py:97 in public function `test_hardware_will_calibrate_matches_real_components_yaml`: D205: 1 blank line required between summary line and description (found 0)
+test/test_localization_deferred_start.py:97 in public function `test_hardware_will_calibrate_matches_real_components_yaml`: D209: Multi-line docstring closing quotes should be on a separate line
+test/test_localization_deferred_start.py:97 in public function `test_hardware_will_calibrate_matches_real_components_yaml`: D213: Multi-line docstring summary should start at the second line
+test/test_localization_deferred_start.py:97 in public function `test_hardware_will_calibrate_matches_real_components_yaml`: D400: First line should end with a period (not 'l')
+test/test_localization_deferred_start.py:97 in public function `test_hardware_will_calibrate_matches_real_components_yaml`: D415: First line should end with a period, question mark, or exclamation point (not 'l')
+test/test_localization_deferred_start.py:146 in public function `test_apply_calibration_override_overwrites_any_stale_literal`: D205: 1 blank line required between summary line and description (found 0)
+test/test_localization_deferred_start.py:146 in public function `test_apply_calibration_override_overwrites_any_stale_literal`: D209: Multi-line docstring closing quotes should be on a separate line
+test/test_localization_deferred_start.py:146 in public function `test_apply_calibration_override_overwrites_any_stale_literal`: D213: Multi-line docstring summary should start at the second line
+test/test_localization_deferred_start.py:146 in public function `test_apply_calibration_override_overwrites_any_stale_literal`: D400: First line should end with a period (not ',')
+test/test_localization_deferred_start.py:146 in public function `test_apply_calibration_override_overwrites_any_stale_literal`: D415: First line should end with a period, question mark, or exclamation point (not ',')
+test/test_localization_deferred_start.py:210 in public function `test_resolve_localization_deferral_idempotent_on_repeat_calls`: D205: 1 blank line required between summary line and description (found 0)
+test/test_localization_deferred_start.py:210 in public function `test_resolve_localization_deferral_idempotent_on_repeat_calls`: D209: Multi-line docstring closing quotes should be on a separate line
+test/test_localization_deferred_start.py:210 in public function `test_resolve_localization_deferral_idempotent_on_repeat_calls`: D213: Multi-line docstring summary should start at the second line
+test/test_localization_deferred_start.py:210 in public function `test_resolve_localization_deferral_idempotent_on_repeat_calls`: D400: First line should end with a period (not 's')
+test/test_localization_deferred_start.py:210 in public function `test_resolve_localization_deferral_idempotent_on_repeat_calls`: D415: First line should end with a period, question mark, or exclamation point (not 's')
+test/test_localization_deferred_start.py:226 in public function `test_resolve_localization_deferral_noop_when_nothing_was_pending`: D205: 1 blank line required between summary line and description (found 0)
+test/test_localization_deferred_start.py:226 in public function `test_resolve_localization_deferral_noop_when_nothing_was_pending`: D209: Multi-line docstring closing quotes should be on a separate line
+test/test_localization_deferred_start.py:226 in public function `test_resolve_localization_deferral_noop_when_nothing_was_pending`: D213: Multi-line docstring summary should start at the second line
+test/test_obstacle_clearance_component.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+test/test_reset_manager_component.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+test/test_rust_switches.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+test/test_sim_mode.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+test/test_wall_distance_component.py:1 at module level: D213: Multi-line docstring summary should start at the second line
+200 errors
+- generated xml file: /tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/test_results/f1tenth_bringup/pytest.xml -
+=========================== short test summary info ============================
+FAILED test/test_copyright.py::test_copyright - AssertionError: Found errors
+FAILED test/test_flake8.py::test_flake8 - AssertionError: Found 112 code styl...
+FAILED test/test_pep257.py::test_pep257 - AssertionError: Found code style er...
+=================== 3 failed, 78 passed, 8 warnings in 2.72s ===================
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=2184346) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+--- stderr: f1tenth_bringup
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=2184346) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+Finished <<< f1tenth_bringup [3.52s]	[ with test failures ]
+
+Summary: 5 packages finished [9.43s]
+  2 packages had stderr output: f1tenth_behavior f1tenth_bringup
+  1 package had test failures: f1tenth_bringup
+
+real	0m9.658s
+user	0m11.508s
+sys	0m1.139s
+colcon test exit 0
+/tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/test_results/f1tenth_behavior/pytest.xml: 532 tests, 0 errors, 0 failures, 0 skipped
+/tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/test_results/f1tenth_bringup/pytest.xml: 81 tests, 0 errors, 3 failures, 0 skipped
+/tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/test_results/f1tenth_costmap/pytest.xml: 405 tests, 0 errors, 0 failures, 0 skipped
+
+Summary: 1018 tests, 0 errors, 3 failures, 0 skipped
+test-result exit 1
+end 2026-10-23T18:22:35+02:00

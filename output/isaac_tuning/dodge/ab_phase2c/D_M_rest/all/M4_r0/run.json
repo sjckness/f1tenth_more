@@ -1,0 +1,98 @@
+{
+ "scenario": "M4",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 0,
+  "reason": "mission ABORTED"
+ },
+ "end_reason": "mission ABORTED",
+ "phases_wall_s": {
+  "ready": 14.72,
+  "params": 0.194,
+  "scenario": 0.011,
+  "reset": 8.775,
+  "start": 0.011,
+  "record": 22.095
+ },
+ "valid": true,
+ "gt_blowup_t": null,
+ "start_pose_map_sim": {
+  "x": 0.4828154835455547,
+  "y": 3.039943053381121,
+  "yaw_deg": 1.6662069490425833
+ },
+ "progress_m": 1.9351827617346935,
+ "max_lateral_error_m": 0.19661299674308838,
+ "final_lateral_error_m": 0.1697472115263599,
+ "final_heading_error_rad": 0.6054296049464132,
+ "duration_s": 20.116666667000004,
+ "time_to_goal_s": null,
+ "obstacles": [
+  {
+   "id": "cyl050",
+   "r": 0.25,
+   "min_centre_dist_m": 0.4853628078103201,
+   "r_safe_ref_m": 0.5700000000000001,
+   "margin_m": -0.08463719218967997,
+   "t_min_s": 7.149999999999977,
+   "body_clearance_m": 0.014103968540248868,
+   "level": null
+  }
+ ],
+ "min_margin_m": -0.08463719218967997,
+ "min_body_clearance_m": 0.014103968540248868,
+ "steer_sign_changes": 1,
+ "steer_sat": {
+  "n": 202,
+  "delta_frac": 0.0,
+  "rate_frac": 0.05970149253731343,
+  "delta_any": false,
+  "rate_any": true
+ },
+ "solver_ticks": 200,
+ "solve_failures": 0,
+ "max_n_obstacles_seen": 34,
+ "solve_time_ms_p95": 0.0,
+ "solve_over_deadline": 0,
+ "mpc_cpu_ms_per_tick": 67.45,
+ "perceived_r_max_m": 0.2525041997432709,
+ "safety": {
+  "hard_stop_engaged": true,
+  "bt_trip": false,
+  "mux_safety_lanes": [
+   "base_link/hard_stop"
+  ],
+  "contact_event": false,
+  "events": []
+ },
+ "outcome": "estop",
+ "mission_final_state": "ABORTED",
+ "failure": {
+  "id": "cyl050",
+  "level": null,
+  "margin_m": -0.08463719218967997,
+  "body_clearance_m": 0.014103968540248868,
+  "t_s": 7.149999999999977,
+  "steer_sat_before": {
+   "n": 15,
+   "delta_frac": 0.0,
+   "rate_frac": 0.2857142857142857,
+   "delta_any": false,
+   "rate_any": true
+  }
+ },
+ "return": {
+  "x_pass_m": 2.7300667587074887,
+  "passed": false
+ },
+ "score": 0.0,
+ "score_terms": null,
+ "nominal": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "recorder_code": 0,
+ "wall_recorder_s": 47.2,
+ "isaac_alive_after": true
+}

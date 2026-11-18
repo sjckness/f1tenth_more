@@ -1,0 +1,4 @@
+{"mission_id": "b2_straight_into_box_2p9m", "schema_version": "3.0",
+ "moves": [{"id": "move_0_straight", "drive": {"mode": "straight", "speed": 0.4},
+            "stop_condition": {"type": "distance_reached", "distance": 2.9},
+            "timeout_sec": 25, "on_timeout": "abort", "terminal": true}]}

@@ -1,0 +1,30 @@
+{
+ "scans_seen": 1540,
+ "guard_scan_decisions": 1547,
+ "matched": 1539,
+ "front_agree": 1539,
+ "front_disagree": 0,
+ "disagree_examples": [],
+ "py_front_trips": 0,
+ "rs_trips": 0,
+ "rs_stop_decisions": 0,
+ "guard_reasons": {
+  "clear": 1547
+ },
+ "guard_no_data_decisions": {},
+ "guard_tf_fallback": 0,
+ "guard_latency_ms": {
+  "p50": 0.0,
+  "p95": 0.0,
+  "max": 0.0
+ },
+ "guard_compute_us": {
+  "p50": 74.2,
+  "p95": 132.3199999999997,
+  "max": 1943.7
+ },
+ "bt_ticks": 388,
+ "bt_emergency_episodes": [],
+ "bt_emergency_episode_count": 0,
+ "safety_stop_by_frame_id": {}
+}

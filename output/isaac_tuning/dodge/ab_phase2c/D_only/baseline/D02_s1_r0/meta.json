@@ -1,0 +1,270 @@
+{
+ "instance": {
+  "scenario": "D02_s1",
+  "rep": 0,
+  "car": {
+   "x": 0.5224332904544556,
+   "y": 2.9952660990620137,
+   "yaw_deg": -0.2570105931562141
+  },
+  "obstacles": {
+   "c030_0": [
+    1.6964,
+    1.9641
+   ],
+   "c030_1": [
+    2.9811,
+    3.0486
+   ]
+  },
+  "motion": {
+   "c030_0": {
+    "type": "pingpong",
+    "a": [
+     2.6,
+     5.0471
+    ],
+    "b": [
+     1.4,
+     0.9529
+    ],
+    "speed": 0.4,
+    "s0": 3.2128,
+    "delay_s": 0.0
+   },
+   "c030_1": {
+    "type": "pingpong",
+    "a": [
+     3.6,
+     1.4593
+    ],
+    "b": [
+     2.4,
+     4.5407
+    ],
+    "speed": 0.4,
+    "s0": 1.7056,
+    "delay_s": 0.0
+   }
+  },
+  "obstacle_info": [
+   {
+    "id": "c030_0",
+    "x": 1.6964,
+    "y": 1.9641,
+    "ahead_m": 1.1964,
+    "lateral_m": -1.0359,
+    "radius_m": 0.15,
+    "level": 0,
+    "motion": {
+     "type": "pingpong",
+     "a": [
+      2.6,
+      5.0471
+     ],
+     "b": [
+      1.4,
+      0.9529
+     ],
+     "speed": 0.4,
+     "s0": 3.2128,
+     "delay_s": 0.0
+    }
+   },
+   {
+    "id": "c030_1",
+    "x": 2.9811,
+    "y": 3.0486,
+    "ahead_m": 2.4811,
+    "lateral_m": 0.0486,
+    "radius_m": 0.15,
+    "level": 1,
+    "motion": {
+     "type": "pingpong",
+     "a": [
+      3.6,
+      1.4593
+     ],
+     "b": [
+      2.4,
+      4.5407
+     ],
+     "speed": 0.4,
+     "s0": 1.7056,
+     "delay_s": 0.0
+    }
+   }
+  ],
+  "mission": {
+   "distance_m": 3.5,
+   "speed_mps": 0.5,
+   "timeout_s": 15.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "output/isaac_tuning/dodge/ab_phase2c/D_only/baseline/D02_s1_r0/mission.json",
+ "wall_start": 1794980091.099487,
+ "phases": {
+  "ready": 1.857,
+  "params": 0.189,
+  "scenario": 8.011,
+  "reset": 7.667,
+  "start": 0.01,
+  "record": 9.804
+ },
+ "exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64,
+   "mpc_w_psi": 4.5,
+   "mpc_w_v": 4.2857,
+   "mpc_prediction_dt_s": 0.1,
+   "mpc_obs_vel_trust": 0.0,
+   "mpc_obs_wake_weight": 0.0,
+   "mpc_obs_wake_horizon_s": 1.0,
+   "mpc_obs_vel_lead_s": 0.0,
+   "mpc_obstacle_side_mode": "fixed",
+   "corridor_lateral_reanchor": true,
+   "mpc_return_gain": 0.0,
+   "mpc_return_lookahead_ratio": 0.0,
+   "mpc_return_psi_scale": 1.0,
+   "mpc_return_max_heading_deg": 35.0,
+   "mpc_return_overshoot_max_m": 0.15
+  },
+  "semantic_layer_node": {
+   "obstacle_class_margin_m": "{\"person\": 0.5, \"unknown\": 0.0}",
+   "unknown_objects_mode": "active",
+   "semantic_track_velocity_enabled": true
+  }
+ },
+ "scenario_applied": {
+  "seq": 7914313,
+  "ok": true,
+  "message": "reset #35: car and person at start poses",
+  "sim_time": 937.9,
+  "car": {
+   "x": 0.5224332904544556,
+   "y": 2.9952660990620137,
+   "yaw_deg": -0.2570105931562141
+  },
+  "obstacles": {
+   "c030_0": [
+    1.6964,
+    1.9641
+   ],
+   "c030_1": [
+    2.9811,
+    3.0486
+   ],
+   "c030_2": null,
+   "c030_3": null,
+   "c030_4": null,
+   "c030_5": null,
+   "c030_6": null,
+   "c030_7": null,
+   "c030_8": null,
+   "c030_9": null,
+   "c050_0": null,
+   "c050_1": null,
+   "c050_2": null,
+   "c050_3": null,
+   "c050_4": null,
+   "c050_5": null,
+   "c050_6": null,
+   "c050_7": null,
+   "c050_8": null,
+   "c050_9": null
+  },
+  "motion": {
+   "c030_0": {
+    "type": "pingpong",
+    "a": [
+     2.6,
+     5.0471
+    ],
+    "b": [
+     1.4,
+     0.9529
+    ],
+    "speed": 0.4,
+    "s0": 3.2128,
+    "delay_s": 0.0
+   },
+   "c030_1": {
+    "type": "pingpong",
+    "a": [
+     3.6,
+     1.4593
+    ],
+    "b": [
+     2.4,
+     4.5407
+    ],
+    "speed": 0.4,
+    "s0": 1.7056,
+    "delay_s": 0.0
+   }
+  }
+ },
+ "reset_all": {
+  "success": true,
+  "message": "reset done in 5.7 s: stop 0.5s, wheel_odom 0.1s, ekf_local 0.0s, slam 5.0s, ekf_global 0.0s, nav2 skipped, hooks 0.0s"
+ },
+ "load_mission": {
+  "success": true,
+  "message": "loaded 'isaac_tuning_D02_s1_r0', 1 moves"
+ },
+ "start_mission": {
+  "success": true,
+  "message": "started 'isaac_tuning_D02_s1_r0'"
+ },
+ "t_running": 945.583333333,
+ "t_go": 945.583333333,
+ "t_end": 953.4,
+ "end_reason": "mission COMPLETE",
+ "rows": {
+  "gt": 491,
+  "odom": 464,
+  "drive": 98,
+  "mux": 98,
+  "mission": 3,
+  "solver": 77,
+  "status": 77,
+  "hard_stop": 393,
+  "bt": 98,
+  "obstacles": 355,
+  "cpu": 49,
+  "movers": 392
+ },
+ "mission_states": [
+  [
+   929.7,
+   "IDLE"
+  ],
+  [
+   945.583333333,
+   "LOADED"
+  ],
+  [
+   945.583333333,
+   "RUNNING"
+  ],
+  [
+   953.4,
+   "COMPLETE"
+  ]
+ ],
+ "wall_end": 1794980118.7574522
+}

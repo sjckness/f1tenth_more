@@ -1,0 +1,138 @@
+[
+ {
+  "topic": "/scan",
+  "type": "LaserScan",
+  "serialized_bytes": 8708,
+  "recorded": true,
+  "deserialize_ms": {
+   "p50": 0.0163,
+   "p95": 0.0292
+  },
+  "convert_ms": {
+   "np.asarray(ranges) [IsProximityTooClose, lidar_front_wall, wall_distance, front_clearance, ...]": {
+    "p50": 0.0024,
+    "p95": 0.0027
+   }
+  }
+ },
+ {
+  "topic": "/zed2/zed_node/depth/depth_registered_5hz",
+  "type": "Image",
+  "serialized_bytes": 921676,
+  "recorded": true,
+  "deserialize_ms": {
+   "p50": 0.1264,
+   "p95": 0.1841
+  },
+  "convert_ms": {
+   "imgmsg_to_cv2('32FC1') [detection_3d, front_clearance, front_depth_monitor]": {
+    "p50": 0.0823,
+    "p95": 0.1207
+   },
+   "np.frombuffer(bytes(data)) [swept_clearance]": {
+    "p50": 0.0273,
+    "p95": 0.0416
+   }
+  }
+ },
+ {
+  "topic": "/camera/detection_masks",
+  "type": "Image",
+  "serialized_bytes": 76,
+  "recorded": true,
+  "deserialize_ms": {
+   "p50": 0.0159,
+   "p95": 0.0422
+  },
+  "convert_ms": {
+   "imgmsg_to_cv2('mono8') [detection_3d, front_clearance]": {
+    "p50": 0.0077,
+    "p95": 0.023
+   }
+  }
+ },
+ {
+  "topic": "/perception/scene_labels",
+  "type": "Image",
+  "serialized_bytes": 14456,
+  "recorded": true,
+  "deserialize_ms": {
+   "p50": 0.0168,
+   "p95": 0.019
+  },
+  "convert_ms": {
+   "imgmsg_to_cv2('mono8') [yolo debug]": {
+    "p50": 0.0094,
+    "p95": 0.01
+   },
+   "np.frombuffer [lidar_front_wall]": {
+    "p50": 0.0011,
+    "p95": 0.0012
+   }
+  }
+ },
+ {
+  "topic": "/perception/wall_points",
+  "type": "PointCloud2",
+  "serialized_bytes": 224781,
+  "recorded": true,
+  "deserialize_ms": {
+   "p50": 0.0545,
+   "p95": 0.0608
+  },
+  "convert_ms": {
+   "read_points_numpy(x,y,z) [lidar_front_wall]": {
+    "p50": 0.1928,
+    "p95": 0.2388
+   }
+  }
+ },
+ {
+  "topic": "/camera/camera_info",
+  "type": "CameraInfo",
+  "serialized_bytes": 416,
+  "recorded": true,
+  "deserialize_ms": {
+   "p50": 0.0206,
+   "p95": 0.0226
+  },
+  "convert_ms": {
+   "(fields only)": {
+    "p50": 0.0004,
+    "p95": 0.0005
+   }
+  }
+ },
+ {
+  "topic": "synthetic ZED RGB 640x360 bgra8",
+  "type": "Image",
+  "serialized_bytes": 921648,
+  "recorded": false,
+  "deserialize_ms": {
+   "p50": 0.1128,
+   "p95": 0.1183
+  },
+  "convert_ms": {
+   "imgmsg_to_cv2('bgr8') [yolo_detector, front_clearance debug]": {
+    "p50": 0.0624,
+    "p95": 0.0936
+   }
+  }
+ },
+ {
+  "topic": "synthetic ZED depth 640x360 32FC1 (full rate topic)",
+  "type": "Image",
+  "serialized_bytes": 921648,
+  "recorded": false,
+  "deserialize_ms": {
+   "p50": 0.1003,
+   "p95": 0.1285
+  },
+  "convert_ms": {
+   "imgmsg_to_cv2('32FC1')": {
+    "p50": 0.0829,
+    "p95": 0.1243
+   }
+  }
+ }
+]

@@ -61,12 +61,15 @@ from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     ExecuteProcess,
+    IncludeLaunchDescription,
     LogInfo,
     OpaqueFunction,
     SetEnvironmentVariable,
 )
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -165,14 +168,59 @@ def generate_launch_description():
     # including why this isn't just a baked-in-at-parse-time stack-wide value).
     # mission-logger-opt-in pass: the same treatment again, for the same
     # reason -- the supervisor forwards only components.yaml's args, so this
-    # has to arrive as a declared parameter or `enable_mission_logger:=true`
-    # on this command line would do nothing at all.
+    # has to arrive as a declared parameter or `enable_mission_logger:=false`
+    # on this command line would do nothing at all (the yaml default is true).
     enable_mission_logger_default, enable_mission_logger_desc = get_default(
         'enable_mission_logger')
     enable_mission_logger_la = DeclareLaunchArgument(
         'enable_mission_logger',
         default_value=str(enable_mission_logger_default).lower(),
         description=enable_mission_logger_desc)
+
+    # Rust ports (output/rust/): the same "declared argument -> supervisor
+    # parameter -> component launch argument" path as enable_mission_logger,
+    # for the same reason. guard -> behavior_bringup.launch.py proximity_guard,
+    # impl -> costmap.launch.py costmap_boundary_impl. Defaults keep the stack
+    # exactly as it is without them: no guard, the Python costmap_boundary_node.
+    guard_la = DeclareLaunchArgument(
+        'guard', default_value='off', choices=['off', 'shadow', 'active'],
+        description='Rust front-proximity guard (f1tenth_proximity_guard): off (not '
+                    'launched), shadow (decisions only), active (also stops on the '
+                    'safety_stop lane). The emergency lane of the BT is unchanged in every mode.')
+    impl_la = DeclareLaunchArgument(
+        'impl', default_value='py', choices=['py', 'rust'],
+        description='costmap_boundary_node implementation: py (f1tenth_costmap) or rust '
+                    '(f1tenth_costmap_boundary_rs). Never both: same node name and topics.')
+    # corridor_impl -> navigation.launch.py corridor_impl -> mpc_corr.launch.py:
+    # which implementation builds MPC_corr's corridor geometry (R1). Default
+    # from stack_params.yaml (py), the same as mpc_corr.launch.py's own.
+    corridor_impl_default, corridor_impl_desc = get_default('corridor_impl')
+    corridor_impl_la = DeclareLaunchArgument(
+        'corridor_impl', default_value=str(corridor_impl_default), choices=['py', 'rust'],
+        description=corridor_impl_desc)
+    # mpc_solver_impl -> navigation.launch.py mpc_solver_impl -> mpc_corr.launch.py:
+    # which implementation solves the MPC's RTI tick (R2). Default from
+    # stack_params.yaml (py), the same as mpc_corr.launch.py's own.
+    mpc_solver_impl_default, mpc_solver_impl_desc = get_default('mpc_solver_impl')
+    mpc_solver_impl_la = DeclareLaunchArgument(
+        'mpc_solver_impl', default_value=str(mpc_solver_impl_default), choices=['py', 'rust'],
+        description=mpc_solver_impl_desc)
+    # hard_stop_impl -> ackermann_mux.launch.py hard_stop_impl (the `control`
+    # component): which implementation runs hard_stop_node (R4). Default from
+    # stack_params.yaml (py), the same as ackermann_mux.launch.py's own.
+    hard_stop_impl_default, hard_stop_impl_desc = get_default('hard_stop_impl')
+    hard_stop_impl_la = DeclareLaunchArgument(
+        'hard_stop_impl', default_value=str(hard_stop_impl_default), choices=['py', 'rust'],
+        description=hard_stop_impl_desc)
+    # wall_tracker_impl -> lidar_front_wall.launch.py wall_tracker_impl: which
+    # implementation runs lidar_front_wall_node's wall tracker (R6). Default
+    # from stack_params.yaml (py), the same as the launch file's own.
+    # stack_bringup.launch.py does not start lidar_front_wall_node (it is a
+    # supervisor component only), so only this bringup takes it.
+    wall_tracker_impl_default, wall_tracker_impl_desc = get_default('wall_tracker_impl')
+    wall_tracker_impl_la = DeclareLaunchArgument(
+        'wall_tracker_impl', default_value=str(wall_tracker_impl_default),
+        choices=['py', 'rust'], description=wall_tracker_impl_desc)
 
     enable_intelligence_default, enable_intelligence_desc = get_default('enable_intelligence')
     enable_intelligence_la = DeclareLaunchArgument(
@@ -184,6 +232,12 @@ def generate_launch_description():
     enable_comms_la = DeclareLaunchArgument(
         'enable_comms', default_value=str(enable_comms_default).lower(),
         description=enable_comms_desc)
+    # Which planner-controller drives (f1tenth_params/planner_modes.py): the
+    # same treatment, the supervisor forwards it to 'navigation' and 'behavior'.
+    planner_mode_default, planner_mode_desc = get_default('planner_controller_mode')
+    planner_controller_mode_la = DeclareLaunchArgument(
+        'planner_controller_mode', default_value=str(planner_mode_default),
+        description=planner_mode_desc)
 
     components_config, components_config_desc = get_path_default('components_config')
     components_config_la = DeclareLaunchArgument(
@@ -236,12 +290,70 @@ def generate_launch_description():
                     'an 8-core machine). Only its sim_component_args are used (component launch '
                     'arguments; node parameters belong in sim_overlay). sim:=isaac only.')
 
+    # test_campaign_logger as a dash cam (auto_mode in its config): a plain
+    # launch child of this file, NOT a supervised component, off by default.
+    # Started here only behind this flag (test_test_campaign_isolation.py).
+    enable_tcl_la = DeclareLaunchArgument(
+        'enable_test_campaign_logger', default_value='false',
+        choices=['true', 'false'],
+        description='Also start f1tenth_logger test_campaign_logger.launch.py with '
+                    'test_campaign_logger_root / test_campaign_logger_config.')
+    tcl_root_la = DeclareLaunchArgument(
+        'test_campaign_logger_root', default_value='/home/fabiocar/f1tenth_archive',
+        description='root:= of test_campaign_logger (the campaign is <root>/<campaign>).')
+    tcl_config_la = DeclareLaunchArgument(
+        'test_campaign_logger_config',
+        default_value='/home/fabiocar/f1tenth_archive/doors_campaign/'
+                      'test_campaign_logger.doors.yaml',
+        description='config:= of test_campaign_logger. Missing: a WARNING and the '
+                    'packaged test_campaign_logger.yaml.')
+
+    def _test_campaign_logger(context):
+        if LaunchConfiguration('enable_test_campaign_logger').perform(context) != 'true':
+            return []
+        root = LaunchConfiguration('test_campaign_logger_root').perform(context)
+        config = LaunchConfiguration('test_campaign_logger_config').perform(context)
+        share = get_package_share_directory('f1tenth_logger')
+        actions = []
+        if not os.path.isfile(config):
+            packaged = os.path.join(share, 'config', 'test_campaign_logger.yaml')
+            actions.append(LogInfo(msg=(
+                f'[supervisor_bringup] WARNING: test_campaign_logger config {config} '
+                f'does not exist -- starting it with the packaged defaults {packaged} '
+                f'(auto_mode false: no test opens without a plan_result)')))
+            config = packaged
+        actions.append(LogInfo(msg=(
+            f'[supervisor_bringup] test_campaign_logger: root {root}, config {config}')))
+        actions.append(IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(share, 'launch', 'test_campaign_logger.launch.py')),
+            launch_arguments={'root': root, 'config': config}.items()))
+        return actions
+
     def _supervisor_node(context):
         params = {
             'calibration': LaunchConfiguration('calibration'),
             'enable_mission_logger': LaunchConfiguration('enable_mission_logger'),
+            # value_type=str: the supervisor declares these as STRING
+            # parameters, and an untyped substitution is read back as YAML 1.1,
+            # where guard's default `off` is the boolean false (rclpy then
+            # refuses the override and the supervisor dies in __init__;
+            # CLAUDE.md, "never on/off as string values").
+            'proximity_guard': ParameterValue(LaunchConfiguration('guard'), value_type=str),
+            'costmap_boundary_impl': ParameterValue(
+                LaunchConfiguration('impl'), value_type=str),
+            'corridor_impl': ParameterValue(
+                LaunchConfiguration('corridor_impl'), value_type=str),
+            'mpc_solver_impl': ParameterValue(
+                LaunchConfiguration('mpc_solver_impl'), value_type=str),
+            'hard_stop_impl': ParameterValue(
+                LaunchConfiguration('hard_stop_impl'), value_type=str),
+            'wall_tracker_impl': ParameterValue(
+                LaunchConfiguration('wall_tracker_impl'), value_type=str),
             'enable_intelligence': LaunchConfiguration('enable_intelligence'),
             'enable_comms': LaunchConfiguration('enable_comms'),
+            'planner_controller_mode': ParameterValue(
+                LaunchConfiguration('planner_controller_mode'), value_type=str),
             'components_config': LaunchConfiguration('components_config'),
             'restart_timeout_sec': LaunchConfiguration('restart_timeout_sec'),
             'log_dir': LaunchConfiguration('log_dir'),
@@ -284,8 +396,15 @@ def generate_launch_description():
         discovery_server,
         calibration_la,
         enable_mission_logger_la,
+        guard_la,
+        impl_la,
+        corridor_impl_la,
+        mpc_solver_impl_la,
+        hard_stop_impl_la,
+        wall_tracker_impl_la,
         enable_intelligence_la,
         enable_comms_la,
+        planner_controller_mode_la,
         components_config_la,
         restart_timeout_la,
         log_dir_la,
@@ -296,5 +415,9 @@ def generate_launch_description():
         use_sim_time_la,
         sim_overlay_la,
         sim_overlay_extra_la,
+        enable_tcl_la,
+        tcl_root_la,
+        tcl_config_la,
         component_supervisor_node,
+        OpaqueFunction(function=_test_campaign_logger),
     ])

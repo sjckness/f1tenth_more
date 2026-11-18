@@ -1,0 +1,5 @@
+## python3 tools/rust_parity/corridor/closed_loop_rigs.py --json /home/andreas/dev_ws/f1tenth_more_r0b/output/rust_main/r0b_parity/closed_loop_rigs.json (2026-10-24T23:33:35+02:00)
+py: 20/20 runs equal to the golden, 1218 solves, corridor calls py 138 rust 0 (22.8 s)
+rust: 20/20 runs equal to the golden, 1218 solves, corridor calls py 0 rust 138 (13.1 s)
+PASS
+## exit 0, 50 s

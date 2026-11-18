@@ -1,0 +1,30 @@
+2026-10-24T23:33:35+02:00 corridor exit 0 69 s
+2026-10-24T23:34:25+02:00 corridor_rigs exit 0 50 s
+2026-10-24T23:38:50+02:00 live_guard exit 0 29 s
+2026-10-24T23:40:03+02:00 timeout_guard exit 0 73 s
+2026-10-24T23:40:48+02:00 live_costmap exit 0 45 s
+2026-10-24T23:41:24+02:00 live_hard_stop exit 0 36 s
+2026-10-24T23:42:40+02:00 timeout_hard_stop exit 0 76 s
+2026-10-24T23:42:40+02:00 live done
+2026-10-24T23:42:56+02:00 mpc_solver exit 0 511 s
+2026-10-24T23:42:58+02:00 proximity exit 0 633 s
+2026-10-24T23:43:28+02:00 mpc_closed_loop exit 0 32 s
+2026-10-24T23:43:50+02:00 wt_numerics exit 0 22 s
+2026-10-24T23:44:01+02:00 wt_fusion exit 0 11 s
+2026-10-24T23:45:24+02:00 wt_car exit 0 83 s
+2026-10-24T23:46:12+02:00 wt_every exit 0 48 s
+2026-10-24T23:46:37+02:00 live_guard (phase A 30 s, rerun) ## exit 0
+2026-10-24T23:46:54+02:00 wt_full exit 0 42 s
+2026-10-24T23:47:35+02:00 wt_doors exit 0 41 s
+2026-10-24T23:47:35+02:00 stream 2 done
+2026-10-24T23:56:48+02:00 costmap exit 0 830 s
+2026-10-24T23:56:49+02:00 hard_stop_cases exit 0 1 s
+2026-10-25T00:06:29+02:00 hard_stop exit 0 580 s
+2026-10-25T00:06:29+02:00 stream 1 done
+2026-10-25T00:11:12+02:00 live_guard exit 0 57 s
+2026-10-25T00:12:29+02:00 timeout_guard exit 134 77 s
+2026-10-25T00:13:14+02:00 live_costmap exit 0 45 s
+2026-10-25T00:13:50+02:00 live_hard_stop exit 0 36 s
+2026-10-25T00:15:04+02:00 timeout_hard_stop exit 0 74 s
+2026-10-25T00:15:04+02:00 live done
+2026-10-25T00:16:34+02:00 timeout_guard (rerun) exit 0

@@ -1,0 +1,1903 @@
+{
+ "summary": {
+  "stack_cpu_pct": {
+   "mean": 39.0,
+   "p95": 77.9,
+   "max": 122.6
+  },
+  "stack_rss_mib": {
+   "mean": 1522.0,
+   "p95": 1941,
+   "max": 2016
+  },
+  "isaac_cpu_pct": {
+   "mean": 111.8,
+   "p95": 136.2,
+   "max": 220.4
+  },
+  "isaac_rss_mib": {
+   "mean": 4110.4,
+   "p95": 4713,
+   "max": 4713
+  },
+  "host_cpu_pct": {
+   "mean": 49.2,
+   "p95": 66.5,
+   "max": 77.0
+  },
+  "host_ram_used_mib": {
+   "mean": 18914.2,
+   "p95": 20184,
+   "max": 20199
+  },
+  "vram_used_mib": {
+   "mean": 3233.9,
+   "p95": 3571.0,
+   "max": 3571.0
+  },
+  "gpu_util_pct": {
+   "mean": 17.5,
+   "p95": 32.0,
+   "max": 37.0
+  },
+  "samples": 47,
+  "cpus": 8,
+  "ram_total_mib": 32002
+ },
+ "samples": [
+  {
+   "t": 1792328993.9,
+   "stack_cpu_pct": 0.0,
+   "stack_rss_mib": 0,
+   "stack_procs": 0,
+   "isaac_cpu_pct": 0.0,
+   "isaac_rss_mib": 0,
+   "host_cpu_pct": 12.8,
+   "host_ram_used_mib": 13517,
+   "vram_used_mib": 1503.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 0.0,
+   "top5": []
+  },
+  {
+   "t": 1792328999.0,
+   "stack_cpu_pct": 0.0,
+   "stack_rss_mib": 105,
+   "stack_procs": 4,
+   "isaac_cpu_pct": 1.2,
+   "isaac_rss_mib": 80,
+   "host_cpu_pct": 3.2,
+   "host_ram_used_mib": 13561,
+   "vram_used_mib": 1503.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 0.0,
+   "top5": [
+    [
+     1.2,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     0.0,
+     "stack",
+     "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock"
+    ],
+    [
+     0.0,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ]
+   ]
+  },
+  {
+   "t": 1792329005.1,
+   "stack_cpu_pct": 0.0,
+   "stack_rss_mib": 105,
+   "stack_procs": 4,
+   "isaac_cpu_pct": 0.3,
+   "isaac_rss_mib": 80,
+   "host_cpu_pct": 2.6,
+   "host_ram_used_mib": 13515,
+   "vram_used_mib": 1503.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 0.0,
+   "top5": [
+    [
+     0.3,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     0.0,
+     "stack",
+     "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock"
+    ],
+    [
+     0.0,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ]
+   ]
+  },
+  {
+   "t": 1792329010.1,
+   "stack_cpu_pct": 0.0,
+   "stack_rss_mib": 105,
+   "stack_procs": 4,
+   "isaac_cpu_pct": 0.2,
+   "isaac_rss_mib": 80,
+   "host_cpu_pct": 2.7,
+   "host_ram_used_mib": 13498,
+   "vram_used_mib": 1503.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 0.0,
+   "top5": [
+    [
+     0.2,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     0.0,
+     "stack",
+     "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock"
+    ],
+    [
+     0.0,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ]
+   ]
+  },
+  {
+   "t": 1792329015.2,
+   "stack_cpu_pct": 0.2,
+   "stack_rss_mib": 105,
+   "stack_procs": 4,
+   "isaac_cpu_pct": 9.9,
+   "isaac_rss_mib": 392,
+   "host_cpu_pct": 4.4,
+   "host_ram_used_mib": 13689,
+   "vram_used_mib": 1606.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 0.0,
+   "top5": [
+    [
+     9.9,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     0.2,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock"
+    ],
+    [
+     0.0,
+     "stack",
+     "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ]
+   ]
+  },
+  {
+   "t": 1792329020.3,
+   "stack_cpu_pct": 0.0,
+   "stack_rss_mib": 105,
+   "stack_procs": 4,
+   "isaac_cpu_pct": 107.4,
+   "isaac_rss_mib": 2006,
+   "host_cpu_pct": 17.6,
+   "host_ram_used_mib": 14927,
+   "vram_used_mib": 1756.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 0.0,
+   "top5": [
+    [
+     107.4,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     0.0,
+     "stack",
+     "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock"
+    ],
+    [
+     0.0,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ]
+   ]
+  },
+  {
+   "t": 1792329025.3,
+   "stack_cpu_pct": 0.0,
+   "stack_rss_mib": 105,
+   "stack_procs": 4,
+   "isaac_cpu_pct": 96.3,
+   "isaac_rss_mib": 2335,
+   "host_cpu_pct": 14.5,
+   "host_ram_used_mib": 15042,
+   "vram_used_mib": 1788.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 0.0,
+   "top5": [
+    [
+     96.3,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     0.0,
+     "stack",
+     "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock"
+    ],
+    [
+     0.0,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ]
+   ]
+  },
+  {
+   "t": 1792329030.4,
+   "stack_cpu_pct": 0.0,
+   "stack_rss_mib": 105,
+   "stack_procs": 4,
+   "isaac_cpu_pct": 220.4,
+   "isaac_rss_mib": 4448,
+   "host_cpu_pct": 31.8,
+   "host_ram_used_mib": 16931,
+   "vram_used_mib": 2956.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 0.0,
+   "top5": [
+    [
+     220.4,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     0.0,
+     "stack",
+     "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock"
+    ],
+    [
+     0.0,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ]
+   ]
+  },
+  {
+   "t": 1792329035.5,
+   "stack_cpu_pct": 0.0,
+   "stack_rss_mib": 105,
+   "stack_procs": 4,
+   "isaac_cpu_pct": 99.7,
+   "isaac_rss_mib": 4702,
+   "host_cpu_pct": 15.2,
+   "host_ram_used_mib": 17157,
+   "vram_used_mib": 3211.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 0.0,
+   "top5": [
+    [
+     99.7,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     0.0,
+     "stack",
+     "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock"
+    ],
+    [
+     0.0,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ]
+   ]
+  },
+  {
+   "t": 1792329040.5,
+   "stack_cpu_pct": 0.8,
+   "stack_rss_mib": 32,
+   "stack_procs": 3,
+   "isaac_cpu_pct": 111.4,
+   "isaac_rss_mib": 4705,
+   "host_cpu_pct": 54.1,
+   "host_ram_used_mib": 17919,
+   "vram_used_mib": 3224.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 16.0,
+   "top5": [
+    [
+     111.4,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     0.8,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "isaac",
+     "/bin/bash /isaac-sim/python.sh /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed.len"
+    ]
+   ]
+  },
+  {
+   "t": 1792329045.8,
+   "stack_cpu_pct": 82.8,
+   "stack_rss_mib": 1416,
+   "stack_procs": 30,
+   "isaac_cpu_pct": 63.2,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 53.5,
+   "host_ram_used_mib": 18856,
+   "vram_used_mib": 3224.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 0.0,
+   "top5": [
+    [
+     63.2,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     26.9,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     10.1,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_navigation component_launch_file:=slam.launch"
+    ],
+    [
+     6.9,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     5.5,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_diagnostics component_launch_file:=system_obs"
+    ]
+   ]
+  },
+  {
+   "t": 1792329051.3,
+   "stack_cpu_pct": 122.6,
+   "stack_rss_mib": 1922,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 135.5,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 70.4,
+   "host_ram_used_mib": 19505,
+   "vram_used_mib": 3313.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 32.0,
+   "top5": [
+    [
+     135.5,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     30.3,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     18.4,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     15.2,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     5.4,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329056.4,
+   "stack_cpu_pct": 44.8,
+   "stack_rss_mib": 2016,
+   "stack_procs": 39,
+   "isaac_cpu_pct": 136.2,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 53.7,
+   "host_ram_used_mib": 19744,
+   "vram_used_mib": 3491.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 32.0,
+   "top5": [
+    [
+     136.2,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.4,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     10.2,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.5,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ],
+    [
+     3.3,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329061.5,
+   "stack_cpu_pct": 41.4,
+   "stack_rss_mib": 1927,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 128.3,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 49.9,
+   "host_ram_used_mib": 20052,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 37.0,
+   "top5": [
+    [
+     128.3,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     9.8,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.6,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.1,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329066.6,
+   "stack_cpu_pct": 45.5,
+   "stack_rss_mib": 1926,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 145.3,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 61.5,
+   "host_ram_used_mib": 20071,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 37.0,
+   "top5": [
+    [
+     145.3,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.8,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     8.8,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.5,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ],
+    [
+     3.5,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329071.6,
+   "stack_cpu_pct": 40.8,
+   "stack_rss_mib": 1926,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 127.4,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 54.3,
+   "host_ram_used_mib": 20082,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 22.0,
+   "top5": [
+    [
+     127.4,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     9.8,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     8.8,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.1,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329076.7,
+   "stack_cpu_pct": 40.5,
+   "stack_rss_mib": 1926,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 122.3,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 52.1,
+   "host_ram_used_mib": 20102,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 22.0,
+   "top5": [
+    [
+     122.3,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     9.6,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.2,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     2.9,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ],
+    [
+     2.9,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329081.8,
+   "stack_cpu_pct": 40.8,
+   "stack_rss_mib": 1926,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 122.4,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 54.1,
+   "host_ram_used_mib": 20099,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 16.0,
+   "top5": [
+    [
+     122.4,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     9.6,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.2,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     2.9,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ],
+    [
+     2.9,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329086.9,
+   "stack_cpu_pct": 44.6,
+   "stack_rss_mib": 1930,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 122.6,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 54.1,
+   "host_ram_used_mib": 20110,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 22.0,
+   "top5": [
+    [
+     122.6,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     9.8,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.0,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.5,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329092.0,
+   "stack_cpu_pct": 46.5,
+   "stack_rss_mib": 1931,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 122.4,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 55.6,
+   "host_ram_used_mib": 20130,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     122.4,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.0,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.0,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     5.1,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     3.1,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329097.1,
+   "stack_cpu_pct": 41.8,
+   "stack_rss_mib": 1931,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 124.5,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 56.8,
+   "host_ram_used_mib": 20128,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     124.5,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     9.8,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     8.5,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ],
+    [
+     3.0,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329102.2,
+   "stack_cpu_pct": 39.7,
+   "stack_rss_mib": 1931,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 125.0,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 56.4,
+   "host_ram_used_mib": 20145,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     125.0,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.0,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     7.5,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ],
+    [
+     3.1,
+     "stack",
+     "/home/andreas/dev_ws/jc_deps_ws/install/topic_tools/lib/topic_tools/throttle messages /zed2/zed_node/depth/depth_registered 5.0 /zed2/zed_node/depth/depth_regis"
+    ]
+   ]
+  },
+  {
+   "t": 1792329107.3,
+   "stack_cpu_pct": 40.2,
+   "stack_rss_mib": 1931,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 124.7,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 56.4,
+   "host_ram_used_mib": 20141,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     124.7,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     9.6,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     8.8,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ],
+    [
+     2.9,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329112.4,
+   "stack_cpu_pct": 47.1,
+   "stack_rss_mib": 1932,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 124.5,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 57.9,
+   "host_ram_used_mib": 20131,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     124.5,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.2,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     8.8,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     4.9,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     3.1,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329117.5,
+   "stack_cpu_pct": 41.5,
+   "stack_rss_mib": 1931,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 122.5,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 53.6,
+   "host_ram_used_mib": 20127,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     122.5,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     9.8,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     8.0,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ],
+    [
+     2.9,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329122.6,
+   "stack_cpu_pct": 46.0,
+   "stack_rss_mib": 1929,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 122.9,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 56.2,
+   "host_ram_used_mib": 20199,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     122.9,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.0,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.4,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     4.1,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329127.7,
+   "stack_cpu_pct": 42.8,
+   "stack_rss_mib": 1931,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 123.3,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 54.7,
+   "host_ram_used_mib": 20174,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     123.3,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     9.8,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     8.2,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.1,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329132.7,
+   "stack_cpu_pct": 41.2,
+   "stack_rss_mib": 1931,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 123.6,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 55.0,
+   "host_ram_used_mib": 20172,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     123.6,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     9.8,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.4,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.1,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329137.8,
+   "stack_cpu_pct": 43.3,
+   "stack_rss_mib": 1929,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 124.0,
+   "isaac_rss_mib": 4712,
+   "host_cpu_pct": 56.6,
+   "host_ram_used_mib": 20154,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     124.0,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     9.8,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.0,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ],
+    [
+     2.9,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329142.9,
+   "stack_cpu_pct": 63.3,
+   "stack_rss_mib": 1940,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 124.5,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 61.2,
+   "host_ram_used_mib": 20186,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     124.5,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     13.7,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     11.0,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     10.4,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.5,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329148.0,
+   "stack_cpu_pct": 43.3,
+   "stack_rss_mib": 1941,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 125.0,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 57.9,
+   "host_ram_used_mib": 20184,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 16.0,
+   "top5": [
+    [
+     125.0,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.0,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     10.0,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.3,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ],
+    [
+     3.1,
+     "stack",
+     "/home/andreas/dev_ws/jc_deps_ws/install/topic_tools/lib/topic_tools/throttle messages /zed2/zed_node/depth/depth_registered 5.0 /zed2/zed_node/depth/depth_regis"
+    ]
+   ]
+  },
+  {
+   "t": 1792329153.1,
+   "stack_cpu_pct": 41.6,
+   "stack_rss_mib": 1941,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 125.5,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 57.3,
+   "host_ram_used_mib": 20116,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     125.5,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.0,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     8.6,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.1,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329158.2,
+   "stack_cpu_pct": 46.9,
+   "stack_rss_mib": 1941,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 125.8,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 61.3,
+   "host_ram_used_mib": 20020,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     125.8,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.4,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.4,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     4.7,
+     "stack",
+     "/home/andreas/dev_ws/jc_deps_ws/install/slam_toolbox/lib/slam_toolbox/async_slam_toolbox_node --ros-args -r __node:=slam_toolbox -r __ns:=/ -p use_sim_time:=Tru"
+    ],
+    [
+     3.5,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329163.3,
+   "stack_cpu_pct": 52.8,
+   "stack_rss_mib": 1937,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 125.5,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 62.8,
+   "host_ram_used_mib": 19995,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 22.0,
+   "top5": [
+    [
+     125.5,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.7,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     10.0,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     5.7,
+     "stack",
+     "/home/andreas/dev_ws/jc_deps_ws/install/slam_toolbox/lib/slam_toolbox/async_slam_toolbox_node --ros-args -r __node:=slam_toolbox -r __ns:=/ -p use_sim_time:=Tru"
+    ],
+    [
+     3.3,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329168.4,
+   "stack_cpu_pct": 42.2,
+   "stack_rss_mib": 1936,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 124.1,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 58.2,
+   "host_ram_used_mib": 20157,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 22.0,
+   "top5": [
+    [
+     124.1,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.0,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     10.0,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ],
+    [
+     2.9,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329173.5,
+   "stack_cpu_pct": 42.3,
+   "stack_rss_mib": 1936,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 123.2,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 53.0,
+   "host_ram_used_mib": 20042,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 22.0,
+   "top5": [
+    [
+     123.2,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.2,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     9.4,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     3.1,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329178.6,
+   "stack_cpu_pct": 48.5,
+   "stack_rss_mib": 1939,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 123.7,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 54.7,
+   "host_ram_used_mib": 20075,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 17.0,
+   "top5": [
+    [
+     123.7,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     9.8,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.8,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     5.1,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     3.3,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329183.7,
+   "stack_cpu_pct": 48.7,
+   "stack_rss_mib": 1718,
+   "stack_procs": 35,
+   "isaac_cpu_pct": 126.7,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 66.5,
+   "host_ram_used_mib": 19876,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 22.0,
+   "top5": [
+    [
+     126.7,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     11.2,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.0,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     4.3,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     3.5,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329188.8,
+   "stack_cpu_pct": 54.0,
+   "stack_rss_mib": 1934,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 125.0,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 58.7,
+   "host_ram_used_mib": 19951,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     125.0,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.8,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     10.2,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.5,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ],
+    [
+     3.5,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329193.9,
+   "stack_cpu_pct": 54.6,
+   "stack_rss_mib": 1937,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 125.1,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 59.6,
+   "host_ram_used_mib": 19982,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     125.1,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     11.0,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     10.4,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     8.8,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.3,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329199.0,
+   "stack_cpu_pct": 50.5,
+   "stack_rss_mib": 1939,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 127.3,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 58.4,
+   "host_ram_used_mib": 19959,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     127.3,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.8,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.0,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     4.5,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     3.3,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329204.1,
+   "stack_cpu_pct": 42.6,
+   "stack_rss_mib": 1940,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 127.1,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 59.7,
+   "host_ram_used_mib": 19815,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     127.1,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.2,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.0,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.3,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ],
+    [
+     3.1,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329209.2,
+   "stack_cpu_pct": 45.7,
+   "stack_rss_mib": 1940,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 126.6,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 59.8,
+   "host_ram_used_mib": 19731,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     126.6,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.2,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.4,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.7,
+     "stack",
+     "/home/andreas/dev_ws/jc_deps_ws/install/slam_toolbox/lib/slam_toolbox/async_slam_toolbox_node --ros-args -r __node:=slam_toolbox -r __ns:=/ -p use_sim_time:=Tru"
+    ],
+    [
+     3.5,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ]
+   ]
+  },
+  {
+   "t": 1792329214.3,
+   "stack_cpu_pct": 51.0,
+   "stack_rss_mib": 1935,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 128.8,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 64.0,
+   "host_ram_used_mib": 19683,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 22.0,
+   "top5": [
+    [
+     128.8,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.9,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     9.8,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     5.1,
+     "stack",
+     "/home/andreas/dev_ws/jc_deps_ws/install/slam_toolbox/lib/slam_toolbox/async_slam_toolbox_node --ros-args -r __node:=slam_toolbox -r __ns:=/ -p use_sim_time:=Tru"
+    ],
+    [
+     3.3,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329219.4,
+   "stack_cpu_pct": 41.9,
+   "stack_rss_mib": 1935,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 124.2,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 55.1,
+   "host_ram_used_mib": 19687,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 24.0,
+   "top5": [
+    [
+     124.2,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.0,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     8.6,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     3.3,
+     "stack",
+     "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/"
+    ],
+    [
+     3.1,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329224.5,
+   "stack_cpu_pct": 51.6,
+   "stack_rss_mib": 1919,
+   "stack_procs": 38,
+   "isaac_cpu_pct": 126.9,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 64.8,
+   "host_ram_used_mib": 19785,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     126.9,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     10.4,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     10.2,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     6.1,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     3.3,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  },
+  {
+   "t": 1792329229.7,
+   "stack_cpu_pct": 77.9,
+   "stack_rss_mib": 1730,
+   "stack_procs": 35,
+   "isaac_cpu_pct": 131.4,
+   "isaac_rss_mib": 4713,
+   "host_cpu_pct": 77.0,
+   "host_ram_used_mib": 19844,
+   "vram_used_mib": 3571.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 21.0,
+   "top5": [
+    [
+     131.4,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     21.4,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     12.6,
+     "stack",
+     "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/ -p use_sim_time:=True --params-file /home/andreas/"
+    ],
+    [
+     10.3,
+     "stack",
+     "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_r"
+    ],
+    [
+     4.1,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file "
+    ]
+   ]
+  }
+ ]
+}

@@ -9,6 +9,8 @@
 #     --mission FILE   mission for the drive check (default f1tenth_behavior's
 #                      missions/drive_test_straight_2m.json, 2.0 m straight at 0.4 m/s)
 #     --keep-running   leave sim + stack up after the checks (default: stop and verify clean)
+#     k:=v             passed to sim_isaac.sh all (supervisor_bringup), e.g. the Rust ports:
+#                      guard:=shadow impl:=rust (output/rust/isaac_test.md)
 # Steps (each one PASS/FAIL in DIR/summary.md, raw JSON in DIR/results.jsonl):
 #   1 up         Isaac + stack up: /clock, then the stack's nodes and /odometry/filtered
 #   2 graph      topic coverage from the running graph (tools/sim/topic_coverage.py)
@@ -33,13 +35,15 @@ SCENE=base_room
 OUT="$REPO/output/jazzy_port/e2e"
 MISSION=""
 KEEP=false
+STACK_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --scene) SCENE="${2:?}"; shift 2 ;;
     --out) OUT="${2:?}"; shift 2 ;;
     --mission) MISSION="${2:?}"; shift 2 ;;
     --keep-running) KEEP=true; shift ;;
-    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
+    *:=*) STACK_ARGS+=("$1"); shift ;;
+    -h|--help) sed -n '2,28p' "$0"; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -98,7 +102,7 @@ if docker ps -q -f name=^f1t_isaac$ | grep -q . || pgrep -f "component_superviso
   log "a sim or a stack is already running: stop it first (docker stop f1t_isaac; scripts/kill_ros2.py -y)"
   exit 2
 fi
-log "starting: scripts/sim/sim_isaac.sh all --scene $SCENE (log $OUT/sim_isaac.log)"
+log "starting: scripts/sim/sim_isaac.sh all --scene $SCENE ${STACK_ARGS[*]} (log $OUT/sim_isaac.log)"
 T0=$(date +%s)
 # Own session: a Ctrl+C here reaches only this script, whose stop_all() then stops the sim
 # once (SIGTERM -> sim_isaac.sh's cleanup), instead of both signals racing in its cleanup.
@@ -107,7 +111,7 @@ T0=$(date +%s)
 LAYOUT_ARGS=()
 [ "$SCENE" = base_room ] && LAYOUT_ARGS=(--layout e2e_legacy)
 F1T_SIM_LOG_DIR="$OUT" setsid "$REPO/scripts/sim/sim_isaac.sh" all --scene "$SCENE" "${LAYOUT_ARGS[@]}" \
-  > "$OUT/sim_isaac.log" 2>&1 < /dev/null &
+  "${STACK_ARGS[@]}" > "$OUT/sim_isaac.log" 2>&1 < /dev/null &
 SIM_PID=$!
 python3 "$REPO/tools/sim/perf_sampler.py" --out "$OUT/perf.json" --period 5 &
 PERF_PID=$!
@@ -139,9 +143,11 @@ if [ "$up" != 0 ]; then
 fi
 
 # ---- 2 graph ---------------------------------------------------------------------------
+# /perception/d_wall/psi_correction: wall_distance_node is off by default since cpu-cleanup
+# (686d911, enable_wall_distance); its subscribers stay.
 ALLOW=(/sensors/core /imu /model/virtual_robot/odometry /test_campaign/logger_status /teleop
        /calibration_drive /cmd_vel_nav /set_pose /ekf_global/set_pose /mission/load_path
-       /slam_toolbox/feedback /zed2/joint_states)
+       /slam_toolbox/feedback /zed2/joint_states /perception/d_wall/psi_correction)
 set +e
 SC python3 "$REPO/tools/sim/topic_coverage.py" --spin 8 --allow-missing "${ALLOW[@]}" \
   --json "$OUT/topic_coverage.json" --md "$OUT/topic_coverage.md" > "$OUT/graph.json"
@@ -152,10 +158,10 @@ SC python3 "$REPO/tools/sim/e2e_checks.py" hz --window 15 > "$OUT/hz.json"
 record 3_hz $? "$OUT/hz.json"
 
 # ---- 4 tf ------------------------------------------------------------------------------
-# Expected static poses: this branch's description (laser z 0.20; the 2026-10-15 car says
-# 0.19, campaign-final 7b17e2f carries 0.20) and the deployed ZED mount.
+# Expected static poses: this branch's description (laser z 0.190, measured 2026-10-14, in
+# campaign-final since the jazzy-rust merge; 0.20 before) and the deployed ZED mount.
 SC python3 "$REPO/tools/sim/tf_owners.py" --listen 10 \
-  --pose base_link:laser:0.305,0,0.20 \
+  --pose base_link:laser:0.305,0,0.190 \
          base_link:zed2_camera_link:0.2399,0,0.205,0,-0.01817399939,0,0.99983483923 \
          base_link:imu:0,0,0,0,0,0,1 \
   --json "$OUT/tf.json" --md "$OUT/tf.md" > "$OUT/tf_result.json"

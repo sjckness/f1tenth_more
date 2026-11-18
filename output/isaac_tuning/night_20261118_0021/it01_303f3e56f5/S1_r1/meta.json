@@ -1,0 +1,129 @@
+{
+ "instance": {
+  "scenario": "S1",
+  "rep": 1,
+  "car": {
+   "x": 0.520109275446695,
+   "y": 2.9660992022015784,
+   "yaw_deg": -0.7035620008015204
+  },
+  "obstacles": {
+   "cyl050": [
+    2.0,
+    3.0
+   ]
+  },
+  "obstacle_info": [
+   {
+    "id": "cyl050",
+    "x": 2.0,
+    "y": 3.0,
+    "ahead_m": 1.5,
+    "lateral_m": 0.0,
+    "radius_m": 0.25
+   }
+  ],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "/home/andreas/dev_ws/f1tenth_isaac_tuning/output/isaac_tuning/night_20261118_0021/it01_303f3e56f5/S1_r1/mission.json",
+ "wall_start": 1794957718.2972984,
+ "phases": {
+  "ready": 2.585,
+  "params": 0.172,
+  "scenario": 0.008,
+  "reset": 8.985,
+  "start": 0.009,
+  "record": 11.502
+ },
+ "exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64
+  },
+  "semantic_layer_node": {
+   "unknown_objects_mode": "active"
+  }
+ },
+ "scenario_applied": {
+  "seq": 5768201,
+  "ok": true,
+  "message": "reset #3: car and person at start poses",
+  "sim_time": 39.28333333333333,
+  "car": {
+   "x": 0.520109275446695,
+   "y": 2.9660992022015784,
+   "yaw_deg": -0.7035620008015204
+  },
+  "obstacles": {
+   "cyl050": [
+    2.0,
+    3.0
+   ],
+   "cyl100": null
+  }
+ },
+ "reset_all": {
+  "success": true,
+  "message": "reset done in 7.0 s: stop 0.9s, wheel_odom 0.0s, ekf_local 0.0s, slam 6.0s, ekf_global 0.0s, nav2 skipped, hooks 0.0s"
+ },
+ "load_mission": {
+  "success": true,
+  "message": "loaded 'isaac_tuning_S1_r1', 1 moves"
+ },
+ "start_mission": {
+  "success": true,
+  "message": "started 'isaac_tuning_S1_r1'"
+ },
+ "t_running": 48.283333333,
+ "t_end": 57.8,
+ "end_reason": "mission COMPLETE",
+ "rows": {
+  "gt": 576,
+  "odom": 444,
+  "drive": 115,
+  "mux": 115,
+  "mission": 3,
+  "solver": 94,
+  "status": 94,
+  "hard_stop": 461,
+  "bt": 115,
+  "obstacles": 262,
+  "cpu": 58
+ },
+ "mission_states": [
+  [
+   32.8,
+   "COMPLETE"
+  ],
+  [
+   48.283333333,
+   "LOADED"
+  ],
+  [
+   48.283333333,
+   "RUNNING"
+  ],
+  [
+   57.8,
+   "COMPLETE"
+  ]
+ ],
+ "wall_end": 1794957741.6794927
+}

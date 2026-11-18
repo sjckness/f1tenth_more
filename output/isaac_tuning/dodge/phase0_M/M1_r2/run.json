@@ -1,0 +1,76 @@
+{
+ "scenario": "M1",
+ "rep": 2,
+ "recorder_exit": {
+  "code": 0,
+  "reason": "mission ABORTED"
+ },
+ "end_reason": "mission ABORTED",
+ "phases_wall_s": {
+  "ready": 8.357,
+  "params": 0.107,
+  "scenario": 0.017,
+  "reset": 8.671,
+  "start": 0.036,
+  "record": 22.219
+ },
+ "valid": true,
+ "start_pose_map_sim": {
+  "x": 0.44039366812445496,
+  "y": 2.9764500739042763,
+  "yaw_deg": -2.413255430856269
+ },
+ "progress_m": 2.040710998874985,
+ "max_lateral_error_m": 0.9606473550741176,
+ "final_lateral_error_m": 0.919924912006018,
+ "final_heading_error_rad": 1.34293284465743,
+ "duration_s": 19.216666667,
+ "time_to_goal_s": null,
+ "obstacles": [
+  {
+   "id": "cyl050",
+   "r": 0.25,
+   "min_centre_dist_m": 0.4841048435047622,
+   "r_safe_ref_m": 0.5700000000000001,
+   "margin_m": -0.08589515649523788
+  }
+ ],
+ "min_margin_m": -0.08589515649523788,
+ "min_body_clearance_m": -0.009253886112376625,
+ "steer_sign_changes": 5,
+ "solver_ticks": 185,
+ "solve_failures": 0,
+ "max_n_obstacles_seen": 34,
+ "solve_time_ms_p95": 0.0,
+ "mpc_cpu_ms_per_tick": 67.1891891891892,
+ "perceived_r_max_m": 0.2469678372144699,
+ "safety": {
+  "hard_stop_engaged": true,
+  "bt_trip": false,
+  "mux_safety_lanes": [
+   "base_link/hard_stop"
+  ],
+  "contact_event": true,
+  "events": [
+   {
+    "event": "contact",
+    "cause": "lidar return 0.000 m inside the footprint",
+    "clearance_m": -0.0002,
+    "source": "obstacle_clearance_node"
+   }
+  ]
+ },
+ "outcome": "collision",
+ "mission_final_state": "ABORTED",
+ "score": 0.0,
+ "score_terms": null,
+ "nominal": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "recorder_code": 0,
+ "frames": 42,
+ "wall_recorder_s": 41.3,
+ "isaac_alive_after": true
+}

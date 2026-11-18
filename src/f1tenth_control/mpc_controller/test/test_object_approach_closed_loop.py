@@ -31,8 +31,6 @@ The reported metrics, per scenario:
                       person's true half-width and car_radius over the run:
                       the disk-model clearance between the car and the
                       person, whatever radius the obstacle list carried.
-  deflected           fraction of ticks on which compute_local_target pushed
-                      the lookahead target off the centreline.
 
 THE TARGET IS ALSO AN OBSTACLE, as on the car: the person the approach drives
 at is in the same detection stream that feeds /perception/obstacles_2d, and it
@@ -205,7 +203,6 @@ class _ObjectMPC:
         self.corr_turn_u_end = 0.40
         self.corr_lookahead_frac = 0.5
         self.corr_lookahead_reach_margin = 1.25
-        self.obstacle_target_shift = 0.30
         self.car_radius = CAR_RADIUS
         self.avoidance_margin = AVOIDANCE_MARGIN
         self.N = HORIZON
@@ -246,15 +243,6 @@ class _ObjectMPC:
         self.object_last_step = None
         self.object_target_held = False
 
-        # compute_local_target's smoothing/deflection state. The two constants
-        # mirror MPCController.__init__'s declare_parameter defaults (neither
-        # is in stack_params.yaml), so the target this rig feeds the solver is
-        # the one the car would get.
-        self.target_smoothing_alpha = 0.5
-        self.deflection_decay_ticks = 5
-        self.smoothed_target = None
-        self.last_deflection_vec = np.zeros(2)
-        self.deflection_decay_remaining = 0
 
     def get_logger(self):
         return _FakeLogger()
@@ -273,7 +261,7 @@ class _ObjectMPC:
 class Result:
 
     def __init__(self, xs, deltas, targets, psi_c_final, standoff, steps,
-                 step_ticks=(), deflected=(), observed=(), psi_cs=(),
+                 step_ticks=(), observed=(), psi_cs=(),
                  flags=(), terminal=()):
         self.xs = xs
         self.deltas = deltas
@@ -283,7 +271,6 @@ class Result:
         self.steps = steps
         # Tick index of each entry in `steps` (the rebuild it was planned at).
         self.step_ticks = list(step_ticks)
-        self.deflected = list(deflected)
         # Per tick: the target position the controller was told, and the held
         # corridor heading in force for that tick's solve.
         self.observed = list(observed)
@@ -303,10 +290,6 @@ class Result:
     def min_body_gap(self):
         """Disk-model clearance to the real person: see the module docstring."""
         return self.min_centre_distance - PERSON_WIDTH / 2.0 - CAR_RADIUS
-
-    @property
-    def deflected_fraction(self):
-        return sum(self.deflected) / len(self.deflected) if self.deflected else 0.0
 
     def first_terminal_tick(self):
         ticks = self.terminal_ticks
@@ -423,7 +406,7 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.4, start=(0.0, 0.0, 0.0),
     warm = None
 
     xs, deltas, targets, steps = [x.copy()], [], [], []
-    step_ticks, deflected, observed_log, psi_c_log = [], [], [], []
+    step_ticks, observed_log, psi_c_log = [], [], []
     flags_log, terminal_log = [], []
     modes, published, clamped, latched_log, live_r = [], [], [], [], []
     corridor = None
@@ -482,10 +465,6 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.4, start=(0.0, 0.0, 0.0),
             corridor['avoidance_margin'] = fake.avoidance_margin
             fake.vdes = speed          # the corridor's own reach cap
             pref_nom = MPCController.compute_local_target(fake, x, corridor)
-            # compute_local_target re-arms the coast counter only on a tick that
-            # really deflected, so a full counter means "this tick".
-            deflected.append(bool(obstacles) and fake.deflection_decay_remaining
-                             == fake.deflection_decay_ticks)
             u0, info = solve_mpc_step(
                 x0=x, last_u=last_u, pref_nom=pref_nom, corridor=corridor,
                 horizon=HORIZON, ts=TS, params=PARAMS, limits=LIMITS,
@@ -496,7 +475,6 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.4, start=(0.0, 0.0, 0.0),
             steer = float(u0[0])
             v_pub = floor_moving_speed(x[3] + float(u0[1]) * TS, fake.min_moving_speed)
         else:
-            deflected.append(False)
             steer = last_steer          # stop-and-wait: steering held
             v_pub = 0.0
         was_clamped = False
@@ -535,7 +513,7 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.4, start=(0.0, 0.0, 0.0),
     if not targets:
         targets = [target_fn(0.0)]
     res = Result(xs, deltas, targets, fake.object_psi_c, standoff, steps,
-                 step_ticks, deflected, observed_log, psi_c_log,
+                 step_ticks, observed_log, psi_c_log,
                  flags_log, terminal_log)
     res.modes, res.published, res.clamped = modes, published, clamped
     res.latched, res.live_r = latched_log, live_r
@@ -599,9 +577,9 @@ class TestClosedLoopTable:
         with capsys.disabled():
             print(f'\n{"scenario":<22} {"obstacle":<14} {"s/off":>5} '
                   f'{"range err":>9} {"bearing":>8} {"x-track":>7} {"sat":>5} '
-                  f'{"body gap":>8} {"defl":>5} {"latch r":>7} {"v pk":>5} '
+                  f'{"body gap":>8} {"latch r":>7} {"v pk":>5} '
                   f'{"clamp":>7}  flags')
-            print('-' * 128)
+            print('-' * 122)
             for (name, label, standoff), res in table.items():
                 adv = res.advisory_ticks
                 flags = (f'advisory {len(adv)}t r {res.flags[adv[0]].r:+.2f}..'
@@ -614,7 +592,6 @@ class TestClosedLoopTable:
                       f'{res.peak_cross_track:>7.3f} '
                       f'{res.steer_saturation_fraction:>5.2f} '
                       f'{res.min_body_gap:>8.3f} '
-                      f'{res.deflected_fraction:>5.2f} '
                       f'{res.latched_r if res.latched_r is not None else math.nan:>7.3f} '
                       f'{max(s[3] for s in res.xs):>5.2f} '
                       f'{sum(res.clamped):>3}/'
@@ -741,22 +718,6 @@ class TestTargetObstacleRadius:
         """
         res = table[(scenario, 'legacy', standoff)]
         assert 0.0 < res.final_range_error < 0.25
-
-    @pytest.mark.parametrize('scenario', ['ahead 4 m', '45 deg off, 4 m'])
-    def test_legacy_radius_puts_the_one_metre_goal_inside_r_safe(self, table, scenario):
-        """R_safe 0.875 + 0.32 = 1.195 > 1.0: the lookahead target is deflected.
-
-        Counted over the ticks compute_local_target actually ran (DRIVE ticks):
-        a stopped car does not compute a target to deflect.
-        """
-        res = table[(scenario, 'legacy', 1.0)]
-        drive = [d for d, m in zip(res.deflected, res.modes) if m == SPEED_DRIVE]
-        assert sum(drive) / len(drive) > 0.3
-
-    @pytest.mark.parametrize('scenario', ['ahead 4 m', '45 deg off, 4 m'])
-    def test_footprint_radius_never_deflects_the_goal(self, table, scenario):
-        for standoff in STANDOFFS:
-            assert table[(scenario, 'footprint', standoff)].deflected_fraction == 0.0
 
     @pytest.mark.parametrize('scenario', ['ahead 4 m', '45 deg off, 4 m'])
     def test_footprint_at_one_metre_rests_in_the_stop_window(self, table, scenario):
@@ -996,7 +957,6 @@ class TestTheCorridorEndsAtTheGoal:
             corridor = MPCController.build_straight_corridor(fake, x)
             corridor['obstacles_world'] = []
             corridor['d_safe'] = 0.0
-            fake.smoothed_target = None
             pref = MPCController.compute_local_target(fake, x, corridor)
             goal = goal_point(target, fake.object_psi_c, 1.0)
             assert pref[0] <= goal[0] + 1e-6, (

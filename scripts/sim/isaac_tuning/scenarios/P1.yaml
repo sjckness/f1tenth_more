@@ -1,0 +1,17 @@
+# P1: a person crosses from the right at 1.0 m/s, 2.5 m ahead (recognised by YOLO, unknown objects OFF)
+id: P1
+description: "person crossing from the right at 1.0 m/s, 2.5 m ahead"
+scene: base_room
+layout: people               # ~/isaac_ws config/scenes/base_room.yaml (branch mpc-tuning): persons p0, p1
+car_start: {x: 0.5, y: 3.0, yaw_deg: 0.0}
+mission: {distance_m: 4.0, speed_mps: 0.5, timeout_s: 20.0}
+# the car's own perception: no LiDAR-only objects (the car runs it off), the person must be recognised
+fixed_node_params:
+  semantic_layer_node: {unknown_objects_mode: 'off'}
+obstacles:
+  - id: p0
+    class: person
+    ahead_m: 2.5
+    lateral_m: -2.4
+    motion: {type: waypoints, points: [[2.5, -2.4], [2.5, 2.4]], speed: 1.0, delay_s: 0.5}
+jitter: {seed: 2101, xy_m: 0.05, yaw_deg: 3.0}

@@ -427,6 +427,28 @@ class TestRunMetadata:
         assert 'yolo_model' in open(run['params_snapshot_path']).read()
         node.destroy_node()
 
+    @pytest.mark.parametrize('alive, expected', [
+        (['mpc_corr'], 'corridor_mpc'),
+        (['corridor_rrt'], 'corridor_rrt'),
+        (['p2p_geometric'], 'p2p_geometric'),
+        ([], 'unknown'),
+        (['mpc_corr', 'corridor_rrt'], 'unknown'),
+    ])
+    def test_manifest_records_the_planner_mode_actually_running(
+            self, tmp_path, alive, expected):
+        """The mode is read from the live controller node, not from stack_params.yaml
+        (whose default says corridor_mpc whatever the run used)."""
+        node = _make_node(tmp_path)
+        node.get_node_names_and_namespaces = lambda: [(n, '/') for n in alive + ['other']]
+        node.get_publishers_info_by_topic = lambda topic: []
+        run = self._run(tmp_path)
+        node._write_manifest(run)
+        with open(run['manifest_path']) as fh:
+            data = json.load(fh)
+        assert data['planner_controller_mode'] == expected
+        assert 'stack_launch_cmd' in data
+        node.destroy_node()
+
     def test_resolved_params_snapshot_includes_key_switches(self, tmp_path):
         node = _make_node(tmp_path)
         resolved = node._resolved_params()
@@ -601,6 +623,17 @@ class TestRecordedTopics:
             assert topic not in _DEFAULT_BEST_EFFORT_TOPICS
         # Every other /viz topic is still a relay copy and still dropped.
         assert recordable_topics(['/viz/scan', '/viz/walls'])[0] == []
+
+    def test_the_map_frame_doors_enter_door_reads_are_recorded_by_default(self):
+        """The freespace/semantic doors: an enter_door run's bag names its door."""
+        from f1tenth_logger.mission_logger_node import (
+            _DEFAULT_BEST_EFFORT_TOPICS, _DEFAULT_TOPICS, recordable_topics)
+        kept, dropped = recordable_topics(_DEFAULT_TOPICS)
+        for topic in ('/perception/doors_semantic', '/viz/doors_semantic',
+                      '/costmap/semantic_doors', '/costmap/freespace_doors/debug'):
+            assert topic in kept and topic not in dropped
+            # freespace_door_node / semantic_layer_node publish them RELIABLE.
+            assert topic not in _DEFAULT_BEST_EFFORT_TOPICS
 
     def test_the_debug_video_its_clean_frame_and_wall_payload_are_recorded_reliably(self):
         from f1tenth_logger.mission_logger_node import (

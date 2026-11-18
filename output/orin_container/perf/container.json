@@ -1,0 +1,825 @@
+{
+  "duration_s": 120.0,
+  "per_core_util_pct": {
+    "cpu0": 13.16,
+    "cpu1": 12.8,
+    "cpu2": 12.26,
+    "cpu3": 21.16,
+    "cpu4": 50.19,
+    "cpu5": 10.85,
+    "cpu6": 9.17,
+    "cpu7": 10.52,
+    "cpu8": 14.05,
+    "cpu9": 10.73,
+    "cpu10": 22.16,
+    "cpu11": 23.47
+  },
+  "total_util_pct": 17.47,
+  "mem": {
+    "total_kb": 64349384,
+    "available_kb_start": 50978732,
+    "available_kb_end": 50986728,
+    "available_kb_min": 50967792,
+    "used_kb_end": 13362656
+  },
+  "gpu_load_pct": 0.0,
+  "stack_cpu_pct_of_core_total": 101.3,
+  "stack_rss_kb_total": 9780660,
+  "processes": [
+    {
+      "pid": 1175732,
+      "label": "sh",
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 824,
+      "threads": 1,
+      "args": "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    },
+    {
+      "pid": 1175763,
+      "label": "python3",
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 13064,
+      "threads": 1,
+      "args": "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    },
+    {
+      "pid": 1175765,
+      "label": "fast-discovery-server",
+      "cpu_pct_of_core": 1.08,
+      "rss_kb": 24640,
+      "threads": 9,
+      "args": "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    },
+    {
+      "pid": 1176277,
+      "label": "supervisor_bringup.launch.py",
+      "cpu_pct_of_core": 0.02,
+      "rss_kb": 48080,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup supervisor_bringup.launch.py enable_intelligence:=true enable_mission_logger:=true enable_comms:"
+    },
+    {
+      "pid": 1176365,
+      "label": "ensure_discovery_server.py",
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 10956,
+      "threads": 1,
+      "args": "python3 /opt/f1tenth_ws/install/share/f1tenth_bringup/scripts/ensure_discovery_server.py 127.0.0.1 11811"
+    },
+    {
+      "pid": 1176366,
+      "label": "/component_supervisor_node",
+      "cpu_pct_of_core": 0.27,
+      "rss_kb": 82208,
+      "threads": 25,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_bringup/component_supervisor_node --ros-args -r __node:=component_supervisor_node --params-file /tmp/launch"
+    },
+    {
+      "pid": 1176401,
+      "label": "reset_manager.launch.py",
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 48008,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup reset_manager.launch.py"
+    },
+    {
+      "pid": 1176402,
+      "label": "behavior_bringup.launch.py",
+      "cpu_pct_of_core": 0.24,
+      "rss_kb": 48116,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_behavior behavior_bringup.launch.py enable_mission_logger:=true proximity_guard:=off"
+    },
+    {
+      "pid": 1176404,
+      "label": "system_observer.launch.py",
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 47984,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_diagnostics system_observer.launch.py"
+    },
+    {
+      "pid": 1176405,
+      "label": "diagnostics_server.launch.py",
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 47984,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_diagnostics diagnostics_server.launch.py"
+    },
+    {
+      "pid": 1176406,
+      "label": "mission_logger.launch.py",
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 48052,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_logger mission_logger.launch.py enable_mission_logger:=true"
+    },
+    {
+      "pid": 1176407,
+      "label": "llm.launch.py",
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 45768,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch llm llm.launch.py"
+    },
+    {
+      "pid": 1176408,
+      "label": "foxglove_bridge.launch.py",
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 48044,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup foxglove_bridge.launch.py"
+    },
+    {
+      "pid": 1176409,
+      "label": "viz_relays.launch.py",
+      "cpu_pct_of_core": 0.27,
+      "rss_kb": 91152,
+      "threads": 32,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup viz_relays.launch.py"
+    },
+    {
+      "pid": 1176410,
+      "label": "camera.launch.py",
+      "cpu_pct_of_core": 0.23,
+      "rss_kb": 93196,
+      "threads": 27,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception camera.launch.py"
+    },
+    {
+      "pid": 1176411,
+      "label": "lidar.launch.py",
+      "cpu_pct_of_core": 0.03,
+      "rss_kb": 47972,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception lidar.launch.py"
+    },
+    {
+      "pid": 1176412,
+      "label": "detection.launch.py",
+      "cpu_pct_of_core": 0.08,
+      "rss_kb": 48232,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception detection.launch.py"
+    },
+    {
+      "pid": 1176413,
+      "label": "navigation.launch.py",
+      "cpu_pct_of_core": 1.76,
+      "rss_kb": 47980,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_navigation navigation.launch.py corridor_impl:=py mpc_solver_impl:=py"
+    },
+    {
+      "pid": 1176414,
+      "label": "obstacle_clearance.launch.py",
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 47888,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception obstacle_clearance.launch.py"
+    },
+    {
+      "pid": 1176415,
+      "label": "localization.launch.py",
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 50092,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_localization localization.launch.py"
+    },
+    {
+      "pid": 1176416,
+      "label": "ackermann_mux.launch.py",
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 68572,
+      "threads": 14,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_control ackermann_mux.launch.py hard_stop_impl:=py"
+    },
+    {
+      "pid": 1176417,
+      "label": "slam.launch.py",
+      "cpu_pct_of_core": 0.23,
+      "rss_kb": 90552,
+      "threads": 28,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_navigation slam.launch.py"
+    },
+    {
+      "pid": 1176418,
+      "label": "costmap.launch.py",
+      "cpu_pct_of_core": 0.02,
+      "rss_kb": 48068,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_costmap costmap.launch.py costmap_boundary_impl:=py"
+    },
+    {
+      "pid": 1176419,
+      "label": "lidar_front_wall.launch.py",
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 47884,
+      "threads": 3,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception lidar_front_wall.launch.py wall_tracker_impl:=py"
+    },
+    {
+      "pid": 1176458,
+      "label": "llama-server",
+      "cpu_pct_of_core": 0.01,
+      "rss_kb": 4303796,
+      "threads": 16,
+      "args": "/opt/llama.cpp/bin/llama-server -m /home/fabiocar/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf --port 8083 -ngl 999"
+    },
+    {
+      "pid": 1176460,
+      "label": "/behavior_executor_node",
+      "cpu_pct_of_core": 18.8,
+      "rss_kb": 121272,
+      "threads": 15,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_executor_node --params-file /tmp/launch_para"
+    },
+    {
+      "pid": 1176461,
+      "label": "/twist_to_ackermann_node",
+      "cpu_pct_of_core": 0.17,
+      "rss_kb": 80936,
+      "threads": 25,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_behavior/twist_to_ackermann_node --ros-args -r __node:=twist_to_ackermann_node --params-file /opt/f1tenth_w"
+    },
+    {
+      "pid": 1176488,
+      "label": "/yolo_detector_node",
+      "cpu_pct_of_core": 0.17,
+      "rss_kb": 1549304,
+      "threads": 19,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_node --params-file /tmp/launch_params_x_1"
+    },
+    {
+      "pid": 1176489,
+      "label": "/detection_3d_node",
+      "cpu_pct_of_core": 0.19,
+      "rss_kb": 148388,
+      "threads": 15,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_perception/detection_3d_node --ros-args -r __node:=detection_3d_node --params-file /tmp/launch_params_fih62"
+    },
+    {
+      "pid": 1176508,
+      "label": "/obstacle_projector_node",
+      "cpu_pct_of_core": 0.16,
+      "rss_kb": 92772,
+      "threads": 15,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_perception/obstacle_projector_node --ros-args -r __node:=obstacle_projector_node --params-file /tmp/launch_"
+    },
+    {
+      "pid": 1176510,
+      "label": "/front_clearance_node",
+      "cpu_pct_of_core": 1.29,
+      "rss_kb": 147936,
+      "threads": 14,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearance_node --params-file /tmp/launch_params"
+    },
+    {
+      "pid": 1176521,
+      "label": "/reset_manager",
+      "cpu_pct_of_core": 0.17,
+      "rss_kb": 83856,
+      "threads": 25,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_bringup/reset_manager --ros-args -r __node:=reset_manager --params-file /opt/f1tenth_ws/install/share/f1ten"
+    },
+    {
+      "pid": 1176550,
+      "label": "/urg_node",
+      "cpu_pct_of_core": 0.28,
+      "rss_kb": 38172,
+      "threads": 16,
+      "args": "/opt/ros/jazzy/lib/urg_node/urg_node_driver --ros-args -r __node:=urg_node --params-file /opt/f1tenth_ws/install/share/f1tenth_bringup/config/sensors.yaml"
+    },
+    {
+      "pid": 1176552,
+      "label": "/mpc_corr",
+      "cpu_pct_of_core": 31.77,
+      "rss_kb": 128396,
+      "threads": 15,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr --params-file /tmp/launch_params_279rle6u --params-file /tmp"
+    },
+    {
+      "pid": 1176554,
+      "label": "/map_server",
+      "cpu_pct_of_core": 1.13,
+      "rss_kb": 64616,
+      "threads": 14,
+      "args": "/opt/ros/jazzy/lib/nav2_map_server/map_server --ros-args -r __node:=map_server --params-file /tmp/launch_params_lp70_mxc"
+    },
+    {
+      "pid": 1176556,
+      "label": "/lifecycle_manager_map",
+      "cpu_pct_of_core": 1.13,
+      "rss_kb": 41168,
+      "threads": 16,
+      "args": "/opt/ros/jazzy/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __node:=lifecycle_manager_map --params-file /tmp/launch_params_5tl6103i"
+    },
+    {
+      "pid": 1176597,
+      "label": "/obstacle_clearance_node",
+      "cpu_pct_of_core": 0.15,
+      "rss_kb": 86556,
+      "threads": 14,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_perception/obstacle_clearance_node --ros-args -r __node:=obstacle_clearance_node --params-file /tmp/launch_"
+    },
+    {
+      "pid": 1176598,
+      "label": "/foxglove_bridge",
+      "cpu_pct_of_core": 0.97,
+      "rss_kb": 85196,
+      "threads": 29,
+      "args": "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge --params-file /tmp/launch_params_no0_tphp"
+    },
+    {
+      "pid": 1176601,
+      "label": "/image_raw_viz_throttle",
+      "cpu_pct_of_core": 0.7,
+      "rss_kb": 40716,
+      "threads": 14,
+      "args": "/opt/ros/jazzy/lib/topic_tools/throttle messages /camera/image_raw 5.0 /camera/image_raw/viz --ros-args -r __node:=image_raw_viz_throttle"
+    },
+    {
+      "pid": 1176608,
+      "label": "/image_annotated_viz_throttle",
+      "cpu_pct_of_core": 0.78,
+      "rss_kb": 46000,
+      "threads": 14,
+      "args": "/opt/ros/jazzy/lib/topic_tools/throttle messages /camera/image_annotated 5.0 /camera/image_annotated/viz --ros-args -r __node:=image_annotated_viz_throttle"
+    },
+    {
+      "pid": 1176613,
+      "label": "/semantic_layer_node",
+      "cpu_pct_of_core": 7.06,
+      "rss_kb": 118304,
+      "threads": 25,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_costmap/semantic_layer_node --ros-args -r __node:=semantic_layer_node --params-file /tmp/launch_params_5478"
+    },
+    {
+      "pid": 1176619,
+      "label": "/costmap_renderer_node",
+      "cpu_pct_of_core": 0.43,
+      "rss_kb": 84720,
+      "threads": 25,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_costmap/costmap_renderer_node --ros-args -r __node:=costmap_renderer_node --params-file /tmp/launch_params_"
+    },
+    {
+      "pid": 1176622,
+      "label": "/costmap_boundary_node",
+      "cpu_pct_of_core": 3.9,
+      "rss_kb": 91604,
+      "threads": 25,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_costmap/costmap_boundary_node --ros-args -r __node:=costmap_boundary_node --params-file /tmp/launch_params_"
+    },
+    {
+      "pid": 1176677,
+      "label": "/system_observer_node",
+      "cpu_pct_of_core": 0.61,
+      "rss_kb": 84684,
+      "threads": 15,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_diagnostics/system_observer_node --ros-args -r __node:=system_observer_node --params-file /tmp/launch_param"
+    },
+    {
+      "pid": 1176711,
+      "label": "/depth_throttle_5hz",
+      "cpu_pct_of_core": 0.71,
+      "rss_kb": 38728,
+      "threads": 14,
+      "args": "/opt/ros/jazzy/lib/topic_tools/throttle messages /zed2/zed_node/depth/depth_registered 5.0 /zed2/zed_node/depth/depth_registered_5hz --ros-args -r __node:=depth"
+    },
+    {
+      "pid": 1176714,
+      "label": "/mission_logger_node",
+      "cpu_pct_of_core": 0.31,
+      "rss_kb": 97940,
+      "threads": 25,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_logger/mission_logger_node --ros-args -r __node:=mission_logger_node --params-file /tmp/launch_params_grt5y"
+    },
+    {
+      "pid": 1176717,
+      "label": "/ekf_filter_node",
+      "cpu_pct_of_core": 0.92,
+      "rss_kb": 49204,
+      "threads": 15,
+      "args": "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node --params-file /opt/f1tenth_ws/install/share/f1tenth_bringup/config/ekf.yaml"
+    },
+    {
+      "pid": 1176729,
+      "label": "/ekf_global/ekf_global_filter_node",
+      "cpu_pct_of_core": 0.93,
+      "rss_kb": 48784,
+      "threads": 15,
+      "args": "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_global_filter_node -r __ns:=/ekf_global --params-file /opt/f1tenth_ws/install/share/f1t"
+    },
+    {
+      "pid": 1176732,
+      "label": "/slam_pose_relay_node",
+      "cpu_pct_of_core": 0.17,
+      "rss_kb": 84672,
+      "threads": 25,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __node:=slam_pose_relay_node --params-file /opt/f1tenth_ws/"
+    },
+    {
+      "pid": 1176739,
+      "label": "robot_state_publisher",
+      "cpu_pct_of_core": 0.91,
+      "rss_kb": 42124,
+      "threads": 14,
+      "args": "/opt/ros/jazzy/lib/robot_state_publisher/robot_state_publisher --ros-args --params-file /tmp/launch_params_jhdw0i58 --params-file /tmp/launch_params_bxc1np60"
+    },
+    {
+      "pid": 1176740,
+      "label": "/joint_state_publisher",
+      "cpu_pct_of_core": 1.91,
+      "rss_kb": 84376,
+      "threads": 25,
+      "args": "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher --params-file /tmp/launch_params_zw2"
+    },
+    {
+      "pid": 1176741,
+      "label": "/static_baselink_to_laser",
+      "cpu_pct_of_core": 0.21,
+      "rss_kb": 37980,
+      "threads": 14,
+      "args": "/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.305 0.0 0.190 0.0 0.0 0.0 base_link laser --ros-args -r __node:=static_baselink_to_laser"
+    },
+    {
+      "pid": 1176823,
+      "label": "/lidar_front_wall_node",
+      "cpu_pct_of_core": 0.14,
+      "rss_kb": 121944,
+      "threads": 14,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_perception/lidar_front_wall_node --ros-args -r __node:=lidar_front_wall_node --params-file /tmp/launch_para"
+    },
+    {
+      "pid": 1176840,
+      "label": "/diagnostics_server_node",
+      "cpu_pct_of_core": 1.1,
+      "rss_kb": 87080,
+      "threads": 25,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_diagnostics/diagnostics_server_node --ros-args -r __node:=diagnostics_server_node --params-file /tmp/launch"
+    },
+    {
+      "pid": 1176886,
+      "label": "/slam_toolbox",
+      "cpu_pct_of_core": 0.55,
+      "rss_kb": 57372,
+      "threads": 16,
+      "args": "/opt/ros/jazzy/lib/slam_toolbox/async_slam_toolbox_node --ros-args -r __node:=slam_toolbox -r __ns:=/ --params-file /opt/f1tenth_ws/install/share/f1tenth_naviga"
+    },
+    {
+      "pid": 1176888,
+      "label": "/viz_relay_container",
+      "cpu_pct_of_core": 12.46,
+      "rss_kb": 78436,
+      "threads": 14,
+      "args": "/opt/ros/jazzy/lib/rclcpp_components/component_container --ros-args -r __node:=viz_relay_container -r __ns:=/"
+    },
+    {
+      "pid": 1176889,
+      "label": "/viz_jpeg_node",
+      "cpu_pct_of_core": 0.31,
+      "rss_kb": 112844,
+      "threads": 14,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_bringup/viz_jpeg_node --ros-args -r __node:=viz_jpeg_node --params-file /tmp/launch_params_va77kk3p"
+    },
+    {
+      "pid": 1177026,
+      "label": "/ackermann_mux",
+      "cpu_pct_of_core": 0.86,
+      "rss_kb": 38204,
+      "threads": 14,
+      "args": "/opt/f1tenth_ws/install/lib/ackermann_mux/ackermann_mux --ros-args -r __node:=ackermann_mux --params-file /opt/f1tenth_ws/install/share/f1tenth_bringup/config/m"
+    },
+    {
+      "pid": 1177038,
+      "label": "/hard_stop_node",
+      "cpu_pct_of_core": 5.31,
+      "rss_kb": 87320,
+      "threads": 25,
+      "args": "/usr/bin/python3 /opt/f1tenth_ws/install/lib/f1tenth_control/hard_stop_node --ros-args -r __node:=hard_stop_node --params-file /tmp/launch_params_iuevtrnw"
+    },
+    {
+      "pid": 1177364,
+      "label": "/static_baselink_to_zed2",
+      "cpu_pct_of_core": 0.19,
+      "rss_kb": 37364,
+      "threads": 14,
+      "args": "/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.2399 0.0 0.205 0.0 -0.03635 0.0 base_link zed2_camera_link --ros-args -r __node:=static_baselink_to_zed2"
+    },
+    {
+      "pid": 1177365,
+      "label": "/zed2/zed2_state_publisher",
+      "cpu_pct_of_core": 0.21,
+      "rss_kb": 42580,
+      "threads": 14,
+      "args": "/opt/ros/jazzy/lib/robot_state_publisher/robot_state_publisher --ros-args -r __node:=zed2_state_publisher -r __ns:=/zed2 --params-file /tmp/launch_params_e8zfv_"
+    }
+  ],
+  "by_label": {
+    "/mpc_corr": {
+      "cpu_pct_of_core": 31.77,
+      "rss_kb": 128396,
+      "n": 1
+    },
+    "/behavior_executor_node": {
+      "cpu_pct_of_core": 18.8,
+      "rss_kb": 121272,
+      "n": 1
+    },
+    "/viz_relay_container": {
+      "cpu_pct_of_core": 12.46,
+      "rss_kb": 78436,
+      "n": 1
+    },
+    "/semantic_layer_node": {
+      "cpu_pct_of_core": 7.06,
+      "rss_kb": 118304,
+      "n": 1
+    },
+    "/hard_stop_node": {
+      "cpu_pct_of_core": 5.31,
+      "rss_kb": 87320,
+      "n": 1
+    },
+    "/costmap_boundary_node": {
+      "cpu_pct_of_core": 3.9,
+      "rss_kb": 91604,
+      "n": 1
+    },
+    "/joint_state_publisher": {
+      "cpu_pct_of_core": 1.91,
+      "rss_kb": 84376,
+      "n": 1
+    },
+    "navigation.launch.py": {
+      "cpu_pct_of_core": 1.76,
+      "rss_kb": 47980,
+      "n": 1
+    },
+    "/front_clearance_node": {
+      "cpu_pct_of_core": 1.29,
+      "rss_kb": 147936,
+      "n": 1
+    },
+    "/map_server": {
+      "cpu_pct_of_core": 1.13,
+      "rss_kb": 64616,
+      "n": 1
+    },
+    "/lifecycle_manager_map": {
+      "cpu_pct_of_core": 1.13,
+      "rss_kb": 41168,
+      "n": 1
+    },
+    "/diagnostics_server_node": {
+      "cpu_pct_of_core": 1.1,
+      "rss_kb": 87080,
+      "n": 1
+    },
+    "fast-discovery-server": {
+      "cpu_pct_of_core": 1.08,
+      "rss_kb": 24640,
+      "n": 1
+    },
+    "/foxglove_bridge": {
+      "cpu_pct_of_core": 0.97,
+      "rss_kb": 85196,
+      "n": 1
+    },
+    "/ekf_global/ekf_global_filter_node": {
+      "cpu_pct_of_core": 0.93,
+      "rss_kb": 48784,
+      "n": 1
+    },
+    "/ekf_filter_node": {
+      "cpu_pct_of_core": 0.92,
+      "rss_kb": 49204,
+      "n": 1
+    },
+    "robot_state_publisher": {
+      "cpu_pct_of_core": 0.91,
+      "rss_kb": 42124,
+      "n": 1
+    },
+    "/ackermann_mux": {
+      "cpu_pct_of_core": 0.86,
+      "rss_kb": 38204,
+      "n": 1
+    },
+    "/image_annotated_viz_throttle": {
+      "cpu_pct_of_core": 0.78,
+      "rss_kb": 46000,
+      "n": 1
+    },
+    "/depth_throttle_5hz": {
+      "cpu_pct_of_core": 0.71,
+      "rss_kb": 38728,
+      "n": 1
+    },
+    "/image_raw_viz_throttle": {
+      "cpu_pct_of_core": 0.7,
+      "rss_kb": 40716,
+      "n": 1
+    },
+    "/system_observer_node": {
+      "cpu_pct_of_core": 0.61,
+      "rss_kb": 84684,
+      "n": 1
+    },
+    "/slam_toolbox": {
+      "cpu_pct_of_core": 0.55,
+      "rss_kb": 57372,
+      "n": 1
+    },
+    "/costmap_renderer_node": {
+      "cpu_pct_of_core": 0.43,
+      "rss_kb": 84720,
+      "n": 1
+    },
+    "/mission_logger_node": {
+      "cpu_pct_of_core": 0.31,
+      "rss_kb": 97940,
+      "n": 1
+    },
+    "/viz_jpeg_node": {
+      "cpu_pct_of_core": 0.31,
+      "rss_kb": 112844,
+      "n": 1
+    },
+    "/urg_node": {
+      "cpu_pct_of_core": 0.28,
+      "rss_kb": 38172,
+      "n": 1
+    },
+    "/component_supervisor_node": {
+      "cpu_pct_of_core": 0.27,
+      "rss_kb": 82208,
+      "n": 1
+    },
+    "viz_relays.launch.py": {
+      "cpu_pct_of_core": 0.27,
+      "rss_kb": 91152,
+      "n": 1
+    },
+    "behavior_bringup.launch.py": {
+      "cpu_pct_of_core": 0.24,
+      "rss_kb": 48116,
+      "n": 1
+    },
+    "camera.launch.py": {
+      "cpu_pct_of_core": 0.23,
+      "rss_kb": 93196,
+      "n": 1
+    },
+    "slam.launch.py": {
+      "cpu_pct_of_core": 0.23,
+      "rss_kb": 90552,
+      "n": 1
+    },
+    "/static_baselink_to_laser": {
+      "cpu_pct_of_core": 0.21,
+      "rss_kb": 37980,
+      "n": 1
+    },
+    "/zed2/zed2_state_publisher": {
+      "cpu_pct_of_core": 0.21,
+      "rss_kb": 42580,
+      "n": 1
+    },
+    "/detection_3d_node": {
+      "cpu_pct_of_core": 0.19,
+      "rss_kb": 148388,
+      "n": 1
+    },
+    "/static_baselink_to_zed2": {
+      "cpu_pct_of_core": 0.19,
+      "rss_kb": 37364,
+      "n": 1
+    },
+    "/twist_to_ackermann_node": {
+      "cpu_pct_of_core": 0.17,
+      "rss_kb": 80936,
+      "n": 1
+    },
+    "/yolo_detector_node": {
+      "cpu_pct_of_core": 0.17,
+      "rss_kb": 1549304,
+      "n": 1
+    },
+    "/reset_manager": {
+      "cpu_pct_of_core": 0.17,
+      "rss_kb": 83856,
+      "n": 1
+    },
+    "/slam_pose_relay_node": {
+      "cpu_pct_of_core": 0.17,
+      "rss_kb": 84672,
+      "n": 1
+    },
+    "/obstacle_projector_node": {
+      "cpu_pct_of_core": 0.16,
+      "rss_kb": 92772,
+      "n": 1
+    },
+    "/obstacle_clearance_node": {
+      "cpu_pct_of_core": 0.15,
+      "rss_kb": 86556,
+      "n": 1
+    },
+    "/lidar_front_wall_node": {
+      "cpu_pct_of_core": 0.14,
+      "rss_kb": 121944,
+      "n": 1
+    },
+    "detection.launch.py": {
+      "cpu_pct_of_core": 0.08,
+      "rss_kb": 48232,
+      "n": 1
+    },
+    "lidar.launch.py": {
+      "cpu_pct_of_core": 0.03,
+      "rss_kb": 47972,
+      "n": 1
+    },
+    "supervisor_bringup.launch.py": {
+      "cpu_pct_of_core": 0.02,
+      "rss_kb": 48080,
+      "n": 1
+    },
+    "costmap.launch.py": {
+      "cpu_pct_of_core": 0.02,
+      "rss_kb": 48068,
+      "n": 1
+    },
+    "llama-server": {
+      "cpu_pct_of_core": 0.01,
+      "rss_kb": 4303796,
+      "n": 1
+    },
+    "sh": {
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 824,
+      "n": 1
+    },
+    "python3": {
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 13064,
+      "n": 1
+    },
+    "ensure_discovery_server.py": {
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 10956,
+      "n": 1
+    },
+    "reset_manager.launch.py": {
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 48008,
+      "n": 1
+    },
+    "system_observer.launch.py": {
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 47984,
+      "n": 1
+    },
+    "diagnostics_server.launch.py": {
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 47984,
+      "n": 1
+    },
+    "mission_logger.launch.py": {
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 48052,
+      "n": 1
+    },
+    "llm.launch.py": {
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 45768,
+      "n": 1
+    },
+    "foxglove_bridge.launch.py": {
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 48044,
+      "n": 1
+    },
+    "obstacle_clearance.launch.py": {
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 47888,
+      "n": 1
+    },
+    "localization.launch.py": {
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 50092,
+      "n": 1
+    },
+    "ackermann_mux.launch.py": {
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 68572,
+      "n": 1
+    },
+    "lidar_front_wall.launch.py": {
+      "cpu_pct_of_core": 0.0,
+      "rss_kb": 47884,
+      "n": 1
+    }
+  }
+}

@@ -1,0 +1,4 @@
+[INFO] [proximity_guard_node-1]: process started with pid [1328913]
+[proximity_guard_node-1] [INFO] [1792344433.696202920] [proximity_guard_node]: proximity_guard_node started: mode=shadow threshold=0.150 m from base_front (x=0.405 m), cone +-45.0 deg, scan timeout 200 ms (ros clock), max invalid fraction 0.50, decisions on /proximity_guard/decision (shadow: no commands)
+[proximity_guard_node-1] [WARN] [1792344433.746406384] [proximity_guard_node]: front proximity no_scan_yet: no /scan for 57 ms (timeout 200 ms)
+[proximity_guard_node-1] [WARN] [1792344434.688532908] [proximity_guard_node]: no base_link <- "laser" on /tf_static yet: front measured as if the LiDAR sat at base_link (trips early, never late), as IsProximityTooClose does

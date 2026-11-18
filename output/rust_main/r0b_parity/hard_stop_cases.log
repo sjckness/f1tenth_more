@@ -1,0 +1,3 @@
+## python3 tools/rust_parity/hard_stop/make_test_cases.py --check (2026-10-24T23:56:48+02:00)
+/home/andreas/dev_ws/f1tenth_more_r0b/src/rust/f1tenth_hard_stop_rs/tests/data/test_cases.jsonl: current (42 tests, 280 ops)
+## exit 0, 1 s

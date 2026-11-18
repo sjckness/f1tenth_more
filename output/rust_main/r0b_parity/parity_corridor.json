@@ -1,0 +1,468 @@
+{
+ "host": "linus",
+ "machine": "x86_64",
+ "python": "3.12.3",
+ "numpy": "1.26.4",
+ "library": "/home/andreas/dev_ws/f1tenth_more_r0b/install/f1tenth_mpc_core/lib/f1tenth_mpc_core/libf1tenth_mpc_core.so",
+ "library_version": "0.1.0",
+ "library_build": "build: cargo profile debug, opt-level 3, debug_assertions on",
+ "tolerance": 1e-12,
+ "started": "2026-10-24T23:32:26+0200",
+ "rebuilds": {
+  "geometry": {
+   "cases": 1344,
+   "identical": 1344,
+   "within_tol": 1344,
+   "failures": 0,
+   "failure_examples": [],
+   "values": 2434944,
+   "values_bit_identical": 2434944,
+   "values_nan_bits_differ": 0,
+   "nan_bits_cases": 0,
+   "nan_bits_all_nonfinite_inputs": true,
+   "nan_bits_case_examples": [],
+   "max_abs_diff": 0.0,
+   "exceptions_matched": 0,
+   "exception_mismatch": 0,
+   "exception_mismatch_examples": []
+  },
+  "queries": {
+   "cases": 22848,
+   "identical": 22848,
+   "within_tol": 22848,
+   "failures": 0,
+   "failure_examples": [],
+   "values": 205632,
+   "values_bit_identical": 205632,
+   "values_nan_bits_differ": 0,
+   "nan_bits_cases": 0,
+   "nan_bits_all_nonfinite_inputs": true,
+   "nan_bits_case_examples": [],
+   "max_abs_diff": 0.0,
+   "exceptions_matched": 0,
+   "exception_mismatch": 0,
+   "exception_mismatch_examples": []
+  },
+  "feasible_true": 1256,
+  "ramp_clamped_true": 112,
+  "rebuilds": 24,
+  "cases": 1344
+ },
+ "sweep": {
+  "count": 10000,
+  "seed": 20261023,
+  "geometry": {
+   "cases": 8937,
+   "identical": 8907,
+   "within_tol": 8937,
+   "failures": 0,
+   "failure_examples": [],
+   "values": 14102307,
+   "values_bit_identical": 14100764,
+   "values_nan_bits_differ": 1543,
+   "nan_bits_cases": 30,
+   "nan_bits_all_nonfinite_inputs": true,
+   "nan_bits_case_examples": [
+    "sweep#661 pose backwards non-finite: corridor_curves_to_pose(-1.0887238328562043, -2.179049650281944, nan, -1.5539237046410554, -1.4200554572775759, -1.0209336791570138, 2){'handle_a': 2.0, 'handle_b': 0.0, 'w0': 2.0, 'w1': 0.7667, 'r_min': None, 'length_ref': None, 'walls': 'bezier'}",
+    "sweep#937 ramp non-finite: corridor_curves(-0.08723230259023389, -314043.3351604454, 9.42477796076938, nan, 1.3674668889891874, 2){'dpsi': 1000.0, 'u_start': 0.1, 'u_end': 0.4, 'w0': 0.4333, 'w1': 0.7667, 'r_min': 0.0, 'length_ref': -1.0, 'walls': 'bezier'}",
+    "sweep#1432 ramp non-finite: corridor_curves(-5.147025713694526, 1.225079023837457, nan, -1.1124867877428715, 11.38501336741852, 120){'dpsi': None, 'u_start': 0.0, 'u_end': 0.4, 'w0': 0.4333, 'w1': 0.7667, 'r_min': 0.923, 'length_ref': None, 'walls': 'bezier'}",
+    "sweep#1433 ramp inverted L~0 non-finite: corridor_curves(0.3534998327037806, -8.62157280124962, nan, 0.3063147825988146, 0.0, 2){'dpsi': 2.3037659586358403, 'u_start': 0.7785976049329866, 'u_end': 0.08489588485725744, 'w0': 0.4333, 'w1': 0.7667, 'r_min': 0.923, 'length_ref': 1e-09, 'walls': 'bezier'",
+    "sweep#1579 ramp non-finite: corridor_curves(-3.599113403833715, 0.09247063732928514, -7.0, nan, 0.03272658656481087, 2){'dpsi': None, 'u_start': 0.0, 'u_end': 1e-09, 'w0': 0.65, 'w1': 0.7667, 'r_min': None, 'length_ref': 0.0, 'walls': 'bezier'}",
+    "sweep#2112 ramp non-finite: corridor_curves(-7.030583216842814, 0.4988414569475599, nan, 9.42477796076938, 3.064053121589464, 120){'dpsi': 5.495091657820186, 'u_start': 0.0, 'u_end': 1.0, 'w0': 1e-09, 'w1': 1e-09, 'r_min': -1.0, 'length_ref': 1e-09, 'walls': 'bezier'}",
+    "sweep#2129 ramp L~0 non-finite: corridor_curves(-3.0201718022769617, 2.9924863655926752, nan, -1.4565144916640205, 1e-09, 206){'dpsi': -2.952506244069763, 'u_start': 0.0, 'u_end': 0.6, 'w0': 0.0, 'w1': 0.7667, 'r_min': 100.0, 'length_ref': None, 'walls': 'bezier'}",
+    "sweep#2690 ramp L~0 non-finite: corridor_curves(3.9198912391998997, -490154.984775418, nan, -6.283185307179586, 0.0, 4){'dpsi': None, 'u_start': 0.0, 'u_end': 1e-09, 'w0': 1e-09, 'w1': 1.15, 'r_min': 0.0, 'length_ref': -1.0, 'walls': 'bezier'}",
+    "sweep#3048 pose backwards non-finite: corridor_curves_to_pose(-3.8994988418935117, -2.0049956915313616, 3.1415926535897922, -4.04047839039479, -2.5221209328743495, nan, 120){'handle_a': 2.0, 'handle_b': 0.0, 'w0': 2.0, 'w1': 1.15, 'r_min': -1.0, 'length_ref': 3.0, 'walls': 'bezier'}",
+    "sweep#3117 pose non-finite: corridor_curves_to_pose(-0.03947780468617958, 0.5506699793122226, nan, -1.026804109979941, 2.777229173102687, 0.7033954641299198, 120){'handle_a': 1e-09, 'handle_b': 5.0, 'w0': 0.65, 'w1': 5.0, 'r_min': -1.0, 'length_ref': None, 'walls': 'bezier'}"
+   ],
+   "max_abs_diff": 0.0,
+   "exceptions_matched": 1063,
+   "exception_mismatch": 0,
+   "exception_mismatch_examples": []
+  },
+  "queries": {
+   "cases": 43987,
+   "identical": 43409,
+   "within_tol": 43987,
+   "failures": 0,
+   "failure_examples": [],
+   "values": 395883,
+   "values_bit_identical": 395305,
+   "values_nan_bits_differ": 578,
+   "nan_bits_cases": 578,
+   "nan_bits_all_nonfinite_inputs": true,
+   "nan_bits_case_examples": [
+    "sweep#41 ramp non-finite: corridor_curves(inf, -0.0, -0.0, 2.4468398676652656, 4.802669658567677, 120){'dpsi': None, 'u_start': 0.0, 'u_end': 0.4, 'w0': 0.0, 'w1': 5.0, 'r_min': 0.923, 'length_ref': 3.0, 'walls': 'trapezoid'} p=[0.0, 0.0]",
+    "sweep#83 ramp non-finite: corridor_curves(-inf, 1.1427304951937378, -1.2879349523224415, -7.853981633974483, 39.19047922213378, 120){'dpsi': 1000.0, 'u_start': 0.0, 'u_end': 0.4, 'w0': 0.0, 'w1': 0.0, 'r_min': 100.0, 'length_ref': None, 'walls': 'trapezoid'} p=[0.0, 0.0]",
+    "sweep#106 pose non-finite: corridor_curves_to_pose(nan, -3.8774859387908256, -2.4423085896501933, -4.178574099844461, -5.10249021774185, 5.14524764434702, 120){'handle_a': 0.4, 'handle_b': 0.4, 'w0': 0.65, 'w1': 0.7667, 'r_min': 1e-09, 'length_ref': -1.0, 'walls': 'bezier'} p=[0.0, 0.0]",
+    "sweep#138 ramp outside [0,1] L~0 non-finite: corridor_curves(-5.513696359779973, 3.31989726815749, 3.141592653589793, 2.429705444201839, -inf, 3){'dpsi': None, 'u_start': -0.29230331706507084, 'u_end': 1.4201139810054662, 'w0': 1e-09, 'w1': 1.15, 'r_min': None, 'length_ref': 1e-09, 'walls': 'bezier'",
+    "sweep#156 ramp non-finite: corridor_curves(nan, -0.4172101022041592, -0.9930820707423793, 1.7176884564605617, 3.480040273452428, 2){'dpsi': 0.9882563200834582, 'u_start': 0.3, 'u_end': 0.4, 'w0': 1e-09, 'w1': 1.15, 'r_min': None, 'length_ref': None, 'walls': 'bezier'} p=[0.0, 0.0]",
+    "sweep#173 ramp non-finite: corridor_curves(2.7189121103912304, inf, 1.5019078870773157, 2.592908650679634, 2.8495655314205113, 2){'dpsi': None, 'u_start': 0.3, 'u_end': 0.4, 'w0': 0.0, 'w1': 0.0, 'r_min': -1.0, 'length_ref': -1.0, 'walls': 'bezier'} p=[1.3731234725794135, inf]",
+    "sweep#173 ramp non-finite: corridor_curves(2.7189121103912304, inf, 1.5019078870773157, 2.592908650679634, 2.8495655314205113, 2){'dpsi': None, 'u_start': 0.3, 'u_end': 0.4, 'w0': 0.0, 'w1': 0.0, 'r_min': -1.0, 'length_ref': -1.0, 'walls': 'bezier'} p=[0.0051358675996601155, inf]",
+    "sweep#173 ramp non-finite: corridor_curves(2.7189121103912304, inf, 1.5019078870773157, 2.592908650679634, 2.8495655314205113, 2){'dpsi': None, 'u_start': 0.3, 'u_end': 0.4, 'w0': 0.0, 'w1': 0.0, 'r_min': -1.0, 'length_ref': -1.0, 'walls': 'bezier'} p=[0.23018550639698893, inf]",
+    "sweep#173 ramp non-finite: corridor_curves(2.7189121103912304, inf, 1.5019078870773157, 2.592908650679634, 2.8495655314205113, 2){'dpsi': None, 'u_start': 0.3, 'u_end': 0.4, 'w0': 0.0, 'w1': 0.0, 'r_min': -1.0, 'length_ref': -1.0, 'walls': 'bezier'} p=[2.7189121103912304, inf]",
+    "sweep#173 ramp non-finite: corridor_curves(2.7189121103912304, inf, 1.5019078870773157, 2.592908650679634, 2.8495655314205113, 2){'dpsi': None, 'u_start': 0.3, 'u_end': 0.4, 'w0': 0.0, 'w1': 0.0, 'r_min': -1.0, 'length_ref': -1.0, 'walls': 'bezier'} p=[5.287629634281617, inf]"
+   ],
+   "max_abs_diff": 0.0,
+   "exceptions_matched": 0,
+   "exception_mismatch": 0,
+   "exception_mismatch_examples": []
+  },
+  "families": {
+   "pose": {
+    "cases": 2753,
+    "built": 2284,
+    "raised_both": 469,
+    "failures": 0
+   },
+   "pose backwards": {
+    "cases": 510,
+    "built": 423,
+    "raised_both": 87,
+    "failures": 0
+   },
+   "pose backwards non-finite": {
+    "cases": 30,
+    "built": 21,
+    "raised_both": 9,
+    "failures": 0
+   },
+   "pose non-finite": {
+    "cases": 136,
+    "built": 93,
+    "raised_both": 43,
+    "failures": 0
+   },
+   "pose tiny chord": {
+    "cases": 901,
+    "built": 735,
+    "raised_both": 166,
+    "failures": 0
+   },
+   "pose tiny chord backwards": {
+    "cases": 170,
+    "built": 143,
+    "raised_both": 27,
+    "failures": 0
+   },
+   "pose tiny chord backwards non-finite": {
+    "cases": 11,
+    "built": 6,
+    "raised_both": 5,
+    "failures": 0
+   },
+   "pose tiny chord non-finite": {
+    "cases": 38,
+    "built": 23,
+    "raised_both": 15,
+    "failures": 0
+   },
+   "ramp": {
+    "cases": 1758,
+    "built": 1697,
+    "raised_both": 61,
+    "failures": 0
+   },
+   "ramp L~0": {
+    "cases": 1094,
+    "built": 1042,
+    "raised_both": 52,
+    "failures": 0
+   },
+   "ramp L~0 dpsi=+-pi": {
+    "cases": 76,
+    "built": 73,
+    "raised_both": 3,
+    "failures": 0
+   },
+   "ramp L~0 dpsi=+-pi non-finite": {
+    "cases": 2,
+    "built": 2,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp L~0 non-finite": {
+    "cases": 63,
+    "built": 50,
+    "raised_both": 13,
+    "failures": 0
+   },
+   "ramp dpsi=+-pi": {
+    "cases": 142,
+    "built": 140,
+    "raised_both": 2,
+    "failures": 0
+   },
+   "ramp dpsi=+-pi non-finite": {
+    "cases": 3,
+    "built": 2,
+    "raised_both": 1,
+    "failures": 0
+   },
+   "ramp inverted": {
+    "cases": 294,
+    "built": 284,
+    "raised_both": 10,
+    "failures": 0
+   },
+   "ramp inverted L~0": {
+    "cases": 202,
+    "built": 200,
+    "raised_both": 2,
+    "failures": 0
+   },
+   "ramp inverted L~0 dpsi=+-pi": {
+    "cases": 15,
+    "built": 15,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp inverted L~0 non-finite": {
+    "cases": 2,
+    "built": 2,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp inverted dpsi=+-pi": {
+    "cases": 21,
+    "built": 21,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp inverted non-finite": {
+    "cases": 14,
+    "built": 11,
+    "raised_both": 3,
+    "failures": 0
+   },
+   "ramp non-finite": {
+    "cases": 99,
+    "built": 77,
+    "raised_both": 22,
+    "failures": 0
+   },
+   "ramp outside [0,1]": {
+    "cases": 290,
+    "built": 284,
+    "raised_both": 6,
+    "failures": 0
+   },
+   "ramp outside [0,1] L~0": {
+    "cases": 210,
+    "built": 202,
+    "raised_both": 8,
+    "failures": 0
+   },
+   "ramp outside [0,1] L~0 dpsi=+-pi": {
+    "cases": 15,
+    "built": 14,
+    "raised_both": 1,
+    "failures": 0
+   },
+   "ramp outside [0,1] L~0 dpsi=+-pi non-finite": {
+    "cases": 1,
+    "built": 1,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp outside [0,1] L~0 non-finite": {
+    "cases": 14,
+    "built": 14,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp outside [0,1] dpsi=+-pi": {
+    "cases": 22,
+    "built": 20,
+    "raised_both": 2,
+    "failures": 0
+   },
+   "ramp outside [0,1] dpsi=+-pi non-finite": {
+    "cases": 1,
+    "built": 1,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp outside [0,1] non-finite": {
+    "cases": 14,
+    "built": 10,
+    "raised_both": 4,
+    "failures": 0
+   },
+   "ramp u_end==u_start": {
+    "cases": 561,
+    "built": 543,
+    "raised_both": 18,
+    "failures": 0
+   },
+   "ramp u_end==u_start L~0": {
+    "cases": 411,
+    "built": 401,
+    "raised_both": 10,
+    "failures": 0
+   },
+   "ramp u_end==u_start L~0 dpsi=+-pi": {
+    "cases": 27,
+    "built": 27,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp u_end==u_start L~0 dpsi=+-pi non-finite": {
+    "cases": 4,
+    "built": 1,
+    "raised_both": 3,
+    "failures": 0
+   },
+   "ramp u_end==u_start L~0 non-finite": {
+    "cases": 25,
+    "built": 18,
+    "raised_both": 7,
+    "failures": 0
+   },
+   "ramp u_end==u_start dpsi=+-pi": {
+    "cases": 38,
+    "built": 36,
+    "raised_both": 2,
+    "failures": 0
+   },
+   "ramp u_end==u_start dpsi=+-pi non-finite": {
+    "cases": 2,
+    "built": 2,
+    "raised_both": 0,
+    "failures": 0
+   },
+   "ramp u_end==u_start non-finite": {
+    "cases": 31,
+    "built": 19,
+    "raised_both": 12,
+    "failures": 0
+   }
+  }
+ },
+ "replay": [
+  {
+   "corpus": "/tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r1/suites2/capture/mpc_controller/corpus.pkl",
+   "geometry_distinct": 1392,
+   "geometry_calls": 2441,
+   "sites": 8,
+   "geometry": {
+    "cases": 1383,
+    "identical": 1383,
+    "within_tol": 1383,
+    "failures": 0,
+    "failure_examples": [],
+    "values": 1630416,
+    "values_bit_identical": 1630416,
+    "values_nan_bits_differ": 0,
+    "nan_bits_cases": 0,
+    "nan_bits_all_nonfinite_inputs": true,
+    "nan_bits_case_examples": [],
+    "max_abs_diff": 0.0,
+    "exceptions_matched": 9,
+    "exception_mismatch": 0,
+    "exception_mismatch_examples": []
+   },
+   "queries_sampled": 30446,
+   "queries": {
+    "cases": 30446,
+    "identical": 30446,
+    "within_tol": 30446,
+    "failures": 0,
+    "failure_examples": [],
+    "values": 274014,
+    "values_bit_identical": 274014,
+    "values_nan_bits_differ": 0,
+    "nan_bits_cases": 0,
+    "nan_bits_all_nonfinite_inputs": true,
+    "nan_bits_case_examples": [],
+    "max_abs_diff": 0.0,
+    "exceptions_matched": 0,
+    "exception_mismatch": 0,
+    "exception_mismatch_examples": []
+   }
+  },
+  {
+   "corpus": "/tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r1/suites2/capture/f1tenth_params/corpus.pkl",
+   "geometry_distinct": 132,
+   "geometry_calls": 228,
+   "sites": 16,
+   "geometry": {
+    "cases": 130,
+    "identical": 130,
+    "within_tol": 130,
+    "failures": 0,
+    "failure_examples": [],
+    "values": 174311,
+    "values_bit_identical": 174311,
+    "values_nan_bits_differ": 0,
+    "nan_bits_cases": 0,
+    "nan_bits_all_nonfinite_inputs": true,
+    "nan_bits_case_examples": [],
+    "max_abs_diff": 0.0,
+    "exceptions_matched": 2,
+    "exception_mismatch": 0,
+    "exception_mismatch_examples": []
+   },
+   "queries_sampled": 0,
+   "queries": {
+    "cases": 0,
+    "identical": 0,
+    "within_tol": 0,
+    "failures": 0,
+    "failure_examples": [],
+    "values": 0,
+    "values_bit_identical": 0,
+    "values_nan_bits_differ": 0,
+    "nan_bits_cases": 0,
+    "nan_bits_all_nonfinite_inputs": true,
+    "nan_bits_case_examples": [],
+    "max_abs_diff": 0.0,
+    "exceptions_matched": 0,
+    "exception_mismatch": 0,
+    "exception_mismatch_examples": []
+   }
+  },
+  {
+   "corpus": "/tmp/claude-1000/-home-andreas-dev-ws-f1tenth-more/64d9631a-a754-4155-9d2f-7d035d2de107/scratchpad/r1/suites2/capture/f1tenth_logger/corpus.pkl",
+   "geometry_distinct": 33,
+   "geometry_calls": 127,
+   "sites": 4,
+   "geometry": {
+    "cases": 33,
+    "identical": 33,
+    "within_tol": 33,
+    "failures": 0,
+    "failure_examples": [],
+    "values": 2223188,
+    "values_bit_identical": 2223188,
+    "values_nan_bits_differ": 0,
+    "nan_bits_cases": 0,
+    "nan_bits_all_nonfinite_inputs": true,
+    "nan_bits_case_examples": [],
+    "max_abs_diff": 0.0,
+    "exceptions_matched": 0,
+    "exception_mismatch": 0,
+    "exception_mismatch_examples": []
+   },
+   "queries_sampled": 0,
+   "queries": {
+    "cases": 0,
+    "identical": 0,
+    "within_tol": 0,
+    "failures": 0,
+    "failure_examples": [],
+    "values": 0,
+    "values_bit_identical": 0,
+    "values_nan_bits_differ": 0,
+    "nan_bits_cases": 0,
+    "nan_bits_all_nonfinite_inputs": true,
+    "nan_bits_case_examples": [],
+    "max_abs_diff": 0.0,
+    "exceptions_matched": 0,
+    "exception_mismatch": 0,
+    "exception_mismatch_examples": []
+   }
+  }
+ ],
+ "seconds": 68.73404097557068,
+ "gate_pass": true
+}

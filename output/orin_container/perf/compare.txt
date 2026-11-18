@@ -1,0 +1,29 @@
+window 120.0 s each; total Orin CPU (12 cores): native 24.82 %, container 17.47 %
+stack CPU (sum, % of one core): native 179.41, container 101.3
+stack RSS: native 8152 MB, container 9551 MB
+process                                    native %core container %core  native MB  cont MB
+fast-discovery-server                              72.1             1.1         31       24
+/mpc_corr                                          27.0            31.8        117      125
+/behavior_executor_node                            22.7            18.8        101      118
+/viz_relay_container                               11.5            12.5         60       77
+/swept_clearance_node                               7.6             0.0         73        0
+/semantic_layer_node                                4.9             7.1        111      116
+/hard_stop_node                                     4.2             5.3         74       85
+/foxglove_bridge                                    5.1             1.0         53       83
+/costmap_boundary_node                              3.2             3.9         75       89
+/detection_3d_node                                  2.9             0.2        124      145
+/obstacle_projector_node                            2.5             0.2         77       91
+/joint_state_publisher                              1.8             1.9         71       82
+navigation.launch.py                                1.8             1.8         37       47
+/front_clearance_node                               0.9             1.3        126      144
+/lifecycle_manager_map                              0.5             1.1         34       40
+/map_server                                         0.6             1.1         52       63
+/diagnostics_server_node                            0.8             1.1         73       85
+/ekf_global/ekf_global_filter_node                  0.8             0.9         39       48
+/ekf_filter_node                                    0.8             0.9         37       48
+robot_state_publisher                               0.7             0.9         38       41
+/ackermann_mux                                      0.8             0.9         33       37
+/image_annotated_viz_throttle                       0.6             0.8         33       45
+/depth_throttle_5hz                                 0.6             0.7         31       38
+/image_raw_viz_throttle                             0.6             0.7         31       40
+/system_observer_node                               0.5             0.6         73       83

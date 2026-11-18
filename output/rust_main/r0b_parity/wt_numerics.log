@@ -1,0 +1,14 @@
+## python3 tools/rust_parity/wall_tracker/numerics.py --n 200000 --json /home/andreas/dev_ws/f1tenth_more_r0b/output/rust_main/r0b_parity/wt_numerics.json (2026-10-24T23:43:28+02:00)
+library /home/andreas/dev_ws/f1tenth_more_r0b/install/f1tenth_wall_tracker_core/lib/f1tenth_wall_tracker_core/libf1tenth_wall_tracker_core.so (build: cargo profile debug, opt-level 3, debug_assertions on)
+solve2           200000 cases  0 mismatches
+inv2             200000 cases  0 mismatches
+lsa               20000 cases  0 mismatches
+hypot            200009 cases  0 mismatches
+pow2             200009 cases  0 mismatches  (1 expected)
+wrap_pi          200007 cases  0 mismatches
+sum               50003 cases  0 mismatches
+arange            20000 cases  0 mismatches
+searchsorted      10000 cases  0 mismatches
+svd_vt            20000 cases  0 mismatches
+TOTAL mismatches: 0
+## exit 0, 22 s

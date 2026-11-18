@@ -14,7 +14,9 @@ object on stdout (--json, the default, for the Telegram bot) or a short text
     f1tenth_ctl killall [--reset-discovery] [--dry-run]
     f1tenth_ctl check                        environment check only
     f1tenth_ctl send planner "<command>"     one line to the planner's stdin (<= 500 chars)
-    f1tenth_ctl planner-log [--since N]      the planner's output after byte offset N
+    f1tenth_ctl planner-log [--since N] [--wait S]
+                                             the planner's output after byte offset N
+                                             (--wait: until its RESULT line, at most S s)
     f1tenth_ctl missions [-n N]              the stored plans (one per planner RESULT)
     f1tenth_ctl mission-load <id>            validate + load a stored plan
     f1tenth_ctl mission-start                start it: READY, no e-stop, nothing running
@@ -35,8 +37,9 @@ import subprocess
 import sys
 import threading
 import time
+from typing import Optional
 
-from . import discovery, envcheck, human, missions, monitor, procscan, ready, units
+from . import discovery, envcheck, human, missiond, missions, monitor, procscan, ready, units
 from .config import ConfigError, load, MANAGED, Settings, SOURCE_ROOT
 
 STATUS_BUDGET_S = 4.5      # status must answer in < 5 s, env sourcing included
@@ -82,6 +85,32 @@ def _finish_rosprobe(proc: subprocess.Popen, timeout: float) -> dict:
 
 def run_rosprobe(settings: Settings, mode: str, spec: dict, timeout: float) -> dict:
     return _finish_rosprobe(_start_rosprobe(settings, mode, spec), timeout)
+
+
+def run_mission_op(settings: Settings, spec: dict, timeout: float) -> dict:
+    """
+    Run a mission load/start: through the monitor's daemon when it answers, else as before.
+
+    Only a load, a start or a read-only status goes to the daemon (abort and the e-stop never
+    do: see missiond.py). Whatever the daemon cannot take BEFORE it runs anything (no socket, a
+    hung loop, a lost status view) falls back to the one-shot probe, which is exactly what ran
+    before. A refusal is an answer, not a failure: it is returned, never retried. A status
+    waits at most missiond.STATUS_WAIT_S for the daemon (it may be busy with a load) and
+    otherwise takes the old path: it has nothing to repeat by mistake.
+    """
+    op = spec.get('op')
+    if op in ('load', 'start', 'status') and settings.monitor_enabled \
+            and monitor.mission_daemon_enabled(settings):
+        read_only = op == 'status'
+        kind, payload = missiond.request(
+            missiond.sock_path(settings.state_dir), op, spec,
+            min(timeout, missiond.STATUS_WAIT_S) if read_only else timeout,
+            read_only=read_only)
+        if kind == 'result':
+            return payload
+        if kind == 'error':
+            return {'error': payload}
+    return run_rosprobe(settings, 'mission', spec, timeout=timeout)
 
 
 def _thresholds(settings: Settings) -> dict:
@@ -604,9 +633,64 @@ def planner_results(settings: Settings, lines, offsets) -> list:
     return out
 
 
+WAIT_POLL_S = 0.05            # planner-log --wait: how often the log's size is looked at
+WAIT_ALIVE_S = 1.0            # ... and the planner's unit
+
+
+def is_result_line(line: str) -> bool:
+    """Return True for the planner's `RESULT {json}` line (its prompt may be glued to it)."""
+    while line.startswith(PLANNER_PROMPT):
+        line = line[len(PLANNER_PROMPT):]
+    return line.startswith(RESULT_PREFIX)
+
+
+def wait_for_result(settings: Settings, since: Optional[int], max_bytes: int, wait_s: float,
+                    sleep=time.sleep, clock=time.monotonic) -> dict:
+    """
+    Return read_log_since's answer, but not before a RESULT line is in it (or wait_s ran out).
+
+    The same answer as without waiting, only later: the lines up to and including the
+    RESULT, the cursor after them. It returns at once when there is no cursor, when the
+    chunk was cut by max_bytes (the caller carries on from the new cursor, as it does
+    today), and when the planner's unit stops running. The log's size is looked at every
+    WAIT_POLL_S; the file is read only when it grew.
+    """
+    path = settings.log_path('planner')
+    res = units.read_log_since(path, since, max_bytes)
+    if since is None or wait_s <= 0:
+        return res
+    deadline = clock() + wait_s
+    next_alive = clock() + WAIT_ALIVE_S
+    seen_size = res['size']
+    while True:
+        if any(is_result_line(line) for line in res['lines']) or res['truncated']:
+            return res
+        now = clock()
+        if now >= deadline:
+            return res
+        if now >= next_alive:
+            next_alive = now + WAIT_ALIVE_S
+            if not units.is_running(settings, 'planner'):
+                return res
+        sleep(min(WAIT_POLL_S, max(0.0, deadline - now)))
+        try:
+            size = os.path.getsize(path)
+        except OSError:
+            size = 0
+        if size != seen_size:
+            seen_size = size
+            res = units.read_log_since(path, since, max_bytes)
+
+
 def cmd_planner_log(settings: Settings, args) -> dict:
-    """Return the planner's output since a cursor (a byte offset of its log), ANSI stripped."""
-    res = units.read_log_since(settings.log_path('planner'), args.since, args.max_bytes)
+    """
+    Return the planner's output since a cursor (a byte offset of its log), ANSI stripped.
+
+    With --wait SECONDS it first waits (at most that long) for the RESULT line of the
+    command just sent, so a caller gets the answer the moment it exists instead of at its
+    next poll: same fields, same stored mission.
+    """
+    res = wait_for_result(settings, args.since, args.max_bytes, getattr(args, 'wait', 0.0))
     running = units.is_running(settings, 'planner')
     out = {'ok': True, 'target': 'planner', 'since': args.since, 'running': running,
            'plan_only': planner_plan_only(settings) if running else None, **res}
@@ -674,9 +758,9 @@ def cmd_mission_load(settings: Settings, args) -> dict:
     armed = settings.mission_countdown_s if armed is None else float(armed)
     counting = bool(cur.get('started_at')) and (
         time.time() - cur['started_at'] < armed + 5.0)
-    res = run_rosprobe(settings, 'mission',
-                       _mission_spec(settings, op='load', path=rec['path'],
-                                     counting_down=counting), timeout=25.0)
+    res = run_mission_op(settings,
+                         _mission_spec(settings, op='load', path=rec['path'],
+                                       counting_down=counting), timeout=25.0)
     out.update(res)
     if res.get('ok'):
         missions.set_current(settings, id=rec['id'], path=rec['path'], loaded_at=time.time(),
@@ -716,8 +800,12 @@ def cmd_mission_start(settings: Settings, args, t_begin: float) -> dict:
     if not st.get('ready'):
         return refuse('not READY: ' + ', '.join(st.get('failing') or ['unknown']),
                       failing=st.get('failing'))
-    res = run_rosprobe(settings, 'mission',
-                       _mission_spec(settings, op='start', path=rec['path']), timeout=25.0)
+    # The daemon re-checks READY on its own live measurements right before it calls the
+    # loader, on top of the check above, for every start (the one-shot path has no such step).
+    res = run_mission_op(settings,
+                         _mission_spec(settings, op='start', path=rec['path']), timeout=25.0)
+    if res.get('ready_refused'):
+        return refuse(res['error'], failing=res.get('failing'))
     countdown = missions.armed_countdown(res.get('start'), settings.mission_countdown_s)
     out = {'id': rec['id'], 'mission_id': rec.get('mission_id'), 'ready': True,
            'countdown_s': countdown, **res}
@@ -730,7 +818,7 @@ def cmd_mission_start(settings: Settings, args, t_begin: float) -> dict:
 
 
 def cmd_mission_status(settings: Settings, args) -> dict:
-    res = run_rosprobe(settings, 'mission', _mission_spec(settings, op='status'), timeout=15.0)
+    res = run_mission_op(settings, _mission_spec(settings, op='status'), timeout=15.0)
     desc = missions.describe_state(settings, res.get('ros_state'), res.get('json_path'),
                                    countdown_s=settings.mission_countdown_s)
     out = {'ok': bool(res.get('ok')), **desc,
@@ -801,6 +889,9 @@ def build_parser() -> argparse.ArgumentParser:
                     help='byte offset from `send` or a previous planner-log; '
                          'none: only the current end')
     pl.add_argument('--max-bytes', type=int, default=65536)
+    pl.add_argument('--wait', type=float, default=0.0, metavar='SECONDS',
+                    help='with --since: wait up to this long for the RESULT line of the '
+                         'command just sent, and answer as soon as it is there')
     ml = sub.add_parser('mission-load', parents=[common],
                         help='validate and load a stored mission (from `missions`)')
     ml.add_argument('id')

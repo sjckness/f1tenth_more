@@ -12,14 +12,28 @@
   },
   "requires_confirmation": false,
   "notes": [
-    "fase 0, go_to \"person\": distanza richiesta 0.10 m, applicata 1.07 m: e' la distanza minima consentita tra il paraurti e il bordo dell'oggetto (raggio auto 0.20 + margine di evitamento 0.12 + margine di classe 0.50 + tolleranza d'arresto 0.10 + muso del solver oltre il paraurti 0.15 m)."
+    "fase 1, go_to \"person\": distanza richiesta 0.10 m, applicata 1.07 m: e' la distanza minima consentita tra il paraurti e il bordo dell'oggetto (raggio auto 0.20 + margine di evitamento 0.12 + margine di classe 0.50 + tolleranza d'arresto 0.10 + muso del solver oltre il paraurti 0.15 m)."
   ],
   "mission": {
-    "mission_id": "llm_48088f4030ac",
+    "mission_id": "llm_d332b65616ec",
     "schema_version": "5.0",
     "moves": [
       {
-        "id": "move_0_go_to",
+        "id": "move_0_search",
+        "drive": {
+          "mode": "straight",
+          "speed": 0.5
+        },
+        "stop_condition": {
+          "type": "object_seen",
+          "class": "person",
+          "min_confidence": 0.5
+        },
+        "timeout_sec": 65,
+        "on_timeout": "abort"
+      },
+      {
+        "id": "move_1_go_to",
         "go_to_object": {
           "target_class": "person",
           "gap_m": 1.07,

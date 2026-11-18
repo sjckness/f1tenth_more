@@ -1,0 +1,1 @@
+image f1tenth:jazzy-orin-e257b03 built on the Orin (9.84 GB, all build checks); P8 runtime checks pass (no actuation); aarch64 Rust parity: corridor/hard_stop exact, MPC/wall tracker within ~1e-6 not bit-exact; ZED on USB2 needs re-seating; Orin left native - see report.md

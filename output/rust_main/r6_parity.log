@@ -1,0 +1,55 @@
+library /home/andreas/dev_ws/f1tenth_more_r6/install/f1tenth_wall_tracker_core/lib/f1tenth_wall_tracker_core/libf1tenth_wall_tracker_core.so (build: cargo profile debug, opt-level 3, debug_assertions on)
+solve2           200000 cases  0 mismatches
+inv2             200000 cases  0 mismatches
+lsa               20000 cases  0 mismatches
+hypot            200009 cases  0 mismatches
+pow2             200009 cases  0 mismatches  (1 expected)
+wrap_pi          200007 cases  0 mismatches
+sum               50003 cases  0 mismatches
+arange            20000 cases  0 mismatches
+searchsorted      10000 cases  0 mismatches
+svd_vt            20000 cases  0 mismatches
+TOTAL mismatches: 0
+library /home/andreas/dev_ws/f1tenth_more_r6/install/f1tenth_wall_tracker_core/lib/f1tenth_wall_tracker_core/libf1tenth_wall_tracker_core.so (build: cargo profile debug, opt-level 3, debug_assertions on)
+robust_line     3000 cases  0 mismatches
+fusion          3000 cases  0 mismatches
+rectangles       600 cases  0 mismatches
+coverage {'columns_agree': 69904, 'columns_lidar_only': 29418, 'columns_stereo_only': 208460, 'columns_disagree': 37727, 'observations': 4582, 'stereo_only_obs': 451, 'both_obs': 1752, 'rejected': 366, 'rect_segments': 3326, 'rect_informative': 939}
+TOTAL mismatches: 0
+== c1015 (car, rec, doors False)
+   206 cycles, 206 tracker steps, 724 track states, 1440 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 206, 'p50': 8.3828, 'p95': 10.2513} rust {'n': 206, 'p50': 3.7061, 'p95': 4.6823}; 3.8 s
+== c1016 (car, rec, doors False)
+   703 cycles, 703 tracker steps, 2469 track states, 4920 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 703, 'p50': 9.2503, 'p95': 13.4534} rust {'n': 703, 'p50': 4.1745, 'p95': 5.3509}; 15.8 s
+== c1019 (car, rec, doors False)
+   664 cycles, 657 tracker steps, 3285 track states, 4487 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 657, 'p50': 5.139, 'p95': 8.2775} rust {'n': 657, 'p50': 2.5972, 'p95': 3.2679}; 10.8 s
+== obst1019 (car, rec, doors False)
+   380 cycles, 380 tracker steps, 1254 track states, 2521 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 380, 'p50': 3.7673, 'p95': 4.4064} rust {'n': 380, 'p50': 2.5671, 'p95': 2.9781}; 5.0 s
+== potted1435 (car, rec, doors False)
+   286 cycles, 286 tracker steps, 784 track states, 1991 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 286, 'p50': 8.514, 'p95': 12.0115} rust {'n': 286, 'p50': 4.116, 'p95': 5.1696}; 5.9 s
+== person1455 (car, rec, doors False)
+   209 cycles, 209 tracker steps, 125 track states, 1460 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 209, 'p50': 6.9564, 'p95': 7.5828} rust {'n': 209, 'p50': 3.4257, 'p95': 3.9344}; 3.2 s
+== goto1550 (car, rec, doors False)
+   293 cycles, 288 tracker steps, 1460 track states, 2033 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 288, 'p50': 10.2998, 'p95': 13.2016} rust {'n': 288, 'p50': 4.8047, 'p95': 5.8011}; 7.0 s
+== mission1021 (car, rec, doors False)
+   130 cycles, 130 tracker steps, 457 track states, 902 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 130, 'p50': 8.5867, 'p95': 11.3161} rust {'n': 130, 'p50': 3.9954, 'p95': 5.1116}; 2.5 s
+wrote output/rust/wall_tracker/parity_car.json
+== c1015 (every, rec, doors False)
+   2292 cycles, 2292 tracker steps, 11477 track states, 14336 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 2292, 'p50': 9.6431, 'p95': 11.7567} rust {'n': 2292, 'p50': 4.3506, 'p95': 5.1528}; 44.8 s
+wrote output/rust/wall_tracker/parity_every.json
+== potted1435 (car, full, doors False)
+   286 cycles, 286 tracker steps, 750 track states, 1991 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 286, 'p50': 9.0812, 'p95': 13.1913} rust {'n': 286, 'p50': 4.3884, 'p95': 5.7081}; 6.2 s
+== goto1550 (car, full, doors False)
+   293 cycles, 288 tracker steps, 1421 track states, 2033 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 288, 'p50': 11.3655, 'p95': 14.101} rust {'n': 288, 'p50': 5.3226, 'p95': 6.3406}; 7.4 s
+== person1455 (car, full, doors False)
+   209 cycles, 209 tracker steps, 103 track states, 1460 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 209, 'p50': 6.9356, 'p95': 8.0248} rust {'n': 209, 'p50': 3.5422, 'p95': 4.2398}; 3.2 s
+== mission1021 (car, full, doors False)
+   130 cycles, 130 tracker steps, 462 track states, 902 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 130, 'p50': 8.8136, 'p95': 12.3044} rust {'n': 130, 'p50': 4.1933, 'p95': 5.4507}; 2.7 s
+wrote output/rust/wall_tracker/parity_full.json
+== c1016 (car, rec, doors True)
+   703 cycles, 703 tracker steps, 2469 track states, 5623 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 703, 'p50': 9.4328, 'p95': 13.6124} rust {'n': 703, 'p50': 4.2028, 'p95': 5.3637}; 18.6 s
+== potted1435 (car, rec, doors True)
+   286 cycles, 286 tracker steps, 784 track states, 2277 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 286, 'p50': 8.616, 'p95': 12.2269} rust {'n': 286, 'p50': 4.1355, 'p95': 5.3006}; 6.3 s
+== goto1550 (car, rec, doors True)
+   293 cycles, 288 tracker steps, 1460 track states, 2321 messages: IDENTICAL (0 cycles differ; state 0, messages 0, debug 0; max |diff| 0; bit-only 0); tracker_ms py {'n': 288, 'p50': 10.4652, 'p95': 13.3935} rust {'n': 288, 'p50': 4.7593, 'p95': 5.8897}; 7.6 s
+wrote output/rust/wall_tracker/parity_doors.json
+DONE

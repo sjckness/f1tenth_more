@@ -1,0 +1,200 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 786B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for nvcr.io/nvidia/isaac-sim:5.1.0
+#2 ...
+
+#3 [auth] nvidia/isaac-sim:pull token for nvcr.io
+#3 DONE 0.0s
+
+#2 [internal] load metadata for nvcr.io/nvidia/isaac-sim:5.1.0
+#2 DONE 2.5s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 49B done
+#5 DONE 0.1s
+
+#6 [1/4] FROM nvcr.io/nvidia/isaac-sim:5.1.0@sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54
+#6 resolve nvcr.io/nvidia/isaac-sim:5.1.0@sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54 0.0s done
+#6 DONE 0.3s
+
+#6 [1/4] FROM nvcr.io/nvidia/isaac-sim:5.1.0@sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54
+#6 sha256:76592f3487852e8723e1d642908cbdfb6488ceb145caa8cf20d601ae9cdb9e4f 0B / 1.91kB 0.2s
+#6 sha256:76592f3487852e8723e1d642908cbdfb6488ceb145caa8cf20d601ae9cdb9e4f 1.91kB / 1.91kB 0.2s done
+#6 sha256:ccdbb44ded143a3baa1deb821b52f06f7cdc07a1bc081e241dc445d0d339e76f 0B / 173B 0.3s
+#6 sha256:21db504e8800737646e2baf561051756701cce606e66b3ee3aa93b58fa4b136a 0B / 155B 0.2s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 0B / 7.50GB 0.2s
+#6 sha256:ccdbb44ded143a3baa1deb821b52f06f7cdc07a1bc081e241dc445d0d339e76f 173B / 173B 0.4s done
+#6 sha256:b6c279fb3d9fd4af1fc4f542b17a45891b26fef02f9f14e88fc45ff9b8aaffec 0B / 99B 0.2s
+#6 sha256:21db504e8800737646e2baf561051756701cce606e66b3ee3aa93b58fa4b136a 155B / 155B 0.6s
+#6 sha256:36b9c1c25bc12a0416f978e84e4bef2ade064f94112a21c1e2ace6b722701377 0B / 3.55kB 0.2s
+#6 sha256:21db504e8800737646e2baf561051756701cce606e66b3ee3aa93b58fa4b136a 155B / 155B 0.6s done
+#6 sha256:b6c279fb3d9fd4af1fc4f542b17a45891b26fef02f9f14e88fc45ff9b8aaffec 99B / 99B 0.4s done
+#6 sha256:36b9c1c25bc12a0416f978e84e4bef2ade064f94112a21c1e2ace6b722701377 3.55kB / 3.55kB 0.2s done
+#6 sha256:83e99b1b5b4dfee69fd1dfdda5e71b007108e2b0a65c7676872e8cabcfdaab82 483B / 483B 0.2s done
+#6 sha256:60a8ce43c0b5bad5a5157479192cc34e43e2a16173e5e05fcf3e57c7363ba484 0B / 277B 0.2s
+#6 sha256:94d1fac93cee3ac1275ea09c4ecc105b3555a3f474bd5f65031ca8d556081f12 0B / 286B 0.2s
+#6 sha256:94d1fac93cee3ac1275ea09c4ecc105b3555a3f474bd5f65031ca8d556081f12 286B / 286B 0.4s done
+#6 sha256:02c044224ab8c0ca1fcf82cfcf986276182d6cc7f8adacee241b456febede957 0B / 289B 0.2s
+#6 sha256:60a8ce43c0b5bad5a5157479192cc34e43e2a16173e5e05fcf3e57c7363ba484 277B / 277B 0.6s done
+#6 sha256:02c044224ab8c0ca1fcf82cfcf986276182d6cc7f8adacee241b456febede957 289B / 289B 0.4s done
+#6 sha256:1da7123d9f2062daf2df982fa338a6c7c43f79e2e365735896d6b3a890af0013 0B / 84.83MB 0.2s
+#6 sha256:88a179c20f7b61825ddcc5e15a6323a143bef4ee97fdbd3982d885d515d42906 0B / 131B 0.2s
+#6 sha256:88a179c20f7b61825ddcc5e15a6323a143bef4ee97fdbd3982d885d515d42906 131B / 131B 0.2s done
+#6 sha256:b08e2ff4391ef70ca747960a731d1f21a75febbd86edc403cd1514a099615808 0B / 29.72MB 0.2s
+#6 sha256:1da7123d9f2062daf2df982fa338a6c7c43f79e2e365735896d6b3a890af0013 10.49MB / 84.83MB 0.6s
+#6 sha256:b08e2ff4391ef70ca747960a731d1f21a75febbd86edc403cd1514a099615808 2.10MB / 29.72MB 0.5s
+#6 sha256:1da7123d9f2062daf2df982fa338a6c7c43f79e2e365735896d6b3a890af0013 19.92MB / 84.83MB 0.9s
+#6 sha256:b08e2ff4391ef70ca747960a731d1f21a75febbd86edc403cd1514a099615808 9.44MB / 29.72MB 0.6s
+#6 sha256:b08e2ff4391ef70ca747960a731d1f21a75febbd86edc403cd1514a099615808 14.68MB / 29.72MB 0.8s
+#6 sha256:1da7123d9f2062daf2df982fa338a6c7c43f79e2e365735896d6b3a890af0013 30.41MB / 84.83MB 1.2s
+#6 sha256:b08e2ff4391ef70ca747960a731d1f21a75febbd86edc403cd1514a099615808 18.87MB / 29.72MB 0.9s
+#6 sha256:b08e2ff4391ef70ca747960a731d1f21a75febbd86edc403cd1514a099615808 24.12MB / 29.72MB 1.1s
+#6 sha256:b08e2ff4391ef70ca747960a731d1f21a75febbd86edc403cd1514a099615808 29.72MB / 29.72MB 1.3s done
+#6 sha256:1da7123d9f2062daf2df982fa338a6c7c43f79e2e365735896d6b3a890af0013 48.23MB / 84.83MB 1.7s
+#6 extracting sha256:b08e2ff4391ef70ca747960a731d1f21a75febbd86edc403cd1514a099615808
+#6 sha256:1da7123d9f2062daf2df982fa338a6c7c43f79e2e365735896d6b3a890af0013 55.57MB / 84.83MB 1.8s
+#6 sha256:1da7123d9f2062daf2df982fa338a6c7c43f79e2e365735896d6b3a890af0013 63.96MB / 84.83MB 2.0s
+#6 sha256:1da7123d9f2062daf2df982fa338a6c7c43f79e2e365735896d6b3a890af0013 80.74MB / 84.83MB 2.3s
+#6 extracting sha256:b08e2ff4391ef70ca747960a731d1f21a75febbd86edc403cd1514a099615808 0.8s done
+#6 extracting sha256:88a179c20f7b61825ddcc5e15a6323a143bef4ee97fdbd3982d885d515d42906
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 381.68MB / 7.50GB 5.0s
+#6 sha256:1da7123d9f2062daf2df982fa338a6c7c43f79e2e365735896d6b3a890af0013 84.83MB / 84.83MB 6.5s done
+#6 extracting sha256:88a179c20f7b61825ddcc5e15a6323a143bef4ee97fdbd3982d885d515d42906 4.2s done
+#6 extracting sha256:1da7123d9f2062daf2df982fa338a6c7c43f79e2e365735896d6b3a890af0013
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 769.65MB / 7.50GB 8.3s
+#6 extracting sha256:1da7123d9f2062daf2df982fa338a6c7c43f79e2e365735896d6b3a890af0013 0.9s done
+#6 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 0.0s done
+#6 extracting sha256:02c044224ab8c0ca1fcf82cfcf986276182d6cc7f8adacee241b456febede957 0.0s done
+#6 extracting sha256:94d1fac93cee3ac1275ea09c4ecc105b3555a3f474bd5f65031ca8d556081f12 0.0s done
+#6 extracting sha256:60a8ce43c0b5bad5a5157479192cc34e43e2a16173e5e05fcf3e57c7363ba484 0.0s done
+#6 extracting sha256:83e99b1b5b4dfee69fd1dfdda5e71b007108e2b0a65c7676872e8cabcfdaab82 0.0s done
+#6 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 0.0s done
+#6 extracting sha256:36b9c1c25bc12a0416f978e84e4bef2ade064f94112a21c1e2ace6b722701377 0.0s done
+#6 extracting sha256:b6c279fb3d9fd4af1fc4f542b17a45891b26fef02f9f14e88fc45ff9b8aaffec 0.0s done
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 1.15GB / 7.50GB 11.7s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 1.53GB / 7.50GB 15.0s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 1.91GB / 7.50GB 18.3s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 2.30GB / 7.50GB 21.9s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 2.68GB / 7.50GB 25.2s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 3.07GB / 7.50GB 28.7s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 3.45GB / 7.50GB 32.9s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 3.83GB / 7.50GB 37.1s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 4.21GB / 7.50GB 40.8s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 4.59GB / 7.50GB 44.4s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 4.97GB / 7.50GB 48.0s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 5.35GB / 7.50GB 52.1s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 5.74GB / 7.50GB 55.4s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 6.13GB / 7.50GB 59.0s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 6.52GB / 7.50GB 62.3s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 6.90GB / 7.50GB 65.6s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.28GB / 7.50GB 69.0s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 74.1s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 79.2s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 84.3s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 89.4s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 94.5s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 99.6s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 104.7s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 109.8s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 114.9s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 120.0s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 125.1s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 130.2s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 135.3s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 140.4s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 145.8s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 150.9s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 156.0s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 161.1s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 166.2s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 171.3s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 176.4s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 181.5s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 186.6s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 191.7s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 196.8s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 201.9s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 207.0s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 212.1s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 217.2s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 222.3s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 227.7s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 232.8s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 238.1s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 243.2s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 248.3s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 253.4s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 258.5s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 263.6s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 268.7s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 273.8s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 278.9s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 284.0s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 289.1s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 294.2s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 299.3s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 304.4s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 309.5s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 314.6s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 319.7s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 324.8s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 329.9s
+#6 sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 7.50GB / 7.50GB 331.6s done
+#6 DONE 332.2s
+
+#6 [1/4] FROM nvcr.io/nvidia/isaac-sim:5.1.0@sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54
+#6 extracting sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5
+#6 extracting sha256:28be3cd701d4bb377cd628a92ecb67b1e2de13bb0a51855c830399cfc3ad0cc5 291.8s done
+#6 extracting sha256:21db504e8800737646e2baf561051756701cce606e66b3ee3aa93b58fa4b136a
+#6 extracting sha256:21db504e8800737646e2baf561051756701cce606e66b3ee3aa93b58fa4b136a 4.5s done
+#6 DONE 628.5s
+
+#6 [1/4] FROM nvcr.io/nvidia/isaac-sim:5.1.0@sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54
+#6 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+#6 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 8.5s done
+#6 DONE 637.0s
+
+#6 [1/4] FROM nvcr.io/nvidia/isaac-sim:5.1.0@sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54
+#6 extracting sha256:ccdbb44ded143a3baa1deb821b52f06f7cdc07a1bc081e241dc445d0d339e76f
+#6 extracting sha256:ccdbb44ded143a3baa1deb821b52f06f7cdc07a1bc081e241dc445d0d339e76f 10.1s done
+#6 DONE 647.1s
+
+#6 [1/4] FROM nvcr.io/nvidia/isaac-sim:5.1.0@sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54
+#6 extracting sha256:76592f3487852e8723e1d642908cbdfb6488ceb145caa8cf20d601ae9cdb9e4f
+#6 extracting sha256:76592f3487852e8723e1d642908cbdfb6488ceb145caa8cf20d601ae9cdb9e4f 11.6s done
+#6 DONE 658.7s
+
+#7 [2/4] RUN echo "source /opt/ros/jazzy/setup.bash" >> /etc/bash.bashrc
+#7 DONE 469.3s
+
+#8 [3/4] COPY requirements.txt /tmp/requirements.txt
+#8 DONE 0.4s
+
+#9 [4/4] RUN /isaac-sim/python.sh -m pip install --no-cache-dir -r /tmp/requirements.txt
+#9 1.803 Requirement already satisfied: numpy in ./extscache/omni.kit.pip_archive-0.0.0+69cbf6ad.lx64.cp311/pip_prebundle (from -r /tmp/requirements.txt (line 1)) (1.26.0)
+#9 1.921 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable.It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#9 2.072 
+#9 2.072 [notice] A new release of pip is available: 24.3.1 -> 26.3
+#9 2.072 [notice] To update, run: /isaac-sim/kit/python/bin/python3 -m pip install --upgrade pip
+#9 DONE 2.8s
+
+#10 exporting to image
+#10 exporting layers
+#10 exporting layers 0.8s done
+#10 exporting manifest sha256:7f5ebbc0743745f3f644f0ffca99824c1f42c7bcd31ae765085067908f557fa3 0.0s done
+#10 exporting config sha256:8f8bbf143ef8927ae4e3f65b721aaa1306167b320e445a792f17af96c61a0fe0 0.0s done
+#10 exporting attestation manifest sha256:9163ce0ae1763298009d7893eb22e05a93caedf59a5a54869d356c984842b058 0.1s done
+#10 exporting manifest list sha256:116d45df27d664cd88c1482ab229b89be7653daa6ce23b83ee61e2b6e349e350
+#10 exporting manifest list sha256:116d45df27d664cd88c1482ab229b89be7653daa6ce23b83ee61e2b6e349e350 0.0s done
+#10 naming to docker.io/library/isaac_ws_devcontainer-isaac-sim:latest done
+#10 unpacking to docker.io/library/isaac_ws_devcontainer-isaac-sim:latest
+#10 unpacking to docker.io/library/isaac_ws_devcontainer-isaac-sim:latest 0.2s done
+#10 DONE 1.2s

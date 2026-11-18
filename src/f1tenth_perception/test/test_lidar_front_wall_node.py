@@ -1521,6 +1521,13 @@ class TestDoors:
             # Off by default since 2026-10-20 (stack_params and the node's
             # fallback); these tests are about the doors.
             params['door_detection_enabled'] = True
+            # And door_source names THIS detector. Since the semantic door
+            # detector was added (f1tenth_costmap/semantic_doors.py) the
+            # stack-wide door_source picks which of the two runs, and its
+            # default is 'semantic' -- so door_detection_enabled alone no
+            # longer starts the profile detector, by design, and every test
+            # below that wants it has to say so. See the node's own gate.
+            params['door_source'] = 'profile'
         params.update(overrides)
         n = LidarFrontWallNode(
             parameter_overrides=[Parameter(k, value=v) for k, v in params.items()])
@@ -2015,6 +2022,15 @@ class TestDoorParamsCoupling:
         try:
             declared = {name for name in n.list_parameters([], 0).names
                         if name.startswith('door_')}
+            # door_source is the stack-wide switch that picks WHICH door
+            # detector runs, not one of this detector's own settings: its
+            # stack_params key has no lidar_front_wall_ prefix (the launch
+            # file passes it under its full name, like the wall_confirm_*
+            # keys), so it is checked here on its own and left out of the
+            # exact-match below.
+            assert 'door_source' in declared
+            assert n.get_parameter('door_source').value == get_value('door_source')
+            declared.discard('door_source')
             assert declared == keys
             for name in sorted(declared):
                 fallback = n.get_parameter(name).value
@@ -2050,6 +2066,27 @@ class TestDoorParamsCoupling:
             core.candidate_max_age_s
         assert get_value('lidar_front_wall_door_confirmed_max_age_sec') == \
             core.confirmed_max_age_s
+
+    def test_door_source_semantic_keeps_the_profile_detector_off(self):
+        """The gate door_source adds: this detector runs only when named.
+
+        door_detection_enabled is this detector's own flag and says nothing
+        about which detector the stack wants. With door_source 'semantic' the
+        doors come from f1tenth_costmap/semantic_doors.py instead, and
+        running both would put two sets of doors, found by two different
+        rules, on the stack at once.
+        """
+        n = TestDoors()._node(door_on=True, door_source='semantic')
+        try:
+            assert n.door_enabled is False
+            assert not hasattr(n, 'doors_pub')
+        finally:
+            n.destroy_node()
+        n = TestDoors()._node(door_on=True)          # door_source 'profile'
+        try:
+            assert n.door_enabled is True
+        finally:
+            n.destroy_node()
 
     def test_candidates_stay_off_perception_doors_by_default(self):
         assert get_value('lidar_front_wall_door_publish_candidates') is False

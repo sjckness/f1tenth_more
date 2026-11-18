@@ -18,6 +18,13 @@
 #   bashrc_ros_lines.txt   ~/.bashrc lines that touch ROS/ZED
 #   platform.txt           OS, kernel, L4T, CUDA, Python, glibc, gcc, cmake
 #
+# REFRESHED 2026-10-24 for the car image (plan P5, branch main-jazzy-rust):
+# [submodules] = the pins of main-jazzy-rust at be849452; new sections
+# [snapshots] (Ubuntu + ROS apt snapshots), [rust] (toolchain, RUST=build) and
+# [gateway_venv] (the PWA gateway's venv: the pins are gateway-requirements.txt);
+# [python] gains the engine-export packages (onnx, onnxslim, onnxruntime), which
+# are the Orin Humble host's versions, not the Thor's.
+#
 # Format: <component> <version> # <source>
 
 [platform]                                  # Thor, for reference only
@@ -101,6 +108,12 @@ torch                  NONE_IN_REFERENCE    # Orin image: 2.8.0 cp312 (jetson-ai
 torchvision            NONE_IN_REFERENCE    # Orin image: 0.23.0 cp312; Orin Humble: 0.26.0
 ultralytics            8.4.90               # = Orin Humble (the YOLO reference is the Orin's own Humble install); Thor ~/.local now 8.4.174
 opencv_python          4.11.0.86            # = Orin Humble and Thor ~/.local
+# The TensorRT engine export (export_yolo_engine.sh: Ultralytics -> ONNX -> TensorRT, simplify=True).
+# NOT Thor values: the Orin Humble host's export toolchain (output/perf/yolo_recon.md); every dependency pinned
+# in the Dockerfile's py stage (ml_dtypes 0.5.4, protobuf 7.36.2, coloredlogs 15.0.1, flatbuffers 25.12.19, ...).
+onnx                   1.22.0               # = Orin Humble
+onnxslim               0.1.94               # = Orin Humble
+onnxruntime            1.23.2               # = Orin Humble (CPU build); also faster-whisper's, through the gateway venv
 
 [zed]
 zed_sdk                5.4.0                # Thor: Camera.hpp 5.4.0, libsl_zed.so installed 2026-06-23 (zed_sdk.txt). Both
@@ -108,17 +121,34 @@ zed_sdk                5.4.0                # Thor: Camera.hpp 5.4.0, libsl_zed.
                                             # (the D0 analysis said 5.4.1, from the wrapper's package.xml)
 pyzed                  not_used             # not installed on the Thor now; no stack Python imports pyzed
 
-[submodules]                                # git ls-tree origin/jazzy (083c8e8); identical on the Thor's checkout (submodules.txt)
-ackermann_mux          b3c0b083ac03aa8c648537d7e4d22608fcd3440c   # sjckness/ackermann_mux branch jazzy
-vesc                   2848a9ff208689359aae3625657c46f2e70cc0fc   # sjckness/vesc branch jazzy (same commit as the Orin's Humble checkout)
+[submodules]                                # git ls-tree main-jazzy-rust be849452 (2026-10-24); the image stages exactly these (SOURCES)
+ackermann_mux          42b7cd70bf4cd1d11c2eb1eea62ad275af9b5a77   # sjckness/ackermann_mux, on origin/humble-jetson (D1's image had b3c0b083, branch jazzy)
+vesc                   0e74a60090eb084822c7a90e61450fdd5a840a21   # sjckness/vesc, origin/campaign-final = origin/jazzy (vesc_to_odom_backup deadbands, 2026-10-20)
 teleop_tools           4337558fd38e0e1a5c08bdd3c7b4b1a9454a74a9   # 1.2.1-15-g4337558, same as Humble
 zed-ros2-interfaces    e97008721d56ecf3733b95265ff4deaddf3f664e   # tag 5.3.0, same as Humble
 zed_ros2_wrapper       86171bccda22de6e83ccc69b3c0e67af99dece7c   # v5.4.0-6-g86171bc (v5.4.1 on the Thor's describe), package.xml 5.4.1
-husarion_gz_worlds     87271ef83672d9c9c96cb014ac64d746cacfd2c4   # sim host only, not built in the Orin image (not initialised on the Thor either)
 transport_drivers      apt                                        # removed as a submodule on jazzy; ros-jazzy-serial-driver etc.
+# husarion_gz_worlds is no submodule on main-jazzy-rust (sim host only; never staged for the Orin).
+
+[snapshots]                                 # apt archives the image installs from (Dockerfile ARGs)
+ubuntu                 20261024T000000Z     # https://snapshot.ubuntu.com/ubuntu/<id>/ (serves arm64; L18). Fallback `none` = live archive
+ros                    2026-09-11           # http://snapshots.ros.org/jazzy/<date>/ubuntu, the Thor's set ([ros] apt_sync)
+
+[rust]                                      # RUST=build (Dockerfile rust-build stage); linus's toolchain
+rustc                  1.99.1               # rustup-init 1.29.1 (sha256-pinned), --profile minimal
+cargo_ament_build      0.1.11               # cargo install --locked
+colcon_cargo           0.2.0                # pip
+colcon_ros_cargo       0.2.0                # pip
+rosidl_generator_rs    0.5.0                # ros-jazzy-rosidl-generator-rs from the ROS snapshot: rclrs 0.8 / rosidl_runtime_rs 0.7 (plan P3.1)
+cargo_lock             src/rust/Cargo.lock  # the crates: the build must resolve exactly these (cargo_lock_check.py)
+
+[gateway_venv]                              # /opt/f1tenth_gateway/venv (--system-site-packages), the PWA gateway + faster-whisper
+requirements           gateway-requirements.txt   # every package the venv installs, exact pins (diff_manifest.py compares them all)
 
 [environment]                               # Thor ~/.bashrc (bashrc_ros_lines.txt)
 bashrc                 "source ~/dev_ws/f1tenth_more/scripts/env/jazzy.sh; export ZED_DIR=/usr/local/zed"   # confirms the FB2 env proposal is live
 
 [workspace]
 build_skip             f1tenth_sim f1tenth_more husarion_gz_worlds   # Thor ~/.colcon/defaults.yaml skips the first two; husarion is not initialised there
+build_phases           A: all but ament_cargo; B: ament_cargo (RUST=build)   # B reads A's installed message packages (ros-env); offline QDLDL
+car_sync               docker/orin/car_sync.json   # shipped as /opt/f1tenth_ws/CAR_SYNC.json; label f1tenth.car_sync.sha256

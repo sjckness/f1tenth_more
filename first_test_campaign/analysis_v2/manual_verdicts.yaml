@@ -1,0 +1,39 @@
+# BOZZA (SCOUT_DATA 2026-11-02). Fonte note: RULES.md §5 (trascrizione dal vecchio foglio
+# Google, non accessibile): "mi e' arrivato addosso", "passato sopra il piede". Il foglio ha
+# righe G7 etichettate 23,24,25,26,26 (§11: il secondo 26 probabilmente = 27); le note sono
+# sulle righe "24" e "26". Le 5 run non hanno meta/events (nessun estop/contact/abort
+# registrato). Segnali indiretti (kinematics.csv, t dal test_start, moto da ~15.8-16.1 s):
+#   run   path    fine moto log fino  min obstacle_clearance  n<=0  n<0.12m
+#   R023  3.20 m  29.2 s    31.5 s    +0.080 m @27.5 s        0     9
+#   R024  4.42 m  38.8 s    41.2 s    +0.043 m @30.5 s        0     94 (ferma a <0.12 m ~27-31.6 s, poi riparte)
+#   R025  4.45 m  35.6 s    38.0 s    -0.030 m @31.5 s        3     53
+#   R026  5.18 m  37.8 s    39.8 s    -0.017 m @32.2 s(0.3m/s) 2    104
+#   R027  4.41 m  34.7 s    58.0 s    -0.030 m @29.6 s        4     50 (23 s di log dopo l'arresto)
+# Spike IMU az NON discrimina (vibrazione: |az-1g|>0.6g frequente in tutte). Un piede e'
+# sotto il piano LiDAR: assenza di clearance<=0 non esclude contatto. Ipotesi DEBOLE:
+# R024 = "piede", R026 = "addosso". Riga "26" doppia NON risolta.
+source: "RULES.md §5 (trascrizione note del vecchio foglio Google, non accessibile)"
+status: draft
+verdicts:
+  P002-R024-20261020T185329:
+    contact_manual: true
+    reason: "nota del foglio sulla riga 24 (una tra 'mi e' arrivato addosso' / 'passato sopra il piede')"
+    evidence: "RULES.md §5; kinematics.csv: min obstacle_clearance +0.043 m @30.5 s, nessun campione <=0 (piede sotto piano LiDAR), sosta a <0.12 m tra ~27 e ~31.6 s"
+    note_text: null
+    note_text_hypothesis: "passato sopra il piede"
+    confidence: medium
+  P002-R026-20261020T185812:
+    contact_manual: true
+    reason: "nota del foglio sulla riga 26 (una tra le due note)"
+    evidence: "RULES.md §5; kinematics.csv: obstacle_clearance -0.017 m @32.2 s a 0.3 m/s, 2 campioni <=0, 104 campioni <0.12 m"
+    note_text: null
+    note_text_hypothesis: "mi e' arrivato addosso"
+    confidence: low
+    ambiguous_with: P002-R027-20261020T190051
+    ambiguity: "la riga '26' compare due volte nel foglio (RULES.md §11): non determinabile dai dati se la nota sia sulla prima riga 26 (R026) o sulla seconda (probabile R027). Confermare su foglio originale/video."
+  P002-R027-20261020T190051:
+    contact_manual: null
+    reason: "candidata alternativa per la riga '26' doppia; non assegnata"
+    evidence: "kinematics.csv: obstacle_clearance -0.030 m @29.6 s, 4 campioni <=0; log prosegue 23 s dopo l'arresto (altre ~2 s)"
+    confidence: low
+    ambiguous_with: P002-R026-20261020T185812

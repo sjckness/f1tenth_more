@@ -1,0 +1,71 @@
+=== wall_tracker_impl py
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-10-23-23-56-11-941501-linus-2730046
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [2730075]
+[taskset-1] [INFO] [1792792573.155115449] [lidar_front_wall_node]: wall tracker: py (f1tenth_perception.multi_wall_tracker)
+[taskset-1] [INFO] [1792792573.176399041] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall; door detection OFF
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[taskset-1] Traceback (most recent call last):
+[taskset-1]   File "/home/andreas/dev_ws/f1tenth_more_r6/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node", line 33, in <module>
+[taskset-1]     sys.exit(load_entry_point('f1tenth-perception', 'console_scripts', 'lidar_front_wall_node')())
+[taskset-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-1]   File "/home/andreas/dev_ws/f1tenth_more_r6/build/f1tenth_perception/f1tenth_perception/lidar_front_wall_node.py", line 2397, in main
+[taskset-1]     node.destroy_node()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[taskset-1]     self.destroy_publisher(self._publishers[0])
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[taskset-1]     publisher.destroy()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[taskset-1]     self.__publisher.destroy_when_not_in_use()
+[taskset-1] KeyboardInterrupt
+[ERROR] [taskset-1]: process has died [pid 2730075, exit code -2, cmd 'taskset -c 5 /home/andreas/dev_ws/f1tenth_more_r6/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node --ros-args -r __node:=lidar_front_wall_node --params-file /tmp/launch_params_rgxuvo5x'].
+exit 124
+=== wall_tracker_impl rust
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-10-23-23-56-24-052558-linus-2730469
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [2730508]
+[taskset-1] [INFO] [1792792585.291378534] [lidar_front_wall_node]: wall tracker: rust (f1tenth_wall_tracker_core 0.1.0, /home/andreas/dev_ws/f1tenth_more_r6/install/f1tenth_wall_tracker_core/lib/f1tenth_wall_tracker_core/libf1tenth_wall_tracker_core.so, build: cargo profile debug, opt-level 3, debug_assertions on)
+[taskset-1] [INFO] [1792792585.314836926] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall; door detection OFF
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[taskset-1] Traceback (most recent call last):
+[taskset-1]   File "/home/andreas/dev_ws/f1tenth_more_r6/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node", line 33, in <module>
+[taskset-1]     sys.exit(load_entry_point('f1tenth-perception', 'console_scripts', 'lidar_front_wall_node')())
+[taskset-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-1]   File "/home/andreas/dev_ws/f1tenth_more_r6/build/f1tenth_perception/f1tenth_perception/lidar_front_wall_node.py", line 2397, in main
+[taskset-1]     node.destroy_node()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[taskset-1]     self.destroy_publisher(self._publishers[0])
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[taskset-1]     publisher.destroy()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[taskset-1]     self.__publisher.destroy_when_not_in_use()
+[taskset-1] KeyboardInterrupt
+[ERROR] [taskset-1]: process has died [pid 2730508, exit code -2, cmd 'taskset -c 5 /home/andreas/dev_ws/f1tenth_more_r6/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node --ros-args -r __node:=lidar_front_wall_node --params-file /tmp/launch_params_kx8ekk34'].
+exit 124
+=== wall_tracker_impl rust_missing
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-10-23-23-56-36-158725-linus-2731918
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [2731992]
+[taskset-1] Traceback (most recent call last):
+[taskset-1]   File "/home/andreas/dev_ws/f1tenth_more_r6/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node", line 33, in <module>
+[taskset-1]     sys.exit(load_entry_point('f1tenth-perception', 'console_scripts', 'lidar_front_wall_node')())
+[taskset-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-1]   File "/home/andreas/dev_ws/f1tenth_more_r6/build/f1tenth_perception/f1tenth_perception/lidar_front_wall_node.py", line 2391, in main
+[taskset-1]     node = LidarFrontWallNode()
+[taskset-1]            ^^^^^^^^^^^^^^^^^^^^
+[taskset-1]   File "/home/andreas/dev_ws/f1tenth_more_r6/build/f1tenth_perception/f1tenth_perception/lidar_front_wall_node.py", line 784, in __init__
+[taskset-1]     self.wall_tracker_impl = wall_tracker_backend.require(str(self.declare_parameter(
+[taskset-1]                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-1]   File "/home/andreas/dev_ws/f1tenth_more_r6/build/f1tenth_perception/f1tenth_perception/wall_tracker_backend.py", line 114, in require
+[taskset-1]     raise RuntimeError(
+[taskset-1] RuntimeError: wall_tracker_impl:=rust but the Rust wall tracker library is not usable: OSError: /nonexistent/libf1tenth_wall_tracker_core.so: cannot open shared object file: No such file or directory. Build it (colcon build --packages-select f1tenth_wall_tracker_core) or run wall_tracker_impl:=py.
+[ERROR] [taskset-1]: process has died [pid 2731992, exit code 1, cmd 'taskset -c 5 /home/andreas/dev_ws/f1tenth_more_r6/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node --ros-args -r __node:=lidar_front_wall_node --params-file /tmp/launch_params_9wb_pjbz'].
+exit 0
+=== wall_tracker_impl cpp
+[INFO] [launch]: All log files can be found below /home/andreas/.ros/log/2026-10-23-23-56-37-920177-linus-2732020
+[INFO] [launch]: Default logging verbosity is set to INFO
+[ERROR] [launch.actions.declare_launch_argument]: Argument "wall_tracker_impl" provided value "cpp" is not valid. Valid options are: ['py', 'rust']
+[ERROR] [launch]: Caught exception in launch (see debug for traceback): Argument "wall_tracker_impl" provided value "cpp" is not valid. Valid options are: ['py', 'rust']
+exit 1

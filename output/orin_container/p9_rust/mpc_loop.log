@@ -1,0 +1,35 @@
+PASS  approach/ahead 4 m/none            solves   61/  61  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  approach/ahead 4 m/footprint       solves   61/  61  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  approach/45 deg off, 4 m/none      solves   63/  63  sha !=  pose 1.23e-12 m  yaw 2.95e-12
+PASS  approach/45 deg off, 4 m/footprint solves   63/  63  sha !=  pose 1.56e-12 m  yaw 5.99e-13
+PASS  approach/70 deg off, 2.5 m/none    solves   38/  38  sha !=  pose 3.85e-12 m  yaw 2.47e-12
+PASS  approach/70 deg off, 2.5 m/footprint solves   38/  38  sha !=  pose 2.68e-12 m  yaw 1.04e-12
+PASS  approach/lateral 0.3 m/s, 8 s/none solves   85/  85  sha !=  pose 8.56e-13 m  yaw 5.43e-12
+PASS  approach/lateral 0.3 m/s, 8 s/footprint solves   85/  85  sha !=  pose 3.02e-13 m  yaw 1.59e-13
+PASS  approach/jitter 5 cm @ 12.5 Hz/none solves   59/  59  sha !=  pose 1.01e-12 m  yaw 6.14e-14
+PASS  approach/jitter 5 cm @ 12.5 Hz/footprint solves   59/  59  sha !=  pose 1.89e-12 m  yaw 1.40e-13
+PASS  person/legacy/0.0                  solves  250/ 250  sha !=  pose 5.85e-15 m  yaw 7.45e-15
+PASS  person/legacy/0.3                  solves   73/  73  sha !=  pose 5.14e-13 m  yaw 1.47e-16
+PASS  person/legacy/0.6                  solves   69/  69  sha !=  pose 1.32e-13 m  yaw 7.57e-18
+PASS  person/footprint/0.0               solves   71/  71  sha !=  pose 2.68e-11 m  yaw 2.24e-15
+PASS  person/footprint/0.3               solves   69/  69  sha !=  pose 7.38e-13 m  yaw 4.92e-17
+PASS  person/footprint/0.6               solves   70/  70  sha !=  pose 1.22e-12 m  yaw 4.11e-18
+PASS  speed/legacy/obs0/walls0           solves   87/  87  sha =  pose 0.00e+00 m  yaw 0.00e+00
+FAIL  speed/legacy/obs0/walls4           solves   87/  87  sha !=  pose 2.43e-04 m  yaw 5.20e-04
+PASS  speed/legacy/obs1/walls0           solves   91/  91  sha !=  pose 3.50e-11 m  yaw 3.43e-11
+FAIL  speed/legacy/obs1/walls4           solves   88/  88  sha !=  pose 8.56e-03 m  yaw 2.58e-02
+PASS  speed/legacy/obs8/walls0           solves   88/  88  sha !=  pose 5.32e-14 m  yaw 3.92e-13
+PASS  speed/legacy/obs8/walls4           solves   88/  88  sha !=  pose 7.10e-03 m  yaw 7.95e-03
+PASS  speed/offset_free/obs0/walls0      solves   83/  83  sha !=  pose 1.78e-15 m  yaw 0.00e+00
+PASS  speed/offset_free/obs0/walls4      solves   83/  83  sha !=  pose 1.50e-07 m  yaw 1.76e-07
+PASS  speed/offset_free/obs1/walls0      solves   87/  87  sha !=  pose 6.31e-12 m  yaw 1.15e-12
+PASS  speed/offset_free/obs1/walls4      solves   85/  85  sha !=  pose 1.17e-05 m  yaw 4.41e-05
+PASS  speed/offset_free/obs8/walls0      solves   85/  85  sha !=  pose 6.87e-14 m  yaw 7.89e-14
+PASS  speed/offset_free/obs8/walls4      solves   85/  85  sha !=  pose 2.13e-05 m  yaw 7.74e-05
+PASS  direct/0                           solves    1/   1  sha =  pose 0.00e+00 m  yaw 0.00e+00
+PASS  direct/1                           solves    1/   1  sha !=  pose 0.00e+00 m  yaw 0.00e+00
+PASS  direct/2                           solves    1/   1  sha !=  pose 0.00e+00 m  yaw 0.00e+00
+PASS  direct/3                           solves    1/   1  sha =  pose 0.00e+00 m  yaw 0.00e+00
+golden SHA (py reference, 20 runs): py 0/20, rust 0/20 equal
+30/32 runs pass, 5 bit-identical; time in the rigs py 41.2 s, rust 8.2 s
+FAIL

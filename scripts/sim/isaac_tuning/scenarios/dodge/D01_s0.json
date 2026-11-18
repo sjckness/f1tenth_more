@@ -1,0 +1,108 @@
+{
+ "id": "D01_s0",
+ "family": "D",
+ "d": 1,
+ "seed": 0,
+ "candidate_seed": 100000,
+ "rejected_candidates": 0,
+ "description": "dodge d=1: 2 levels, cylinders at 0.3 m/s, 0 diagonal",
+ "scene": "base_room",
+ "layout": "dodge",
+ "car_start": {
+  "x": 0.5,
+  "y": 3.0,
+  "yaw_deg": 0.0
+ },
+ "mission": {
+  "distance_m": 3.5,
+  "speed_mps": 0.5,
+  "timeout_s": 15.0
+ },
+ "ramp": {
+  "speed": 0.3,
+  "diag_frac": 0.1,
+  "n_levels": 2
+ },
+ "levels": [
+  {
+   "level": 0,
+   "ahead_m": 1.5,
+   "n": 1,
+   "diameters": [
+    0.5
+   ],
+   "theta_deg": 0.0,
+   "direction": 1.0,
+   "speed": 0.3,
+   "segment_m": 5.4,
+   "spacing_m": 0.0
+  },
+  {
+   "level": 1,
+   "ahead_m": 2.5,
+   "n": 1,
+   "diameters": [
+    0.3
+   ],
+   "theta_deg": 0.0,
+   "direction": -1.0,
+   "speed": 0.3,
+   "segment_m": 5.6000000000000005,
+   "spacing_m": 0.0
+  }
+ ],
+ "obstacles": [
+  {
+   "id": "c050_0",
+   "level": 0,
+   "ahead_m": 1.5,
+   "lateral_m": 1.2199,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     1.5,
+     -2.7
+    ],
+    "b": [
+     1.5,
+     2.7
+    ],
+    "speed": 0.3,
+    "s0": 3.9199,
+    "delay_s": 0.0
+   }
+  },
+  {
+   "id": "c030_0",
+   "level": 1,
+   "ahead_m": 2.5,
+   "lateral_m": -0.6824,
+   "motion": {
+    "type": "pingpong",
+    "a": [
+     2.5,
+     2.8
+    ],
+    "b": [
+     2.5,
+     -2.8
+    ],
+    "speed": 0.3,
+    "s0": 3.4824,
+    "delay_s": 0.0
+   }
+  }
+ ],
+ "jitter": {
+  "seed": 7010,
+  "xy_m": 0.05,
+  "yaw_deg": 3.0
+ },
+ "oracle": {
+  "start_lag_s": 0.6,
+  "time_slack_s": 0.25,
+  "buffer_m": 0.0,
+  "dt_s": 0.2,
+  "wall_clearance_m": 0.45
+ }
+}

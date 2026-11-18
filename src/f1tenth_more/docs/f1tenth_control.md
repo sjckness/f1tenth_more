@@ -32,7 +32,7 @@ Launched by `f1tenth_navigation/navigation.launch.py` when `enable_nav2:=false`.
 | `/mpc/goal_distance` | `std_msgs/Float32` | Commands a straight-line drive: captures current `(x, y)` on receipt, stops once that Euclidean distance is traveled. A new message overrides any goal in progress. |
 | `/mpc/goal_pose` | `geometry_msgs/PoseStamped` | Position-only goal-pose driving (used by `f1tenth_behavior`'s mission subtree's `goal_pose` moves) |
 | `/mpc/hold` | `std_msgs/Bool` | Short-circuits `control_loop` to publish zero speed/steering without touching goal-progress state — used by the mission subtree's `stop_and_hold`/`abort_mission` actions |
-| `/perception/obstacles_2d` | `f1tenth_messages/Obstacle2DArray` | Live obstacle list for soft-avoidance deflection |
+| `/perception/obstacles_2d` | `f1tenth_messages/Obstacle2DArray` | Live obstacle list for the solver's soft obstacle cost |
 | `/perception/front_distance` | `std_msgs/Float32` | Raw ZED depth front-distance reading (`dFront`): the wall_turn commit decision, the safety layer, and the increment's distance until a wall is tracked |
 | `/scan` | `sensor_msgs/LaserScan` | Wall tracker input (`wall_tracker.py`), `BEST_EFFORT`, latest message only; subscribed only while `wall_track_enable` is true. Once a wall_turn commits, the wall that triggered it is selected from this scan (gated once against the frozen commit heading) and held as a line in the odom frame; every control tick refits it by proximity, and every later corridor rebuild runs the increment on `d_wall`, the front bumper's perpendicular distance to it |
 | `/imu` | `sensor_msgs/Imu` | — |
@@ -48,11 +48,11 @@ signal).
 `odom_stale_timeout_sec` (0.5s — max age before falling back to sim odom, then
 to "no odom"), `use_rti_solver` (true — OSQP real-time-iteration solve vs.
 the original from-scratch SLSQP path, kept as an explicit rollback opt-out),
-`car_radius` (0.20m), `avoidance_margin` (0.12m — together the soft-avoidance
-deflection trigger radius `R_safe = car_radius + avoidance_margin`, and the
-basis for `dmin`, a disabled/warning-only clearance-log threshold),
-`pose_goal_tolerance` (0.15m), `target_smoothing_alpha`,
-`deflection_decay_ticks`, `cpu_affinity`/`nice` (machine-specific process
+`car_radius` (0.20m), `avoidance_margin` (0.12m — together with the obstacle
+radius `r` the solver's soft obstacle-cost radius `R_safe = r + car_radius +
+avoidance_margin`, and the basis for `dmin`, a disabled/warning-only
+clearance-log threshold), `pose_goal_tolerance` (0.15m),
+`cpu_affinity`/`nice` (machine-specific process
 pinning, not sourced from `stack_params.yaml` — see that launch file's own
 docstring).
 

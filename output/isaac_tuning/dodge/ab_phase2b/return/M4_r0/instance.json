@@ -1,0 +1,53 @@
+{
+ "scenario": "M4",
+ "rep": 0,
+ "car": {
+  "x": 0.5116612445743554,
+  "y": 3.041471836029826,
+  "yaw_deg": 1.494519429976493
+ },
+ "obstacles": {
+  "cyl050": [
+   3.0,
+   1.8
+  ]
+ },
+ "motion": {
+  "cyl050": {
+   "v": [
+    0.0,
+    0.4
+   ],
+   "delay_s": 0.0,
+   "duration_s": 3.0
+  }
+ },
+ "obstacle_info": [
+  {
+   "id": "cyl050",
+   "x": 3.0,
+   "y": 1.8,
+   "ahead_m": 2.5,
+   "lateral_m": -1.2,
+   "radius_m": 0.25,
+   "motion": {
+    "v": [
+     0.0,
+     0.4
+    ],
+    "delay_s": 0.0,
+    "duration_s": 3.0
+   }
+  }
+ ],
+ "mission": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "nominal_start": {
+  "x": 0.5,
+  "y": 3.0,
+  "yaw_deg": 0.0
+ }
+}

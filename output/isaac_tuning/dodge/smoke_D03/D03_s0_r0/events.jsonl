@@ -1,0 +1,5 @@
+{"t": 27.233333333, "data": "{\"event\": \"contact\", \"cause\": \"lidar return 0.006 m inside the footprint\", \"clearance_m\": -0.006, \"source\": \"obstacle_clearance_node\"}"}
+{"t": 27.3, "data": "{\"event\": \"estop\", \"cause\": \"IsProximityTooClose\", \"source\": \"behavior_tree\", \"lane\": \"emergency\"}"}
+{"t": 32.1, "data": "{\"event\": \"estop\", \"cause\": \"IsProximityTooClose\", \"source\": \"behavior_tree\", \"lane\": \"emergency\"}"}
+{"t": 32.233333333, "data": "{\"event\": \"contact\", \"cause\": \"lidar return 0.025 m inside the footprint\", \"clearance_m\": -0.0252, \"source\": \"obstacle_clearance_node\"}"}
+{"t": 41.1, "data": "{\"event\": \"estop\", \"cause\": \"IsProximityTooClose\", \"source\": \"behavior_tree\", \"lane\": \"emergency\"}"}

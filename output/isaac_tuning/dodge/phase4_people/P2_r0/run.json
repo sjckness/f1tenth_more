@@ -1,0 +1,107 @@
+{
+ "scenario": "P2",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "end_reason": "mission COMPLETE",
+ "phases_wall_s": {
+  "ready": 4.109,
+  "params": 0.202,
+  "scenario": 0.021,
+  "reset": 7.534,
+  "start": 0.016,
+  "record": 12.514
+ },
+ "valid": true,
+ "gt_blowup_t": null,
+ "start_pose_map_sim": {
+  "x": 0.4675296258118822,
+  "y": 3.026409921092409,
+  "yaw_deg": 2.9562697729519174
+ },
+ "progress_m": 3.6010703904902597,
+ "max_lateral_error_m": 2.095331236119688,
+ "final_lateral_error_m": 2.095331236119688,
+ "final_heading_error_rad": 0.4644119750431869,
+ "duration_s": 10.48333333299999,
+ "time_to_goal_s": 10.48333333299999,
+ "obstacles": [
+  {
+   "id": "p0",
+   "r": 0.29,
+   "min_centre_dist_m": 0.3500872253488381,
+   "r_safe_ref_m": 1.1099999999999999,
+   "margin_m": -0.7599127746511618,
+   "t_min_s": 5.199999999999989,
+   "body_clearance_m": -0.1374221245233761,
+   "level": null
+  }
+ ],
+ "min_margin_m": -0.7599127746511618,
+ "min_body_clearance_m": -0.1374221245233761,
+ "steer_sign_changes": 2,
+ "steer_sat": {
+  "n": 99,
+  "delta_frac": 0.10101010101010101,
+  "rate_frac": 0.23469387755102042,
+  "delta_any": true,
+  "rate_any": true
+ },
+ "solver_ticks": 97,
+ "solve_failures": 0,
+ "max_n_obstacles_seen": 29,
+ "solve_time_ms_p95": 0.0,
+ "solve_over_deadline": 0,
+ "mpc_cpu_ms_per_tick": 65.67010309278355,
+ "perceived_r_max_m": 0.7807102799415588,
+ "safety": {
+  "hard_stop_engaged": false,
+  "bt_trip": false,
+  "mux_safety_lanes": [],
+  "contact_event": false,
+  "events": []
+ },
+ "outcome": "collision",
+ "mission_final_state": "COMPLETE",
+ "failure": {
+  "id": "p0",
+  "level": null,
+  "margin_m": -0.7599127746511618,
+  "body_clearance_m": -0.1374221245233761,
+  "t_s": 5.199999999999989,
+  "steer_sat_before": {
+   "n": 16,
+   "delta_frac": 0.1875,
+   "rate_frac": 0.6666666666666666,
+   "delta_any": true,
+   "rate_any": true
+  }
+ },
+ "return": {
+  "x_pass_m": 5.1146772088112815,
+  "passed": false
+ },
+ "perception": {
+  "p0": {
+   "t_first_in_view_s": 0.0,
+   "t_first_detected_s": 0.0,
+   "latency_s": 0.0,
+   "detected_in_view_frac": 0.5,
+   "detected_out_of_view_frac": 0.06779661016949153,
+   "mean_error_m": 0.31537518378276463
+  }
+ },
+ "score": 0.0,
+ "score_terms": null,
+ "nominal": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "recorder_code": 0,
+ "frames": 26,
+ "wall_recorder_s": 26.2,
+ "isaac_alive_after": true
+}

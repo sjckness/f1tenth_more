@@ -1,0 +1,60 @@
+{
+ "instance": {
+  "scenario": "S2",
+  "rep": 0,
+  "car": {
+   "x": 0.5147261822905191,
+   "y": 2.9898725928009084,
+   "yaw_deg": 1.2826280939145107
+  },
+  "obstacles": {
+   "cyl100": [
+    2.0,
+    3.0
+   ]
+  },
+  "obstacle_info": [
+   {
+    "id": "cyl100",
+    "x": 2.0,
+    "y": 3.0,
+    "ahead_m": 1.5,
+    "lateral_m": 0.0,
+    "radius_m": 0.5
+   }
+  ],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "output/isaac_tuning/screens_S2/S2_r0/mission.json",
+ "wall_start": 1794958494.070076,
+ "phases": {
+  "ready": 14.149,
+  "params": 10.103
+ },
+ "exit": {
+  "code": 3,
+  "reason": "parameters not applied: mpc_corr.mpc_w_obs: want 200.0, live None; mpc_corr.mpc_w_term: want 9.0, live None; mpc_corr.mpc_w_corr: want 3.5714, live None; mpc_corr.mpc_w_du_delta: want 8.33, live None; mpc_corr.avoidance_margin: want 0.12, live None; mpc_corr.corr_half_width_start_m: want 0.64, live None"
+ },
+ "params_applied": {
+  "mpc_corr": {},
+  "semantic_layer_node": {
+   "unknown_objects_mode": "active"
+  }
+ },
+ "mission_states": [
+  [
+   15.4,
+   "IDLE"
+  ]
+ ],
+ "wall_end": 1794958518.4284742
+}

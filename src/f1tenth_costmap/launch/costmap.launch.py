@@ -10,7 +10,10 @@ node.py -- see that node's own module docstring for the full design,
 including the periodic-publish pass: publishes real boundaries/clearance
 on every timer tick from whatever's currently cached, regardless of
 upstream recency -- empty/withheld only if a message of that kind has
-never arrived at all).
+never arrived at all) + freespace_door_node.py (the THIRD door detector:
+bottlenecks in the free space of that same /slam/map, no walls involved --
+see freespace_doors.py's own module docstring, and stack_params.yaml's
+door_source for how the three detectors exclude each other).
 
 costmap_boundary_node's own launch args (front_facing_max_deg/side_window_
 min_deg/side_window_max_deg/occupied_threshold/max_range_m/extraction_
@@ -52,12 +55,14 @@ CLI-overridable behavior for what's meant to be the exact same flag. Fixed
 by matching that file's mechanism exactly instead.
 """
 
+from f1tenth_description.vehicle_frames import (
+    base_front_x, front_side_limit_m, MIN_FRONT_DISTANCE_M)
 from f1tenth_params.param_defaults import get_default
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -80,7 +85,7 @@ def generate_launch_description():
         'enable_slam', default_value=str(enable_default), description=enable_desc)
 
     score_threshold_la = DeclareLaunchArgument(
-        'semantic_score_threshold', default_value='0.5',
+        'semantic_score_threshold', default_value='0.3',
         description="Minimum vision_msgs detection score for semantic_layer_"
                     "node to accumulate a detection at all.")
     merge_distance_la = DeclareLaunchArgument(
@@ -176,10 +181,40 @@ def generate_launch_description():
         'semantic_layer_cpu_threads', default_value=str(semantic_cpu_threads_default),
         description=semantic_cpu_threads_desc)
 
+    # The door switches, by launch argument. Every OTHER semantic_doors_* /
+    # freespace_doors_* value reaches its node straight from stack_params.yaml
+    # through that node's own declare_parameter default, and is tuned by
+    # editing that file (or with `ros2 param set`); these three are here
+    # because they are what a run turns on and off, and because door_source
+    # must reach lidar_front_wall_node, semantic_layer_node and
+    # freespace_door_node with the SAME value -- one argument, three nodes.
+    doors_enabled_default, doors_enabled_desc = get_default('semantic_doors_enabled')
+    door_source_default, door_source_desc = get_default('door_source')
+    freespace_enabled_default, freespace_enabled_desc = get_default(
+        'freespace_doors_enabled')
+    doors_enabled_la = DeclareLaunchArgument(
+        'semantic_doors_enabled', default_value=str(doors_enabled_default),
+        description=doors_enabled_desc)
+    door_source_la = DeclareLaunchArgument(
+        'door_source', default_value=str(door_source_default),
+        description=door_source_desc)
+    freespace_enabled_la = DeclareLaunchArgument(
+        'freespace_doors_enabled', default_value=str(freespace_enabled_default),
+        description=freespace_enabled_desc)
+    freespace_rate_default, freespace_rate_desc = get_default('freespace_doors_rate_hz')
+    freespace_window_default, freespace_window_desc = get_default('freespace_doors_window_m')
+    freespace_rate_la = DeclareLaunchArgument(
+        'freespace_doors_rate_hz', default_value=str(freespace_rate_default),
+        description=freespace_rate_desc)
+    freespace_window_la = DeclareLaunchArgument(
+        'freespace_doors_window_m', default_value=str(freespace_window_default),
+        description=freespace_window_desc)
+
     def _semantic_layer_node(context):
         # An OpaqueFunction only for the thread env: semantic_layer_cpu_threads
         # 0 (the default) must leave OMP/MKL/OPENBLAS/OPENCV unset, exactly the
-        # env the node had, which a substitution cannot express.
+        # env the node had, which a substitution cannot express. The door
+        # parameters ride along as ordinary parameters -- they need no context.
         return [Node(
             package='f1tenth_costmap',
             executable='semantic_layer_node',
@@ -195,10 +230,43 @@ def generate_launch_description():
                 'merge_distance_m': LaunchConfiguration('semantic_merge_distance_m'),
                 'confirm_hit_count': LaunchConfiguration('semantic_confirm_hit_count'),
                 'lost_miss_count': LaunchConfiguration('semantic_lost_miss_count'),
+                'semantic_doors_enabled': ParameterValue(
+                    LaunchConfiguration('semantic_doors_enabled'), value_type=bool),
+                'door_source': ParameterValue(
+                    LaunchConfiguration('door_source'), value_type=str),
             }],
         )]
 
     semantic_layer_node = OpaqueFunction(function=_semantic_layer_node)
+
+    # The grid door detector. Gated on enable_slam like everything else in
+    # this file and for the identical reason -- it reads /slam/map, so with
+    # SLAM off it would be a permanently idle subscriber, not a meaningful
+    # independent on/off state. It self-gates on door_source as well
+    # (freespace_doors_enabled AND door_source == 'freespace'), so a bare
+    # `ros2 run f1tenth_costmap freespace_door_node` with another source
+    # selected is a no-op too, exactly the two-sided discipline the polytope
+    # and component-filter flags below already follow. Rate and window are
+    # launch arguments because they are the two knobs a run that cannot hold
+    # 2 Hz on the Orin reaches for first; everything else comes from
+    # stack_params.yaml.
+    freespace_door_node = Node(
+        package='f1tenth_costmap',
+        executable='freespace_door_node',
+        name='freespace_door_node',
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('enable_slam')),
+        parameters=[{
+            'freespace_doors_enabled': ParameterValue(
+                LaunchConfiguration('freespace_doors_enabled'), value_type=bool),
+            'door_source': ParameterValue(
+                LaunchConfiguration('door_source'), value_type=str),
+            'freespace_doors_rate_hz': ParameterValue(
+                LaunchConfiguration('freespace_doors_rate_hz'), value_type=float),
+            'freespace_doors_window_m': ParameterValue(
+                LaunchConfiguration('freespace_doors_window_m'), value_type=float),
+        }],
+    )
 
     costmap_renderer_node = Node(
         package='f1tenth_costmap',
@@ -290,41 +358,67 @@ def generate_launch_description():
     # separate toggle -- for the identical reason: this node is
     # structurally dependent on /slam/map existing at all (see its own
     # module docstring).
+    # impl:=py|rust (supervisor_bringup/stack_bringup), costmap_boundary_impl
+    # here: the Python node or its Rust port (src/rust/f1tenth_costmap_boundary_rs).
+    # Never both -- same node name, same topics. The Rust node takes the same
+    # parameters plus the three vehicle_frames values the Python imports.
+    boundary_impl_la = DeclareLaunchArgument(
+        'costmap_boundary_impl', default_value='py', choices=['py', 'rust'],
+        description='costmap_boundary_node implementation: py (f1tenth_costmap) or '
+                    'rust (f1tenth_costmap_boundary_rs; use_convex_polytope not ported).')
+    boundary_params = {
+        'front_facing_max_deg': LaunchConfiguration(
+            'costmap_boundary_front_facing_max_deg'),
+        'side_window_min_deg': LaunchConfiguration(
+            'costmap_boundary_side_window_min_deg'),
+        'side_window_max_deg': LaunchConfiguration(
+            'costmap_boundary_side_window_max_deg'),
+        'occupied_threshold': LaunchConfiguration(
+            'costmap_boundary_occupied_threshold'),
+        'max_range_m': LaunchConfiguration('costmap_boundary_max_range_m'),
+        'extraction_rate_hz': LaunchConfiguration(
+            'costmap_boundary_extraction_rate_hz'),
+        'use_convex_polytope': LaunchConfiguration(
+            'costmap_boundary_use_convex_polytope'),
+        'polytope_r_local_m': LaunchConfiguration(
+            'costmap_boundary_polytope_r_local_m'),
+        'polytope_max_faces': LaunchConfiguration(
+            'costmap_boundary_polytope_max_faces'),
+        'component_filter': LaunchConfiguration(
+            'costmap_boundary_component_filter'),
+        'min_component_length_m': LaunchConfiguration(
+            'costmap_boundary_min_component_length_m'),
+        'min_component_scans': LaunchConfiguration(
+            'costmap_boundary_min_component_scans'),
+        'exclude_tracked_object_cells': LaunchConfiguration(
+            'costmap_boundary_exclude_tracked_object_cells'),
+        'object_footprint_margin_m': LaunchConfiguration(
+            'costmap_boundary_object_footprint_margin_m'),
+    }
+
+    def _impl_is(value):
+        return IfCondition(PythonExpression([
+            "'", LaunchConfiguration('enable_slam'), "'.lower() == 'true' and '",
+            LaunchConfiguration('costmap_boundary_impl'), f"' == '{value}'"]))
+
     costmap_boundary_node = Node(
         package='f1tenth_costmap',
         executable='costmap_boundary_node',
         name='costmap_boundary_node',
         output='screen',
-        condition=IfCondition(LaunchConfiguration('enable_slam')),
-        parameters=[{
-            'front_facing_max_deg': LaunchConfiguration(
-                'costmap_boundary_front_facing_max_deg'),
-            'side_window_min_deg': LaunchConfiguration(
-                'costmap_boundary_side_window_min_deg'),
-            'side_window_max_deg': LaunchConfiguration(
-                'costmap_boundary_side_window_max_deg'),
-            'occupied_threshold': LaunchConfiguration(
-                'costmap_boundary_occupied_threshold'),
-            'max_range_m': LaunchConfiguration('costmap_boundary_max_range_m'),
-            'extraction_rate_hz': LaunchConfiguration(
-                'costmap_boundary_extraction_rate_hz'),
-            'use_convex_polytope': LaunchConfiguration(
-                'costmap_boundary_use_convex_polytope'),
-            'polytope_r_local_m': LaunchConfiguration(
-                'costmap_boundary_polytope_r_local_m'),
-            'polytope_max_faces': LaunchConfiguration(
-                'costmap_boundary_polytope_max_faces'),
-            'component_filter': LaunchConfiguration(
-                'costmap_boundary_component_filter'),
-            'min_component_length_m': LaunchConfiguration(
-                'costmap_boundary_min_component_length_m'),
-            'min_component_scans': LaunchConfiguration(
-                'costmap_boundary_min_component_scans'),
-            'exclude_tracked_object_cells': LaunchConfiguration(
-                'costmap_boundary_exclude_tracked_object_cells'),
-            'object_footprint_margin_m': LaunchConfiguration(
-                'costmap_boundary_object_footprint_margin_m'),
-        }],
+        condition=_impl_is('py'),
+        parameters=[boundary_params],
+    )
+    costmap_boundary_node_rs = Node(
+        package='f1tenth_costmap_boundary_rs',
+        executable='costmap_boundary_node',
+        name='costmap_boundary_node',
+        output='screen',
+        condition=_impl_is('rust'),
+        parameters=[dict(boundary_params,
+                         base_front_x_m=base_front_x(),
+                         front_side_limit_m=front_side_limit_m(),
+                         min_front_distance_m=MIN_FRONT_DISTANCE_M)],
     )
 
     return LaunchDescription([
@@ -337,5 +431,8 @@ def generate_launch_description():
         boundary_component_filter_la, boundary_min_component_length_la,
         boundary_min_component_scans_la, boundary_exclude_object_cells_la,
         boundary_object_margin_la, semantic_cpu_threads_la,
+        boundary_impl_la, doors_enabled_la, door_source_la, freespace_enabled_la,
+        freespace_rate_la, freespace_window_la,
         semantic_layer_node, costmap_renderer_node, costmap_boundary_node,
+        costmap_boundary_node_rs, freespace_door_node,
     ])

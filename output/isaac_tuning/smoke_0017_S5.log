@@ -1,0 +1,12 @@
+[isaac_tuning 00:17:21] preflight ok {'free_disk_gb': 21.8, 'free_vram_mib': 6912}
+[isaac_tuning 00:17:23] discovery server {'port': 11878, 'pgid': 2978232}
+[isaac_tuning 00:17:42] isaac up {'wall_s': 19.2}
+[isaac_tuning 00:17:42] stack starting {'pgid': 2979743, 'log': 'stack_S5_r0.log'}
+[isaac_tuning 00:18:14] S5 r0: success score=92.82893275202231 margin=None wall=32.0s
+[isaac_tuning 00:18:14] stopping stack: SIGTERM to process group 2979743
+[isaac_tuning 00:18:14] stopping stack: SIGTERM to what is left of process group 2979743
+[isaac_tuning 00:18:17] stack stopped {'wall_s': 3.3, 'leftovers': 0}
+[isaac_tuning 00:18:19] stopping isaac: SIGTERM to process group 2978336
+[isaac_tuning 00:18:19] stopping discovery server: SIGINT to process group 2978232
+[isaac_tuning 00:18:19] session closed {'container': False, 'leftovers': 0}
+[isaac_tuning 00:18:19] done: 1/1 success, score 92.8 +- 0.0, orphans 0, out output/isaac_tuning/smoke_0017_S5

@@ -1,0 +1,11 @@
+/tmp/claude-1000/coord_merged_tr/f1tenth_behavior/pytest.xml: 532 tests, 0 errors, 0 failures, 0 skipped
+/tmp/claude-1000/coord_merged_tr/f1tenth_bringup/pytest.xml: 92 tests, 0 errors, 4 failures, 0 skipped
+/tmp/claude-1000/coord_merged_tr/f1tenth_comms/pytest.xml: 73 tests, 0 errors, 0 failures, 0 skipped
+/tmp/claude-1000/coord_merged_tr/f1tenth_control/pytest.xml: 80 tests, 0 errors, 0 failures, 0 skipped
+/tmp/claude-1000/coord_merged_tr/f1tenth_costmap/pytest.xml: 409 tests, 0 errors, 0 failures, 0 skipped
+/tmp/claude-1000/coord_merged_tr/f1tenth_navigation/pytest.xml: 12 tests, 0 errors, 0 failures, 0 skipped
+/tmp/claude-1000/coord_merged_tr/f1tenth_params/pytest.xml: 80 tests, 0 errors, 0 failures, 0 skipped
+/tmp/claude-1000/coord_merged_tr/f1tenth_perception/pytest.xml: 1319 tests, 0 errors, 0 failures, 0 skipped
+/tmp/claude-1000/coord_merged_tr/mpc_controller/pytest.xml: 1650 tests, 0 errors, 13 failures, 3 skipped
+
+Summary: 4247 tests, 0 errors, 17 failures, 3 skipped

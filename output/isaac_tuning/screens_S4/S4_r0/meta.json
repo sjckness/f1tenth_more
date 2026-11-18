@@ -1,0 +1,125 @@
+{
+ "instance": {
+  "scenario": "S4",
+  "rep": 0,
+  "car": {
+   "x": 0.48480148364381337,
+   "y": 2.9616262916030944,
+   "yaw_deg": 0.5367124666088827
+  },
+  "obstacles": {
+   "cyl050": [
+    1.5,
+    3.0
+   ]
+  },
+  "obstacle_info": [
+   {
+    "id": "cyl050",
+    "x": 1.5,
+    "y": 3.0,
+    "ahead_m": 1.0,
+    "lateral_m": 0.0,
+    "radius_m": 0.25
+   }
+  ],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "output/isaac_tuning/screens_S4/S4_r0/mission.json",
+ "wall_start": 1794958545.7796118,
+ "phases": {
+  "ready": 14.462,
+  "params": 0.476,
+  "scenario": 0.04,
+  "reset": 8.527,
+  "start": 0.017,
+  "record": 25.41
+ },
+ "exit": {
+  "code": 0,
+  "reason": "sim timeout (mission still running)"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64
+  },
+  "semantic_layer_node": {
+   "unknown_objects_mode": "active"
+  }
+ },
+ "scenario_applied": {
+  "seq": 1,
+  "ok": true,
+  "message": "reset #1: car and person at start poses",
+  "sim_time": 17.083333333333332,
+  "car": {
+   "x": 0.48480148364381337,
+   "y": 2.9616262916030944,
+   "yaw_deg": 0.5367124666088827
+  },
+  "obstacles": {
+   "cyl050": [
+    1.5,
+    3.0
+   ],
+   "cyl100": null
+  }
+ },
+ "reset_all": {
+  "success": true,
+  "message": "reset done in 6.5 s: stop 0.6s, wheel_odom 0.0s, ekf_local 0.0s, slam 5.8s, ekf_global 0.0s, nav2 skipped, hooks 0.0s"
+ },
+ "load_mission": {
+  "success": true,
+  "message": "loaded 'isaac_tuning_S4_r0', 1 moves"
+ },
+ "start_mission": {
+  "success": true,
+  "message": "started 'isaac_tuning_S4_r0'"
+ },
+ "t_running": 25.333333333,
+ "t_end": 47.35,
+ "end_reason": "sim timeout (mission still running)",
+ "rows": {
+  "gt": 1201,
+  "odom": 1058,
+  "drive": 226,
+  "mux": 1887,
+  "mission": 2,
+  "solver": 225,
+  "status": 225,
+  "hard_stop": 961,
+  "bt": 240,
+  "obstacles": 780,
+  "cpu": 127
+ },
+ "mission_states": [
+  [
+   15.133333333,
+   "IDLE"
+  ],
+  [
+   25.3,
+   "LOADED"
+  ],
+  [
+   25.333333333,
+   "RUNNING"
+  ]
+ ],
+ "wall_end": 1794958594.8070743
+}

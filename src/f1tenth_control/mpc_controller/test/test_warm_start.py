@@ -208,10 +208,7 @@ class TestInvalidationRules(unittest.TestCase):
         at the old heading -- the same failure the corridor cache beside it
         was added to prevent.
         """
-        fake = self._Fake(smoothed_target=object(),
-                          last_deflection_vec=None,
-                          deflection_decay_remaining=7,
-                          cached_corridor=object(), last_corridor_time=1.0,
+        fake = self._Fake(cached_corridor=object(), last_corridor_time=1.0,
                           last_corridor_stamp=object(), cached_pref_nom=object())
         MPCController._invalidate_move_state(fake)
         self.assertIsNone(fake.warm_start_z)

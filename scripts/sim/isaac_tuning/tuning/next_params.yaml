@@ -1,0 +1,6 @@
+mpc_w_obs: 450.0
+mpc_w_term: 9.0
+mpc_w_corr: 3.5714
+mpc_w_du_delta: 4.0
+avoidance_margin: 0.12
+corr_half_width_start_m: 0.64

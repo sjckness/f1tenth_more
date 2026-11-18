@@ -1,0 +1,25 @@
+[isaac_tuning 00:39:54] night loop in /home/andreas/dev_ws/f1tenth_isaac_tuning/output/isaac_tuning/night_20261118_0039: GPU service stop rc=0 now inactive
+[isaac_tuning 00:39:54] preflight ok {'free_disk_gb': 20.6, 'free_vram_mib': 6856}
+[isaac_tuning 00:39:56] discovery server {'port': 11878, 'pgid': 3080375}
+[isaac_tuning 00:40:17] isaac up {'wall_s': 20.7}
+[isaac_tuning 00:40:17] stack starting {'pgid': 3082079, 'log': 'stack_S1_r0.log'}
+[isaac_tuning 00:40:53] S1 r0: success score=90.25516775261397 margin=0.13044579411831259 wall=36.1s
+[isaac_tuning 00:41:16] S1 r1: success score=81.56200054373778 margin=0.1214370909569008 wall=23.3s
+[isaac_tuning 00:41:49] S1 r2: success score=94.73313084581612 margin=0.13247534035928477 wall=33.2s
+[isaac_tuning 00:42:35] S2 r0: success score=79.97276923855806 margin=-0.0002492587662034085 wall=45.8s
+[isaac_tuning 00:43:11] S2 r1: success score=86.047122096152 margin=0.013783172137566746 wall=35.9s
+[isaac_tuning 00:43:42] S2 r2: success score=81.93635025762013 margin=0.01318341424637648 wall=31.1s
+[isaac_tuning 00:44:08] S3 r0: success score=89.60552456369324 margin=0.02199443504442733 wall=25.9s
+[isaac_tuning 00:44:32] S3 r1: success score=92.52155360486162 margin=0.16082328246316546 wall=23.2s
+[isaac_tuning 00:45:01] S3 r2: success score=67.59578912115542 margin=-0.07182243569766417 wall=29.4s
+[isaac_tuning 00:45:47] S4 r0: estop score=0.0 margin=-0.023548493615255905 wall=45.0s
+[isaac_tuning 00:46:25] S4 r1: estop score=0.0 margin=-0.014826039453472384 wall=37.9s
+[isaac_tuning 00:46:59] S4 r2: estop score=0.0 margin=-0.016358463101291854 wall=34.2s
+[isaac_tuning 00:47:20] S5 r0: success score=88.97381080171121 margin=None wall=20.5s
+[isaac_tuning 00:47:20] stopping stack: SIGTERM to process group 3082079
+[isaac_tuning 00:47:20] stopping stack: SIGTERM to what is left of process group 3082079
+[isaac_tuning 00:47:22] stack stopped {'wall_s': 2.5, 'leftovers': 0}
+[isaac_tuning 00:48:14] stopping isaac: SIGTERM to process group 3080530
+[isaac_tuning 00:48:14] stopping discovery server: SIGINT to process group 3080375
+[isaac_tuning 00:48:14] session closed {'container': False, 'leftovers': 0}
+[isaac_tuning 00:48:14] night loop done: stopped by request; best 64.9182409985331 {'mpc_w_obs': 200.0, 'mpc_w_term': 9.0, 'mpc_w_corr': 3.5714, 'mpc_w_du_delta': 8.33, 'avoidance_margin': 0.12, 'corr_half_width_start_m': 0.64}; GPU service start rc=0 now active

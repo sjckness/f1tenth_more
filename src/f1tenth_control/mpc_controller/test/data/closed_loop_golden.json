@@ -1,85 +1,85 @@
 {
- "recorded_at": "868ec8a",
+ "recorded_at": "mpc-centerline-target",
  "runs": {
   "approach/45 deg off, 4 m/footprint": {
    "n_solves": 63,
-   "sha256": "57a2dc38850f2b24707825d446b11bd8582f4d1ed37b3dd4620bd810932ab2bb"
+   "sha256": "d845231584a9bdbebb1ec859456a844785485a6d7b6bd16d7c41be8460022885"
   },
   "approach/45 deg off, 4 m/none": {
    "n_solves": 63,
-   "sha256": "b085efd8a4be70266c35c1196bfde471479af6a051e2259d92ef9545ae634ed9"
+   "sha256": "36e4de7e5462629f366c4512763267dd8282b38f0fe0b40155dc3610ccb24f51"
   },
   "approach/70 deg off, 2.5 m/footprint": {
    "n_solves": 38,
-   "sha256": "49790aad4cc54c8c261540f8b11719d6224625796d88adc9957cf2ec27f75c9d"
+   "sha256": "33aeee0185962c22c52c20cfe1d34df95a6b12d6594dc5477b5a383bf28b89f4"
   },
   "approach/70 deg off, 2.5 m/none": {
    "n_solves": 38,
-   "sha256": "e2c15b4f39b684d984a8892acabfddf3dea98edfb3ea6306bdf7d4b6e5da1ba4"
+   "sha256": "dce06876e435dc932c791ed48bd6629e71ef02eff591f9019c54030677ac6643"
   },
   "approach/ahead 4 m/footprint": {
    "n_solves": 61,
-   "sha256": "0b7af20012cb61bf3b9bd9123dce15fcce956ca881475365609239fd65ca9ee5"
+   "sha256": "e37100effc4b78042625e70289e232b88d40e35b3f18651a1f2a12e031dbf5d8"
   },
   "approach/ahead 4 m/none": {
    "n_solves": 61,
-   "sha256": "c3024054055d1e3304c7dad339194f5bf920a2c985cc64b777d47bb4dc249922"
+   "sha256": "db6b8f2f7edf0959db63ecdc6b15f40d2143505a2b9ebf03e3465c1941c6f5bd"
   },
   "approach/jitter 5 cm @ 12.5 Hz/footprint": {
    "n_solves": 59,
-   "sha256": "043cf70eb4f61b6f1cce3f94985842eb2b0817997ef6ea1fb6cc69022b4be7ac"
+   "sha256": "cfb539c4d519d4a3a1d3ea4cfb3e3d789bb417b04acbaef3f35b4433504595e6"
   },
   "approach/jitter 5 cm @ 12.5 Hz/none": {
    "n_solves": 59,
-   "sha256": "058860d8e1820596368088b840b492ff25db608eb3f1978fdb580f91af22d20a"
+   "sha256": "53744e254c3b823943e5c15966369b24552041bc2bfd5b631302a9d905bbc2c3"
   },
   "approach/lateral 0.3 m/s, 8 s/footprint": {
-   "n_solves": 85,
-   "sha256": "8652c9f626fa79331653292cc6bcf848e95ee6171ac6b90d6977c537cc9da437"
+   "n_solves": 84,
+   "sha256": "29afb6c9a67e12b064049a5d73d8778f0b19ded902f075b627ead0ee0c6cd5ec"
   },
   "approach/lateral 0.3 m/s, 8 s/none": {
-   "n_solves": 85,
-   "sha256": "e7efb816328b5f3f189d6acb12eea9e6d8cf41f68a730fb68ac099ecfea0a928"
+   "n_solves": 84,
+   "sha256": "fb78b980d3ba3e452a2ff6e0480318dc70bfbba517b8c61ee7899ed4b9420d0c"
   },
   "direct/0": {
    "n_solves": 1,
-   "sha256": "051d3257ffca7317971ba47208172e5b6f75caf74852fa9c7e6e4f5f8acb4590"
+   "sha256": "914465582a5c680b722ec58964387690996d45abfd5fbe2d1784e31ab376d5ac"
   },
   "direct/1": {
    "n_solves": 1,
-   "sha256": "8ec4a46a5f41ac4fa95e65bf9d3dd700a3f05b5a620da38bd27f9eff14b86432"
+   "sha256": "2aabc07e4b56cf85e3d206682b2f11791663cb13b6fd88e22018629abdc32e12"
   },
   "direct/2": {
    "n_solves": 1,
-   "sha256": "dd46ef962bb9088c5949cfc27cc6e75ad24e017da6b97c8b10d3b24e5806cdcd"
+   "sha256": "32d4e17cae30cfb2216925b03df766385be6029642bde3140937bc74ad4e367a"
   },
   "direct/3": {
    "n_solves": 1,
-   "sha256": "927914547d17fbcd317222fddd1da6cac0780c765a9b120a71932b9c1b3a0f8a"
+   "sha256": "4bb0748be16697693878107e3444d2b5e2d4ddfed19a6b21b85d4d20b52c01ba"
   },
   "person/footprint/0.0": {
    "n_solves": 71,
-   "sha256": "1f9284ca278e997fce09743e49c9df38d2515b3ec75c7bbc589d7f989867ead6"
+   "sha256": "04ce8d7f2d3a06021dae0cb72a6befb4ca73557a56816ebced63809af176dd1d"
   },
   "person/footprint/0.3": {
-   "n_solves": 69,
-   "sha256": "539d9fc7316e8a3fb7d1f3d31cb046b8ec229cfcb8ba462f236b3e25260cb3e7"
+   "n_solves": 68,
+   "sha256": "a3209f9166d650d9904090b103d5b04c01a3765494c4cd6fb92ba2a2ab7868e1"
   },
   "person/footprint/0.6": {
-   "n_solves": 70,
-   "sha256": "5363b5e178dba6726aeff9e75c63bc393fd700d2cd5a9d8034f30c142eacbb76"
+   "n_solves": 68,
+   "sha256": "15ab4c6951a1c421c37a1acd47fae494ab8531b738c7c97fb57102a1275b6921"
   },
   "person/legacy/0.0": {
    "n_solves": 250,
-   "sha256": "2f4147c2df48b0e6b0d9c47da0594511f4c23a4d8e3bb1fc8a46d04980982daa"
+   "sha256": "0402b2587567f691a2ff1c5d1577bc4e3e3643877b7a2d373ef47179b25b4e5a"
   },
   "person/legacy/0.3": {
-   "n_solves": 73,
-   "sha256": "cbb063eb221c6be0362b8d61956b1118c36e92f32fabe12ea64af68a95665953"
+   "n_solves": 75,
+   "sha256": "98ee52576e3f026ecf7aeee254ea946cae3b4de041458bb9b33c8c19816420bd"
   },
   "person/legacy/0.6": {
-   "n_solves": 69,
-   "sha256": "09c8c51c4329962eaff37d94bfb61f07903e37130646632763cfc7a8d503589b"
+   "n_solves": 71,
+   "sha256": "759aaca5f072b0910a1fff88ac66f1a30879db904ffa37c7663117324f6b42ac"
   }
  }
 }

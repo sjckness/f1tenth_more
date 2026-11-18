@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_hard_stop_rs</name>
+  <version>0.1.0</version>
+  <description>hard_stop_node in Rust (rclrs): the last-resort LiDAR stop of f1tenth_control, same topics, parameters and decisions (hard_stop_impl:=rust)</description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- The interface packages whose messages the node uses (through ros-env, src/rust/Cargo.toml):
+       Cargo.toml names none of them, so these tags are what makes colcon build and install them
+       before this package, and what puts their prefixes on its AMENT_PREFIX_PATH. -->
+  <depend>builtin_interfaces</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>ackermann_msgs</depend>
+  <!-- Not used by this crate; build order only (see f1tenth_proximity_guard/package.xml). -->
+  <build_depend>f1tenth_messages</build_depend>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>
