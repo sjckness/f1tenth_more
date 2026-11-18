@@ -1,0 +1,35 @@
+#!/bin/bash
+# f1t-pre-commit: installato da `f1t setup` in <git-common-dir>/hooks/pre-commit (tutti i worktree).
+# Autonomo: non dipende da tools/ del branch (che puo' non averlo).
+#  - blocca i commit che toccano tools/core o tools/f1t su un branch diverso da main
+#    (F1T_CORE_EDIT=1 per un fix urgente, da riportare su main; f1t core sync lo usa);
+#  - su main, una modifica a tools/core vuole tools/core/VERSION e tools/core/CHANGELOG.md nello stesso commit;
+#  - avvisa (non blocca) se tools/core del branch e' diverso da origin/main;
+#  - poi esegue pre-commit.local, se c'e' (l'hook che c'era prima di f1t setup).
+set -u
+core_branch=main
+branch=$(git symbolic-ref --short -q HEAD || echo DETACHED)
+staged=$(git diff --cached --name-only -- tools/core tools/f1t)
+if [ -n "$staged" ] && [ "${F1T_CORE_EDIT:-0}" != 1 ]; then
+  if [ "$branch" != "$core_branch" ]; then
+    echo "f1t: questo commit modifica tools/core su '$branch'." >&2
+    echo "     tools/core si modifica solo su $core_branch (poi: f1t core sync sui branch)." >&2
+    echo "     Fix urgente: F1T_CORE_EDIT=1 git commit ..., e riportalo su $core_branch." >&2
+    exit 1
+  fi
+  if git rev-parse -q --verify HEAD:tools/core/VERSION >/dev/null; then
+    if ! printf '%s\n' "$staged" | grep -qx tools/core/VERSION || ! printf '%s\n' "$staged" | grep -qx tools/core/CHANGELOG.md; then
+      echo "f1t: modifica a tools/core senza bump di tools/core/VERSION e voce in tools/core/CHANGELOG.md." >&2
+      echo "     MAJOR se cambia un comando o un argomento (il vecchio resta una versione con WARN)." >&2
+      exit 1
+    fi
+  fi
+fi
+if git rev-parse -q --verify HEAD:tools/core >/dev/null && git rev-parse -q --verify origin/main:tools/core >/dev/null; then
+  if [ "$(git rev-parse HEAD:tools/core)" != "$(git rev-parse origin/main:tools/core)" ] && [ "$branch" != "$core_branch" ] && [ -z "$staged" ]; then
+    echo "f1t: avviso: tools/core di '$branch' e' diverso da origin/main (f1t doctor; f1t core sync)" >&2
+  fi
+fi
+local_hook="$(git rev-parse --git-common-dir)/hooks/pre-commit.local"
+if [ -x "$local_hook" ]; then exec "$local_hook" "$@"; fi
+exit 0

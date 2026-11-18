@@ -1,0 +1,55 @@
+# Su ogni PR verso main: colcon build + test dei soli package cambiati e di quelli che ne dipendono
+# (--packages-above). I package che non si costruiscono senza hardware/SDK sono esclusi con
+# COLCON_IGNORE (CI_IGNORE). Cancello 2 della rete di sicurezza (tools/core/README.md); il blocco
+# del merge si attiva con la branch protection di main (tools/SUDO_TODO.md).
+name: ros-packages
+on:
+  pull_request:
+    branches: [main]
+    paths: ['src/**', '.github/workflows/ros-packages.yml']
+env:
+  CI_IGNORE: >-
+    src/f1tenth_external/zed_ros2_wrapper
+    src/f1tenth_sim
+    src/husarion_gz_worlds
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    container: ros:jazzy-ros-base
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: package cambiati
+        id: pkgs
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          for d in $CI_IGNORE; do [ -d "$d" ] && touch "$d/COLCON_IGNORE"; done
+          changed=$(tools/f1t ci changed-packages "origin/${{ github.base_ref }}" | tr '\n' ' ')
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          echo "package cambiati: ${changed:-nessuno}"
+      - name: dipendenze
+        if: steps.pkgs.outputs.changed != ''
+        run: |
+          apt-get update -qq
+          rosdep update -q
+          rosdep install --from-paths src --ignore-src -y -r -q || true
+      - name: colcon build
+        if: steps.pkgs.outputs.changed != ''
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          above=$(colcon list --names-only --packages-above ${{ steps.pkgs.outputs.changed }} | tr '\n' ' ')
+          echo "above=$above" >> "$GITHUB_ENV"
+          colcon build --symlink-install --packages-up-to $above --event-handlers console_cohesion+
+      - name: colcon test
+        if: steps.pkgs.outputs.changed != ''
+        run: |
+          source /opt/ros/jazzy/setup.bash && source install/setup.bash
+          export ROS_DOMAIN_ID=147 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+          colcon test --packages-select $above --event-handlers console_cohesion+
+          colcon test-result --verbose

@@ -1,0 +1,15 @@
+# Chiavi di tools/core/hosts/<nome>.env (macchina che fa girare Isaac Sim nell'HIL).
+HOST_DESC              # una riga: che macchina e'
+HOST_HOSTNAME          # hostname atteso (il precheck rifiuta di girare altrove)
+HOST_LINK_IFACE        # interfaccia del collegamento con l'Orin, o auto (quella della rotta)
+HOST_LINK_IP           # IP di questa macchina sul collegamento
+HOST_ORIN_LINK_IP      # IP dell'Orin sullo stesso collegamento
+HOST_LINK_MTU          # MTU attesa sull'interfaccia
+HOST_GPU_NAME          # GPU attesa (sottostringa di nvidia-smi)
+HOST_MIN_VRAM_FREE_MB  # VRAM libera minima per Isaac
+HOST_ISAAC_IMAGE       # immagine Docker di Isaac Sim
+HOST_ISAAC_VERSION     # versione di Isaac Sim attesa
+HOST_MIN_DISK_GB       # spazio libero minimo su /
+HOST_USER              # utente che lancia la sim
+HOST_HIL_WORKTREE      # checkout (su questa macchina) del branch con gli script della sim HIL
+?HOST_GPU_SERVICES     # unit systemd --user da fermare prima di Isaac (VRAM)

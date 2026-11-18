@@ -213,6 +213,13 @@ compose, `network_mode: host` **and** `build: {network: host}`.
 Phase 5d D2, not written yet) must too. The stack wants host networking anyway (lidar on Ethernet, Discovery
 Server on 127.0.0.1:11811, linus over Tailscale).
 
+### The Orin is read-only: every change goes through linus and `tools/f1t`
+
+Never edit files on the Orin (code, config, `~/dev_ws/f1tenth_car`, the native checkout). Flow: change on
+linus, commit, `tools/f1t build` (skill container-build), `tools/f1t deploy` (skill orin-deploy). The only
+on-the-fly override is `~/.config/f1tenth_car/stack_args`, logged by `tools/f1t orin status`. A bug on a
+version: first `tools/f1t whatis <pkg> [--deployed]` (skill version-lookup). `tools/core` changes only on main.
+
 ## Thor
 
 ### A second checkout needs a clean shell
@@ -232,6 +239,6 @@ but no longer needed.
 ## Analyses and module versions
 
 - Every test or analysis is a folder `docs/analysis/<area>/<id>/` (`report.md` with the front matter of `docs/analysis/_template/report.md`, `figures/`, `data/`), committed on `main` in a docs-only commit. Never leave results only on a feature branch; raw data (bags, videos) stays out of git, pointed to by `raw_data`.
-- Then run `python3 tools/analysis_index.py` (`--check` fails on missing fields or unknown module versions), update "Stato attuale" in the area README, and tag `exp/<id>` on the tested commit.
+- Then run `tools/f1t exp index` (= `tools/core/analysis/index.py`; `--check` fails on missing fields or unknown module versions), update "Stato attuale" in the area README, and tag `exp/<id>` on the tested commit.
 - Every change to a module (ROS package) bumps `<version>` in its `package.xml` (SemVer: MAJOR breaks topics/params/interfaces, MINOR adds behaviour, PATCH fixes) and adds a `CHANGELOG.md` entry in the same commit, on the feature branch; no merge without it. Release tag: `<package>/vX.Y.Z`.
 - A report lists the module versions it tested in `modules:`. `docs/history/LOG.md` stays the commit diary.

@@ -1,0 +1,34 @@
+# Chiavi di tools/core/config.env. "CHIAVE  # descrizione" = obbligatoria, "?CHIAVE" = facoltativa.
+F1T_MAIN_REF               # ref git di confronto (origin/main)
+F1T_CORE_BRANCH            # branch su cui si modifica tools/core
+F1T_ORIN_HOST              # host ssh dell'Orin
+F1T_ORIN_USER              # utente ssh dell'Orin
+?F1T_ORIN_SSH_OPTS         # opzioni ssh
+F1T_ORIN_CONTAINER         # container dell'auto
+F1T_ORIN_UNIT              # unit systemd --user del container
+F1T_ORIN_DOCKER_ORIN       # percorso di docker_orin sull'Orin
+F1T_ORIN_STACK_MODE        # percorso di stack_mode sull'Orin
+F1T_ORIN_PIN_FILE          # file del pin dell'immagine
+F1T_ORIN_BUILD_REPO        # repo git dell'Orin usato per le build
+F1T_ORIN_NATIVE_WS         # checkout nativo dell'Orin
+F1T_ORIN_BUILD_ROOT        # radice dei worktree temporanei di build
+F1T_ORIN_XFER              # cartella dei bundle sull'Orin
+F1T_ORIN_DEPLOYED_JSON     # deployed.json sull'Orin
+F1T_ORIN_DEPLOYED_JSON_FALLBACK  # deployed.json senza sudo
+F1T_ORIN_OVERRIDE_DIR      # cartella degli override a caldo
+F1T_IMAGE_REPO             # nome del repository dell'immagine
+F1T_IMAGE_PREFIX           # prefisso del tag
+F1T_IMAGE_RUST             # build | skip
+?F1T_REGISTRY              # registry (vuoto = nessuno)
+F1T_BUILD_KEEP_WORKTREES   # worktree di build da tenere
+F1T_BUILD_TEST             # changed | all | none
+F1T_TEST_DOMAIN_ID         # ROS_DOMAIN_ID dei test
+F1T_HEALTH_TIMEOUT_S       # secondi per l'health check post-deploy
+F1T_DEPLOY_REQUIRE_TESTED  # 1 = solo immagini testate
+F1T_MODULES_EXCLUDE_RE     # regex dei package esclusi dai moduli
+F1T_PRECHECK_MAX_AGE_S     # eta' massima del precheck per run.sh
+F1T_CLOCK_WARN_MS          # soglia WARN differenza orologi
+F1T_CLOCK_FAIL_MS          # soglia FAIL differenza orologi
+F1T_PING_COUNT             # ping per la perdita pacchetti
+F1T_DISCOVERY_TIMEOUT_S    # secondi per il test di discovery
+F1T_HIL_LOG_DIR            # cartella dei log HIL

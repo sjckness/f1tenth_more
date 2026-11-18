@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# f1t: entrypoint unico del tooling. Il codice sta in tools/core/f1t.sh (f1t help).
+exec "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/core/f1t.sh" "$@"

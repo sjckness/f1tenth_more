@@ -1,0 +1,28 @@
+# tools/core: shellcheck + f1t selftest su ogni push/PR che lo tocca; sulle PR anche il bump di
+# VERSION + voce nel CHANGELOG. Cancello 1 e 3 della rete di sicurezza (tools/core/README.md).
+name: tools-core
+on:
+  push:
+    paths: ['tools/core/**', 'tools/f1t', '.github/workflows/tools-core.yml']
+  pull_request:
+    paths: ['tools/core/**', 'tools/f1t', '.github/workflows/tools-core.yml']
+jobs:
+  core:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: shellcheck
+        run: |
+          python3 -m pip install --quiet --user shellcheck-py
+          find tools/f1t tools/core -type f \( -name '*.sh' -o -name f1t -o -name pre-commit -o -name completion.bash \) -print0 \
+            | xargs -0 "$HOME/.local/bin/shellcheck" -x
+      - name: python
+        run: find tools/core -name '*.py' -print0 | xargs -0 python3 -m py_compile
+      - name: f1t selftest
+        run: tools/f1t selftest -v
+      - name: VERSION e CHANGELOG di tools/core
+        if: github.event_name == 'pull_request'
+        run: tools/f1t ci check-core-version "origin/${{ github.base_ref }}"

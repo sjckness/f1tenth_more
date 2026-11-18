@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copia di src/f1tenth_bringup/config/sim/dds/hil.xml.in del branch hil-isaac (ec389d52), usata da
+     tools/core/hil (f1t hil): reso per host da run.sh con @ETH_IP@ @SHM_TRANSPORT@ @BUFFER_BYTES@
+     @FLOW_BYTES@ @ASYNC_WRITER@. Le motivazioni (buffer 16 MB, lease 5 s) sono nel file originale. -->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>f1t_shm</transport_id>
+      <type>SHM</type>
+    </transport_descriptor>
+    <transport_descriptor>
+      <transport_id>f1t_udp_hil</transport_id>
+      <type>UDPv4</type>
+      <maxMessageSize>65000</maxMessageSize>
+      <sendBufferSize>@BUFFER_BYTES@</sendBufferSize>
+      <receiveBufferSize>@BUFFER_BYTES@</receiveBufferSize>
+      <interfaceWhiteList>
+        <address>@ETH_IP@</address>
+        <address>127.0.0.1</address>
+      </interfaceWhiteList>
+    </transport_descriptor>
+  </transport_descriptors>
+  <participant profile_name="f1tenth_hil" is_default_profile="true">
+    <rtps>
+      <builtin>
+        <discovery_config>
+          <leaseDuration><sec>5</sec></leaseDuration>
+          <leaseAnnouncement><sec>1</sec></leaseAnnouncement>
+        </discovery_config>
+      </builtin>
+      <userTransports>
+        @SHM_TRANSPORT@
+        <transport_id>f1t_udp_hil</transport_id>
+      </userTransports>
+      <useBuiltinTransports>false</useBuiltinTransports>
+      <flow_controller_descriptors>
+        <flow_controller_descriptor>
+          <name>hil_images</name>
+          <scheduler>FIFO</scheduler>
+          <max_bytes_per_period>@FLOW_BYTES@</max_bytes_per_period>
+          <period_ms>10</period_ms>
+        </flow_controller_descriptor>
+      </flow_controller_descriptors>
+    </rtps>
+  </participant>
+@ASYNC_WRITER@
+</profiles>

@@ -1,0 +1,23 @@
+# Chiavi di tools/core/hil/scenarios/<nome>.env. "?CHIAVE" = facoltativa.
+SCENARIO_DESC          # una riga: cosa prova lo scenario
+SCENARIO_SETUP         # da quale setup esistente viene (branch, script, documento)
+SIM_CMD                # comando della sim, eseguito in HOST_HIL_WORKTREE sull'host della sim
+SIM_CONTAINER          # container Docker di Isaac Sim (per lo stop)
+SIM_TIMEOUT_S          # attesa massima dei topic della sim (Isaac: 20-70 s al primo /clock)
+SIM_TOPICS             # topic attesi dalla sim, "topic:hz ..." (hz 0 = basta vederlo)
+?BRIDGE_CMD            # comando del bridge sull'host della sim (vuoto: il bridge ROS e' dentro Isaac)
+BRIDGE_TOPICS          # topic della sim che l'Orin deve vedere attraverso il collegamento
+STACK_CONTAINER        # container HIL sull'Orin (mai f1tenth_car)
+?STACK_IMAGE           # immagine dello stack (vuoto: quella fissata sull'Orin, la stessa dell'auto)
+STACK_LAUNCH_ARGS      # argomenti di supervisor_bringup.launch.py
+STACK_TIMEOUT_S        # attesa massima dei topic dello stack
+STACK_TOPICS           # topic attesi dallo stack, "topic:hz ..."
+HIL_DOMAIN_ID          # ROS_DOMAIN_ID dei due lati (44: libero; 0 auto, 42 sim con la Thor)
+HIL_RMW                # rmw_fastrtps_cpp (Isaac 5.1 non ha Zenoh)
+HIL_DS_PORT            # porta del Discovery Server sull'Orin (11812: la 11811 e' dell'auto)
+HIL_SOCKET_BUFFER_MB   # buffer socket Fast DDS (hil.yaml link.socket_buffer_mb)
+DRIVE_S                # secondi di guida in rettilineo (0 = niente guida)
+?DRIVE_SPEED           # m/s
+?DRIVE_TOPIC           # topic del comando (hil_check usa /ackermann_drive, l'uscita del mux)
+?DRIVE_MIN_DIST_M      # spostamento minimo su /odom perche' la guida sia OK
+AUTO_DOWN              # 1 = run.sh chiude tutto alla fine (smoke); 0 = resta su fino a f1t hil down

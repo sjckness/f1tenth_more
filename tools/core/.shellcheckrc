@@ -1,0 +1,8 @@
+# shellcheck di tools/core (CI: .github/workflows/tools-core.yml).
+# A && B || C: qui B e' sempre check_record/log_*, che ritornano 0 (SC2015).
+disable=SC2015
+# Funzioni passate a check / stop_group: invocate indirettamente (SC2329).
+disable=SC2329
+# ls -t per ordinare per data (SC2012).
+disable=SC2012
+external-sources=true
