@@ -151,6 +151,7 @@ in mpc_corr).
 """
 
 import array
+import dataclasses
 import itertools
 import json
 import math
@@ -1157,10 +1158,19 @@ class SemanticLayerNode(Node):
         self._velocity.retain(t.track_id for t in self._tracks)
 
     def _velocity_of(self, trk):
-        """Return the track's VelocityEstimate, or None (feature off, never measured)."""
+        """
+        Return the track's VelocityEstimate, or None (feature off, never measured).
+
+        An ELONGATED unknown cluster (unknown_objects.track_disks draws it as a chain: a wall
+        stub, a cabinet run) is never v_valid: its centroid slides along it as the visible part
+        changes while the car drives (seen in Isaac: a wall chain behind the car at 0.29 m/s).
+        """
         if not self.velocity_enabled:
             return None
-        return self._velocity.estimate(trk.track_id)
+        est = self._velocity.estimate(trk.track_id)
+        if est is not None and est.valid and uo.is_elongated(trk):
+            est = dataclasses.replace(est, valid=False)
+        return est
 
     def _odom_yaw_now(self):
         return self._odom_history[-1][1][2] if self._odom_history else None
