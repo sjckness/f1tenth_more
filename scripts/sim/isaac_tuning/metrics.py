@@ -106,7 +106,20 @@ def compute(run_dir: str) -> dict:
                  _f(meta.get('t_end')))
     final_state = next((s for t, s in states if t >= t_run and s in ('COMPLETE', 'ABORTED', 'IDLE')),
                        None)
-    window = [r for r in gt if t_run <= _f(r['t']) <= t_end + 1e-6]
+    # finite only: after a hard contact with a kinematic cylinder Isaac's car can go NaN (seen in
+    # dodge runs); the run is a collision already, its NaN tail must not become a 20 m lateral error
+    # The window ends at the first non-physical sample: after a hard contact with a kinematic
+    # cylinder Isaac's car can blow up (|v| of 1e3..1e7 m/s, then NaN; seen in dodge runs). The run
+    # is a collision already; its blown-up tail must not become a 20 m lateral error.
+    window = []
+    out['gt_blowup_t'] = None
+    for r in gt:
+        if not (t_run <= _f(r['t']) <= t_end + 1e-6):
+            continue
+        if not (math.isfinite(_f(r['x'])) and math.isfinite(_f(r['y'])) and abs(_f(r['v'], 0.0)) < 20.0):
+            out['gt_blowup_t'] = _f(r['t']) - t_run
+            break
+        window.append(r)
     if not window:
         out.update(outcome='invalid', score=None, valid=False, problem='no ground truth in the run')
         return out
