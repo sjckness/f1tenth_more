@@ -1,0 +1,35 @@
+{
+ "scenario": "S4",
+ "rep": 1,
+ "car": {
+  "x": 0.46502561890441296,
+  "y": 3.022979064041103,
+  "yaw_deg": 1.883644468006513
+ },
+ "obstacles": {
+  "cyl050": [
+   1.5,
+   3.0
+  ]
+ },
+ "obstacle_info": [
+  {
+   "id": "cyl050",
+   "x": 1.5,
+   "y": 3.0,
+   "ahead_m": 1.0,
+   "lateral_m": 0.0,
+   "radius_m": 0.25
+  }
+ ],
+ "mission": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "nominal_start": {
+  "x": 0.5,
+  "y": 3.0,
+  "yaw_deg": 0.0
+ }
+}

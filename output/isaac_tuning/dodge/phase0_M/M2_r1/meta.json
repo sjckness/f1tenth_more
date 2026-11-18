@@ -1,0 +1,159 @@
+{
+ "instance": {
+  "scenario": "M2",
+  "rep": 1,
+  "car": {
+   "x": 0.5383590520086347,
+   "y": 2.950967252836083,
+   "yaw_deg": 1.8845139508890405
+  },
+  "obstacles": {
+   "cyl050": [
+    4.0,
+    3.0
+   ]
+  },
+  "motion": {
+   "cyl050": {
+    "v": [
+     -0.25,
+     0.0
+    ],
+    "delay_s": 0.0,
+    "duration_s": 8.0
+   }
+  },
+  "obstacle_info": [
+   {
+    "id": "cyl050",
+    "x": 4.0,
+    "y": 3.0,
+    "ahead_m": 3.5,
+    "lateral_m": 0.0,
+    "radius_m": 0.25,
+    "motion": {
+     "v": [
+      -0.25,
+      0.0
+     ],
+     "delay_s": 0.0,
+     "duration_s": 8.0
+    }
+   }
+  ],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "output/isaac_tuning/dodge/phase0_M/M2_r1/mission.json",
+ "wall_start": 1794960554.750671,
+ "phases": {
+  "ready": 0.984,
+  "params": 0.865,
+  "scenario": 8.054,
+  "reset": 7.584,
+  "start": 0.008,
+  "record": 11.412
+ },
+ "exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64
+  },
+  "semantic_layer_node": {
+   "unknown_objects_mode": "active"
+  }
+ },
+ "scenario_applied": {
+  "seq": 6035004,
+  "ok": true,
+  "message": "reset #11: car and person at start poses",
+  "sim_time": 214.98333333333332,
+  "car": {
+   "x": 0.5383590520086347,
+   "y": 2.950967252836083,
+   "yaw_deg": 1.8845139508890405
+  },
+  "obstacles": {
+   "cyl050": [
+    4.0,
+    3.0
+   ],
+   "cyl100": null
+  },
+  "motion": {
+   "cyl050": {
+    "v": [
+     -0.25,
+     0.0
+    ],
+    "delay_s": 0.0,
+    "duration_s": 8.0
+   }
+  }
+ },
+ "reset_all": {
+  "success": true,
+  "message": "reset done in 5.6 s: stop 0.9s, wheel_odom 0.0s, ekf_local 0.0s, slam 4.6s, ekf_global 0.0s, nav2 skipped, hooks 0.0s"
+ },
+ "load_mission": {
+  "success": true,
+  "message": "loaded 'isaac_tuning_M2_r1', 1 moves"
+ },
+ "start_mission": {
+  "success": true,
+  "message": "started 'isaac_tuning_M2_r1'"
+ },
+ "t_running": 222.583333333,
+ "t_go": 222.583333333,
+ "t_end": 232.0,
+ "end_reason": "mission COMPLETE",
+ "rows": {
+  "gt": 571,
+  "odom": 444,
+  "drive": 114,
+  "mux": 114,
+  "mission": 3,
+  "solver": 94,
+  "status": 94,
+  "hard_stop": 457,
+  "bt": 114,
+  "obstacles": 336,
+  "cpu": 57,
+  "movers": 228
+ },
+ "mission_states": [
+  [
+   199.3,
+   "ABORTED"
+  ],
+  [
+   222.583333333,
+   "LOADED"
+  ],
+  [
+   222.583333333,
+   "RUNNING"
+  ],
+  [
+   232.0,
+   "COMPLETE"
+  ]
+ ],
+ "wall_end": 1794960583.7885087
+}

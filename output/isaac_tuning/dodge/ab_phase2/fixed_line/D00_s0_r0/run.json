@@ -1,0 +1,118 @@
+{
+ "scenario": "D00_s0",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "end_reason": "mission COMPLETE",
+ "phases_wall_s": {
+  "ready": 12.79,
+  "params": 0.193,
+  "scenario": 0.015,
+  "reset": 7.425,
+  "start": 0.01,
+  "record": 11.485
+ },
+ "valid": true,
+ "gt_blowup_t": null,
+ "start_pose_map_sim": {
+  "x": 0.5199394288475842,
+  "y": 3.029150744181161,
+  "yaw_deg": 3.052641164719791
+ },
+ "progress_m": 2.871762490627641,
+ "max_lateral_error_m": 2.10841493728232,
+ "final_lateral_error_m": 2.10841493728232,
+ "final_heading_error_rad": 0.7700626212439736,
+ "duration_s": 9.5,
+ "time_to_goal_s": 9.5,
+ "obstacles": [
+  {
+   "id": "c030_0",
+   "r": 0.15,
+   "min_centre_dist_m": 0.9512618176565208,
+   "r_safe_ref_m": 0.47,
+   "margin_m": 0.4812618176565209,
+   "t_min_s": 2.5333333330000016,
+   "body_clearance_m": 0.5893463756662786,
+   "level": 0
+  },
+  {
+   "id": "c030_1",
+   "r": 0.15,
+   "min_centre_dist_m": 0.3721503001437018,
+   "r_safe_ref_m": 0.47,
+   "margin_m": -0.09784969985629816,
+   "t_min_s": 7.449999999999999,
+   "body_clearance_m": 0.019840147896965754,
+   "level": 1
+  }
+ ],
+ "min_margin_m": -0.09784969985629816,
+ "min_body_clearance_m": 0.019840147896965754,
+ "steer_sign_changes": 5,
+ "steer_sat": {
+  "n": 96,
+  "delta_frac": 0.08333333333333333,
+  "rate_frac": 0.10526315789473684,
+  "delta_any": true,
+  "rate_any": true
+ },
+ "solver_ticks": 93,
+ "solve_failures": 0,
+ "max_n_obstacles_seen": 30,
+ "solve_time_ms_p95": 0.0,
+ "solve_over_deadline": 0,
+ "mpc_cpu_ms_per_tick": 68.9247311827957,
+ "perceived_r_max_m": 0.0962342619895935,
+ "safety": {
+  "hard_stop_engaged": false,
+  "bt_trip": false,
+  "mux_safety_lanes": [],
+  "contact_event": false,
+  "events": []
+ },
+ "outcome": "success",
+ "mission_final_state": "COMPLETE",
+ "failure": {
+  "id": "c030_1",
+  "level": 1,
+  "margin_m": -0.09784969985629816,
+  "body_clearance_m": 0.019840147896965754,
+  "t_s": 7.449999999999999,
+  "steer_sat_before": {
+   "n": 15,
+   "delta_frac": 0.0,
+   "rate_frac": 0.21428571428571427,
+   "delta_any": false,
+   "rate_any": true
+  }
+ },
+ "return": {
+  "x_pass_m": 2.618007534310176,
+  "passed": true,
+  "swerve_side": 1.0,
+  "lateral_at_pass_m": 1.8570454341253702,
+  "return_time_s": null,
+  "overshoot_m": 0.0,
+  "crossings": 0,
+  "final_lateral_m": 2.10841493728232,
+  "time_after_pass_s": 0.7166666669999984
+ },
+ "score": 35.31025547691698,
+ "score_terms": {
+  "margin": 0.34766866762467896,
+  "time": 0.7368421052631579,
+  "osc": 0.3333333333333333,
+  "track": 0.0
+ },
+ "nominal": {
+  "distance_m": 3.5,
+  "speed_mps": 0.5,
+  "timeout_s": 15.0
+ },
+ "recorder_code": 0,
+ "wall_recorder_s": 33.2,
+ "isaac_alive_after": true
+}

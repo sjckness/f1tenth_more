@@ -1,0 +1,74 @@
+{
+ "scenario": "S5",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "end_reason": "mission COMPLETE",
+ "phases_wall_s": {
+  "ready": 3.118,
+  "params": 0.189,
+  "scenario": 0.013,
+  "reset": 6.971,
+  "start": 0.009,
+  "record": 10.697
+ },
+ "valid": true,
+ "gt_blowup_t": null,
+ "start_pose_map_sim": {
+  "x": 0.4496363377657925,
+  "y": 2.994988390540582,
+  "yaw_deg": 1.3038595424493542
+ },
+ "progress_m": 4.044346887229898,
+ "max_lateral_error_m": 0.07044433848706701,
+ "final_lateral_error_m": 0.058230466625377356,
+ "final_heading_error_rad": 0.04190617694986292,
+ "duration_s": 8.716666667000027,
+ "time_to_goal_s": 8.716666667000027,
+ "obstacles": [],
+ "min_margin_m": null,
+ "min_body_clearance_m": null,
+ "steer_sign_changes": 2,
+ "steer_sat": {
+  "n": 88,
+  "delta_frac": 0.022727272727272728,
+  "rate_frac": 0.04597701149425287,
+  "delta_any": true,
+  "rate_any": true
+ },
+ "solver_ticks": 87,
+ "solve_failures": 0,
+ "max_n_obstacles_seen": 26,
+ "solve_time_ms_p95": 0.0,
+ "solve_over_deadline": 0,
+ "mpc_cpu_ms_per_tick": 66.32183908045972,
+ "perceived_r_max_m": 0.05000000074505806,
+ "safety": {
+  "hard_stop_engaged": false,
+  "bt_trip": false,
+  "mux_safety_lanes": [],
+  "contact_event": false,
+  "events": []
+ },
+ "outcome": "success",
+ "mission_final_state": "COMPLETE",
+ "failure": null,
+ "return": null,
+ "score": 82.29639540306192,
+ "score_terms": {
+  "margin": 1.0,
+  "time": 0.9177820267335428,
+  "osc": 0.6666666666666666,
+  "track": 0.5303710767528866
+ },
+ "nominal": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "recorder_code": 0,
+ "wall_recorder_s": 22.8,
+ "isaac_alive_after": true
+}

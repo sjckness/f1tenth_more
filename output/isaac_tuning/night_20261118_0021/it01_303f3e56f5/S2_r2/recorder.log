@@ -1,0 +1,1 @@
+recorder: /reset_all failed: {'success': False, 'message': "step 'ekf_global' failed after 5.0 s: ekf_global: no response from /ekf_global/set_pose within 5 s"} (exit 4)

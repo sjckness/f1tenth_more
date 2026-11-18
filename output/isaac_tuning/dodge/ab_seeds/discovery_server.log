@@ -1,0 +1,10 @@
+[ensure_discovery_server] 127.0.0.1:11878 is free -- starting a fresh fastdds discovery server.
+### Server is running ###
+  Participant Type:   SERVER
+  Security:           NO
+  Server ID:          0
+  Server GUID prefix: 44.53.00.5f.45.50.52.4f.53.49.4d.41
+  Server Addresses:   UDPv4:[127.0.0.1]:11878
+[37;1m2026-11-18 05:03:01.363 [31;1m[[37;1mDISCOVERY_DATABASE[31;1m Error] [37mChange is not a DATA(p|Up): 0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0[34;1m -> Function [36mupdate[m
+
+### Server shut down ###

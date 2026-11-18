@@ -1,0 +1,34 @@
+[isaac_tuning 01:05:25] preflight ok {'free_disk_gb': 18.3, 'free_vram_mib': 6863}
+[isaac_tuning 01:05:27] discovery server {'port': 11878, 'pgid': 3180653}
+[isaac_tuning 01:05:50] isaac up {'wall_s': 22.7}
+[isaac_tuning 01:05:50] stack starting {'pgid': 3184116, 'log': 'stack_M1_r0.log'}
+[isaac_tuning 01:06:22] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/phase0_M/M1_r0', 'code': 4}
+[isaac_tuning 01:06:22] stopping stack: SIGTERM to process group 3184116
+[isaac_tuning 01:06:23] stopping stack: SIGTERM to what is left of process group 3184116
+[isaac_tuning 01:06:28] stopping stack: SIGKILL to what is left of process group 3184116
+[isaac_tuning 01:06:28] stack stopped {'wall_s': 5.8, 'leftovers': 0}
+[isaac_tuning 01:06:28] stack starting {'pgid': 3186894, 'log': 'stack_M1_r0.log'}
+[isaac_tuning 01:07:15] M1 r0: estop score=0.0 margin=-0.021639134034587726 wall=47.1s
+[isaac_tuning 01:07:57] M1 r1: estop score=0.0 margin=-0.015010332588828335 wall=42.0s
+[isaac_tuning 01:08:39] M1 r2: collision score=0.0 margin=-0.08589515649523788 wall=41.3s
+[isaac_tuning 01:09:13] M2 r0: collision score=0.0 margin=-0.19789306218598857 wall=33.3s
+[isaac_tuning 01:09:44] M2 r1: success score=57.652218257835365 margin=-0.0813013284290563 wall=30.7s
+[isaac_tuning 01:10:48] run setup failed: restarting the stack {'run': 'output/isaac_tuning/dodge/phase0_M/M2_r2', 'code': 4}
+[isaac_tuning 01:10:48] stopping stack: SIGTERM to process group 3186894
+[isaac_tuning 01:10:48] stopping stack: SIGTERM to what is left of process group 3186894
+[isaac_tuning 01:10:51] stack stopped {'wall_s': 3.3, 'leftovers': 0}
+[isaac_tuning 01:10:51] stack starting {'pgid': 3201520, 'log': 'stack_M2_r2.log'}
+[isaac_tuning 01:12:06] M2 r2: invalid score=None margin=None wall=74.9s
+[isaac_tuning 01:12:32] M3 r0: estop score=0.0 margin=0.019748708654950042 wall=25.7s
+[isaac_tuning 01:12:58] M3 r1: estop score=0.0 margin=0.012432180340060661 wall=26.2s
+[isaac_tuning 01:13:30] M3 r2: estop score=0.0 margin=-0.022584626626313997 wall=32.0s
+[isaac_tuning 01:13:56] M4 r0: success score=90.90696165682955 margin=0.16560946557686806 wall=25.1s
+[isaac_tuning 01:14:23] M4 r1: success score=82.63944701306359 margin=0.18382311626410652 wall=27.0s
+[isaac_tuning 01:14:48] M4 r2: success score=79.48022462925672 margin=0.0639878243554981 wall=25.7s
+[isaac_tuning 01:14:48] stopping stack: SIGTERM to process group 3201520
+[isaac_tuning 01:14:49] stopping stack: SIGTERM to what is left of process group 3201520
+[isaac_tuning 01:14:51] stack stopped {'wall_s': 2.3, 'leftovers': 0}
+[isaac_tuning 01:14:52] stopping isaac: SIGTERM to process group 3180796
+[isaac_tuning 01:14:52] stopping discovery server: SIGINT to process group 3180653
+[isaac_tuning 01:14:52] session closed {'container': False, 'leftovers': 0}
+[isaac_tuning 01:14:52] set phase0_M: score 19.9, all_good True, 12 runs in 540.4 s

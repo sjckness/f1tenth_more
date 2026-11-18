@@ -1,0 +1,68 @@
+{
+ "scenario": "P1",
+ "rep": 0,
+ "car": {
+  "x": 0.4738398554465453,
+  "y": 2.9941974021385183,
+  "yaw_deg": 0.1633441813636689
+ },
+ "obstacles": {
+  "p0": [
+   3.0,
+   0.6
+  ]
+ },
+ "motion": {
+  "p0": {
+   "type": "waypoints",
+   "points": [
+    [
+     3.0,
+     0.6
+    ],
+    [
+     3.0,
+     5.4
+    ]
+   ],
+   "speed": 1.0,
+   "delay_s": 0.5
+  }
+ },
+ "obstacle_info": [
+  {
+   "id": "p0",
+   "x": 3.0,
+   "y": 0.6000000000000001,
+   "ahead_m": 2.5,
+   "lateral_m": -2.4,
+   "radius_m": 0.29,
+   "class": "person",
+   "motion": {
+    "type": "waypoints",
+    "points": [
+     [
+      3.0,
+      0.6
+     ],
+     [
+      3.0,
+      5.4
+     ]
+    ],
+    "speed": 1.0,
+    "delay_s": 0.5
+   }
+  }
+ ],
+ "mission": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "nominal_start": {
+  "x": 0.5,
+  "y": 3.0,
+  "yaw_deg": 0.0
+ }
+}

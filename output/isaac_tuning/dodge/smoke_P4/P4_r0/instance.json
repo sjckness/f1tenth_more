@@ -1,0 +1,37 @@
+{
+ "scenario": "P4",
+ "rep": 0,
+ "car": {
+  "x": 0.4636221873425645,
+  "y": 3.004785284888156,
+  "yaw_deg": -1.345340624202814
+ },
+ "obstacles": {
+  "p0": [
+   2.5,
+   3.0
+  ]
+ },
+ "motion": {},
+ "obstacle_info": [
+  {
+   "id": "p0",
+   "x": 2.5,
+   "y": 3.0,
+   "ahead_m": 2.0,
+   "lateral_m": 0.0,
+   "radius_m": 0.29,
+   "class": "person"
+  }
+ ],
+ "mission": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "nominal_start": {
+  "x": 0.5,
+  "y": 3.0,
+  "yaw_deg": 0.0
+ }
+}

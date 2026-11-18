@@ -1,0 +1,120 @@
+{
+ "started": "2026-11-18T08:58:02",
+ "domain": 78,
+ "ds_port": 11878,
+ "events": [
+  {
+   "t": 1794988682.4,
+   "what": "preflight ok",
+   "free_disk_gb": 14.5,
+   "free_vram_mib": 6860
+  },
+  {
+   "t": 1794988684.4,
+   "what": "discovery server",
+   "port": 11878,
+   "pgid": 218378
+  },
+  {
+   "t": 1794988704.4,
+   "what": "isaac up",
+   "wall_s": 20.0
+  },
+  {
+   "t": 1794988704.4,
+   "what": "stack starting",
+   "pgid": 219670,
+   "log": "stack_D00_s0_r0.log"
+  },
+  {
+   "t": 1794989216.9,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/body/alpha_wake_body/D02_s1_r0",
+   "code": 2
+  },
+  {
+   "t": 1794989219.7,
+   "what": "stack stopped",
+   "wall_s": 2.8,
+   "leftovers": 0
+  },
+  {
+   "t": 1794989219.7,
+   "what": "stack starting",
+   "pgid": 238765,
+   "log": "stack_D02_s1_r0.log"
+  },
+  {
+   "t": 1794989318.2,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/body/alpha_wake_body/D02_s2_r0",
+   "code": 4
+  },
+  {
+   "t": 1794989319.2,
+   "what": "stack stopped",
+   "wall_s": 1.0,
+   "leftovers": 0
+  },
+  {
+   "t": 1794989319.2,
+   "what": "stack starting",
+   "pgid": 242919,
+   "log": "stack_D02_s2_r0.log"
+  },
+  {
+   "t": 1794989445.9,
+   "what": "isaac layout change: restarting",
+   "have": "dodge",
+   "want": "tuning"
+  },
+  {
+   "t": 1794989449.4,
+   "what": "stack stopped",
+   "wall_s": 3.5,
+   "leftovers": 0
+  },
+  {
+   "t": 1794989471.4,
+   "what": "isaac up",
+   "wall_s": 19.9
+  },
+  {
+   "t": 1794989471.4,
+   "what": "stack starting",
+   "pgid": 249686,
+   "log": "stack_M1_r0.log"
+  },
+  {
+   "t": 1794990310.7,
+   "what": "stack stopped",
+   "wall_s": 2.5,
+   "leftovers": 0
+  },
+  {
+   "t": 1794990313.0,
+   "what": "session closed",
+   "container": false,
+   "leftovers": 0
+  }
+ ],
+ "wall": {
+  "isaac_start_s": 19.9,
+  "stack_stop_s": [
+   2.8,
+   1.0,
+   3.5,
+   2.5
+  ]
+ },
+ "orphans": [],
+ "preflight": {
+  "free_disk_gb": 14.5,
+  "free_vram_mib": 6860
+ },
+ "final_check": {
+  "container_running": false,
+  "install_processes": []
+ },
+ "ended": "2026-11-18T09:25:12"
+}

@@ -1,0 +1,13 @@
+[isaac_tuning 01:47:42] preflight ok {'free_disk_gb': 17.2, 'free_vram_mib': 6766}
+[isaac_tuning 01:47:44] discovery server {'port': 11878, 'pgid': 3311016}
+[isaac_tuning 01:48:03] isaac up {'wall_s': 19.5}
+[isaac_tuning 01:48:03] stack starting {'pgid': 3312684, 'log': 'stack_M1_r0.log'}
+[isaac_tuning 01:48:38] M1 r0: success score=96.71933570803758 margin=0.5317490628010568 wall=34.8s
+[isaac_tuning 01:49:03] M1 r1: success score=80.40633701573455 margin=0.38344789688387126 wall=24.4s
+[isaac_tuning 01:49:03] stopping stack: SIGTERM to process group 3312684
+[isaac_tuning 01:49:03] stopping stack: SIGTERM to what is left of process group 3312684
+[isaac_tuning 01:49:04] stack stopped {'wall_s': 1.1, 'leftovers': 0}
+[isaac_tuning 01:49:05] stopping isaac: SIGTERM to process group 3311124
+[isaac_tuning 01:49:05] stopping discovery server: SIGINT to process group 3311016
+[isaac_tuning 01:49:05] session closed {'container': False, 'leftovers': 0}
+[isaac_tuning 01:49:05] done: 2/2 success, score 88.6 +- 8.2, orphans 0, out output/isaac_tuning/dodge/smoke_alpha_M1

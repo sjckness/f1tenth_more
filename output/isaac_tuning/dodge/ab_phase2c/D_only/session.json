@@ -1,0 +1,229 @@
+{
+ "started": "2026-11-18T06:19:01",
+ "domain": 78,
+ "ds_port": 11878,
+ "events": [
+  {
+   "t": 1794979141.8,
+   "what": "preflight ok",
+   "free_disk_gb": 15.4,
+   "free_vram_mib": 7010
+  },
+  {
+   "t": 1794979143.8,
+   "what": "discovery server",
+   "port": 11878,
+   "pgid": 4025780
+  },
+  {
+   "t": 1794979164.4,
+   "what": "isaac up",
+   "wall_s": 20.6
+  },
+  {
+   "t": 1794979164.4,
+   "what": "stack starting",
+   "pgid": 4027088,
+   "log": "stack_D00_s0_r0.log"
+  },
+  {
+   "t": 1794979302.0,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_only/baseline/D00_s2_r0",
+   "code": 4
+  },
+  {
+   "t": 1794979303.2,
+   "what": "stack stopped",
+   "wall_s": 1.3,
+   "leftovers": 0
+  },
+  {
+   "t": 1794979303.3,
+   "what": "stack starting",
+   "pgid": 4033282,
+   "log": "stack_D00_s2_r0.log"
+  },
+  {
+   "t": 1794979443.0,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_only/baseline/D00_s4_r0",
+   "code": 4
+  },
+  {
+   "t": 1794979444.8,
+   "what": "stack stopped",
+   "wall_s": 1.8,
+   "leftovers": 0
+  },
+  {
+   "t": 1794979444.8,
+   "what": "stack starting",
+   "pgid": 4039336,
+   "log": "stack_D00_s4_r0.log"
+  },
+  {
+   "t": 1794979550.3,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_only/baseline/D00_s5_r0",
+   "code": 4
+  },
+  {
+   "t": 1794979553.1,
+   "what": "stack stopped",
+   "wall_s": 2.8,
+   "leftovers": 0
+  },
+  {
+   "t": 1794979553.1,
+   "what": "stack starting",
+   "pgid": 4043941,
+   "log": "stack_D00_s5_r0.log"
+  },
+  {
+   "t": 1794979766.1,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_only/baseline/D01_s0_r0",
+   "code": 2
+  },
+  {
+   "t": 1794979771.9,
+   "what": "stack stopped",
+   "wall_s": 5.8,
+   "leftovers": 0
+  },
+  {
+   "t": 1794979771.9,
+   "what": "stack starting",
+   "pgid": 4052305,
+   "log": "stack_D01_s0_r0.log"
+  },
+  {
+   "t": 1794979823.0,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_only/baseline/D01_s1_r0",
+   "code": 4
+  },
+  {
+   "t": 1794979825.1,
+   "what": "stack stopped",
+   "wall_s": 2.0,
+   "leftovers": 0
+  },
+  {
+   "t": 1794979825.1,
+   "what": "stack starting",
+   "pgid": 4054922,
+   "log": "stack_D01_s1_r0.log"
+  },
+  {
+   "t": 1794979901.5,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_only/baseline/D01_s3_r0",
+   "code": 4
+  },
+  {
+   "t": 1794979904.3,
+   "what": "stack stopped",
+   "wall_s": 2.8,
+   "leftovers": 0
+  },
+  {
+   "t": 1794979904.3,
+   "what": "stack starting",
+   "pgid": 4058764,
+   "log": "stack_D01_s3_r0.log"
+  },
+  {
+   "t": 1794980011.5,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_only/baseline/D02_s0_r0",
+   "code": 4
+  },
+  {
+   "t": 1794980013.6,
+   "what": "stack stopped",
+   "wall_s": 2.1,
+   "leftovers": 0
+  },
+  {
+   "t": 1794980013.6,
+   "what": "stack starting",
+   "pgid": 4063711,
+   "log": "stack_D02_s0_r0.log"
+  },
+  {
+   "t": 1794980339.1,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_only/baseline/D02_s3_r0",
+   "code": 2
+  },
+  {
+   "t": 1794980342.4,
+   "what": "stack stopped",
+   "wall_s": 3.3,
+   "leftovers": 0
+  },
+  {
+   "t": 1794980342.4,
+   "what": "stack starting",
+   "pgid": 4076198,
+   "log": "stack_D02_s3_r0.log"
+  },
+  {
+   "t": 1794980398.2,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_only/baseline/D02_s4_r0",
+   "code": 4
+  },
+  {
+   "t": 1794980402.8,
+   "what": "stack stopped",
+   "wall_s": 4.5,
+   "leftovers": 0
+  },
+  {
+   "t": 1794980402.8,
+   "what": "stack starting",
+   "pgid": 4079124,
+   "log": "stack_D02_s4_r0.log"
+  },
+  {
+   "t": 1794980471.3,
+   "what": "stack stopped",
+   "wall_s": 1.1,
+   "leftovers": 0
+  },
+  {
+   "t": 1794980472.8,
+   "what": "session closed",
+   "container": false,
+   "leftovers": 0
+  }
+ ],
+ "wall": {
+  "isaac_start_s": 20.6,
+  "stack_stop_s": [
+   1.3,
+   1.8,
+   2.8,
+   5.8,
+   2.0,
+   2.8,
+   2.1,
+   3.3,
+   4.5,
+   1.1
+  ]
+ },
+ "orphans": [],
+ "preflight": {
+  "free_disk_gb": 15.4,
+  "free_vram_mib": 7010
+ },
+ "final_check": {
+  "container_running": false,
+  "install_processes": []
+ },
+ "ended": "2026-11-18T06:41:12"
+}

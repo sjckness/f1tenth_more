@@ -1,0 +1,19 @@
+component_supervisor_node:
+  ros__parameters:
+    sim_component_args:
+      diagnostics:
+        mission_logger_runs_dir: ~/f1tenth_sim_archive
+behavior_executor_node:
+  ros__parameters:
+    preflight_actuation_node: isaac_f1tenth_sim
+reset_manager:
+  ros__parameters:
+    wheel_odom:
+      method: service
+      service: /sim/reset
+mpc_corr:
+  ros__parameters:
+    corr_half_width_start_m: 0.64
+semantic_layer_node:
+  ros__parameters:
+    unknown_objects_mode: active

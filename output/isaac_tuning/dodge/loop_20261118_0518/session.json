@@ -1,0 +1,168 @@
+{
+ "started": "2026-11-18T05:18:49",
+ "domain": 78,
+ "ds_port": 11878,
+ "events": [
+  {
+   "t": 1794975529.5,
+   "what": "preflight ok",
+   "free_disk_gb": 16.1,
+   "free_vram_mib": 7014
+  },
+  {
+   "t": 1794975531.5,
+   "what": "discovery server",
+   "port": 11878,
+   "pgid": 3880072
+  },
+  {
+   "t": 1794975584.8,
+   "what": "isaac up",
+   "wall_s": 20.5
+  },
+  {
+   "t": 1794975584.8,
+   "what": "stack starting",
+   "pgid": 3882647,
+   "log": "stack_D00_s0_r0.log"
+  },
+  {
+   "t": 1794975720.6,
+   "what": "overlays changed: restarting the stack",
+   "scenario": "D00_s0"
+  },
+  {
+   "t": 1794975725.9,
+   "what": "stack stopped",
+   "wall_s": 5.3,
+   "leftovers": 0
+  },
+  {
+   "t": 1794975725.9,
+   "what": "stack starting",
+   "pgid": 3888829,
+   "log": "stack_D00_s0_r0.log"
+  },
+  {
+   "t": 1794976442.8,
+   "what": "overlays changed: restarting the stack",
+   "scenario": "D00_s0"
+  },
+  {
+   "t": 1794976445.1,
+   "what": "stack stopped",
+   "wall_s": 2.3,
+   "leftovers": 0
+  },
+  {
+   "t": 1794976445.1,
+   "what": "stack starting",
+   "pgid": 3914313,
+   "log": "stack_D00_s0_r0.log"
+  },
+  {
+   "t": 1794976571.5,
+   "what": "run setup failed: restarting the stack",
+   "run": "/home/andreas/dev_ws/f1tenth_isaac_tuning/output/isaac_tuning/dodge/loop_20261118_0518/it03_314d2e4c38/D00_s2_r0",
+   "code": 4
+  },
+  {
+   "t": 1794976574.3,
+   "what": "stack stopped",
+   "wall_s": 2.8,
+   "leftovers": 0
+  },
+  {
+   "t": 1794976574.3,
+   "what": "stack starting",
+   "pgid": 3919693,
+   "log": "stack_D00_s2_r0.log"
+  },
+  {
+   "t": 1794976633.5,
+   "what": "overlays changed: restarting the stack",
+   "scenario": "D00_s0"
+  },
+  {
+   "t": 1794976636.6,
+   "what": "stack stopped",
+   "wall_s": 3.1,
+   "leftovers": 0
+  },
+  {
+   "t": 1794976636.6,
+   "what": "stack starting",
+   "pgid": 3922734,
+   "log": "stack_D00_s0_r0.log"
+  },
+  {
+   "t": 1794976874.5,
+   "what": "run setup failed: restarting the stack",
+   "run": "/home/andreas/dev_ws/f1tenth_isaac_tuning/output/isaac_tuning/dodge/loop_20261118_0518/it04_0137cb414c/D00_s2_r0",
+   "code": 2
+  },
+  {
+   "t": 1794976881.8,
+   "what": "stack stopped",
+   "wall_s": 7.3,
+   "leftovers": 0
+  },
+  {
+   "t": 1794976881.9,
+   "what": "stack starting",
+   "pgid": 3932463,
+   "log": "stack_D00_s2_r0.log"
+  },
+  {
+   "t": 1794977509.2,
+   "what": "overlays changed: restarting the stack",
+   "scenario": "D00_s0"
+  },
+  {
+   "t": 1794977510.3,
+   "what": "stack stopped",
+   "wall_s": 1.1,
+   "leftovers": 0
+  },
+  {
+   "t": 1794977510.3,
+   "what": "stack starting",
+   "pgid": 3955155,
+   "log": "stack_D00_s0_r0.log"
+  },
+  {
+   "t": 1794977617.9,
+   "what": "stack stopped",
+   "wall_s": 2.3,
+   "leftovers": 0
+  },
+  {
+   "t": 1794977620.3,
+   "what": "session closed",
+   "container": false,
+   "leftovers": 0
+  }
+ ],
+ "wall": {
+  "isaac_start_s": 20.5,
+  "stack_stop_s": [
+   5.3,
+   2.3,
+   2.8,
+   3.1,
+   7.3,
+   1.1,
+   2.3
+  ]
+ },
+ "orphans": [],
+ "preflight": {
+  "free_disk_gb": 16.1,
+  "free_vram_mib": 7014
+ },
+ "final_check": {
+  "container_running": false,
+  "install_processes": []
+ },
+ "ended": "2026-11-18T05:53:40"
+}

@@ -1,0 +1,68 @@
+{
+ "scenario": "P2u",
+ "rep": 1,
+ "car": {
+  "x": 0.48112474962522844,
+  "y": 3.0103656759535906,
+  "yaw_deg": 1.8569789877633198
+ },
+ "obstacles": {
+  "p0": [
+   5.3,
+   3.0
+  ]
+ },
+ "motion": {
+  "p0": {
+   "type": "waypoints",
+   "points": [
+    [
+     5.3,
+     3.0
+    ],
+    [
+     1.1,
+     3.0
+    ]
+   ],
+   "speed": 0.5,
+   "delay_s": 0.0
+  }
+ },
+ "obstacle_info": [
+  {
+   "id": "p0",
+   "x": 5.3,
+   "y": 3.0,
+   "ahead_m": 4.8,
+   "lateral_m": 0.0,
+   "radius_m": 0.29,
+   "class": "person",
+   "motion": {
+    "type": "waypoints",
+    "points": [
+     [
+      5.3,
+      3.0
+     ],
+     [
+      1.1,
+      3.0
+     ]
+    ],
+    "speed": 0.5,
+    "delay_s": 0.0
+   }
+  }
+ ],
+ "mission": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "nominal_start": {
+  "x": 0.5,
+  "y": 3.0,
+  "yaw_deg": 0.0
+ }
+}

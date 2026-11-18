@@ -1,0 +1,91 @@
+{
+ "instance": {
+  "scenario": "S3",
+  "rep": 1,
+  "car": {
+   "x": 0.4880968988510165,
+   "y": 2.96601725518764,
+   "yaw_deg": -1.6373965356902358
+  },
+  "obstacles": {
+   "cyl050": [
+    2.0,
+    2.85
+   ]
+  },
+  "obstacle_info": [
+   {
+    "id": "cyl050",
+    "x": 2.0,
+    "y": 2.85,
+    "ahead_m": 1.5,
+    "lateral_m": -0.15,
+    "radius_m": 0.25
+   }
+  ],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "/home/andreas/dev_ws/f1tenth_isaac_tuning/output/isaac_tuning/night_20261118_0021/it01_303f3e56f5/S3_r1/mission.json",
+ "wall_start": 1794957871.2927303,
+ "phases": {
+  "ready": 1.287,
+  "params": 0.181,
+  "scenario": 0.027,
+  "reset": 11.183
+ },
+ "exit": {
+  "code": 4,
+  "reason": "/reset_all failed: {'success': False, 'message': \"step 'ekf_global' failed after 5.0 s: ekf_global: service /ekf_global/set_pose is not available\"}"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64
+  },
+  "semantic_layer_node": {
+   "unknown_objects_mode": "active"
+  }
+ },
+ "scenario_applied": {
+  "seq": 5768207,
+  "ok": true,
+  "message": "reset #15: car and person at start poses",
+  "sim_time": 191.01666666666665,
+  "car": {
+   "x": 0.4880968988510165,
+   "y": 2.96601725518764,
+   "yaw_deg": -1.6373965356902358
+  },
+  "obstacles": {
+   "cyl050": [
+    2.0,
+    2.85
+   ],
+   "cyl100": null
+  }
+ },
+ "reset_all": {
+  "success": false,
+  "message": "step 'ekf_global' failed after 5.0 s: ekf_global: service /ekf_global/set_pose is not available"
+ },
+ "mission_states": [
+  [
+   155.6,
+   "COMPLETE"
+  ]
+ ],
+ "wall_end": 1794957884.0990705
+}

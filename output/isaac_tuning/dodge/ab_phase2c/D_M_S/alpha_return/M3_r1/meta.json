@@ -1,0 +1,97 @@
+{
+ "instance": {
+  "scenario": "M3",
+  "rep": 1,
+  "car": {
+   "x": 0.475397157559177,
+   "y": 3.006995051301982,
+   "yaw_deg": 0.3629293214433629
+  },
+  "obstacles": {
+   "cyl050": [
+    2.5,
+    4.6
+   ]
+  },
+  "motion": {
+   "cyl050": {
+    "v": [
+     0.0,
+     -0.5
+    ],
+    "delay_s": 0.0,
+    "duration_s": 6.4
+   }
+  },
+  "obstacle_info": [
+   {
+    "id": "cyl050",
+    "x": 2.5,
+    "y": 4.6,
+    "ahead_m": 2.0,
+    "lateral_m": 1.6,
+    "radius_m": 0.25,
+    "motion": {
+     "v": [
+      0.0,
+      -0.5
+     ],
+     "delay_s": 0.0,
+     "duration_s": 6.4
+    }
+   }
+  ],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "output/isaac_tuning/dodge/ab_phase2c/D_M_S/alpha_return/M3_r1/mission.json",
+ "wall_start": 1794984333.2617536,
+ "phases": {
+  "ready": 41.833,
+  "params": 35.078
+ },
+ "exit": {
+  "code": 3,
+  "reason": "parameters not applied: semantic_layer_node.obstacle_class_margin_m: want '{\"person\": 0.5, \"unknown\": 0.0}', live None; semantic_layer_node.unknown_objects_mode: want 'active', live None; semantic_layer_node.semantic_track_velocity_enabled: want True, live None"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64,
+   "mpc_w_psi": 4.5,
+   "mpc_w_v": 4.2857,
+   "mpc_prediction_dt_s": 0.1,
+   "mpc_obs_vel_trust": 1.0,
+   "mpc_obs_wake_weight": 0.0,
+   "mpc_obs_wake_horizon_s": 1.0,
+   "mpc_obs_vel_lead_s": 0.0,
+   "mpc_obstacle_side_mode": "fixed",
+   "corridor_lateral_reanchor": false,
+   "mpc_return_gain": 1.0,
+   "mpc_return_lookahead_ratio": 2.5,
+   "mpc_return_psi_scale": 0.5,
+   "mpc_return_max_heading_deg": 35.0,
+   "mpc_return_overshoot_max_m": 0.15
+  },
+  "semantic_layer_node": {}
+ },
+ "mission_states": [
+  [
+   348.483333333,
+   "IDLE"
+  ]
+ ],
+ "wall_end": 1794984410.2690876
+}

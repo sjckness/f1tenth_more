@@ -1,0 +1,15 @@
+[isaac_tuning 01:17:58] preflight ok {'free_disk_gb': 17.3, 'free_vram_mib': 6749}
+[isaac_tuning 01:18:00] discovery server {'port': 11878, 'pgid': 3231438}
+[isaac_tuning 01:18:19] isaac up {'wall_s': 19.6}
+[isaac_tuning 01:18:19] stack starting {'pgid': 3232941, 'log': 'stack_D00_s0_r0.log'}
+[isaac_tuning 01:18:51] D00_s0 r0: collision score=0.0 margin=-0.11916454573765012 wall=32.2s
+[isaac_tuning 01:19:22] D00_s1 r0: collision score=0.0 margin=-0.08312153585078397 wall=31.0s
+[isaac_tuning 01:19:45] D00_s2 r0: success score=94.3673447753269 margin=0.49780019284429167 wall=22.7s
+[isaac_tuning 01:19:45] ramp d=0: 1/3 good FAIL
+[isaac_tuning 01:19:45] stopping stack: SIGTERM to process group 3232941
+[isaac_tuning 01:19:46] stopping stack: SIGTERM to what is left of process group 3232941
+[isaac_tuning 01:19:48] stack stopped {'wall_s': 3.3, 'leftovers': 0}
+[isaac_tuning 01:19:50] stopping isaac: SIGTERM to process group 3231565
+[isaac_tuning 01:19:50] stopping discovery server: SIGINT to process group 3231438
+[isaac_tuning 01:19:50] session closed {'container': False, 'leftovers': 0}
+[isaac_tuning 01:19:50] ramp baseline: d_fail 0, passed up to None, 112.6 s, out output/isaac_tuning/dodge/ramp_baseline

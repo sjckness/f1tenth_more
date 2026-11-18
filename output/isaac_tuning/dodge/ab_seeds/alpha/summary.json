@@ -1,0 +1,637 @@
+{
+ "variant": "alpha",
+ "params": {
+  "mpc_obs_vel_trust": 1.0
+ },
+ "ramp": {
+  "d_fail": 0,
+  "d_pass_max": null,
+  "seeds": [
+   3,
+   4,
+   5
+  ],
+  "levels": [
+   {
+    "d": 0,
+    "good": 1,
+    "n": 3,
+    "pass": false,
+    "invalid": 0,
+    "runs": [
+     {
+      "scenario": "D00_s3",
+      "rep": 0,
+      "outcome": "success",
+      "valid": true,
+      "score": 82.70331871547722,
+      "min_margin_m": -0.03955369441141082,
+      "min_body_clearance_m": 0.06356847051458994,
+      "max_lateral_error_m": 0.2896156853666042,
+      "steer_sign_changes": 1,
+      "steer_sat": {
+       "n": 80,
+       "delta_frac": 0.0,
+       "rate_frac": 0.05063291139240506,
+       "delta_any": false,
+       "rate_any": true
+      },
+      "failure": {
+       "id": "c030_0",
+       "level": 0,
+       "margin_m": -0.03955369441141082,
+       "body_clearance_m": 0.06356847051458994,
+       "t_s": 3.883333332999996,
+       "steer_sat_before": {
+        "n": 16,
+        "delta_frac": 0.0,
+        "rate_frac": 0.13333333333333333,
+        "delta_any": false,
+        "rate_any": true
+       }
+      },
+      "solve_time_ms_p95": 0.0,
+      "solve_over_deadline": 0,
+      "solve_failures": 0,
+      "progress_m": 3.543703173742332,
+      "time_to_goal_s": 7.983333333000019,
+      "return": {
+       "x_pass_m": 2.891201613544329,
+       "passed": true,
+       "swerve_side": 1.0,
+       "lateral_at_pass_m": 0.24682157271424443,
+       "return_time_s": null,
+       "overshoot_m": 0.0,
+       "crossings": 0,
+       "final_lateral_m": 0.2896156853666042,
+       "time_after_pass_s": 1.3166666670000495
+      }
+     },
+     {
+      "scenario": "D00_s4",
+      "rep": 0,
+      "outcome": "success",
+      "valid": true,
+      "score": 96.3655911928766,
+      "min_margin_m": 0.13446009916082524,
+      "min_body_clearance_m": 0.24121117188149552,
+      "max_lateral_error_m": 0.030097552446980758,
+      "steer_sign_changes": 0,
+      "steer_sat": {
+       "n": 80,
+       "delta_frac": 0.0,
+       "rate_frac": 0.0,
+       "delta_any": false,
+       "rate_any": false
+      },
+      "failure": null,
+      "solve_time_ms_p95": 0.0,
+      "solve_over_deadline": 0,
+      "solve_failures": 0,
+      "progress_m": 3.5653629989771702,
+      "time_to_goal_s": 7.900000000000034,
+      "return": {
+       "x_pass_m": 2.6722663986936612,
+       "passed": true,
+       "swerve_side": 1.0,
+       "lateral_at_pass_m": 0.01442316152029792,
+       "return_time_s": 0.0,
+       "overshoot_m": 0.0,
+       "crossings": 0,
+       "final_lateral_m": 0.030097552446980758,
+       "time_after_pass_s": 1.8000000000000682
+      }
+     },
+     {
+      "scenario": "D00_s5",
+      "rep": 0,
+      "outcome": "collision",
+      "valid": true,
+      "score": 0.0,
+      "min_margin_m": -0.14213591385101232,
+      "min_body_clearance_m": 0.0018488099130808955,
+      "max_lateral_error_m": 0.5353530476474705,
+      "steer_sign_changes": 1,
+      "steer_sat": {
+       "n": 82,
+       "delta_frac": 0.0,
+       "rate_frac": 0.012345679012345678,
+       "delta_any": false,
+       "rate_any": true
+      },
+      "failure": {
+       "id": "c030_0",
+       "level": 0,
+       "margin_m": -0.14213591385101232,
+       "body_clearance_m": 0.0018488099130808955,
+       "t_s": 3.6499999999999773,
+       "steer_sat_before": {
+        "n": 16,
+        "delta_frac": 0.0,
+        "rate_frac": 0.06666666666666667,
+        "delta_any": false,
+        "rate_any": true
+       }
+      },
+      "solve_time_ms_p95": 0.0,
+      "solve_over_deadline": 0,
+      "solve_failures": 0,
+      "progress_m": 3.302105319086748,
+      "time_to_goal_s": 8.149999999999977,
+      "return": {
+       "x_pass_m": 2.570256334889841,
+       "passed": true,
+       "swerve_side": 1.0,
+       "lateral_at_pass_m": 0.11646210536500567,
+       "return_time_s": null,
+       "overshoot_m": 0.2505271362766204,
+       "crossings": 1,
+       "final_lateral_m": -0.2505271362766204,
+       "time_after_pass_s": 1.6499999999999773
+      }
+     }
+    ]
+   },
+   {
+    "d": 1,
+    "good": 0,
+    "n": 3,
+    "pass": false,
+    "invalid": 1,
+    "runs": [
+     {
+      "scenario": "D01_s3",
+      "rep": 0,
+      "outcome": "collision",
+      "valid": true,
+      "score": 0.0,
+      "min_margin_m": -0.1078909433906386,
+      "min_body_clearance_m": -0.050903439547485343,
+      "max_lateral_error_m": 0.16052143632545124,
+      "steer_sign_changes": 4,
+      "steer_sat": {
+       "n": 89,
+       "delta_frac": 0.10112359550561797,
+       "rate_frac": 0.14772727272727273,
+       "delta_any": true,
+       "rate_any": true
+      },
+      "failure": {
+       "id": "c050_0",
+       "level": 0,
+       "margin_m": -0.1078909433906386,
+       "body_clearance_m": -0.016038823925595858,
+       "t_s": 8.533333332999973,
+       "steer_sat_before": {
+        "n": 15,
+        "delta_frac": 0.0,
+        "rate_frac": 0.0,
+        "delta_any": false,
+        "rate_any": false
+       }
+      },
+      "solve_time_ms_p95": 0.0,
+      "solve_over_deadline": 0,
+      "solve_failures": 0,
+      "progress_m": 1.299586810881309,
+      "time_to_goal_s": 8.883333332999996,
+      "return": {
+       "x_pass_m": 2.743173103693737,
+       "passed": false
+      }
+     },
+     {
+      "scenario": "D01_s4",
+      "rep": 0,
+      "outcome": "invalid",
+      "valid": false,
+      "score": null,
+      "min_margin_m": null,
+      "min_body_clearance_m": null,
+      "max_lateral_error_m": null,
+      "steer_sign_changes": null,
+      "steer_sat": null,
+      "failure": null,
+      "solve_time_ms_p95": null,
+      "solve_over_deadline": null,
+      "solve_failures": null,
+      "progress_m": null,
+      "time_to_goal_s": null,
+      "return": null
+     },
+     {
+      "scenario": "D01_s5",
+      "rep": 0,
+      "outcome": "collision",
+      "valid": true,
+      "score": 0.0,
+      "min_margin_m": -0.12761321315995378,
+      "min_body_clearance_m": -0.06277986842910985,
+      "max_lateral_error_m": 1.732686520143233,
+      "steer_sign_changes": 3,
+      "steer_sat": {
+       "n": 152,
+       "delta_frac": 0.13815789473684212,
+       "rate_frac": 0.17218543046357615,
+       "delta_any": true,
+       "rate_any": true
+      },
+      "failure": {
+       "id": "c030_1",
+       "level": 0,
+       "margin_m": -0.12761321315995378,
+       "body_clearance_m": -0.06277986842910985,
+       "t_s": 12.333333333000041,
+       "steer_sat_before": {
+        "n": 15,
+        "delta_frac": 0.0,
+        "rate_frac": 0.07142857142857142,
+        "delta_any": false,
+        "rate_any": true
+       }
+      },
+      "solve_time_ms_p95": 0.0,
+      "solve_over_deadline": 0,
+      "solve_failures": 0,
+      "progress_m": 1.3530216970957418,
+      "time_to_goal_s": null,
+      "return": {
+       "x_pass_m": 2.7120376286781505,
+       "passed": false
+      }
+     }
+    ]
+   },
+   {
+    "d": 2,
+    "good": 1,
+    "n": 3,
+    "pass": false,
+    "invalid": 0,
+    "runs": [
+     {
+      "scenario": "D02_s3",
+      "rep": 0,
+      "outcome": "collision",
+      "valid": true,
+      "score": 0.0,
+      "min_margin_m": -0.11108018692422544,
+      "min_body_clearance_m": -0.031665452049479584,
+      "max_lateral_error_m": 2.24775075799096,
+      "steer_sign_changes": 5,
+      "steer_sat": {
+       "n": 152,
+       "delta_frac": 0.20394736842105263,
+       "rate_frac": 0.3708609271523179,
+       "delta_any": true,
+       "rate_any": true
+      },
+      "failure": {
+       "id": "c030_2",
+       "level": 1,
+       "margin_m": -0.11108018692422544,
+       "body_clearance_m": -0.031665452049479584,
+       "t_s": 10.733333332999905,
+       "steer_sat_before": {
+        "n": 15,
+        "delta_frac": 0.06666666666666667,
+        "rate_frac": 0.21428571428571427,
+        "delta_any": true,
+        "rate_any": true
+       }
+      },
+      "solve_time_ms_p95": 0.0,
+      "solve_over_deadline": 0,
+      "solve_failures": 0,
+      "progress_m": 2.280769070855701,
+      "time_to_goal_s": null,
+      "return": {
+       "x_pass_m": 2.6640451089183355,
+       "passed": false
+      }
+     },
+     {
+      "scenario": "D02_s4",
+      "rep": 0,
+      "outcome": "success",
+      "valid": true,
+      "score": 82.99936923856863,
+      "min_margin_m": 0.3456856570568153,
+      "min_body_clearance_m": 0.40573496339611104,
+      "max_lateral_error_m": 0.28989005756711034,
+      "steer_sign_changes": 3,
+      "steer_sat": {
+       "n": 81,
+       "delta_frac": 0.024691358024691357,
+       "rate_frac": 0.3375,
+       "delta_any": true,
+       "rate_any": true
+      },
+      "failure": null,
+      "solve_time_ms_p95": 0.0,
+      "solve_over_deadline": 0,
+      "solve_failures": 0,
+      "progress_m": 3.536056233688933,
+      "time_to_goal_s": 8.06666666700005,
+      "return": {
+       "x_pass_m": 2.748572432072475,
+       "passed": true,
+       "swerve_side": 1.0,
+       "lateral_at_pass_m": 0.2327370030938026,
+       "return_time_s": null,
+       "overshoot_m": 0.0,
+       "crossings": 0,
+       "final_lateral_m": 0.28989005756711034,
+       "time_after_pass_s": 1.5666666670000495
+      }
+     },
+     {
+      "scenario": "D02_s5",
+      "rep": 0,
+      "outcome": "collision",
+      "valid": true,
+      "score": 0.0,
+      "min_margin_m": -0.2047578006971128,
+      "min_body_clearance_m": -0.022031183973982682,
+      "max_lateral_error_m": 0.5822692418740006,
+      "steer_sign_changes": 4,
+      "steer_sat": {
+       "n": 70,
+       "delta_frac": 0.02857142857142857,
+       "rate_frac": 0.3333333333333333,
+       "delta_any": true,
+       "rate_any": true
+      },
+      "failure": {
+       "id": "c050_1",
+       "level": 1,
+       "margin_m": -0.2047578006971128,
+       "body_clearance_m": -0.022031183973982682,
+       "t_s": 6.766666666999981,
+       "steer_sat_before": {
+        "n": 15,
+        "delta_frac": 0.0,
+        "rate_frac": 0.07142857142857142,
+        "delta_any": false,
+        "rate_any": true
+       }
+      },
+      "solve_time_ms_p95": 0.0,
+      "solve_over_deadline": 0,
+      "solve_failures": 0,
+      "progress_m": 2.2679613792611257,
+      "time_to_goal_s": null,
+      "return": {
+       "x_pass_m": 2.8056869266870903,
+       "passed": false
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "D": {
+  "n": 9,
+  "valid": 8,
+  "good": 2,
+  "outcomes": {
+   "success": 3,
+   "collision": 5,
+   "estop": 0,
+   "stuck": 0,
+   "timeout": 0
+  },
+  "min_margin_m": -0.2047578006971128,
+  "mean_margin_m": -0.03161074952708915,
+  "max_lateral_m": 2.24775075799096,
+  "mean_max_lateral_m": 0.7335230374202264,
+  "returned": "1/4",
+  "mean_return_time_s": 0.0,
+  "max_overshoot_m": 0.2505271362766204,
+  "mean_final_lateral_m": 0.21503260791432893,
+  "max_sign_changes": 5,
+  "runs": [
+   {
+    "scenario": "D00_s3",
+    "rep": 0,
+    "outcome": "success",
+    "min_margin_m": -0.03955369441141082,
+    "max_lateral_error_m": 0.2896156853666042,
+    "steer_sign_changes": 1,
+    "return": {
+     "x_pass_m": 2.891201613544329,
+     "passed": true,
+     "swerve_side": 1.0,
+     "lateral_at_pass_m": 0.24682157271424443,
+     "return_time_s": null,
+     "overshoot_m": 0.0,
+     "crossings": 0,
+     "final_lateral_m": 0.2896156853666042,
+     "time_after_pass_s": 1.3166666670000495
+    },
+    "failure": {
+     "id": "c030_0",
+     "level": 0,
+     "margin_m": -0.03955369441141082,
+     "body_clearance_m": 0.06356847051458994,
+     "t_s": 3.883333332999996,
+     "steer_sat_before": {
+      "n": 16,
+      "delta_frac": 0.0,
+      "rate_frac": 0.13333333333333333,
+      "delta_any": false,
+      "rate_any": true
+     }
+    }
+   },
+   {
+    "scenario": "D00_s4",
+    "rep": 0,
+    "outcome": "success",
+    "min_margin_m": 0.13446009916082524,
+    "max_lateral_error_m": 0.030097552446980758,
+    "steer_sign_changes": 0,
+    "return": {
+     "x_pass_m": 2.6722663986936612,
+     "passed": true,
+     "swerve_side": 1.0,
+     "lateral_at_pass_m": 0.01442316152029792,
+     "return_time_s": 0.0,
+     "overshoot_m": 0.0,
+     "crossings": 0,
+     "final_lateral_m": 0.030097552446980758,
+     "time_after_pass_s": 1.8000000000000682
+    },
+    "failure": null
+   },
+   {
+    "scenario": "D00_s5",
+    "rep": 0,
+    "outcome": "collision",
+    "min_margin_m": -0.14213591385101232,
+    "max_lateral_error_m": 0.5353530476474705,
+    "steer_sign_changes": 1,
+    "return": {
+     "x_pass_m": 2.570256334889841,
+     "passed": true,
+     "swerve_side": 1.0,
+     "lateral_at_pass_m": 0.11646210536500567,
+     "return_time_s": null,
+     "overshoot_m": 0.2505271362766204,
+     "crossings": 1,
+     "final_lateral_m": -0.2505271362766204,
+     "time_after_pass_s": 1.6499999999999773
+    },
+    "failure": {
+     "id": "c030_0",
+     "level": 0,
+     "margin_m": -0.14213591385101232,
+     "body_clearance_m": 0.0018488099130808955,
+     "t_s": 3.6499999999999773,
+     "steer_sat_before": {
+      "n": 16,
+      "delta_frac": 0.0,
+      "rate_frac": 0.06666666666666667,
+      "delta_any": false,
+      "rate_any": true
+     }
+    }
+   },
+   {
+    "scenario": "D01_s3",
+    "rep": 0,
+    "outcome": "collision",
+    "min_margin_m": -0.1078909433906386,
+    "max_lateral_error_m": 0.16052143632545124,
+    "steer_sign_changes": 4,
+    "return": {
+     "x_pass_m": 2.743173103693737,
+     "passed": false
+    },
+    "failure": {
+     "id": "c050_0",
+     "level": 0,
+     "margin_m": -0.1078909433906386,
+     "body_clearance_m": -0.016038823925595858,
+     "t_s": 8.533333332999973,
+     "steer_sat_before": {
+      "n": 15,
+      "delta_frac": 0.0,
+      "rate_frac": 0.0,
+      "delta_any": false,
+      "rate_any": false
+     }
+    }
+   },
+   {
+    "scenario": "D01_s4",
+    "rep": 0,
+    "outcome": "invalid",
+    "min_margin_m": null,
+    "max_lateral_error_m": null,
+    "steer_sign_changes": null,
+    "return": null,
+    "failure": null
+   },
+   {
+    "scenario": "D01_s5",
+    "rep": 0,
+    "outcome": "collision",
+    "min_margin_m": -0.12761321315995378,
+    "max_lateral_error_m": 1.732686520143233,
+    "steer_sign_changes": 3,
+    "return": {
+     "x_pass_m": 2.7120376286781505,
+     "passed": false
+    },
+    "failure": {
+     "id": "c030_1",
+     "level": 0,
+     "margin_m": -0.12761321315995378,
+     "body_clearance_m": -0.06277986842910985,
+     "t_s": 12.333333333000041,
+     "steer_sat_before": {
+      "n": 15,
+      "delta_frac": 0.0,
+      "rate_frac": 0.07142857142857142,
+      "delta_any": false,
+      "rate_any": true
+     }
+    }
+   },
+   {
+    "scenario": "D02_s3",
+    "rep": 0,
+    "outcome": "collision",
+    "min_margin_m": -0.11108018692422544,
+    "max_lateral_error_m": 2.24775075799096,
+    "steer_sign_changes": 5,
+    "return": {
+     "x_pass_m": 2.6640451089183355,
+     "passed": false
+    },
+    "failure": {
+     "id": "c030_2",
+     "level": 1,
+     "margin_m": -0.11108018692422544,
+     "body_clearance_m": -0.031665452049479584,
+     "t_s": 10.733333332999905,
+     "steer_sat_before": {
+      "n": 15,
+      "delta_frac": 0.06666666666666667,
+      "rate_frac": 0.21428571428571427,
+      "delta_any": true,
+      "rate_any": true
+     }
+    }
+   },
+   {
+    "scenario": "D02_s4",
+    "rep": 0,
+    "outcome": "success",
+    "min_margin_m": 0.3456856570568153,
+    "max_lateral_error_m": 0.28989005756711034,
+    "steer_sign_changes": 3,
+    "return": {
+     "x_pass_m": 2.748572432072475,
+     "passed": true,
+     "swerve_side": 1.0,
+     "lateral_at_pass_m": 0.2327370030938026,
+     "return_time_s": null,
+     "overshoot_m": 0.0,
+     "crossings": 0,
+     "final_lateral_m": 0.28989005756711034,
+     "time_after_pass_s": 1.5666666670000495
+    },
+    "failure": null
+   },
+   {
+    "scenario": "D02_s5",
+    "rep": 0,
+    "outcome": "collision",
+    "min_margin_m": -0.2047578006971128,
+    "max_lateral_error_m": 0.5822692418740006,
+    "steer_sign_changes": 4,
+    "return": {
+     "x_pass_m": 2.8056869266870903,
+     "passed": false
+    },
+    "failure": {
+     "id": "c050_1",
+     "level": 1,
+     "margin_m": -0.2047578006971128,
+     "body_clearance_m": -0.022031183973982682,
+     "t_s": 6.766666666999981,
+     "steer_sat_before": {
+      "n": 15,
+      "delta_frac": 0.0,
+      "rate_frac": 0.07142857142857142,
+      "delta_any": false,
+      "rate_any": true
+     }
+    }
+   }
+  ]
+ },
+ "wall_s": 561.1
+}

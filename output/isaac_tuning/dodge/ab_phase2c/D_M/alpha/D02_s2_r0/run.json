@@ -1,0 +1,21 @@
+{
+ "scenario": "D02_s2",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 4,
+  "reason": "start_mission failed: {'success': False, 'message': \"cannot start: preflight liveness check failed -- mpc_corr: node 'mpc_corr' not found in the ROS graph (needed because every move type (goal_distance/goal_pose/turn/drive) is driven through it)\"}"
+ },
+ "end_reason": null,
+ "phases_wall_s": {
+  "ready": 14.868,
+  "params": 0.553,
+  "scenario": 0.031,
+  "reset": 8.954
+ },
+ "outcome": "invalid",
+ "score": null,
+ "valid": false,
+ "recorder_code": 4,
+ "wall_recorder_s": 25.7,
+ "isaac_alive_after": true
+}

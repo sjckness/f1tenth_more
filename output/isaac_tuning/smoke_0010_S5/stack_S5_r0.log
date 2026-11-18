@@ -1,0 +1,5 @@
+[sim_isaac 00:11:02] sourced host setup /home/andreas/dev_ws/jc_env.sh
+== stack (sim:=isaac, net local, domain 78, Discovery Server 127.0.0.1:11878) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/home/andreas/dev_ws/f1tenth_isaac_tuning/src/f1tenth_bringup/config/sim/dds/local.xml
+Terminated
+[sim_isaac 00:11:03] stopping the Discovery Server this script started (pid 2961775)

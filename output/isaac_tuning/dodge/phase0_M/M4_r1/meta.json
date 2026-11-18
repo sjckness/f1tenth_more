@@ -1,0 +1,159 @@
+{
+ "instance": {
+  "scenario": "M4",
+  "rep": 1,
+  "car": {
+   "x": 0.4584157947750784,
+   "y": 3.0239462541200295,
+   "yaw_deg": 2.0539871244326378
+  },
+  "obstacles": {
+   "cyl050": [
+    3.0,
+    1.8
+   ]
+  },
+  "motion": {
+   "cyl050": {
+    "v": [
+     0.0,
+     0.4
+    ],
+    "delay_s": 0.0,
+    "duration_s": 3.0
+   }
+  },
+  "obstacle_info": [
+   {
+    "id": "cyl050",
+    "x": 3.0,
+    "y": 1.8,
+    "ahead_m": 2.5,
+    "lateral_m": -1.2,
+    "radius_m": 0.25,
+    "motion": {
+     "v": [
+      0.0,
+      0.4
+     ],
+     "delay_s": 0.0,
+     "duration_s": 3.0
+    }
+   }
+  ],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "output/isaac_tuning/dodge/phase0_M/M4_r1/mission.json",
+ "wall_start": 1794960837.4367192,
+ "phases": {
+  "ready": 5.845,
+  "params": 0.12,
+  "scenario": 0.032,
+  "reset": 7.853,
+  "start": 0.004,
+  "record": 11.372
+ },
+ "exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64
+  },
+  "semantic_layer_node": {
+   "unknown_objects_mode": "active"
+  }
+ },
+ "scenario_applied": {
+  "seq": 6035010,
+  "ok": true,
+  "message": "reset #25: car and person at start poses",
+  "sim_time": 493.75,
+  "car": {
+   "x": 0.4584157947750784,
+   "y": 3.0239462541200295,
+   "yaw_deg": 2.0539871244326378
+  },
+  "obstacles": {
+   "cyl050": [
+    3.0,
+    1.8
+   ],
+   "cyl100": null
+  },
+  "motion": {
+   "cyl050": {
+    "v": [
+     0.0,
+     0.4
+    ],
+    "delay_s": 0.0,
+    "duration_s": 3.0
+   }
+  }
+ },
+ "reset_all": {
+  "success": true,
+  "message": "reset done in 5.8 s: stop 0.9s, wheel_odom 0.0s, ekf_local 0.0s, slam 4.8s, ekf_global 0.1s, nav2 skipped, hooks 0.0s"
+ },
+ "load_mission": {
+  "success": true,
+  "message": "loaded 'isaac_tuning_M4_r1', 1 moves"
+ },
+ "start_mission": {
+  "success": true,
+  "message": "started 'isaac_tuning_M4_r1'"
+ },
+ "t_running": 501.616666667,
+ "t_go": 501.616666667,
+ "t_end": 511.0,
+ "end_reason": "mission COMPLETE",
+ "rows": {
+  "gt": 569,
+  "odom": 444,
+  "drive": 113,
+  "mux": 113,
+  "mission": 3,
+  "solver": 92,
+  "status": 92,
+  "hard_stop": 455,
+  "bt": 114,
+  "obstacles": 363,
+  "cpu": 57,
+  "movers": 227
+ },
+ "mission_states": [
+  [
+   483.9,
+   "COMPLETE"
+  ],
+  [
+   501.616666667,
+   "LOADED"
+  ],
+  [
+   501.616666667,
+   "RUNNING"
+  ],
+  [
+   511.0,
+   "COMPLETE"
+  ]
+ ],
+ "wall_end": 1794960862.7891843
+}

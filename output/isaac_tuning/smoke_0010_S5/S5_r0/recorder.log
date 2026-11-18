@@ -1,0 +1,18 @@
+Traceback (most recent call last):
+  File "/home/andreas/dev_ws/f1tenth_isaac_tuning/scripts/sim/isaac_tuning/recorder.py", line 464, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/andreas/dev_ws/f1tenth_isaac_tuning/scripts/sim/isaac_tuning/recorder.py", line 341, in main
+    rec = Recorder(args.out)
+          ^^^^^^^^^^^^^^^^^^
+  File "/home/andreas/dev_ws/f1tenth_isaac_tuning/scripts/sim/isaac_tuning/recorder.py", line 131, in __init__
+    sub(Clock, '/clock', self._clock, BE)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1648, in create_subscription
+    subscription = Subscription(
+                   ^^^^^^^^^^^^^
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/subscription.py", line 73, in __init__
+    self.callback = callback
+    ^^^^^^^^^^^^^
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/subscription.py", line 127, in callback
+    raise RuntimeError(
+RuntimeError: Subscription.__init__(): callback should be either be callable with one argument(to get only the message) or two (to get message and message info)

@@ -1,0 +1,21 @@
+{
+ "scenario": "D00_s2",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 4,
+  "reason": "/reset_all failed: {'success': False, 'message': \"step 'stop' failed after 5.0 s: stop: no standstill on /odometry/filtered within 5 s (last speed nan m/s)\"}"
+ },
+ "end_reason": null,
+ "phases_wall_s": {
+  "ready": 14.629,
+  "params": 0.185,
+  "scenario": 0.013,
+  "reset": 11.07
+ },
+ "outcome": "invalid",
+ "score": null,
+ "valid": false,
+ "recorder_code": 4,
+ "wall_recorder_s": 27.2,
+ "isaac_alive_after": true
+}

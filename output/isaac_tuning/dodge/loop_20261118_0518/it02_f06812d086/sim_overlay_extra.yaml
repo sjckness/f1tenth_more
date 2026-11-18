@@ -1,0 +1,15 @@
+component_supervisor_node:
+  ros__parameters:
+    sim_component_args:
+      navigation:
+        cpu_affinity: 6,7
+        mpc_w_obs: 200.0
+        mpc_w_term: 9.0
+        mpc_w_corr: 3.5714
+        mpc_w_du_delta: 8.33
+        avoidance_margin: 0.12
+        mpc_w_psi: 4.5
+        mpc_w_v: 4.2857
+        mpc_prediction_dt_s: 0.15
+      perception:
+        yolo_cpu_affinity: 4,5

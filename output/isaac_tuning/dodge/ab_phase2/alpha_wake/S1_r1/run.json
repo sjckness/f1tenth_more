@@ -1,0 +1,95 @@
+{
+ "scenario": "S1",
+ "rep": 1,
+ "recorder_exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "end_reason": "mission COMPLETE",
+ "phases_wall_s": {
+  "ready": 2.993,
+  "params": 0.108,
+  "scenario": 0.027,
+  "reset": 7.825,
+  "start": 0.01,
+  "record": 12.394
+ },
+ "valid": true,
+ "gt_blowup_t": null,
+ "start_pose_map_sim": {
+  "x": 0.49567208291206205,
+  "y": 2.9657977719484987,
+  "yaw_deg": -0.6212183867718658
+ },
+ "progress_m": 3.8599597768298683,
+ "max_lateral_error_m": 1.2734302953359264,
+ "final_lateral_error_m": 1.2734302953359264,
+ "final_heading_error_rad": 0.08004590968798339,
+ "duration_s": 10.400000000000034,
+ "time_to_goal_s": 10.400000000000034,
+ "obstacles": [
+  {
+   "id": "cyl050",
+   "r": 0.25,
+   "min_centre_dist_m": 0.6878937516506154,
+   "r_safe_ref_m": 0.5700000000000001,
+   "margin_m": 0.11789375165061533,
+   "t_min_s": 3.9499999999999886,
+   "body_clearance_m": 0.25840537075769465,
+   "level": null
+  }
+ ],
+ "min_margin_m": 0.11789375165061533,
+ "min_body_clearance_m": 0.25840537075769465,
+ "steer_sign_changes": 1,
+ "steer_sat": {
+  "n": 105,
+  "delta_frac": 0.2,
+  "rate_frac": 0.11538461538461539,
+  "delta_any": true,
+  "rate_any": true
+ },
+ "solver_ticks": 103,
+ "solve_failures": 0,
+ "max_n_obstacles_seen": 29,
+ "solve_time_ms_p95": 0.0,
+ "solve_over_deadline": 0,
+ "mpc_cpu_ms_per_tick": 66.69902912621363,
+ "perceived_r_max_m": 0.25838255882263184,
+ "safety": {
+  "hard_stop_engaged": false,
+  "bt_trip": false,
+  "mux_safety_lanes": [],
+  "contact_event": false,
+  "events": []
+ },
+ "outcome": "success",
+ "mission_final_state": "COMPLETE",
+ "failure": null,
+ "return": {
+  "x_pass_m": 1.7538686731009583,
+  "passed": true,
+  "swerve_side": 1.0,
+  "lateral_at_pass_m": 0.967118666911935,
+  "return_time_s": null,
+  "overshoot_m": 0.0,
+  "crossings": 0,
+  "final_lateral_m": 1.2734302953359264,
+  "time_after_pass_s": 4.300000000000011
+ },
+ "score": 90.04822140541644,
+ "score_terms": {
+  "margin": 1.0,
+  "time": 0.7692307692307667,
+  "osc": 1.0,
+  "track": 0.7331803010400553
+ },
+ "nominal": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "recorder_code": 0,
+ "wall_recorder_s": 25.1,
+ "isaac_alive_after": true
+}

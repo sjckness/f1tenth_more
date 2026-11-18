@@ -1,0 +1,20 @@
+{
+ "mission_id": "isaac_tuning_P3_r2",
+ "schema_version": "3.0",
+ "moves": [
+  {
+   "id": "move_0_straight",
+   "drive": {
+    "mode": "straight",
+    "speed": 0.5
+   },
+   "stop_condition": {
+    "type": "distance_reached",
+    "distance": 4.0
+   },
+   "timeout_sec": 20.0,
+   "on_timeout": "abort",
+   "terminal": true
+  }
+ ]
+}

@@ -1,0 +1,392 @@
+{
+ "instance": {
+  "scenario": "D02_s3",
+  "rep": 0,
+  "car": {
+   "x": 0.46639559859526625,
+   "y": 3.0187989754439575,
+   "yaw_deg": 2.583361537332731
+  },
+  "obstacles": {
+   "c030_0": [
+    2.0,
+    0.977
+   ],
+   "c030_1": [
+    2.0,
+    2.6298
+   ],
+   "c030_2": [
+    3.0,
+    2.213
+   ],
+   "c030_3": [
+    3.0,
+    0.3876
+   ]
+  },
+  "motion": {
+   "c030_0": {
+    "type": "pingpong",
+    "a": [
+     2.0,
+     0.2
+    ],
+    "b": [
+     2.0,
+     4.1472
+    ],
+    "speed": 0.4,
+    "s0": 0.777,
+    "delay_s": 0.0
+   },
+   "c030_1": {
+    "type": "pingpong",
+    "a": [
+     2.0,
+     1.8528
+    ],
+    "b": [
+     2.0,
+     5.8
+    ],
+    "speed": 0.4,
+    "s0": 0.777,
+    "delay_s": 0.0
+   },
+   "c030_2": {
+    "type": "pingpong",
+    "a": [
+     3.0,
+     5.8
+    ],
+    "b": [
+     3.0,
+     2.0254
+    ],
+    "speed": 0.4,
+    "s0": 3.587,
+    "delay_s": 0.0
+   },
+   "c030_3": {
+    "type": "pingpong",
+    "a": [
+     3.0,
+     3.9746
+    ],
+    "b": [
+     3.0,
+     0.2
+    ],
+    "speed": 0.4,
+    "s0": 3.587,
+    "delay_s": 0.0
+   }
+  },
+  "obstacle_info": [
+   {
+    "id": "c030_0",
+    "x": 2.0,
+    "y": 0.9769999999999999,
+    "ahead_m": 1.5,
+    "lateral_m": -2.023,
+    "radius_m": 0.15,
+    "level": 0,
+    "motion": {
+     "type": "pingpong",
+     "a": [
+      2.0,
+      0.2
+     ],
+     "b": [
+      2.0,
+      4.1472
+     ],
+     "speed": 0.4,
+     "s0": 0.777,
+     "delay_s": 0.0
+    }
+   },
+   {
+    "id": "c030_1",
+    "x": 2.0,
+    "y": 2.6298,
+    "ahead_m": 1.5,
+    "lateral_m": -0.3702,
+    "radius_m": 0.15,
+    "level": 0,
+    "motion": {
+     "type": "pingpong",
+     "a": [
+      2.0,
+      1.8528
+     ],
+     "b": [
+      2.0,
+      5.8
+     ],
+     "speed": 0.4,
+     "s0": 0.777,
+     "delay_s": 0.0
+    }
+   },
+   {
+    "id": "c030_2",
+    "x": 3.0,
+    "y": 2.213,
+    "ahead_m": 2.5,
+    "lateral_m": -0.787,
+    "radius_m": 0.15,
+    "level": 1,
+    "motion": {
+     "type": "pingpong",
+     "a": [
+      3.0,
+      5.8
+     ],
+     "b": [
+      3.0,
+      2.0254
+     ],
+     "speed": 0.4,
+     "s0": 3.587,
+     "delay_s": 0.0
+    }
+   },
+   {
+    "id": "c030_3",
+    "x": 3.0,
+    "y": 0.38759999999999994,
+    "ahead_m": 2.5,
+    "lateral_m": -2.6124,
+    "radius_m": 0.15,
+    "level": 1,
+    "motion": {
+     "type": "pingpong",
+     "a": [
+      3.0,
+      3.9746
+     ],
+     "b": [
+      3.0,
+      0.2
+     ],
+     "speed": 0.4,
+     "s0": 3.587,
+     "delay_s": 0.0
+    }
+   }
+  ],
+  "mission": {
+   "distance_m": 3.5,
+   "speed_mps": 0.5,
+   "timeout_s": 15.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "output/isaac_tuning/dodge/ab_phase2c/D_M_rest/informed/D02_s3_r0/mission.json",
+ "wall_start": 1794986595.9031038,
+ "phases": {
+  "ready": 20.054,
+  "params": 0.102,
+  "scenario": 0.037,
+  "reset": 6.946,
+  "start": 0.01,
+  "record": 14.097
+ },
+ "exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64,
+   "mpc_w_psi": 4.5,
+   "mpc_w_v": 4.2857,
+   "mpc_prediction_dt_s": 0.1,
+   "mpc_obs_vel_trust": 0.0,
+   "mpc_obs_wake_weight": 0.0,
+   "mpc_obs_wake_horizon_s": 1.0,
+   "mpc_obs_vel_lead_s": 0.0,
+   "mpc_obs_body_probes": false,
+   "mpc_obstacle_side_mode": "informed",
+   "corridor_lateral_reanchor": true,
+   "mpc_return_gain": 0.0,
+   "mpc_return_lookahead_ratio": 0.0,
+   "mpc_return_psi_scale": 1.0,
+   "mpc_return_max_heading_deg": 35.0,
+   "mpc_return_overshoot_max_m": 0.15
+  },
+  "semantic_layer_node": {
+   "obstacle_class_margin_m": "{\"person\": 0.5, \"unknown\": 0.0}",
+   "unknown_objects_mode": "active",
+   "semantic_track_velocity_enabled": true
+  }
+ },
+ "scenario_applied": {
+  "seq": 8555615,
+  "ok": true,
+  "message": "reset #33: car and person at start poses",
+  "sim_time": 1040.8333333333333,
+  "car": {
+   "x": 0.46639559859526625,
+   "y": 3.0187989754439575,
+   "yaw_deg": 2.583361537332731
+  },
+  "obstacles": {
+   "c030_0": [
+    2.0,
+    0.977
+   ],
+   "c030_1": [
+    2.0,
+    2.6298
+   ],
+   "c030_2": [
+    3.0,
+    2.213
+   ],
+   "c030_3": [
+    3.0,
+    0.3876
+   ],
+   "c030_4": null,
+   "c030_5": null,
+   "c030_6": null,
+   "c030_7": null,
+   "c030_8": null,
+   "c030_9": null,
+   "c050_0": null,
+   "c050_1": null,
+   "c050_2": null,
+   "c050_3": null,
+   "c050_4": null,
+   "c050_5": null,
+   "c050_6": null,
+   "c050_7": null,
+   "c050_8": null,
+   "c050_9": null
+  },
+  "motion": {
+   "c030_0": {
+    "type": "pingpong",
+    "a": [
+     2.0,
+     0.2
+    ],
+    "b": [
+     2.0,
+     4.1472
+    ],
+    "speed": 0.4,
+    "s0": 0.777,
+    "delay_s": 0.0
+   },
+   "c030_1": {
+    "type": "pingpong",
+    "a": [
+     2.0,
+     1.8528
+    ],
+    "b": [
+     2.0,
+     5.8
+    ],
+    "speed": 0.4,
+    "s0": 0.777,
+    "delay_s": 0.0
+   },
+   "c030_2": {
+    "type": "pingpong",
+    "a": [
+     3.0,
+     5.8
+    ],
+    "b": [
+     3.0,
+     2.0254
+    ],
+    "speed": 0.4,
+    "s0": 3.587,
+    "delay_s": 0.0
+   },
+   "c030_3": {
+    "type": "pingpong",
+    "a": [
+     3.0,
+     3.9746
+    ],
+    "b": [
+     3.0,
+     0.2
+    ],
+    "speed": 0.4,
+    "s0": 3.587,
+    "delay_s": 0.0
+   }
+  }
+ },
+ "reset_all_failed_attempts": [],
+ "reset_all": {
+  "success": true,
+  "message": "reset done in 4.9 s: stop 1.0s, wheel_odom 0.1s, ekf_local 0.0s, slam 3.8s, ekf_global 0.0s, nav2 skipped, hooks 0.0s"
+ },
+ "load_mission": {
+  "success": true,
+  "message": "loaded 'isaac_tuning_D02_s3_r0', 1 moves"
+ },
+ "start_mission": {
+  "success": true,
+  "message": "started 'isaac_tuning_D02_s3_r0'"
+ },
+ "t_running": 1047.8,
+ "t_go": 1047.8,
+ "t_end": 1059.9,
+ "end_reason": "mission COMPLETE",
+ "rows": {
+  "gt": 705,
+  "odom": 666,
+  "drive": 141,
+  "mux": 315,
+  "mission": 3,
+  "solver": 116,
+  "status": 116,
+  "hard_stop": 564,
+  "bt": 141,
+  "obstacles": 1013,
+  "cpu": 71,
+  "movers": 1128
+ },
+ "mission_states": [
+  [
+   999.533333333,
+   "RUNNING"
+  ],
+  [
+   1040.7,
+   "ABORTED"
+  ],
+  [
+   1047.8,
+   "LOADED"
+  ],
+  [
+   1047.8,
+   "RUNNING"
+  ],
+  [
+   1059.9,
+   "COMPLETE"
+  ]
+ ],
+ "wall_end": 1794986637.313643
+}

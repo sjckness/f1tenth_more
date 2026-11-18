@@ -1,0 +1,6 @@
+{"t": 107.75, "data": "{\"event\": \"contact\", \"cause\": \"lidar return 0.007 m inside the footprint\", \"clearance_m\": -0.0065, \"source\": \"obstacle_clearance_node\"}"}
+{"t": 107.9, "data": "{\"event\": \"estop\", \"cause\": \"IsProximityTooClose\", \"source\": \"behavior_tree\", \"lane\": \"emergency\"}"}
+{"t": 113.683333333, "data": "{\"event\": \"contact\", \"cause\": \"lidar return 0.005 m inside the footprint\", \"clearance_m\": -0.0046, \"source\": \"obstacle_clearance_node\"}"}
+{"t": 114.0, "data": "{\"event\": \"estop\", \"cause\": \"IsProximityTooClose\", \"source\": \"behavior_tree\", \"lane\": \"emergency\"}"}
+{"t": 116.7, "data": "{\"event\": \"estop\", \"cause\": \"IsProximityTooClose\", \"source\": \"behavior_tree\", \"lane\": \"emergency\"}"}
+{"t": 117.55, "data": "{\"event\": \"contact\", \"cause\": \"lidar return 0.004 m inside the footprint\", \"clearance_m\": -0.0039, \"source\": \"obstacle_clearance_node\"}"}

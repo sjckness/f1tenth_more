@@ -1,0 +1,20 @@
+{
+ "scenario": "S2",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 3,
+  "reason": "parameters not applied: mpc_corr.mpc_w_obs: want 200.0, live None; mpc_corr.mpc_w_term: want 9.0, live None; mpc_corr.mpc_w_corr: want 3.5714, live None; mpc_corr.mpc_w_du_delta: want 8.33, live None; mpc_corr.avoidance_margin: want 0.12, live None; mpc_corr.corr_half_width_start_m: want 0.64, live None"
+ },
+ "end_reason": null,
+ "phases_wall_s": {
+  "ready": 14.149,
+  "params": 10.103
+ },
+ "outcome": "invalid",
+ "score": null,
+ "valid": false,
+ "recorder_code": 3,
+ "frames": 0,
+ "wall_recorder_s": 25.8,
+ "isaac_alive_after": true
+}

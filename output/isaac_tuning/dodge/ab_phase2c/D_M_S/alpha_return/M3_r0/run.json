@@ -1,0 +1,119 @@
+{
+ "scenario": "M3",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "end_reason": "mission COMPLETE",
+ "phases_wall_s": {
+  "ready": 3.076,
+  "params": 0.183,
+  "scenario": 8.021,
+  "reset": 9.726,
+  "start": 0.009,
+  "record": 16.328
+ },
+ "valid": true,
+ "gt_blowup_t": null,
+ "start_pose_map_sim": {
+  "x": 0.4461798744333668,
+  "y": 2.9971729008555172,
+  "yaw_deg": 2.657601612318687
+ },
+ "progress_m": 3.9842684326926907,
+ "max_lateral_error_m": 0.5524347217839767,
+ "final_lateral_error_m": 0.5409232276743692,
+ "final_heading_error_rad": 0.039577330811867185,
+ "duration_s": 14.333333333000013,
+ "time_to_goal_s": 14.333333333000013,
+ "obstacles": [
+  {
+   "id": "cyl050",
+   "r": 0.25,
+   "min_centre_dist_m": 0.4817154243917287,
+   "r_safe_ref_m": 0.5700000000000001,
+   "margin_m": -0.08828457560827135,
+   "t_min_s": 4.066666666000003,
+   "body_clearance_m": -0.052534143531631494,
+   "level": null
+  }
+ ],
+ "min_margin_m": -0.08828457560827135,
+ "min_body_clearance_m": -0.052534143531631494,
+ "steer_sign_changes": 3,
+ "steer_sat": {
+  "n": 144,
+  "delta_frac": 0.041666666666666664,
+  "rate_frac": 0.17482517482517482,
+  "delta_any": true,
+  "rate_any": true
+ },
+ "solver_ticks": 119,
+ "solve_failures": 0,
+ "max_n_obstacles_seen": 29,
+ "solve_time_ms_p95": 0.0,
+ "solve_over_deadline": 0,
+ "mpc_cpu_ms_per_tick": 74.36974789915965,
+ "perceived_r_max_m": 0.26191315054893494,
+ "safety": {
+  "hard_stop_engaged": true,
+  "bt_trip": true,
+  "mux_safety_lanes": [
+   "base_link/emergency",
+   "base_link/hard_stop"
+  ],
+  "contact_event": true,
+  "events": [
+   {
+    "event": "contact",
+    "cause": "lidar return 0.016 m inside the footprint",
+    "clearance_m": -0.0157,
+    "source": "obstacle_clearance_node"
+   },
+   {
+    "event": "estop",
+    "cause": "IsProximityTooClose",
+    "source": "behavior_tree",
+    "lane": "emergency"
+   }
+  ]
+ },
+ "outcome": "collision",
+ "mission_final_state": "COMPLETE",
+ "failure": {
+  "id": "cyl050",
+  "level": null,
+  "margin_m": -0.08828457560827135,
+  "body_clearance_m": -0.052534143531631494,
+  "t_s": 4.066666666000003,
+  "steer_sat_before": {
+   "n": 15,
+   "delta_frac": 0.06666666666666667,
+   "rate_frac": 0.8571428571428571,
+   "delta_any": true,
+   "rate_any": true
+  }
+ },
+ "return": {
+  "x_pass_m": 2.3759298730446545,
+  "passed": true,
+  "swerve_side": -1.0,
+  "lateral_at_pass_m": -0.5154698792261342,
+  "return_time_s": null,
+  "overshoot_m": 0.0,
+  "crossings": 0,
+  "final_lateral_m": -0.5409232276743692,
+  "time_after_pass_s": 3.25
+ },
+ "score": 0.0,
+ "score_terms": null,
+ "nominal": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "recorder_code": 0,
+ "wall_recorder_s": 39.1,
+ "isaac_alive_after": true
+}

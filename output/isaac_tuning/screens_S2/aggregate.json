@@ -1,0 +1,26 @@
+{
+ "n": 0,
+ "invalid": 1,
+ "success": 0,
+ "collision": 0,
+ "estop": 0,
+ "stuck": 0,
+ "timeout": 0,
+ "good": 0,
+ "score_mean": 0.0,
+ "score_std": 0.0,
+ "score_agg": 0.0,
+ "min_margin_m": null,
+ "max_lateral_m": null,
+ "max_sign_changes": null,
+ "solve_failures": 0,
+ "time_to_goal_mean_s": NaN,
+ "wall_total_s": 53.6,
+ "session": {
+  "isaac_start_s": 21.7,
+  "stack_stop_s": [
+   2.5
+  ]
+ },
+ "orphans": []
+}

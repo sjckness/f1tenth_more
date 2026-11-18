@@ -1,0 +1,31 @@
+{
+ "iteration": 1,
+ "max_iters": 10,
+ "phase": "done",
+ "sets": [
+  {
+   "iteration": 1,
+   "phase": "screen",
+   "hash": "303f3e56f5",
+   "score": 18.21139940519203,
+   "all_good": false,
+   "wall_s": 312.0,
+   "proposer": "start"
+  }
+ ],
+ "best_score": 18.21139940519203,
+ "best_params": {
+  "mpc_w_obs": 200.0,
+  "mpc_w_term": 9.0,
+  "mpc_w_corr": 3.5714,
+  "mpc_w_du_delta": 8.33,
+  "avoidance_margin": 0.12,
+  "corr_half_width_start_m": 0.64
+ },
+ "stop_reason": "stopped by request",
+ "gpu": {
+  "before": "stop rc=0 now inactive",
+  "after": "start rc=0 now active"
+ },
+ "last_proposer": "claude"
+}

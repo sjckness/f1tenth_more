@@ -1,0 +1,91 @@
+{
+ "instance": {
+  "scenario": "S2",
+  "rep": 2,
+  "car": {
+   "x": 0.4936193014061727,
+   "y": 3.0456451838691136,
+   "yaw_deg": 0.7368554734128088
+  },
+  "obstacles": {
+   "cyl100": [
+    2.0,
+    3.0
+   ]
+  },
+  "obstacle_info": [
+   {
+    "id": "cyl100",
+    "x": 2.0,
+    "y": 3.0,
+    "ahead_m": 1.5,
+    "lateral_m": 0.0,
+    "radius_m": 0.5
+   }
+  ],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "/home/andreas/dev_ws/f1tenth_isaac_tuning/output/isaac_tuning/night_20261118_0021/it01_303f3e56f5/S2_r2/mission.json",
+ "wall_start": 1794957841.1036277,
+ "phases": {
+  "ready": 2.716,
+  "params": 0.101,
+  "scenario": 0.008,
+  "reset": 9.183
+ },
+ "exit": {
+  "code": 4,
+  "reason": "/reset_all failed: {'success': False, 'message': \"step 'ekf_global' failed after 5.0 s: ekf_global: no response from /ekf_global/set_pose within 5 s\"}"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64
+  },
+  "semantic_layer_node": {
+   "unknown_objects_mode": "active"
+  }
+ },
+ "scenario_applied": {
+  "seq": 5768205,
+  "ok": true,
+  "message": "reset #11: car and person at start poses",
+  "sim_time": 162.15,
+  "car": {
+   "x": 0.4936193014061727,
+   "y": 3.0456451838691136,
+   "yaw_deg": 0.7368554734128088
+  },
+  "obstacles": {
+   "cyl050": null,
+   "cyl100": [
+    2.0,
+    3.0
+   ]
+  }
+ },
+ "reset_all": {
+  "success": false,
+  "message": "step 'ekf_global' failed after 5.0 s: ekf_global: no response from /ekf_global/set_pose within 5 s"
+ },
+ "mission_states": [
+  [
+   155.6,
+   "COMPLETE"
+  ]
+ ],
+ "wall_end": 1794957853.2306435
+}

@@ -14,6 +14,11 @@ python3 scripts/sim/isaac_tuning/tuning/check_params.py scripts/sim/isaac_tuning
 python3 -m pytest scripts/sim/isaac_tuning/test -q                  # pure parts, no ROS
 ```
 
+**Moving obstacles (mpc-dodge, 2026-11-18):** the dodge family D(d, seed) (`dodge.py`, Isaac layout
+`dodge`), `ramp.py` (climb to d_fail), `evaluate.py` (A/B of parameter sets on D, M1-M4, S1-S5),
+`tuning/dodge_loop.py` (the tuning loop on d_fail), persons P1-P4 (layout `people`), the analysis
+scripts in `analysis/`. Results and what is open: [`docs/mpc_dodge/REPORT.md`](../../../docs/mpc_dodge/REPORT.md).
+
 Output under `output/isaac_tuning/<timestamp>_<scenario>/`: one directory per run (CSV streams,
 `meta.json`, `run.json` with outcome, clearances and score), `session.json` (wall times, the
 orphan check), `aggregate.json`.

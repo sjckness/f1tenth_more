@@ -1,0 +1,131 @@
+{
+ "instance": {
+  "scenario": "S5",
+  "rep": 0,
+  "car": {
+   "x": 0.4721311806197911,
+   "y": 2.996141835051646,
+   "yaw_deg": 1.1605596369812572
+  },
+  "obstacles": {},
+  "motion": {},
+  "obstacle_info": [],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "output/isaac_tuning/dodge/ab_phase2c/D_M_S/alpha_return/S5_r0/mission.json",
+ "wall_start": 1794985087.7561505,
+ "phases": {
+  "ready": 3.118,
+  "params": 0.189,
+  "scenario": 0.013,
+  "reset": 6.971,
+  "start": 0.009,
+  "record": 10.697
+ },
+ "exit": {
+  "code": 0,
+  "reason": "mission COMPLETE"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64,
+   "mpc_w_psi": 4.5,
+   "mpc_w_v": 4.2857,
+   "mpc_prediction_dt_s": 0.1,
+   "mpc_obs_vel_trust": 1.0,
+   "mpc_obs_wake_weight": 0.0,
+   "mpc_obs_wake_horizon_s": 1.0,
+   "mpc_obs_vel_lead_s": 0.0,
+   "mpc_obstacle_side_mode": "fixed",
+   "corridor_lateral_reanchor": false,
+   "mpc_return_gain": 1.0,
+   "mpc_return_lookahead_ratio": 2.5,
+   "mpc_return_psi_scale": 0.5,
+   "mpc_return_max_heading_deg": 35.0,
+   "mpc_return_overshoot_max_m": 0.15
+  },
+  "semantic_layer_node": {
+   "obstacle_class_margin_m": "{\"person\": 0.5, \"unknown\": 0.0}",
+   "unknown_objects_mode": "active",
+   "semantic_track_velocity_enabled": true
+  }
+ },
+ "scenario_applied": {
+  "seq": 8327024,
+  "ok": true,
+  "message": "reset #54: car and person at start poses",
+  "sim_time": 1064.5,
+  "car": {
+   "x": 0.4721311806197911,
+   "y": 2.996141835051646,
+   "yaw_deg": 1.1605596369812572
+  },
+  "obstacles": {
+   "cyl050": null,
+   "cyl100": null
+  },
+  "motion": {}
+ },
+ "reset_all": {
+  "success": true,
+  "message": "reset done in 5.0 s: stop 0.6s, wheel_odom 0.0s, ekf_local 0.0s, slam 4.3s, ekf_global 0.0s, nav2 skipped, hooks 0.0s"
+ },
+ "load_mission": {
+  "success": true,
+  "message": "loaded 'isaac_tuning_S5_r0', 1 moves"
+ },
+ "start_mission": {
+  "success": true,
+  "message": "started 'isaac_tuning_S5_r0'"
+ },
+ "t_running": 1071.483333333,
+ "t_end": 1080.2,
+ "end_reason": "mission COMPLETE",
+ "rows": {
+  "gt": 536,
+  "odom": 408,
+  "drive": 107,
+  "mux": 107,
+  "mission": 3,
+  "solver": 87,
+  "status": 87,
+  "hard_stop": 429,
+  "bt": 107,
+  "obstacles": 138,
+  "cpu": 53,
+  "movers": 0
+ },
+ "mission_states": [
+  [
+   1057.6,
+   "ABORTED"
+  ],
+  [
+   1071.483333333,
+   "LOADED"
+  ],
+  [
+   1071.483333333,
+   "RUNNING"
+  ],
+  [
+   1080.2,
+   "COMPLETE"
+  ]
+ ],
+ "wall_end": 1794985108.8911846
+}

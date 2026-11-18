@@ -1,0 +1,21 @@
+{
+ "scenario": "S1",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 4,
+  "reason": "/reset_all failed: {'success': None, 'message': None}"
+ },
+ "end_reason": null,
+ "phases_wall_s": {
+  "ready": 17.835,
+  "params": 0.206,
+  "scenario": 0.009,
+  "reset": 60.008
+ },
+ "outcome": "invalid",
+ "score": null,
+ "valid": false,
+ "recorder_code": 4,
+ "wall_recorder_s": 79.4,
+ "isaac_alive_after": true
+}

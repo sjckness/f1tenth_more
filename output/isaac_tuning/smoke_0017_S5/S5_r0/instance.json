@@ -1,0 +1,21 @@
+{
+ "scenario": "S5",
+ "rep": 0,
+ "car": {
+  "x": 0.4721311806197911,
+  "y": 2.996141835051646,
+  "yaw_deg": 1.1605596369812572
+ },
+ "obstacles": {},
+ "obstacle_info": [],
+ "mission": {
+  "distance_m": 4.0,
+  "speed_mps": 0.5,
+  "timeout_s": 20.0
+ },
+ "nominal_start": {
+  "x": 0.5,
+  "y": 3.0,
+  "yaw_deg": 0.0
+ }
+}

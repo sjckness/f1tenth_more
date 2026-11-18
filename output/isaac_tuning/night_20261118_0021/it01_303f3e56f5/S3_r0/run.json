@@ -1,0 +1,21 @@
+{
+ "scenario": "S3",
+ "rep": 0,
+ "recorder_exit": {
+  "code": 4,
+  "reason": "/reset_all failed: {'success': False, 'message': \"step 'ekf_global' failed after 5.1 s: ekf_global: service /ekf_global/set_pose is not available\"}"
+ },
+ "end_reason": null,
+ "phases_wall_s": {
+  "ready": 2.847,
+  "params": 0.179,
+  "scenario": 0.007,
+  "reset": 11.685
+ },
+ "outcome": "invalid",
+ "score": null,
+ "valid": false,
+ "recorder_code": 4,
+ "wall_recorder_s": 16.4,
+ "isaac_alive_after": true
+}

@@ -1,0 +1,125 @@
+{
+ "instance": {
+  "scenario": "S4",
+  "rep": 2,
+  "car": {
+   "x": 0.4666284672880008,
+   "y": 3.035298380406579,
+   "yaw_deg": 1.4041880755570189
+  },
+  "obstacles": {
+   "cyl050": [
+    1.5,
+    3.0
+   ]
+  },
+  "obstacle_info": [
+   {
+    "id": "cyl050",
+    "x": 1.5,
+    "y": 3.0,
+    "ahead_m": 1.0,
+    "lateral_m": 0.0,
+    "radius_m": 0.25
+   }
+  ],
+  "mission": {
+   "distance_m": 4.0,
+   "speed_mps": 0.5,
+   "timeout_s": 20.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "/home/andreas/dev_ws/f1tenth_isaac_tuning/output/isaac_tuning/night_20261118_0039/it01_303f3e56f5/S4_r2/mission.json",
+ "wall_start": 1794959187.003887,
+ "phases": {
+  "ready": 1.484,
+  "params": 0.117,
+  "scenario": 0.015,
+  "reset": 6.426,
+  "start": 0.015,
+  "record": 23.939
+ },
+ "exit": {
+  "code": 0,
+  "reason": "sim timeout (mission still running)"
+ },
+ "params_applied": {
+  "mpc_corr": {
+   "mpc_w_obs": 200.0,
+   "mpc_w_term": 9.0,
+   "mpc_w_corr": 3.5714,
+   "mpc_w_du_delta": 8.33,
+   "avoidance_margin": 0.12,
+   "corr_half_width_start_m": 0.64
+  },
+  "semantic_layer_node": {
+   "unknown_objects_mode": "active"
+  }
+ },
+ "scenario_applied": {
+  "seq": 5881711,
+  "ok": true,
+  "message": "reset #23: car and person at start poses",
+  "sim_time": 372.75,
+  "car": {
+   "x": 0.4666284672880008,
+   "y": 3.035298380406579,
+   "yaw_deg": 1.4041880755570189
+  },
+  "obstacles": {
+   "cyl050": [
+    1.5,
+    3.0
+   ],
+   "cyl100": null
+  }
+ },
+ "reset_all": {
+  "success": true,
+  "message": "reset done in 4.4 s: stop 0.7s, wheel_odom 0.0s, ekf_local 0.0s, slam 3.5s, ekf_global 0.1s, nav2 skipped, hooks 0.0s"
+ },
+ "load_mission": {
+  "success": true,
+  "message": "loaded 'isaac_tuning_S4_r2', 1 moves"
+ },
+ "start_mission": {
+  "success": true,
+  "message": "started 'isaac_tuning_S4_r2'"
+ },
+ "t_running": 379.133333333,
+ "t_end": 401.15,
+ "end_reason": "sim timeout (mission still running)",
+ "rows": {
+  "gt": 1201,
+  "odom": 929,
+  "drive": 239,
+  "mux": 1626,
+  "mission": 2,
+  "solver": 240,
+  "status": 239,
+  "hard_stop": 961,
+  "bt": 240,
+  "obstacles": 1233,
+  "cpu": 119
+ },
+ "mission_states": [
+  [
+   369.9,
+   "ABORTED"
+  ],
+  [
+   379.133333333,
+   "LOADED"
+  ],
+  [
+   379.133333333,
+   "RUNNING"
+  ]
+ ],
+ "wall_end": 1794959219.1804028
+}

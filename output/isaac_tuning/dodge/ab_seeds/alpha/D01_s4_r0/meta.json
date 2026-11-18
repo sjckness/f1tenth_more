@@ -1,0 +1,171 @@
+{
+ "instance": {
+  "scenario": "D01_s4",
+  "rep": 0,
+  "car": {
+   "x": 0.48220225206244605,
+   "y": 3.026635474611697,
+   "yaw_deg": -2.578376869458113
+  },
+  "obstacles": {
+   "c030_0": [
+    2.0,
+    4.8848
+   ],
+   "c030_1": [
+    2.0,
+    3.1116
+   ],
+   "c030_2": [
+    3.0,
+    5.2781
+   ]
+  },
+  "motion": {
+   "c030_0": {
+    "type": "pingpong",
+    "a": [
+     2.0,
+     5.8
+    ],
+    "b": [
+     2.0,
+     1.9732
+    ],
+    "speed": 0.3,
+    "s0": 0.9152,
+    "delay_s": 0.0
+   },
+   "c030_1": {
+    "type": "pingpong",
+    "a": [
+     2.0,
+     4.0268
+    ],
+    "b": [
+     2.0,
+     0.2
+    ],
+    "speed": 0.3,
+    "s0": 0.9152,
+    "delay_s": 0.0
+   },
+   "c030_2": {
+    "type": "pingpong",
+    "a": [
+     3.0,
+     0.2
+    ],
+    "b": [
+     3.0,
+     5.8
+    ],
+    "speed": 0.3,
+    "s0": 5.0781,
+    "delay_s": 0.0
+   }
+  },
+  "obstacle_info": [
+   {
+    "id": "c030_0",
+    "x": 2.0,
+    "y": 4.8848,
+    "ahead_m": 1.5,
+    "lateral_m": 1.8848,
+    "radius_m": 0.15,
+    "level": 0,
+    "motion": {
+     "type": "pingpong",
+     "a": [
+      2.0,
+      5.8
+     ],
+     "b": [
+      2.0,
+      1.9732
+     ],
+     "speed": 0.3,
+     "s0": 0.9152,
+     "delay_s": 0.0
+    }
+   },
+   {
+    "id": "c030_1",
+    "x": 2.0,
+    "y": 3.1116,
+    "ahead_m": 1.5,
+    "lateral_m": 0.1116,
+    "radius_m": 0.15,
+    "level": 0,
+    "motion": {
+     "type": "pingpong",
+     "a": [
+      2.0,
+      4.0268
+     ],
+     "b": [
+      2.0,
+      0.2
+     ],
+     "speed": 0.3,
+     "s0": 0.9152,
+     "delay_s": 0.0
+    }
+   },
+   {
+    "id": "c030_2",
+    "x": 3.0,
+    "y": 5.2781,
+    "ahead_m": 2.5,
+    "lateral_m": 2.2781,
+    "radius_m": 0.15,
+    "level": 1,
+    "motion": {
+     "type": "pingpong",
+     "a": [
+      3.0,
+      0.2
+     ],
+     "b": [
+      3.0,
+      5.8
+     ],
+     "speed": 0.3,
+     "s0": 5.0781,
+     "delay_s": 0.0
+    }
+   }
+  ],
+  "mission": {
+   "distance_m": 3.5,
+   "speed_mps": 0.5,
+   "timeout_s": 15.0
+  },
+  "nominal_start": {
+   "x": 0.5,
+   "y": 3.0,
+   "yaw_deg": 0.0
+  }
+ },
+ "mission_path": "output/isaac_tuning/dodge/ab_seeds/alpha/D01_s4_r0/mission.json",
+ "wall_start": 1794974872.216754,
+ "phases": {
+  "ready": 20.256,
+  "params": 68.076
+ },
+ "exit": {
+  "code": 3,
+  "reason": "parameters not applied: mpc_corr.mpc_w_obs: want 200.0, live None; mpc_corr.mpc_w_term: want 9.0, live None; mpc_corr.mpc_w_corr: want 3.5714, live None; mpc_corr.mpc_w_du_delta: want 8.33, live None; mpc_corr.avoidance_margin: want 0.12, live None; mpc_corr.corr_half_width_start_m: want 0.64, live None; mpc_corr.mpc_w_psi: want 4.5, live None; mpc_corr.mpc_w_v: want 4.2857, live None; mpc_corr.mpc_prediction_dt_s: want 0.1, live None; mpc_corr.mpc_obs_vel_trust: want 1.0, live None; mpc_corr.mpc_obs_wake_weight: want 0.0, live None; mpc_corr.mpc_obs_wake_horizon_s: want 1.0, live None; mpc_corr.mpc_obs_vel_lead_s: want 0.0, live None; mpc_corr.mpc_obstacle_side_mode: want 'fixed', live None; mpc_corr.corridor_lateral_reanchor: want True, live None; mpc_corr.mpc_return_gain: want 0.0, live None; mpc_corr.mpc_return_lookahead_ratio: want 0.0, live None; mpc_corr.mpc_return_psi_scale: want 1.0, live None; mpc_corr.mpc_return_max_heading_deg: want 35.0, live None; mpc_corr.mpc_return_overshoot_max_m: want 0.15, live None; semantic_layer_node.obstacle_class_margin_m: want '{\"person\": 0.5, \"unknown\": 0.0}', live None; semantic_layer_node.unknown_objects_mode: want 'active', live None; semantic_layer_node.semantic_track_velocity_enabled: want True, live None"
+ },
+ "params_applied": {
+  "mpc_corr": {},
+  "semantic_layer_node": {}
+ },
+ "mission_states": [
+  [
+   608.15,
+   "IDLE"
+  ]
+ ],
+ "wall_end": 1794974960.641817
+}

@@ -1,0 +1,12 @@
+[isaac_tuning 00:48:21] preflight ok {'free_disk_gb': 18.9, 'free_vram_mib': 6863}
+[isaac_tuning 00:48:23] discovery server {'port': 11878, 'pgid': 3116269}
+[isaac_tuning 00:49:01] isaac up {'wall_s': 37.8}
+[isaac_tuning 00:49:01] stack starting {'pgid': 3126378, 'log': 'stack_M1_r0.log'}
+[isaac_tuning 00:49:48] M1 r0: collision score=0.0 margin=-0.02333490057302745 wall=47.4s
+[isaac_tuning 00:49:48] stopping stack: SIGTERM to process group 3126378
+[isaac_tuning 00:49:49] stopping stack: SIGTERM to what is left of process group 3126378
+[isaac_tuning 00:49:51] stack stopped {'wall_s': 3.0, 'leftovers': 0}
+[isaac_tuning 00:50:06] stopping isaac: SIGTERM to process group 3116735
+[isaac_tuning 00:50:06] stopping discovery server: SIGINT to process group 3116269
+[isaac_tuning 00:50:07] session closed {'container': False, 'leftovers': 0}
+[isaac_tuning 00:50:07] done: 0/1 success, score 0.0 +- 0.0, orphans 0, out output/isaac_tuning/moving_M1

@@ -1,0 +1,263 @@
+{
+ "started": "2026-11-18T08:05:54",
+ "domain": 78,
+ "ds_port": 11878,
+ "events": [
+  {
+   "t": 1794985554.3,
+   "what": "preflight ok",
+   "free_disk_gb": 14.8,
+   "free_vram_mib": 7013
+  },
+  {
+   "t": 1794985556.3,
+   "what": "discovery server",
+   "port": 11878,
+   "pgid": 97583
+  },
+  {
+   "t": 1794985576.4,
+   "what": "isaac up",
+   "wall_s": 20.2
+  },
+  {
+   "t": 1794985576.5,
+   "what": "stack starting",
+   "pgid": 98924,
+   "log": "stack_D00_s0_r0.log"
+  },
+  {
+   "t": 1794985823.9,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_M_rest/informed/D00_s2_r0",
+   "code": 2
+  },
+  {
+   "t": 1794985825.9,
+   "what": "stack stopped",
+   "wall_s": 2.0,
+   "leftovers": 0
+  },
+  {
+   "t": 1794985825.9,
+   "what": "stack starting",
+   "pgid": 108635,
+   "log": "stack_D00_s2_r0.log"
+  },
+  {
+   "t": 1794986066.8,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_M_rest/informed/D00_s3_r0",
+   "code": 2
+  },
+  {
+   "t": 1794986078.1,
+   "what": "stack stopped",
+   "wall_s": 11.3,
+   "leftovers": 0
+  },
+  {
+   "t": 1794986078.1,
+   "what": "stack starting",
+   "pgid": 117958,
+   "log": "stack_D00_s3_r0.log"
+  },
+  {
+   "t": 1794986297.4,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_M_rest/informed/D01_s3_r0",
+   "code": 4
+  },
+  {
+   "t": 1794986301.5,
+   "what": "stack stopped",
+   "wall_s": 4.0,
+   "leftovers": 0
+  },
+  {
+   "t": 1794986301.5,
+   "what": "stack starting",
+   "pgid": 126806,
+   "log": "stack_D01_s3_r0.log"
+  },
+  {
+   "t": 1794986461.8,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_M_rest/informed/D02_s1_r0",
+   "code": 4
+  },
+  {
+   "t": 1794986464.8,
+   "what": "stack stopped",
+   "wall_s": 3.0,
+   "leftovers": 0
+  },
+  {
+   "t": 1794986464.9,
+   "what": "stack starting",
+   "pgid": 133364,
+   "log": "stack_D02_s1_r0.log"
+  },
+  {
+   "t": 1794986824.2,
+   "what": "isaac layout change: restarting",
+   "have": "dodge",
+   "want": "tuning"
+  },
+  {
+   "t": 1794986835.5,
+   "what": "stack stopped",
+   "wall_s": 11.3,
+   "leftovers": 0
+  },
+  {
+   "t": 1794986857.5,
+   "what": "isaac up",
+   "wall_s": 20.0
+  },
+  {
+   "t": 1794986857.6,
+   "what": "stack starting",
+   "pgid": 147914,
+   "log": "stack_M1_r0.log"
+  },
+  {
+   "t": 1794987309.1,
+   "what": "stack stopped",
+   "wall_s": 3.0,
+   "leftovers": 0
+  },
+  {
+   "t": 1794987309.1,
+   "what": "isaac layout change: restarting",
+   "have": "tuning",
+   "want": "dodge"
+  },
+  {
+   "t": 1794987331.6,
+   "what": "isaac up",
+   "wall_s": 20.2
+  },
+  {
+   "t": 1794987331.6,
+   "what": "stack starting",
+   "pgid": 166164,
+   "log": "stack_D00_s0_r0.log"
+  },
+  {
+   "t": 1794987745.0,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_M_rest/all/D02_s1_r0",
+   "code": 4
+  },
+  {
+   "t": 1794987747.1,
+   "what": "stack stopped",
+   "wall_s": 2.0,
+   "leftovers": 0
+  },
+  {
+   "t": 1794987747.1,
+   "what": "stack starting",
+   "pgid": 182284,
+   "log": "stack_D02_s1_r0.log"
+  },
+  {
+   "t": 1794987966.2,
+   "what": "isaac layout change: restarting",
+   "have": "dodge",
+   "want": "tuning"
+  },
+  {
+   "t": 1794987969.8,
+   "what": "stack stopped",
+   "wall_s": 3.5,
+   "leftovers": 0
+  },
+  {
+   "t": 1794987991.4,
+   "what": "isaac up",
+   "wall_s": 20.2
+  },
+  {
+   "t": 1794987991.4,
+   "what": "stack starting",
+   "pgid": 192228,
+   "log": "stack_M1_r0.log"
+  },
+  {
+   "t": 1794988467.9,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_M_rest/all/M3_r2",
+   "code": 2
+  },
+  {
+   "t": 1794988470.7,
+   "what": "stack stopped",
+   "wall_s": 2.8,
+   "leftovers": 0
+  },
+  {
+   "t": 1794988470.7,
+   "what": "stack starting",
+   "pgid": 209393,
+   "log": "stack_M3_r2.log"
+  },
+  {
+   "t": 1794988568.4,
+   "what": "run setup failed: restarting the stack",
+   "run": "output/isaac_tuning/dodge/ab_phase2c/D_M_rest/all/M4_r0",
+   "code": 4
+  },
+  {
+   "t": 1794988571.5,
+   "what": "stack stopped",
+   "wall_s": 3.0,
+   "leftovers": 0
+  },
+  {
+   "t": 1794988571.5,
+   "what": "stack starting",
+   "pgid": 213675,
+   "log": "stack_M4_r0.log"
+  },
+  {
+   "t": 1794988680.9,
+   "what": "stack stopped",
+   "wall_s": 3.3,
+   "leftovers": 0
+  },
+  {
+   "t": 1794988682.2,
+   "what": "session closed",
+   "container": false,
+   "leftovers": 0
+  }
+ ],
+ "wall": {
+  "isaac_start_s": 20.2,
+  "stack_stop_s": [
+   2.0,
+   11.3,
+   4.0,
+   3.0,
+   11.3,
+   3.0,
+   2.0,
+   3.5,
+   2.8,
+   3.0,
+   3.3
+  ]
+ },
+ "orphans": [],
+ "preflight": {
+  "free_disk_gb": 14.8,
+  "free_vram_mib": 7013
+ },
+ "final_check": {
+  "container_running": false,
+  "install_processes": []
+ },
+ "ended": "2026-11-18T08:58:02"
+}
