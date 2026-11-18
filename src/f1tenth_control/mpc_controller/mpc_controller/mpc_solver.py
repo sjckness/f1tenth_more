@@ -264,6 +264,9 @@ STAGE_WEIGHT_REF_HORIZON = 7
 _STAGE_WEIGHT_KEYS = (
     "w_v",
     "w_obs",
+    # The wake ahead of a moving obstacle (obstacle_motion.py, mpc-dodge): the same per-stage
+    # soft term as w_obs, on its own discs. Absent unless mpc_obs_wake_weight > 0.
+    'w_obs_wake',
     "w_corr",
     # Cross-track to the TARGET LINE on the object branch. Per-stage for the
     # same reason w_corr is, and separated from it because the two now own
@@ -464,6 +467,12 @@ def solve_mpc_step(
             'boundary_slack_weight': boundary_slack_weight,
             'boundary_slack_max': boundary_slack_max,
             'speed_model': speed_model}
+        if impl == 'rust' and (corridor.get('obstacles_world_stages') is not None
+                               or corridor.get('wake_world_stages') is not None):
+            # The Rust core takes one (x, y, r) list for every stage: it cannot
+            # see predicted discs or a wake. Refuse rather than drop them.
+            raise ValueError('per-stage obstacles (mpc_obs_vel_trust / mpc_obs_wake_weight) '
+                             'need mpc_solver_impl py')
         if impl == 'rust':
             u0, info = mpc_native.solve_rti(
                 x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
@@ -1176,6 +1185,11 @@ def _solve_rti(
     obstacles_world = corridor.get("obstacles_world", obstacles)
     car_radius = corridor.get("car_radius", 0.0)
     avoidance_margin = corridor.get("avoidance_margin", 0.12)
+    # MOVING OBSTACLES (obstacle_motion.py, mpc-dodge). None (the default, every corridor that
+    # does not carry them) is today's QP: the same static list at every stage, no wake rows.
+    stage_obstacles = corridor.get('obstacles_world_stages')
+    stage_wake = corridor.get('wake_world_stages')
+    w_wake = float(weights.get('w_obs_wake', 0.0))
 
     for k in range(N):
         xk1_idx = x_idx(k + 1)
@@ -1215,7 +1229,8 @@ def _solve_rti(
         # obstacle soft cost: local quadratic model (see
         # _linearize_obstacle_cost_rti).
         M_obs, b_obs = _linearize_obstacle_cost_rti(
-            x_ref_k1[:4], params["L"], car_radius, avoidance_margin, obstacles_world,
+            x_ref_k1[:4], params['L'], car_radius, avoidance_margin,
+            obstacles_world if stage_obstacles is None else stage_obstacles[k],
             rear_offsets=(rear_offsets if spec is not None and rear_stage[k] else None))
         if n_x > 4:
             # The command state does not enter the obstacle term.
@@ -1223,6 +1238,14 @@ def _solve_rti(
             b_obs = np.pad(b_obs, (0, n_x - 4))
         P[xk1_idx, xk1_idx] += 2.0 * weights["w_obs"] * M_obs
         q[xk1_idx] += weights["w_obs"] * b_obs
+        if stage_wake is not None and w_wake > 0.0 and stage_wake[k]:
+            M_w, b_w = _linearize_obstacle_cost_rti(
+                x_ref_k1[:4], params['L'], car_radius, avoidance_margin, stage_wake[k])
+            if n_x > 4:
+                M_w = np.pad(M_w, ((0, n_x - 4), (0, n_x - 4)))
+                b_w = np.pad(b_w, (0, n_x - 4))
+            P[xk1_idx, xk1_idx] += 2.0 * w_wake * M_w
+            q[xk1_idx] += w_wake * b_w
 
         # corridor lateral bound: exact linear inequality at the frozen
         # nearest index.
@@ -1605,9 +1628,11 @@ def planner_cost_corridor(
             front_points = front_points + [
                 p_base + float(o) * e for o in stage_spec.get('rear_offsets', ())]
 
+        _stage_obs = corridor.get('obstacles_world_stages')
         d_front = 1e6
         for pF in front_points:
-            for ox, oy, r in corridor["obstacles_world"]:
+            for ox, oy, r in (corridor['obstacles_world'] if _stage_obs is None
+                              else _stage_obs[k]):
                 d = np.hypot(pF[0] - ox, pF[1] - oy) - r
                 d_front = min(d_front, d)
 
@@ -1624,6 +1649,14 @@ def planner_cost_corridor(
         pen = softplus(s, beta=10.0)
 
         J += weights["w_obs"] * pen ** 2
+        _wake = corridor.get('wake_world_stages')
+        if _wake is not None and weights.get('w_obs_wake', 0.0) and _wake[k]:
+            d_w = 1e6
+            for pF in front_points:
+                for ox, oy, r in _wake[k]:
+                    d_w = min(d_w, np.hypot(pF[0] - ox, pF[1] - oy) - r)
+            J += weights['w_obs_wake'] * softplus((car_radius + avoidance_margin) - d_w,
+                                                  beta=10.0) ** 2
 
         # ================= velocità =================
         vdes_k = vdes if stage_spec is None else float(stage_spec['vdes'][k])

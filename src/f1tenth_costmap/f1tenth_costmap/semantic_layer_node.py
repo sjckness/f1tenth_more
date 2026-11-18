@@ -182,7 +182,7 @@ from f1tenth_messages.msg import (
     Door, DoorArray, MultiWallTrack, MultiWallTrackArray, Obstacle2D, Obstacle2DArray,
     SemanticObject, SemanticObjectArray, StereoColumns, WallObservationArray)
 from f1tenth_params.object_geometry import footprint_radius
-from f1tenth_params.param_defaults import get_value
+from f1tenth_params.param_defaults import get_odom_topic, get_value
 from f1tenth_costmap import unknown_objects as uo
 from f1tenth_costmap.wall_raster import rasterize_walls, transform_segment
 from f1tenth_description.vehicle_frames import base_front_x
@@ -191,6 +191,7 @@ from f1tenth_params.object_geometry import ObstacleFilter
 from f1tenth_costmap import object_memory as om
 from f1tenth_costmap import semantic_door_markers as sdm
 from f1tenth_costmap import semantic_doors as sd
+from f1tenth_costmap import track_velocity as tv
 from f1tenth_costmap.semantic_layer import (
     compose_base_link_to_map, dedupe_tracks, find_nearest_pose_by_stamp, hand_over_to_lidar,
     live_tracks, pose_to_xytheta, update_tracks_batch, update_unknown_batch)
@@ -463,6 +464,31 @@ class SemanticLayerNode(Node):
             float(stack('obstacle_z_min')), float(stack('obstacle_z_max')),
             float(stack('min_obstacle_radius')), float(stack('max_obstacle_radius')))
         self.declare_parameter('obstacles_topic', '/costmap/semantic_obstacles')
+        # ---- per-track velocity (mpc-dodge, f1tenth_costmap/track_velocity.py) --------
+        # OFF by default: semantic_track_velocity_enabled. On, every track's raw measurements go
+        # into the LOCAL odom frame at their own timestamp (the local EKF's pose history, never the
+        # map), a constant-velocity filter per id estimates its ground velocity, and the obstacle
+        # list and the object list carry it (id, vx, vy, v_valid ...).
+        self.velocity_enabled = bool(stack('semantic_track_velocity_enabled'))
+
+        def vparam(name, default):
+            return float(self.declare_parameter(name, default).value)
+        self._velocity = tv.TrackVelocityEstimator(
+            q_acc=vparam('track_velocity_q_acc', 1.5),
+            meas_sigma=vparam('track_velocity_meas_sigma_m', 0.05),
+            min_age_s=vparam('track_velocity_min_age_s', 0.5),
+            min_speed=vparam('track_velocity_min_speed_mps', 0.1),
+            max_sigma_v=vparam('track_velocity_max_sigma_mps', 0.25),
+            max_gap_s=vparam('track_velocity_max_gap_s', 1.0))
+        self.velocity_arc_correction = bool(
+            self.declare_parameter('track_velocity_arc_correction', True).value)
+        self._odom_history = []
+        if self.velocity_enabled:
+            self.odom_sub = self.create_subscription(
+                Odometry,
+                self.declare_parameter('track_velocity_odom_topic', get_odom_topic()).value,
+                self._odom_cb, QoSProfile(depth=20, history=HistoryPolicy.KEEP_LAST,
+                                          reliability=ReliabilityPolicy.BEST_EFFORT))
         # /scan is subscribed once, in _init_object_memory: the memory's
         # visibility and this LiDAR cycle read the same latest scan.
         self._scan_unprocessed = False
@@ -917,10 +943,10 @@ class SemanticLayerNode(Node):
         out.header.frame_id = self.base_frame
         now_sec = self._pose_history[-1][0]
         current = {t.track_id for t in self._current_recognised(now_sec)}
-        obstacles = uo.obstacles_for_mpc(self._tracks, pose_now, self.unknown_mode,
-                                         self.class_margin, now_sec, self.recognised_max_age_s,
-                                         current_ids=current)
-        out.obstacles = [Obstacle2D(x=x, y=y, r=r) for x, y, r in obstacles]
+        obstacles = uo.obstacles_for_mpc_tracks(self._tracks, pose_now, self.unknown_mode,
+                                                self.class_margin, now_sec,
+                                                self.recognised_max_age_s, current_ids=current)
+        out.obstacles = [self._obstacle_msg(x, y, r, trk) for x, y, r, trk in obstacles]
         self.obstacles_pub.publish(out)
         cap = uo.speed_cap(self._tracks, pose_now, self.unknown_mode, self.speed_cap_enabled,
                            self.speed_cap_mps, self.speed_cap_range_m,
@@ -948,6 +974,23 @@ class SemanticLayerNode(Node):
             'speed_cap': cap,
             'lidar_ms': None if not math.isfinite(self._unknown_ms)
             else round(self._unknown_ms, 3)})))
+
+    def _obstacle_msg(self, x, y, r, trk):
+        """One Obstacle2D: the disk, and (velocity on) its track's id and motion."""
+        o = Obstacle2D(x=x, y=y, r=r)
+        if not self.velocity_enabled:
+            return o
+        o.id = int(trk.track_id)
+        est = self._velocity_of(trk)
+        if est is not None:
+            o.vx, o.vy, o.speed, o.heading = est.vx, est.vy, est.speed, est.heading
+            o.v_sigma = est.sigma_v
+            o.v_valid = bool(est.valid)
+            yaw = self._odom_yaw_now()
+            if yaw is not None:
+                c, s = math.cos(yaw), math.sin(yaw)
+                o.vx_car, o.vy_car = c * est.vx + s * est.vy, -s * est.vx + c * est.vy
+        return o
 
     def _lidar_step(self, scan):
         t0 = time.perf_counter()
@@ -987,6 +1030,7 @@ class SemanticLayerNode(Node):
         self._tracks, folded = dedupe_tracks(self._tracks, self.merge_distance_m,
                                              self._fold_memory, self._plausible)
         self._n_dedupe += folded
+        self._feed_velocity(pose, stamp, sensor_xy=laser[:2])
         self._n_candidates = len(cands)
         self._owner_counts = np.bincount(owner.ravel(), minlength=4).tolist()
         self._unknown_ms = (time.perf_counter() - t0) * 1e3
@@ -1074,6 +1118,52 @@ class SemanticLayerNode(Node):
         if len(self._pose_history) > _POSE_HISTORY_MAXLEN:
             self._pose_history.pop(0)
         self._last_pose_rx = self._now_sec()
+
+    def _odom_cb(self, msg: Odometry):
+        """Keep the LOCAL odom pose history (track_velocity's frame), stamp-ordered."""
+        stamp_sec = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        if self._odom_history and stamp_sec <= self._odom_history[-1][0]:
+            return
+        self._odom_history.append(
+            (stamp_sec, pose_to_xytheta(msg.pose.pose.position, msg.pose.pose.orientation)))
+        if len(self._odom_history) > 400:
+            del self._odom_history[:100]
+
+    def _feed_velocity(self, pose_map, stamp_sec, sensor_xy=None):
+        """
+        Feed every track measured at stamp_sec to its velocity filter, in odom.
+
+        pose_map is the map pose the node placed this batch's measurements with: its exact
+        inverse takes them back to base_link, the odom pose at the same stamp to odom, so the
+        map cancels. sensor_xy (LiDAR): the scan origin in base_link, for the arc-centroid
+        correction of unknown tracks.
+        """
+        if not self.velocity_enabled or pose_map is None:
+            return
+        pose_odom = tv.interpolate_pose(self._odom_history, stamp_sec)
+        if pose_odom is None:
+            return
+        for trk in self._tracks:
+            meas = getattr(trk, 'last_meas', None)
+            if meas is None or abs(meas[0] - stamp_sec) > 1e-6:
+                continue
+            bl = uo.to_base_link([(meas[1], meas[2])], pose_map)[0]
+            if sensor_xy is not None and trk.is_unknown and self.velocity_arc_correction:
+                bl = tv.arc_centre_correction(bl, trk.radius(), sensor_xy)
+            xo, yo, ao = pose_odom
+            c, s = math.cos(ao), math.sin(ao)
+            self._velocity.update(trk.track_id, stamp_sec, xo + c * bl[0] - s * bl[1],
+                                  yo + s * bl[0] + c * bl[1])
+        self._velocity.retain(t.track_id for t in self._tracks)
+
+    def _velocity_of(self, trk):
+        """Return the track's VelocityEstimate, or None (feature off, never measured)."""
+        if not self.velocity_enabled:
+            return None
+        return self._velocity.estimate(trk.track_id)
+
+    def _odom_yaw_now(self):
+        return self._odom_history[-1][1][2] if self._odom_history else None
 
     def _scan_cb(self, msg: LaserScan):
         self._scan = (self._now_sec(), msg)
@@ -1231,6 +1321,7 @@ class SemanticLayerNode(Node):
         self._tracks, folded = dedupe_tracks(self._tracks, self.merge_distance_m,
                                              self._fold_memory, self._plausible)
         self._n_dedupe += folded
+        self._feed_velocity(map_pose, stamp_sec)
         self._log_new_spawns(before_ids, map_pose=map_pose)
 
         self._publish(msg.header.stamp)
@@ -1510,6 +1601,16 @@ class SemanticLayerNode(Node):
             obj.in_fov = bool(mem.in_fov)
             obj.in_fov_lidar = bool(mem.in_fov_lidar)
             obj.in_fov_stereo = bool(mem.in_fov_stereo)
+            est = self._velocity_of(trk)
+            if est is not None:
+                obj.vx_odom, obj.vy_odom, obj.speed = est.vx, est.vy, est.speed
+                obj.heading_odom = est.heading
+                obj.v_cov = [float(v) for v in est.cov.ravel()]
+                obj.v_valid = bool(est.valid)
+                yaw = self._odom_yaw_now()
+                if yaw is not None:
+                    c, s = math.cos(yaw), math.sin(yaw)
+                    obj.vx_car, obj.vy_car = c * est.vx + s * est.vy, -s * est.vx + c * est.vy
             msg.objects.append(obj)
         self.objects_pub.publish(msg)
 
