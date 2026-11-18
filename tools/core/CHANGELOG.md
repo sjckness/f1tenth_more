@@ -7,6 +7,12 @@ nello stesso commit, su main.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-11-18
+
+### Fixed
+- `f1t selftest`: i test di doctor/core sync e dell'hook calcolano la versione successiva invece di
+  scrivere 1.0.1 (fallivano appena VERSION arrivava a 1.0.1).
+
 ## [1.0.1] - 2026-11-18
 
 ### Fixed

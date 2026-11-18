@@ -1,6 +1,9 @@
 # shellcheck shell=bash
 # Test dei comandi f1t (sorgente di tools/core/tests/run.sh: REPO, F1T, run, assert_* da li').
 
+# VERSION del repo finto con la patch + 1 (i test non dipendono dal numero vero).
+next_version() { awk -F. '{printf "%d.%d.%d\n", $1, $2, $3 + 1}' "$1/tools/core/VERSION"; }
+
 test_help_lists_every_command() {
   run "$F1T" help
   assert_rc 0 help || return 1
@@ -174,15 +177,16 @@ test_doctor_and_core_sync() {
   git -C "$r" checkout -q -b feature
   # main va avanti di una versione di tools/core
   git -C "$r" checkout -q main
-  echo 1.0.1 > "$r/tools/core/VERSION"; echo "## 1.0.1" >> "$r/tools/core/CHANGELOG.md"
-  git -C "$r" add -A tools/core && F1T_CORE_EDIT=1 git -C "$r" commit -q -m "core 1.0.1"
+  local next; next=$(next_version "$r")
+  echo "$next" > "$r/tools/core/VERSION"; echo "## $next" >> "$r/tools/core/CHANGELOG.md"
+  git -C "$r" add -A tools/core && F1T_CORE_EDIT=1 git -C "$r" commit -q -m "core $next"
   git -C "$r" update-ref refs/remotes/origin/main HEAD
   git -C "$r" checkout -q feature
   run "$F1T" doctor --offline
   assert_in "indietro" && assert_in "f1t core sync" && assert_clean || return 1
   run "$F1T" core sync
   assert_rc 0 "core sync" || return 1
-  [ "$(cat "$r/tools/core/VERSION")" = 1.0.1 ] && [ "$(git -C "$r" log -1 --format=%s)" = "chore: sync tools/core v1.0.1" ] \
+  [ "$(cat "$r/tools/core/VERSION")" = "$next" ] && [ "$(git -C "$r" log -1 --format=%s)" = "chore: sync tools/core v$next" ] \
     || { fail "sync non committato"; return 1; }
   run "$F1T" doctor --offline
   assert_in "uguale a origin/main" || return 1
@@ -205,7 +209,7 @@ test_precommit_hook_blocks_core_on_branch() {
   echo "# y" >> "$r/tools/core/config.env"; git -C "$r" add tools/core/config.env
   run git -C "$r" commit -q -m "core senza bump"
   assert_rc 1 "hook senza VERSION" && assert_in "VERSION" || return 1
-  echo 1.0.1 > "$r/tools/core/VERSION"; echo "- y" >> "$r/tools/core/CHANGELOG.md"
+  next_version "$r" > "$r/tools/core/VERSION"; echo "- y" >> "$r/tools/core/CHANGELOG.md"
   git -C "$r" add tools/core
   run git -C "$r" commit -q -m "core con bump"
   assert_rc 0 "hook con bump"
