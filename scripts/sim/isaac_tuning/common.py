@@ -55,6 +55,14 @@ def load_scenario(sid: str) -> dict:
         import dodge
         d, seed = dodge.parse_id(sid)
         return dodge.ensure(d, seed)
+    if sid.endswith('u') and sid[:-1] in PEOPLE_IDS:
+        # P<k>u: the same person scenario with the harness's LiDAR-only objects ACTIVE (space.yaml
+        # fixed_node_params), for the comparison with the car's setting (unknown objects off)
+        scn = load_scenario(sid[:-1])
+        scn.pop('fixed_node_params', None)
+        scn['id'] = sid
+        scn['description'] = scn.get('description', '') + ' (unknown objects active)'
+        return scn
     path = os.path.join(SCENARIO_DIR, f'{sid}.yaml')
     scn = load_yaml(path)
     if scn.get('id') != sid:
