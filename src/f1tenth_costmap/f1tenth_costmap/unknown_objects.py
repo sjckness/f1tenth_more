@@ -407,12 +407,18 @@ MODES = ('off', 'shadow', 'active')
 DISK_SPACING_M = 0.2
 
 
-def is_elongated(trk) -> bool:
-    """Tell whether an unknown track is drawn as a chain of disks (length > 1.5 x width)."""
+def is_elongated(trk, ratio: float = 1.5, min_width: float = 0.0) -> bool:
+    """
+    Tell whether an unknown track is longer than `ratio` x its width.
+
+    The default (1.5, raw width) is track_disks' chain criterion. semantic_layer_node's velocity
+    gate asks with a larger ratio over the width floored at 0.1 m (the disks' own floor): a round
+    object's LiDAR half-arc is ~2 x as long as deep and is still a chain of disks, a wall stub 5x+.
+    """
     if not trk.is_unknown or trk.extent is None:
         return False
     length, width = trk.extent
-    return length > 1.5 * width
+    return length > ratio * max(width, min_width)
 
 
 def track_disks(trk, spacing_m=DISK_SPACING_M):
