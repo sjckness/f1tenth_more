@@ -6785,6 +6785,14 @@ class MPCController(Node):
                     psiStart = psi0
                 else:
                     psiStart = psiEnd
+                # mpc-dodge phase 2b: a STRAIGHT drive move (the missions' 'drive:
+                # straight' + distance stop) is the same corridor as goal_distance,
+                # so the same fixed line applies to it (_fixed_line_corridor).
+                if (drive_cmd['mode'] == 'straight'
+                        and not getattr(self, 'corridor_lateral_reanchor', True)):
+                    fixed = MPCController._fixed_line_corridor(
+                        self, X0, Y0, psi0, psiEnd, psiStart)
+                    X0, Y0, psiStart, pose_target, goal_pose_fallback, move_line = fixed
             # No goal to clip the length against (that is what open-ended
             # means), so the full nominal corridor length, exactly as the
             # goal_distance branch uses.
@@ -7127,48 +7135,12 @@ class MPCController(Node):
                     # corridor_heading_return parameter's own note in __init__.
                     psiStart = psiEnd
                 # mpc-dodge phase 2b: corridor_lateral_reanchor FALSE keeps the
-                # move's line fixed in the LOCAL odom frame (lateral_return.py): its
-                # origin is the car's odom position at the move's first corridor and
-                # is never re-read from the map, so no SLAM step moves it sideways;
-                # a rebuild only advances the corridor ALONG it (origin = the foot of
-                # the car's perpendicular). The heading stays the frozen, map-
-                # corrected psiEnd above. True (default) is "THE PRICE" as written.
+                # move's line fixed in the LOCAL odom frame (lateral_return.py and
+                # _fixed_line_corridor). True (default) is "THE PRICE" as written.
                 if not getattr(self, 'corridor_lateral_reanchor', True):
-                    if getattr(self, '_move_line_origin', None) is None:
-                        self._move_line_origin = (X0, Y0)
-                    _origin = tuple(self._move_line_origin)
-                    _e = lateral_return.lateral_offset((X0, Y0), _origin, psiEnd)
-                    _blocked = lateral_return.obstacle_in_return_band(
-                        _e, (X0, Y0), psiEnd, getattr(self, '_planning_obstacles_last', []) or [],
-                        max(self.corr_L_base, 1.0), self.car_radius + self.avoidance_margin)
-                    _r_min_ret = None
-                    if getattr(self, 'limits', None) is not None and getattr(
-                            self, 'params', None) is not None:
-                        _r_min_ret = min_turn_radius(self.params['L'], self.limits['delta_max'])
-                    _mode, _d, _e_land = lateral_return.plan(
-                        _e, getattr(self, 'return_lookahead_ratio', 0.0),
-                        getattr(self, 'return_lookahead_min_m', 1.0),
-                        lateral_return.max_return_heading(
-                            getattr(self, 'return_max_heading_deg', 35.0),
-                            getattr(self, 'return_overshoot_max_m', 0.15), _r_min_ret),
-                        max(self.corr_L_base, 1.0), _blocked)
-                    move_line = {'origin': _origin, 'psi': float(psiEnd), 'e': _e,
-                                 'mode': _mode, 'D': _d, 'e_land': _e_land}
-                    _fx, _fy = lateral_return.foot_on_line((X0, Y0), _origin, psiEnd)
-                    if _mode == 'fixed':
-                        X0, Y0 = _fx, _fy
-                    elif _mode == 'arc':
-                        # The return arc: the goal_pose machinery from the car's pose to the
-                        # line point D ahead, arriving along the line; if that pose corridor
-                        # is infeasible or past the cap, the fallback is the corridor through
-                        # the car (today's, 'hold') -- see the pose block below.
-                        pose_target = (_fx + _d * math.cos(psiEnd) - _e_land * math.sin(psiEnd),
-                                       _fy + _d * math.sin(psiEnd) + _e_land * math.cos(psiEnd))
-                        psiStart = psi0
-                        goal_pose_fallback = (psiEnd, max(self.corr_L_base, 1.0))
-                    self.get_logger().info(
-                        f'RETURN/plan | e={_e:+.3f} mode={_mode} D={_d} blocked={_blocked}',
-                        throttle_duration_sec=1.0)
+                    fixed = MPCController._fixed_line_corridor(
+                        self, X0, Y0, psi0, psiEnd, psiStart)
+                    X0, Y0, psiStart, pose_target, goal_pose_fallback, move_line = fixed
                 # Diagnostic only: how far the car now sits from the ORIGINAL
                 # line. Deliberately not acted on any more (see "THE PRICE"
                 # above) -- logged so a run can still be read back for how much
@@ -8177,6 +8149,52 @@ class MPCController(Node):
             f'blocked={shape.blocked} w_corr x{shape.w_corr_scale:.2f} '
             f'w_psi x{shape.w_psi_scale:.2f}', throttle_duration_sec=1.0)
         return shape
+
+    def _fixed_line_corridor(self, X0, Y0, psi0, psiEnd, psiStart):
+        """
+        Return (X0, Y0, psiStart, pose_target, goal_pose_fallback, move_line) of a fixed line.
+
+        corridor_lateral_reanchor false (lateral_return.py): the move's line is fixed in the LOCAL
+        odom frame -- origin the car's odom position at the move's first corridor, never re-read
+        from the map, so no SLAM step moves it sideways; direction the move's frozen heading
+        psiEnd.
+        lateral_return.plan picks the corridor: 'fixed' (along the line from the foot of the car's
+        perpendicular), 'arc' (the goal_pose pose corridor from the car's pose to the line point D
+        ahead; its fallback, today's corridor through the car) or 'hold' (today's corridor: an
+        obstacle lies between the car and the line). Unchanged inputs come back for 'hold'.
+        """
+        pose_target, goal_pose_fallback = None, None
+        if getattr(self, '_move_line_origin', None) is None:
+            self._move_line_origin = (X0, Y0)
+        origin = tuple(self._move_line_origin)
+        e = lateral_return.lateral_offset((X0, Y0), origin, psiEnd)
+        blocked = lateral_return.obstacle_in_return_band(
+            e, (X0, Y0), psiEnd, getattr(self, '_planning_obstacles_last', []) or [],
+            max(self.corr_L_base, 1.0), self.car_radius + self.avoidance_margin)
+        r_min = None
+        if getattr(self, 'limits', None) is not None and getattr(self, 'params', None) is not None:
+            r_min = min_turn_radius(self.params['L'], self.limits['delta_max'])
+        mode, d, e_land = lateral_return.plan(
+            e, getattr(self, 'return_lookahead_ratio', 0.0),
+            getattr(self, 'return_lookahead_min_m', 1.0),
+            lateral_return.max_return_heading(
+                getattr(self, 'return_max_heading_deg', 35.0),
+                getattr(self, 'return_overshoot_max_m', 0.15), r_min),
+            max(self.corr_L_base, 1.0), blocked)
+        move_line = {'origin': origin, 'psi': float(psiEnd), 'e': e, 'mode': mode, 'D': d,
+                     'e_land': e_land}
+        fx, fy = lateral_return.foot_on_line((X0, Y0), origin, psiEnd)
+        if mode == 'fixed':
+            X0, Y0 = fx, fy
+        elif mode == 'arc':
+            pose_target = (fx + d * math.cos(psiEnd) - e_land * math.sin(psiEnd),
+                           fy + d * math.sin(psiEnd) + e_land * math.cos(psiEnd))
+            psiStart = psi0
+            goal_pose_fallback = (psiEnd, max(self.corr_L_base, 1.0))
+        self.get_logger().info(
+            f'RETURN/plan | e={e:+.3f} mode={mode} D={d} blocked={blocked}',
+            throttle_duration_sec=1.0)
+        return X0, Y0, psiStart, pose_target, goal_pose_fallback, move_line
 
     def _tick_weights(self, corridor):
         """_weights_for(corridor), with this tick's return shaping and the wake weight."""
