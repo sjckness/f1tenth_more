@@ -23,6 +23,7 @@ HOST_OVERLAY_SRC = os.path.join(BRINGUP_CONFIG, 'sim', 'hosts', 'linus.yaml')
 
 SCENARIO_IDS = ('S1', 'S2', 'S3', 'S4', 'S5')
 MOVING_IDS = ('M1', 'M2', 'M3', 'M4')
+PEOPLE_IDS = ('P1', 'P2', 'P3', 'P4')
 
 # Car geometry the metrics need (car_spec / stack_params): base_link is the rear axle centre.
 WHEELBASE_M = 0.305
@@ -93,8 +94,18 @@ def scenario_instance(scn: dict, rep: int) -> dict:
                 'radius_m': obstacle_radius(ob['id'])}
         if 'level' in ob:
             info['level'] = int(ob['level'])
+        if 'class' in ob:
+            info['class'] = ob['class']
         mo = ob.get('motion')
-        if mo and mo.get('type') == 'pingpong':
+        if mo and mo.get('type') == 'waypoints':
+            # along a polyline (nominal start frame in the scenario, map_sim here); phase 4 people
+            pts = [to_map(float(a), float(b)) for a, b in mo['points']]
+            motion[ob['id']] = {'type': 'waypoints', 'points': [[round(px, 4), round(py, 4)]
+                                                                for px, py in pts],
+                                'speed': float(mo['speed']), 'delay_s': float(mo.get('delay_s', 0.0))}
+            info['motion'] = motion[ob['id']]
+            info['class'] = ob.get('class', 'person')
+        elif mo and mo.get('type') == 'pingpong':
             # back and forth a -> b (nominal start frame in the scenario, map_sim here)
             a, b = to_map(*mo['a']), to_map(*mo['b'])
             motion[ob['id']] = {'type': 'pingpong', 'a': [round(a[0], 4), round(a[1], 4)],
@@ -121,9 +132,16 @@ def scenario_instance(scn: dict, rep: int) -> dict:
 OBSTACLE_RADIUS_M = {'cyl050': 0.25, 'cyl100': 0.50}
 
 
+# Movable persons of the Isaac 'people' layout: footprint 0.58 x 0.42 m (arms_down 4 deg) -> r 0.29.
+PERSON_IDS = ('p0', 'p1')
+PERSON_RADIUS_M = 0.29
+
+
 def obstacle_radius(oid: str) -> float:
     if oid in OBSTACLE_RADIUS_M:
         return OBSTACLE_RADIUS_M[oid]
+    if oid in PERSON_IDS:
+        return PERSON_RADIUS_M
     if oid.startswith('c030_'):
         return 0.15
     if oid.startswith('c050_'):
@@ -145,9 +163,24 @@ def pingpong_point(a, b, s: float):
     return [ax + f * (bx - ax), ay + f * (by - ay)]
 
 
+def polyline_point(points, s: float):
+    """Point at arc length s along the polyline, clamped to its ends (Isaac sim/motion.py)."""
+    pts = [(float(p[0]), float(p[1])) for p in points]
+    s = max(0.0, s)
+    for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+        seg = math.hypot(bx - ax, by - ay)
+        if s <= seg:
+            f = s / seg if seg > 1e-9 else 0.0
+            return [ax + f * (bx - ax), ay + f * (by - ay)]
+        s -= seg
+    return [pts[-1][0], pts[-1][1]]
+
+
 def motion_position(m: dict, origin, tau: float):
     """Where an armed obstacle is tau s after /sim/scenario_go (Isaac sim/motion.py)."""
     tau = tau - float(m.get('delay_s', 0.0))
+    if m.get('type') == 'waypoints':
+        return polyline_point(m['points'], float(m['speed']) * max(tau, 0.0))
     if m.get('type') == 'pingpong':
         return pingpong_point(m['a'], m['b'], float(m.get('s0', 0.0)) + float(m['speed']) * max(tau, 0.0))
     tau = min(max(tau, 0.0), float(m.get('duration_s', 1e9)))

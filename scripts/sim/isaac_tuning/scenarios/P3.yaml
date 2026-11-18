@@ -1,0 +1,16 @@
+# P3: a person walks in from the right and stops on the line 3.0 m ahead
+id: P3
+description: "person walks in from the right at 0.6 m/s and stops on the line 3.0 m ahead"
+scene: base_room
+layout: people
+car_start: {x: 0.5, y: 3.0, yaw_deg: 0.0}
+mission: {distance_m: 4.0, speed_mps: 0.5, timeout_s: 20.0}
+fixed_node_params:
+  semantic_layer_node: {unknown_objects_mode: 'off'}
+obstacles:
+  - id: p0
+    class: person
+    ahead_m: 3.0
+    lateral_m: -1.8
+    motion: {type: waypoints, points: [[3.0, -1.8], [3.0, 0.0]], speed: 0.6, delay_s: 0.0}
+jitter: {seed: 2303, xy_m: 0.05, yaw_deg: 3.0}

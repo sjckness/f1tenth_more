@@ -321,7 +321,18 @@ def run_reps(session: Session, sid: str, params: dict, space: dict, reps, set_di
     scn = common.load_scenario(sid)
     layout = scn.get('layout', 'tuning')
     session.ensure_layout(layout)
+    if scn.get('fixed_node_params'):
+        # a scenario's own fixed node parameters over space.yaml's (P1-P4: unknown objects off)
+        import copy
+        space = copy.deepcopy(space)
+        for node, block in scn['fixed_node_params'].items():
+            space.setdefault('fixed_node_params', {}).setdefault(node, {}).update(block)
     sim_overlay, sim_extra = common.write_overlays(params, space, set_dir)
+    with open(sim_overlay, encoding='utf-8') as fh_a, open(sim_extra, encoding='utf-8') as fh_b:
+        sig = fh_a.read() + fh_b.read()
+    if session.stack is not None and getattr(session, 'stack_sig', None) != sig:
+        session.event('overlays changed: restarting the stack', scenario=sid)
+        session.stop_stack()
     expect = common.expected_node_params(params, space)
     with open(os.path.join(set_dir, 'expect.json'), 'w', encoding='utf-8') as fh:
         json.dump(expect, fh, indent=1)
@@ -345,6 +356,7 @@ def run_reps(session: Session, sid: str, params: dict, space: dict, reps, set_di
                 session.start_isaac(layout=layout)
             if session.stack is None:
                 session.start_stack(sim_overlay, sim_extra, tag=f'{sid}_r{rep}')
+                session.stack_sig = sig
             t0 = time.time()
             rec = _bash(f'exec python3 "{RECORDER}" --out "{run_dir}" '
                         f'--instance "{run_dir}/instance.json" --mission "{mission_path}" '

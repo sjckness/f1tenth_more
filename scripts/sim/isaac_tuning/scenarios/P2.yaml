@@ -1,0 +1,16 @@
+# P2: a person walks towards the car on its line at 0.5 m/s from 4.5 m ahead
+id: P2
+description: "person walking towards the car on its line at 0.5 m/s"
+scene: base_room
+layout: people
+car_start: {x: 0.5, y: 3.0, yaw_deg: 0.0}
+mission: {distance_m: 4.0, speed_mps: 0.5, timeout_s: 20.0}
+fixed_node_params:
+  semantic_layer_node: {unknown_objects_mode: 'off'}
+obstacles:
+  - id: p0
+    class: person
+    ahead_m: 4.8
+    lateral_m: 0.0
+    motion: {type: waypoints, points: [[4.8, 0.0], [0.6, 0.0]], speed: 0.5, delay_s: 0.0}
+jitter: {seed: 2202, xy_m: 0.05, yaw_deg: 3.0}

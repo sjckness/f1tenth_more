@@ -79,7 +79,7 @@ Best set so far (d_fail {d_fail}):
 {best}
 
 Diagnosis of the best set's failed runs (level, margin to R_safe, body clearance, time after start,
-steering saturation in the 1.5 s before, solver time p95 / ticks over the 100 ms deadline):
+steering saturation in the 1.5 s before, MPC CPU per tick, solver failures):
 {diag}
 
 Loop history (latest last):
@@ -99,8 +99,10 @@ def diagnose(runs: list) -> str:
             f"- {r.get('scenario')}: {r.get('outcome')}, level {f.get('level')}, margin "
             f"{_fmt(f.get('margin_m'))} m, body {_fmt(f.get('body_clearance_m'))} m, t "
             f"{_fmt(f.get('t_s'))} s, steer at limit {_fmt(sat.get('delta_frac'))}, rate at limit "
-            f"{_fmt(sat.get('rate_frac'))}, solve p95 {_fmt(r.get('solve_time_ms_p95'))} ms / "
-            f"{r.get('solve_over_deadline')} over, max lateral {_fmt(r.get('max_lateral_error_m'))} m")
+            f"{_fmt(sat.get('rate_frac'))}, mpc CPU {_fmt(r.get('mpc_cpu_ms_per_tick'))} ms/tick "
+            f"(sim time stops during a solve, so CPU is the deadline proxy; budget 100 ms), "
+            f"solve failures {r.get('solve_failures')}, max lateral "
+            f"{_fmt(r.get('max_lateral_error_m'))} m")
     return '\n'.join(lines[:24]) or '(none)'
 
 

@@ -36,6 +36,8 @@ import statistics
 from common import CAR_RADIUS_M, FOOTPRINT_HALF_WIDTH_M, FOOTPRINT_X_M, WHEELBASE_M
 
 SHIPPED_MARGIN_M = 0.12
+# obstacle_class_margin_m as shipped ({person: 0.5}): R_safe_ref of a person includes it (phase 4).
+CLASS_MARGIN_M = {'person': 0.5}
 CONTACT_M = 0.01
 STUCK_SPEED = 0.02
 STUCK_S = 3.0
@@ -155,7 +157,7 @@ def compute(run_dir: str) -> dict:
                 dmin, t_min = dc, _f(row['t']) - t_run
             body = min(body, footprint_circle_clearance(x, y, yaw, ox, oy, r))
         contact = min(contact, body)
-        r_safe = r + CAR_RADIUS_M + SHIPPED_MARGIN_M
+        r_safe = r + CAR_RADIUS_M + SHIPPED_MARGIN_M + CLASS_MARGIN_M.get(ob.get('class'), 0.0)
         clearances.append({'id': ob['id'], 'r': r, 'min_centre_dist_m': dmin, 'r_safe_ref_m': r_safe,
                            'margin_m': dmin - r_safe, 't_min_s': t_min, 'body_clearance_m': body,
                            'level': ob.get('level')})

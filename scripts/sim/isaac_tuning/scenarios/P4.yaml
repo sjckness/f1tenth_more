@@ -1,0 +1,12 @@
+# P4: a person standing on the line 2.0 m ahead (the side-rule case)
+id: P4
+description: "person standing on the line 2.0 m ahead"
+scene: base_room
+layout: people
+car_start: {x: 0.5, y: 3.0, yaw_deg: 0.0}
+mission: {distance_m: 4.0, speed_mps: 0.5, timeout_s: 20.0}
+fixed_node_params:
+  semantic_layer_node: {unknown_objects_mode: 'off'}
+obstacles:
+  - {id: p0, class: person, ahead_m: 2.0, lateral_m: 0.0}
+jitter: {seed: 2404, xy_m: 0.05, yaw_deg: 3.0}
