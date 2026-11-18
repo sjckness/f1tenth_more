@@ -2343,6 +2343,60 @@ mpc_obstacle_tie_band_m:
 mpc_obstacle_tie_side:
   default: left
   description: "Side rule: which side the car passes an obstacle that sits on its line ('left' or 'right'). See mpc_obstacle_tie_band_m."
+# MOVING OBSTACLES AND THE INFORMED SIDE RULE (mpc-dodge, 2026-11-18; mpc_controller/
+# obstacle_motion.py, side_rule.py). Every one OFF by default: the QP and the side rule are today's.
+# They read the track id and the odom velocity semantic_layer_node puts on each Obstacle2D when its
+# semantic_track_velocity_enabled is true (without it no obstacle is v_valid and they do nothing).
+mpc_obs_vel_trust:
+  default: 0.0
+  description: "Predicted discs: trust alpha in [0, 1] in the obstacles' estimated velocity. The disc of a v_valid obstacle at stage k is centred at p + alpha * v * t_k (t_k = control period + k * prediction dt + mpc_obs_vel_lead_s, capped at mpc_obs_pred_max_s). 0 = today's static obstacles at every stage; 1 = full constant velocity. Needs mpc_solver_impl py."
+mpc_obs_vel_lead_s:
+  default: 0.0
+  description: "Seconds added to every stage's prediction time of a moving obstacle (perception latency: the semantic layer's position is an EMA of past scans). Only with mpc_obs_vel_trust > 0 or the wake."
+mpc_obs_pred_max_s:
+  default: 2.0
+  description: "Cap [s] on the prediction time of a moving obstacle's disc: a constant velocity is not a forecast further out (cylinders bounce off walls, people turn)."
+mpc_obs_wake_weight:
+  default: 0.0
+  description: "The wake: per-stage soft cost (like mpc_w_obs, same 7/20 stage scaling) on horizon states inside a half-ellipse AHEAD of an approaching obstacle's motion, semi-major |v| * mpc_obs_wake_horizon_s, semi-minor its radius (+ car_radius + margin through the cost). 'Not where it is going'; no term pushes the car in any direction. 0 = off. Needs mpc_solver_impl py."
+mpc_obs_wake_horizon_s:
+  default: 1.0
+  description: "Length of the wake in seconds of the obstacle's own motion (see mpc_obs_wake_weight)."
+mpc_obstacle_side_mode:
+  default: fixed
+  description: "Side rule: 'fixed' = an obstacle within mpc_obstacle_tie_band_m of the line is always passed on mpc_obstacle_tie_side (today). 'informed' = the side opposite its lateral velocity (pass behind it), else the side it came from, else the side with more free space, else mpc_obstacle_tie_side; latched per track for the move while it stays within mpc_obstacle_side_release_m of the line."
+mpc_obstacle_side_release_m:
+  default: 0.15
+  description: "Informed side rule: a track's latched side is released once it is this far from the line (hysteresis against mpc_obstacle_tie_band_m)."
+mpc_obstacle_side_vlat_min:
+  default: 0.1
+  description: "Informed side rule: lateral speed [m/s] above which the obstacle's motion decides the side."
+# THE RETURN ONTO THE MOVE'S LINE (mpc-dodge phase 2b, mpc_controller/lateral_return.py). With
+# corridor_lateral_reanchor true (default, today) the straight corridor is rebuilt through the car,
+# so after a swerve the car keeps its offset ("THE PRICE", MPC_corr). False keeps the line fixed in
+# odom from the move's start and only advances the corridor along it; the mpc_return_* knobs then
+# shape the return. All mpc_return_* are inert with reanchor true.
+corridor_lateral_reanchor:
+  default: true
+  description: "true: the straight (goal_distance) corridor passes through the car's current position at every rebuild (today; no lateral homing). false: the move's line stays fixed in the local odom frame (origin = the car's odom position at the move's first corridor, heading = the frozen, map-corrected move heading); a rebuild only advances the corridor along it, w_corr and the target act on the real lateral error, and the corridor half-width grows to contain the car."
+mpc_return_gain:
+  default: 0.0
+  description: "Return: w_corr_eff = w_corr * (1 + gain * min(1, |e| / 0.5 m)), e the lateral error from the fixed line. Only with corridor_lateral_reanchor false, off while an obstacle lies between the car and the line inside the horizon."
+mpc_return_lookahead_ratio:
+  default: 0.0
+  description: "Return: with a lateral error e the lookahead target on the line is at clip(ratio * |e|, mpc_return_lookahead_min_m, nominal) -- an approach angle of about atan(1/ratio), never steeper than the heading cap. 0 = nominal lookahead."
+mpc_return_lookahead_min_m:
+  default: 1.0
+  description: "Return: the shortest lookahead [m] the return may use."
+mpc_return_psi_scale:
+  default: 1.0
+  description: "Return: the terminal and stage heading weights fall to this fraction at a large lateral error (back to 1 near the line), so the car may cross the line at an angle and overshoot slightly. 1 = unchanged."
+mpc_return_max_heading_deg:
+  default: 35.0
+  description: "Return: cap on the approach angle [deg] the lookahead shortening may ask for."
+mpc_return_overshoot_max_m:
+  default: 0.15
+  description: "Return: allowed overshoot past the line [m]; also caps the approach angle at the one whose levelling-off at full lock (R_min (1 - cos theta)) fits inside it."
 # w_du_delta IS THE ONE TERM DELIBERATELY OFF THE rho/sigma^2 SET (2026-09-09).
 # Lowered effective 8.33 -> 3.0, i.e. literal 23.8095 -> 8.5714. The derived
 # value came from sigma = 0.03 rad/step, and that sigma was chosen as "what
@@ -3642,6 +3696,12 @@ wall_clear_distance_m:
 unknown_objects_mode:
   default: "off"
   description: "OFF by default since 2026-10-21: live, the LiDAR-only objects were too many and too large -- corridor clutter and wall returns no confirmed wall owned became unknown objects whose disks reached across the travel strip, so the MPC had nowhere feasible to go and the car stopped. Recognised (YOLO) objects are UNAFFECTED: they keep reaching mpc_corr on /costmap/semantic_obstacles exactly as before (obstacles_for_mpc drops only the unknown tracks), and hard_stop_node, which reads /scan itself, is unchanged. Set 'shadow' to look at them again without any control effect. LiDAR obstacles nothing recognised, as 'unknown' objects in the semantic layer (f1tenth_costmap/unknown_objects.py, obstacles v2). off: not computed. shadow: computed, tracked, published on /costmap/semantic_tracks, /costmap/semantic_markers and /costmap/unknown_objects/debug, but NOT on the MPC's obstacle list and no speed cap -- for a first live test. active: the MPC receives them like any object. Every occupied /scan cell is owned by a confirmed wall (within unknown_wall_tol_m), a confirmed recognised object (footprint + unknown_object_margin_m) or is an ISLAND; islands become candidates, candidates become tracks in the same tracker YOLO detections use; a detection that matches an unknown track upgrades it in place (same id)."
+# Consumed by: f1tenth_costmap/semantic_layer_node.py (its own parameter, default from here).
+# mpc-dodge 2026-11-18: per-track ground velocity (f1tenth_costmap/track_velocity.py) on
+# /costmap/semantic_obstacles (Obstacle2D id, vx, vy, v_valid ...) and /costmap/semantic_objects.
+semantic_track_velocity_enabled:
+  default: false
+  description: "Estimate each semantic track's velocity in the LOCAL odom frame (constant-velocity Kalman filter on the raw LiDAR / camera measurements, each brought into odom at its own timestamp: no map -> odom jump, ego motion compensated) and publish it with the track id on the MPC's obstacle list and the object list. Off: the fields keep their defaults (id -1, v_valid false) and nothing else changes. mpc_corr uses it only with mpc_obs_vel_trust > 0, mpc_obs_wake_weight > 0 or mpc_obstacle_side_mode informed."
 unknown_rate_hz:
   default: 10.0
   description: "Rate [Hz] of the semantic layer's LiDAR cycle (cells, candidates, unknown tracks) and of its /costmap/semantic_obstacles publish. 10 Hz = mpc_corr's control rate; the work order caps everything feeding the MPC at 10 Hz."

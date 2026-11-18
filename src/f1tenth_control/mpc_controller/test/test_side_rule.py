@@ -5,6 +5,8 @@ import math
 import pytest
 
 from f1tenth_params.param_defaults import get_value
+from mpc_controller import side_rule
+from mpc_controller.obstacle_motion import Motion
 from mpc_controller.side_rule import break_ties, side_sign
 
 LEFT, RIGHT = side_sign('left'), side_sign('right')
@@ -52,3 +54,36 @@ def test_it_follows_the_heading_and_the_car_position():
 def test_band_zero_turns_it_off():
     obstacles = [(1.5, 0.0, 0.5)]
     assert break_ties(obstacles, (0.0, 0.0), 0.0, 0.0, LEFT, 3.0) == (obstacles, 0)
+
+
+# ---- the informed rule (mpc-dodge) ------------------------------------------------------------
+
+
+def _informed(obstacles, motions, latch, free=None):
+    return side_rule.break_ties_informed(obstacles, motions, (0.0, 0.0), 0.0, 0.05, 0.15, 1.0,
+                                         3.0, latch, v_min=0.1, free_space=free)
+
+
+def test_informed_passes_behind_a_moving_obstacle_and_latches_the_side():
+    latch = side_rule.SideLatch()
+    out, decided = _informed([(1.5, 0.01, 0.25)], [Motion(7, 0.0, 0.4, True)], latch)
+    assert decided == [(0, -1.0, 'velocity')]           # moving left: pass on its right
+    assert out[0][1] > 0.01 and out[0][2] > 0.25         # displaced left, grown
+    # next tick it has moved out of the band but inside the release: the side holds
+    _out, decided = _informed([(1.4, 0.10, 0.25)], [Motion(7, 0.0, -0.4, True)], latch)
+    assert decided == [(0, -1.0, 'latched')]
+    # past the release: free again
+    _informed([(1.3, 0.30, 0.25)], [Motion(7, 0.0, 0.0, False)], latch)
+    assert 7 not in latch.sides
+
+
+def test_informed_stopped_obstacle_goes_to_the_side_it_came_from_then_space_then_fixed():
+    latch = side_rule.SideLatch()
+    _informed([(2.0, -0.6, 0.25)], [Motion(3, 0.0, 0.4, True)], latch)     # seen on the right
+    _out, decided = _informed([(1.8, 0.0, 0.25)], [Motion(3, 0.0, 0.0, False)], latch)
+    assert decided == [(0, -1.0, 'came_from')]
+    _out, decided = _informed([(1.8, 0.0, 0.25)], [None], side_rule.SideLatch(),
+                              free=lambda a, lat: (0.5, 2.0))
+    assert decided == [(0, -1.0, 'space')]
+    _out, decided = _informed([(1.8, 0.0, 0.25)], [None], side_rule.SideLatch())
+    assert decided == [(0, 1.0, 'fixed')]

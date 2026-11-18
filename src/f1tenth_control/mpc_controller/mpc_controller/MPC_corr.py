@@ -36,6 +36,8 @@ from f1tenth_params.semantic_objects import MEMORY as SEMANTIC_MEMORY
 from f1tenth_params.semantic_objects import objects_to_odom_circles
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from mpc_controller.cost_to_go import CostToGo, LatticeConfig
+from mpc_controller import lateral_return
+from mpc_controller import obstacle_motion
 from mpc_controller import side_rule
 from mpc_controller.move_target import (
     MoveTarget, without_target_circles, without_target_objects)
@@ -94,6 +96,10 @@ from tf2_ros.buffer import Buffer
 #: centreline by a linearly growing half-width and drew straight walls;
 #: reverted 2026-10-13 on request. The width changes of Part D stay.
 CORRIDOR_WALLS = 'bezier'
+
+#: mpc-dodge phase 2b: how far beyond the car's lateral error the fixed-line corridor's half-width
+#: reaches (the car's own offset, plus what one rebuild period of swerving can add at 0.5 m/s).
+CORRIDOR_CONTAIN_MARGIN_M = 0.45
 
 
 def lookahead_clamp_length(n_steps, ts, v_des, reach_margin):
@@ -975,6 +981,7 @@ class MPCController(Node):
             'mpc_obstacle_tie_band_m', get_value('mpc_obstacle_tie_band_m')).value)
         self.obstacle_tie_side = side_rule.side_sign(str(self.declare_parameter(
             'mpc_obstacle_tie_side', get_value('mpc_obstacle_tie_side')).value))
+        self._init_dodge_params()
 
         # Solver selection: real-time-iteration (linearize once + one warm-started
         # OSQP QP solve per tick) vs. the original from-scratch nonlinear SLSQP
@@ -3953,6 +3960,9 @@ class MPCController(Node):
     def _invalidate_move_state(self):
         """Drop every piece of per-move cached geometry.
 
+        mpc-dodge: also the move's fixed line (corridor_lateral_reanchor false) and the informed
+        side rule's latches -- both belong to the move.
+
         Also starts the reverse manoeuvre's attempt count afresh (a new move
         lifts a "stuck" give-up).
 
@@ -4033,6 +4043,10 @@ class MPCController(Node):
         self.stop_ramp_d_rem = None
         # Corridor geometry: force a rebuild + marker publish on the next tick.
         self.cached_corridor = None
+        self._move_line_origin = None
+        _latch = getattr(self, '_side_latch', None)
+        if _latch is not None:
+            _latch.reset()
         # A new move's first corridor has nothing meaningful to be a step FROM
         # -- differencing it against the last move's would report the whole
         # re-anchoring as reference movement. Same reason the arc's hysteresis
@@ -4104,11 +4118,20 @@ class MPCController(Node):
             return
 
         obstacles_global = []
+        motions = {}
         for obs in msg.obstacles:
             x_g, y_g = self.robot_to_global(obs.x, obs.y)
             obstacles_global.append((x_g, y_g, float(obs.r)))
+            # mpc-dodge: the track id and the ODOM velocity (semantic_track_velocity_enabled),
+            # keyed by the disc so it follows it through selection; defaults = no motion.
+            tid = int(getattr(obs, 'id', -1))
+            if tid >= 0 or bool(getattr(obs, 'v_valid', False)):
+                motions[obstacles_global[-1]] = obstacle_motion.Motion(
+                    tid, float(getattr(obs, 'vx', 0.0)), float(getattr(obs, 'vy', 0.0)),
+                    bool(getattr(obs, 'v_valid', False)))
 
         self.obstacles_global_live = obstacles_global
+        self.obstacles_motion_live = motions
         self.obstacles_live_time = self.get_clock().now().nanoseconds * 1e-9
 
         # ---- DEBUG: primo ostacolo in frame robot vs frame globale ----
@@ -5977,8 +6000,12 @@ class MPCController(Node):
         # avoidance was coming from the solver's w_obs cost alone, fighting
         # every tick against a static straight-line target -- hence the
         # oversized, last-moment corrections.
-        obstacles_global = self._tie_broken_obstacles(obstacles_global, corridor)
+        motions = [getattr(self, 'obstacles_motion_live', {}).get(o) for o in obstacles_global]
+        planning_obstacles = list(obstacles_global)
+        obstacles_global, motions = self._side_ruled_obstacles(obstacles_global, motions, corridor)
         corridor["obstacles_world"] = obstacles_global
+        self._attach_obstacle_motion(corridor, obstacles_global, motions)
+        self._return_shape = self._compute_return_shape(corridor, planning_obstacles)
         corridor["d_safe"] = self.dmin
         # UPGRADE: car_radius/avoidance_margin, read by both
         # compute_local_target (below, this file) and mpc_solver.py's
@@ -6077,7 +6104,7 @@ class MPCController(Node):
             ts=self.ts_pred,
             params=self.params,
             limits=solve_limits,
-            weights=self._weights_for(corridor),
+            weights=self._tick_weights(corridor),
             obstacles=obstacles_global,
             dmin=self.dmin,
             vdes=vdes,
@@ -6466,6 +6493,8 @@ class MPCController(Node):
         X0 = float(x[0])
         Y0 = float(x[1])
         psi0 = float(x[2])
+        # mpc-dodge phase 2b (corridor_lateral_reanchor false): the straight move's fixed line.
+        move_line = None
 
         d_front = float(self.front_distance)
 
@@ -7097,6 +7126,49 @@ class MPCController(Node):
                     # heading return at every rebuild period tested -- see the
                     # corridor_heading_return parameter's own note in __init__.
                     psiStart = psiEnd
+                # mpc-dodge phase 2b: corridor_lateral_reanchor FALSE keeps the
+                # move's line fixed in the LOCAL odom frame (lateral_return.py): its
+                # origin is the car's odom position at the move's first corridor and
+                # is never re-read from the map, so no SLAM step moves it sideways;
+                # a rebuild only advances the corridor ALONG it (origin = the foot of
+                # the car's perpendicular). The heading stays the frozen, map-
+                # corrected psiEnd above. True (default) is "THE PRICE" as written.
+                if not getattr(self, 'corridor_lateral_reanchor', True):
+                    if getattr(self, '_move_line_origin', None) is None:
+                        self._move_line_origin = (X0, Y0)
+                    _origin = tuple(self._move_line_origin)
+                    _e = lateral_return.lateral_offset((X0, Y0), _origin, psiEnd)
+                    _blocked = lateral_return.obstacle_in_return_band(
+                        _e, (X0, Y0), psiEnd, getattr(self, '_planning_obstacles_last', []) or [],
+                        max(self.corr_L_base, 1.0), self.car_radius + self.avoidance_margin)
+                    _r_min_ret = None
+                    if getattr(self, 'limits', None) is not None and getattr(
+                            self, 'params', None) is not None:
+                        _r_min_ret = min_turn_radius(self.params['L'], self.limits['delta_max'])
+                    _mode, _d, _e_land = lateral_return.plan(
+                        _e, getattr(self, 'return_lookahead_ratio', 0.0),
+                        getattr(self, 'return_lookahead_min_m', 1.0),
+                        lateral_return.max_return_heading(
+                            getattr(self, 'return_max_heading_deg', 35.0),
+                            getattr(self, 'return_overshoot_max_m', 0.15), _r_min_ret),
+                        max(self.corr_L_base, 1.0), _blocked)
+                    move_line = {'origin': _origin, 'psi': float(psiEnd), 'e': _e,
+                                 'mode': _mode, 'D': _d, 'e_land': _e_land}
+                    _fx, _fy = lateral_return.foot_on_line((X0, Y0), _origin, psiEnd)
+                    if _mode == 'fixed':
+                        X0, Y0 = _fx, _fy
+                    elif _mode == 'arc':
+                        # The return arc: the goal_pose machinery from the car's pose to the
+                        # line point D ahead, arriving along the line; if that pose corridor
+                        # is infeasible or past the cap, the fallback is the corridor through
+                        # the car (today's, 'hold') -- see the pose block below.
+                        pose_target = (_fx + _d * math.cos(psiEnd) - _e_land * math.sin(psiEnd),
+                                       _fy + _d * math.sin(psiEnd) + _e_land * math.cos(psiEnd))
+                        psiStart = psi0
+                        goal_pose_fallback = (psiEnd, max(self.corr_L_base, 1.0))
+                    self.get_logger().info(
+                        f'RETURN/plan | e={_e:+.3f} mode={_mode} D={_d} blocked={_blocked}',
+                        throttle_duration_sec=1.0)
                 # Diagnostic only: how far the car now sits from the ORIGINAL
                 # line. Deliberately not acted on any more (see "THE PRICE"
                 # above) -- logged so a run can still be read back for how much
@@ -7371,12 +7443,25 @@ class MPCController(Node):
         xL, yL = geom["xL"], geom["yL"]
         xR, yR = geom["xR"], geom["yR"]
         halfWidth = geom["halfWidth"]
+        if move_line is not None and move_line['mode'] == 'arc':
+            # 'arc' -> 'hold' when the pose corridor fell back (pose_target cleared below it).
+            if pose_target is None:
+                move_line['mode'] = 'hold'
+            else:
+                object_corridor_shape = 'return_arc'
+        if move_line is not None and move_line['mode'] == 'fixed':
+            # The fixed line need not pass through the car any more: the hard
+            # lateral bound must still contain it (and the swerve one rebuild
+            # period can add), or the QP starts infeasible.
+            halfWidth = np.maximum(np.asarray(halfWidth, dtype=float),
+                                   abs(move_line['e']) + CORRIDOR_CONTAIN_MARGIN_M)
         dpsi = geom["dpsi"]
         p_goal = geom["Pend"]
         if d_front is None:
             d_front = -1.0      # see the wall_turn branch: debug and log only
 
         corridor = {
+            'moveLine': move_line,
             "xc": xc,
             "yc": yc,
             "xL": xL,
@@ -7956,6 +8041,160 @@ class MPCController(Node):
                     f'every cycle and never advances.',
                     throttle_duration_sec=5.0)
         return float(lookahead)
+
+    # ── mpc-dodge: moving obstacles, the informed side rule, the return ───
+    def _init_dodge_params(self):
+        """
+        Declare the mpc-dodge parameters (stack_params.yaml is their only source).
+
+        Every one defaults to today's controller: static discs (mpc_obs_vel_trust 0), no wake
+        (mpc_obs_wake_weight 0), the fixed side rule, the corridor re-anchored on the car
+        (corridor_lateral_reanchor true) and no return shaping. See obstacle_motion.py,
+        side_rule.py (informed) and lateral_return.py.
+        """
+        def _p(key):
+            return self.declare_parameter(key, get_value(key)).value
+        self.obs_vel_trust = min(1.0, max(0.0, float(_p('mpc_obs_vel_trust'))))
+        self.obs_vel_lead_s = float(_p('mpc_obs_vel_lead_s'))
+        self.obs_pred_max_s = float(_p('mpc_obs_pred_max_s'))
+        self.obs_wake_weight = max(0.0, float(_p('mpc_obs_wake_weight')))
+        self.obs_wake_horizon_s = float(_p('mpc_obs_wake_horizon_s'))
+        self.obstacle_side_mode = str(_p('mpc_obstacle_side_mode'))
+        if self.obstacle_side_mode not in ('fixed', 'informed'):
+            raise ValueError("mpc_obstacle_side_mode must be 'fixed' or 'informed', "
+                             f'got {self.obstacle_side_mode!r}')
+        self.obstacle_side_release_m = float(_p('mpc_obstacle_side_release_m'))
+        self.obstacle_side_vlat_min = float(_p('mpc_obstacle_side_vlat_min'))
+        self.corridor_lateral_reanchor = bool(_p('corridor_lateral_reanchor'))
+        self.return_gain = float(_p('mpc_return_gain'))
+        self.return_lookahead_ratio = float(_p('mpc_return_lookahead_ratio'))
+        self.return_lookahead_min_m = float(_p('mpc_return_lookahead_min_m'))
+        self.return_psi_scale = float(_p('mpc_return_psi_scale'))
+        self.return_max_heading_deg = float(_p('mpc_return_max_heading_deg'))
+        self.return_overshoot_max_m = float(_p('mpc_return_overshoot_max_m'))
+        self._side_latch = side_rule.SideLatch()
+        self._move_line_origin = None
+        self._return_shape = None
+        self.obstacles_motion_live = {}
+        self.get_logger().info(
+            f'DODGE/cfg | vel_trust={self.obs_vel_trust} lead={self.obs_vel_lead_s} '
+            f'wake={self.obs_wake_weight}/{self.obs_wake_horizon_s}s '
+            f'side={self.obstacle_side_mode} reanchor={self.corridor_lateral_reanchor} '
+            f'return gain={self.return_gain} ratio={self.return_lookahead_ratio} '
+            f'psi_scale={self.return_psi_scale}')
+
+    def _side_ruled_obstacles(self, obstacles, motions, corridor):
+        """
+        Apply this tick's side rule: (obstacles, motions), the motions following their discs.
+
+        'fixed' is _tie_broken_obstacles (today). 'informed' is side_rule.break_ties_informed,
+        latched per track for the move.
+        """
+        if getattr(self, 'obstacle_side_mode', 'fixed') != 'informed':
+            # class-qualified: the closed-loop rig runs these on duck-typed stand-ins
+            return MPCController._tie_broken_obstacles(self, obstacles, corridor), motions
+        heading = float(corridor.get('psiRef', self.yaw))
+        reach = float(corridor.get('L', self.corr_L_base))
+        out, decided = side_rule.break_ties_informed(
+            obstacles, motions, (self.x, self.y), heading, self.obstacle_tie_band_m,
+            max(self.obstacle_side_release_m, self.obstacle_tie_band_m), self.obstacle_tie_side,
+            reach, self._side_latch, v_min=self.obstacle_side_vlat_min,
+            free_space=lambda a, lat: MPCController._free_space(self, heading, a, lat, obstacles))
+        if decided:
+            self.get_logger().info(
+                'TIE/informed | ' + ', '.join(
+                    f'#{i} id {getattr(motions[i], "track_id", None)} '
+                    f'{"left" if side > 0 else "right"} ({reason})'
+                    for i, side, reason in decided),
+                throttle_duration_sec=1.0)
+        return out, motions
+
+    def _free_space(self, heading, along, lat, obstacles):
+        """(free_left, free_right) [m] beside the line at `along` ahead: costmap walls, others."""
+        c, s = math.cos(heading), math.sin(heading)
+        px, py = self.x + c * along, self.y + s * along
+        lx, ly = -s, c
+        free = [None, None]
+        for nx_, ny_, off in getattr(self, 'costmap_boundaries_world', []) or []:
+            if not math.isfinite(off):
+                continue
+            for i, sgn in enumerate((1.0, -1.0)):
+                k = sgn * (nx_ * lx + ny_ * ly)
+                if k > 0.5:
+                    d = (off - (nx_ * px + ny_ * py)) / k
+                    free[i] = d if free[i] is None else min(free[i], d)
+        for ox, oy, r in obstacles:
+            dx, dy = ox - self.x, oy - self.y
+            a = c * dx + s * dy
+            o_lat = -s * dx + c * dy
+            if abs(a - along) > 1.0 or abs(o_lat - lat) < 1e-6:
+                continue
+            gap = abs(o_lat) - r
+            i = 0 if o_lat > 0.0 else 1
+            free[i] = gap if free[i] is None else min(free[i], gap)
+        return free[0], free[1]
+
+    def _attach_obstacle_motion(self, corridor, obstacles, motions):
+        """
+        Put the predicted per-stage discs and the wake on the corridor, or clear them.
+
+        obstacle_motion.py. Both None (the QP of today) unless mpc_obs_vel_trust /
+        mpc_obs_wake_weight are on and at least one obstacle is v_valid.
+        """
+        corridor['obstacles_world_stages'] = None
+        corridor['wake_world_stages'] = None
+        trust = getattr(self, 'obs_vel_trust', 0.0)
+        wake = getattr(self, 'obs_wake_weight', 0.0)
+        if (trust <= 0.0 and wake <= 0.0) or not any(m is not None and m.valid for m in motions):
+            return
+        times = obstacle_motion.stage_times(
+            self.N, getattr(self, 'ts_pred', self.ts), self.ts, self.obs_vel_lead_s,
+            self.obs_pred_max_s)
+        stages = obstacle_motion.predicted_stage_obstacles(obstacles, motions, times, trust)
+        if trust > 0.0:
+            corridor['obstacles_world_stages'] = stages
+        if wake > 0.0:
+            corridor['wake_world_stages'] = obstacle_motion.stage_wake_obstacles(
+                obstacles, motions, stages, (self.x, self.y), self.obs_wake_horizon_s)
+        self.get_logger().info(
+            'DODGE/motion | ' + ', '.join(
+                f'id {m.track_id} v=({m.vx:+.2f},{m.vy:+.2f})' for m in motions
+                if m is not None and m.valid), throttle_duration_sec=1.0)
+
+    def _compute_return_shape(self, corridor, obstacles):
+        """Return this tick's lateral_return.ReturnShape on a fixed-line corridor, else None."""
+        self._planning_obstacles_last = list(obstacles)
+        line = corridor.get('moveLine')
+        if line is None or self.x is None or line.get('mode') == 'hold':
+            return None
+        e = lateral_return.lateral_offset((self.x, self.y), line['origin'], line['psi'])
+        blocked = lateral_return.obstacle_in_return_band(
+            e, (self.x, self.y), line['psi'], obstacles,
+            float(corridor.get('L', self.corr_L_base)), self.car_radius + self.avoidance_margin)
+        shape = lateral_return.shape(e, self.return_gain, self.return_psi_scale, blocked)
+        self.get_logger().info(
+            f'RETURN | e={e:+.3f} mode={line.get("mode")} active={shape.active} '
+            f'blocked={shape.blocked} w_corr x{shape.w_corr_scale:.2f} '
+            f'w_psi x{shape.w_psi_scale:.2f}', throttle_duration_sec=1.0)
+        return shape
+
+    def _tick_weights(self, corridor):
+        """_weights_for(corridor), with this tick's return shaping and the wake weight."""
+        weights = self._weights_for(corridor)
+        shape = getattr(self, '_return_shape', None)
+        wake = getattr(self, 'obs_wake_weight', 0.0)
+        if (shape is None or not shape.active) and not (
+                wake > 0.0 and corridor.get('wake_world_stages') is not None):
+            return weights
+        weights = dict(weights)
+        if shape is not None and shape.active:
+            weights['w_corr'] = float(weights.get('w_corr', 0.0)) * shape.w_corr_scale
+            for key in ('w_psi', 'w_psi_stage'):
+                if key in weights:
+                    weights[key] = float(weights[key]) * shape.w_psi_scale
+        if wake > 0.0 and corridor.get('wake_world_stages') is not None:
+            weights['w_obs_wake'] = wake
+        return weights
 
     def _tie_broken_obstacles(self, obstacles, corridor):
         """

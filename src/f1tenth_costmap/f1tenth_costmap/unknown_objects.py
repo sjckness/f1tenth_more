@@ -435,8 +435,17 @@ def track_disks(trk, spacing_m=DISK_SPACING_M):
 
 def obstacles_for_mpc(tracks, pose, mode, class_margin=None, now_sec=None,
                       recognised_max_age_s=math.inf, current_ids=None, limits=None):
+    """Return [(x, y, r)] base_link: obstacles_for_mpc_tracks without the tracks."""
+    return [(x, y, r) for x, y, r, _t in obstacles_for_mpc_tracks(
+        tracks, pose, mode, class_margin, now_sec, recognised_max_age_s, current_ids, limits)]
+
+
+def obstacles_for_mpc_tracks(tracks, pose, mode, class_margin=None, now_sec=None,
+                             recognised_max_age_s=math.inf, current_ids=None, limits=None):
     """
-    Return [(x, y, r)] base_link: the disks of every CONFIRMED track the MPC should avoid.
+    Return [(x, y, r, track)] base_link: obstacles_for_mpc's disks with their tracks.
+
+    Each disk comes with the track it belongs to (its id and velocity go on the Obstacle2D).
 
     Recognised objects that are current: in current_ids when given (the
     node passes current_recognised's, memory-aware), else updated within
@@ -455,12 +464,12 @@ def obstacles_for_mpc(tracks, pose, mode, class_margin=None, now_sec=None,
             now_sec is None or now_sec - t.last_update_stamp_sec <= recognised_max_age_s)
     keep = [t for t in tracks if t.confirmed and (
         (t.is_unknown and mode == 'active') or (not t.is_unknown and recognised_ok(t)))]
-    disks = [(x, y, r + margin.get(t.class_id, 0.0)) for t in keep
+    disks = [(x, y, r + margin.get(t.class_id, 0.0), t) for t in keep
              for x, y, r in track_disks(t)]
     if not disks:
         return []
-    bl = to_base_link([(x, y) for x, y, _r in disks], pose)
-    return [(float(p[0]), float(p[1]), float(d[2])) for p, d in zip(bl, disks)]
+    bl = to_base_link([(x, y) for x, y, _r, _t in disks], pose)
+    return [(float(p[0]), float(p[1]), float(d[2]), d[3]) for p, d in zip(bl, disks)]
 
 
 def speed_cap(tracks, pose, mode, enabled, cap_mps, range_m, front_x, strip_half_m):
