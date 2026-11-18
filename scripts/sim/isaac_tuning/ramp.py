@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import sys
 import time
 
@@ -103,6 +104,10 @@ def _save(res: dict, out: str) -> None:
         fh.write('\n'.join(lines) + '\n')
 
 
+def _sigterm(*_):
+    raise SystemExit('SIGTERM')
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
     ap.add_argument('--params', required=True)
@@ -116,6 +121,8 @@ def main(argv=None) -> int:
     ap.add_argument('--ds-port', type=int, default=11878)
     ap.add_argument('--spectator', action='store_true')
     args = ap.parse_args(argv)
+    # started detached (setsid nohup ... &) SIGINT is ignored: SIGTERM must still run the cleanup
+    signal.signal(signal.SIGTERM, _sigterm)
     space = common.load_space()
     params = common.load_yaml(args.params) or {}
     problems = common.check_params(params, space)

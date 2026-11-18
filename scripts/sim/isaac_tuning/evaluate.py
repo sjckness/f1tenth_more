@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import statistics
 import sys
 import time
@@ -132,6 +133,10 @@ def write_table(results: list, out: str) -> None:
         json.dump(results, fh, indent=1, default=str)
 
 
+def _sigterm(*_):
+    raise SystemExit('SIGTERM')
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
     ap.add_argument('--variants', required=True)
@@ -150,6 +155,8 @@ def main(argv=None) -> int:
     ap.add_argument('--ds-port', type=int, default=11878)
     ap.add_argument('--spectator', action='store_true')
     args = ap.parse_args(argv)
+    # started detached (setsid nohup ... &) SIGINT is ignored: SIGTERM must still run the cleanup
+    signal.signal(signal.SIGTERM, _sigterm)
     space = common.load_space()
     variants = common.load_yaml(args.variants) or {}
     names = args.only.split(',') if args.only else list(variants)
