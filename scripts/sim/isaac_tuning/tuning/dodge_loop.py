@@ -147,12 +147,13 @@ def random_candidate(best: dict, space: dict, rng: random.Random) -> dict:
     return out
 
 
-def regression_ok(res: dict, ref: dict) -> tuple[bool, str]:
-    """No fewer good runs on M and S than the reference summary."""
+def regression_ok(res: dict, ref: dict, tol: int = 1) -> tuple[bool, str]:
+    """No fewer good runs on M and S than the reference summary, minus `tol` (run-to-run noise:
+    the same set gave 7-9 good S runs of 13 and 3-4 good M runs of 12 in the phase 2 A/B)."""
     why = []
     for fam in ('M', 'S'):
         a, b = (res.get(fam) or {}), (ref.get(fam) or {})
-        if b and a.get('good', 0) < b.get('good', 0):
+        if b and a.get('good', 0) < b.get('good', 0) - tol:
             why.append(f'{fam} good {a.get("good")}/{a.get("n")} < {b.get("good")}/{b.get("n")}')
     return (not why), '; '.join(why)
 
@@ -234,6 +235,8 @@ def main(argv=None) -> int:
     ap.add_argument('--d-max', type=int, default=20)
     ap.add_argument('--seeds', default='0,1,2')
     ap.add_argument('--confirm', type=int, default=10)
+    ap.add_argument('--regression-tol', type=int, default=1,
+                    help='good runs a candidate may lose per family (M, S) to the noise')
     ap.add_argument('--proposer', choices=('claude', 'random'), default='claude')
     ap.add_argument('--gpu-service', default='freeparty-llm.service')
     ap.add_argument('--domain', type=int, default=78)
@@ -337,11 +340,15 @@ def main(argv=None) -> int:
                     write_status(loop_dir, state)
                     res = evaluate.evaluate(session, f'it{it:02d}_reg', cand, space, it_dir, 0, 0,
                                             3, 3, seeds, families=('M', 'S'))
-                    ok, why_reg = regression_ok(res, ref)
+                    ok, why_reg = regression_ok(res, ref, args.regression_tol)
                     row['regression'] = 'none' if ok else why_reg
                     if ok:
                         row['accepted'] = True
-                        best, ref = cand, res
+                        # the reference stays the BETTER of the two, so the tolerance cannot
+                        # ratchet the regressions down one run at a time
+                        ref = {fam: max((res.get(fam) or {}), (ref.get(fam) or {}),
+                                        key=lambda x: x.get('good', 0)) for fam in ('M', 'S')}
+                        best = cand
                         best_dir = it_dir
                         state['best'], state['best_d_fail'] = best, sc['d_fail']
                         common.dump_yaml(best, BEST)
