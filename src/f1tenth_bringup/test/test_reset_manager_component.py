@@ -12,7 +12,10 @@ Plain YAML and set checks, no rclpy.
 import os
 import sys
 
+from launch import LaunchContext
+from launch.actions import OpaqueFunction
 import yaml
+
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(__file__), '..', 'f1tenth_bringup'))
@@ -63,7 +66,16 @@ def _launch_params():
     spec = importlib.util.spec_from_file_location('reset_manager_launch', path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    node = module.generate_launch_description().entities[-1]
+    description = module.generate_launch_description()
+    node = description.entities[-1]
+    if isinstance(node, OpaqueFunction):
+        # The Node is built in an OpaqueFunction (the sim overlay's
+        # params_overlay is read there): evaluate it with the declared
+        # defaults, as `ros2 launch` would.
+        context = LaunchContext()
+        for entity in description.entities[:-1]:
+            entity.visit(context)
+        node = node.execute(context)[0]
     raw = [p for p in node._Node__parameters if isinstance(p, dict)][0]
 
     # launch_ros normalises keys and values into TextSubstitution tuples.

@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "captured_at": "2026-10-24T23:01:56+02:00",
+  "capture": "output/orin_container/car_sync/20261024T230155",
+  "native_ws": "/home/fabiocar/dev_ws/f1tenth_more",
+  "native_branch": "stack-campaign-final-2026-10-22",
+  "native_head": "6c329992609d3e6c38939c8da1d240393af718aa",
+  "base": "fa5471f3ea4b2e62a8cadc0819f6b280e872338b",
+  "commits": [
+    {
+      "car": "1f957ca015d529618e4393e8e6ae7d50a9b0d0ad",
+      "picked_as": "4262b74f9370329c6a2b855b12eb222c014ae838"
+    },
+    {
+      "car": "e491643a6e47d50b91a3f76f14a7aad450d45196",
+      "picked_as": "6137165f97c0076f4b9294d5eb6fbb1dd5c35975"
+    },
+    {
+      "car": "6c329992609d3e6c38939c8da1d240393af718aa",
+      "picked_as": "0ca071fab4fec29ed611867bc74e4ac42834e04f"
+    }
+  ],
+  "uncommitted_src_patch_sha256": "16ab97102f5a5ba8ba86b37dc9e4876fdf00d912821a8963aabe3df7baecbf36",
+  "uncommitted_src_patch_committed_as": "40edbbd09aa936277db6d18524dbf53006b1fcc5",
+  "untracked": {
+    "src/f1tenth_behavior/missions/approach_wall_then_chair.json": "3a12e3369e3159b08c3d70c642c3ca2dc8234e62518f9c6865bbf78c561f3903",
+    "src/f1tenth_behavior/missions/go_to_person_1m.json": "8e8c4815928be4b2be6845000b17d7bf0c57a4ca6a036a7f927b013c7a9ad4db",
+    "src/f1tenth_behavior/missions/person_then_potted_plant.json": "ec90c6ffd5b1ec87e9ed962ee3abd7911c8c3b8e53d251372643a2709edb8ee9",
+    "src/f1tenth_behavior/missions/turn_left_at_wall_then_potted_plant.json": "32c9eba5a1f12d3cf415563857d3de280b32159e55773ba0fb57e7ccff4d6934"
+  },
+  "untracked_excluded": {
+    "src/f1tenth_behavior/missions/straight_until_potted_plant.json": {
+      "sha256": "ae4ec7588fceac5d3cd34f09368e64cf9c0c90b3d1908f372a5cb590515bb502",
+      "reason": "mission loader refuses it: moves[0] stop_condition.type ' '"
+    }
+  },
+  "main_commit": "ca66fc27d72444c7b61cdb785552f804ce87dcda",
+  "not_tracked": [
+    "src/f1tenth_hardware/vesc: untracked vesc_tuning/speed_sweep_results and __pycache__ in the submodule (data, not code)"
+  ]
+}

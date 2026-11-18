@@ -32,7 +32,7 @@ import os
 from f1tenth_params.param_defaults import get_default
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
@@ -51,12 +51,15 @@ def generate_launch_description():
         default_value=os.path.expanduser(str(runs_dir_default)),
         description=runs_dir_desc)
     storage_id_la = DeclareLaunchArgument(
-        'mission_bag_storage_id', default_value='mcap',
-        description="rosbag2 storage plugin. 'mcap' is preferred (Foxglove reads "
-                    "it directly, no conversion step) but is NOT installed by "
-                    "default on this box -- the node checks the registered "
-                    "writers at startup and falls back to sqlite3 with a loud "
-                    "warning naming the package to install.")
+        'mission_bag_storage_id', default_value='sqlite3',
+        description="rosbag2 storage plugin. 'sqlite3', as the car records today "
+                    "(its Humble install has no mcap writer, so it always fell "
+                    "back to sqlite3): the run-report overlay "
+                    "(mission_overlay), mission_debug_video and the replay "
+                    "tools in tools/ read .db3 only. 'mcap' (Foxglove reads it "
+                    "directly) is registered on Jazzy, but those readers do "
+                    "not open it yet. The node checks the registered writers "
+                    "at startup and falls back to sqlite3 with a loud warning.")
     sweep_period_la = DeclareLaunchArgument(
         'mission_bag_sweep_period_sec', default_value='300.0',
         description="How often to sweep bag directories left with no "
@@ -133,7 +136,16 @@ def generate_launch_description():
         }],
     )
 
+    # ROS_SUPER_CLIENT for the logger only, as foxglove_bridge.launch.py does.
+    # The recorder finds its topics in the ROS graph, and under
+    # ROS_DISCOVERY_SERVER a plain client is never told about other
+    # participants' topics: with plain-client nodes the mission bag held
+    # 0 messages (Phase 5, Step 4). Scoped to this launch tree, not
+    # stack-wide.
+    super_client_env = SetEnvironmentVariable('ROS_SUPER_CLIENT', 'TRUE')
+
     return LaunchDescription([
+        super_client_env,
         enable_la,
         runs_dir_la,
         storage_id_la,

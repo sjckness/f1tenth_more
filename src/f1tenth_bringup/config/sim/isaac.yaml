@@ -1,0 +1,39 @@
+# Sim parameter overlay for supervisor_bringup.launch.py sim:=isaac (Isaac Sim in ~/isaac_ws).
+#
+# Loaded ONLY in sim:=isaac, AFTER the car's normal parameters. It holds only the values that
+# must differ from the car in the simulator, each with its reason. Everything not listed here
+# comes from the car's own files (stack_params.yaml, components.yaml, the node yamls).
+# use_sim_time is not here: sim_component.launch.py sets it for every node of every component.
+#
+# How each section is applied:
+# - component_supervisor_node.sim_component_args: extra `ros2 launch` arguments per component,
+#   applied after components.yaml's own (component_supervisor_node.apply_sim_mode).
+# - every other section is a normal ROS 2 parameter block. sim_component.launch.py hands this
+#   file to every component as global parameters (they win only for keys the node does not set
+#   itself) and as the launch configuration params_overlay, which reset_manager.launch.py
+#   appends after its own config file.
+
+component_supervisor_node:
+  ros__parameters:
+    sim_component_args:
+      diagnostics:
+        # The car's run archive is ~/f1tenth_archive (mission_row/, runs.db). Simulated
+        # missions must never be filed with the car's runs: separate tree.
+        mission_logger_runs_dir: ~/f1tenth_sim_archive
+
+behavior_executor_node:
+  ros__parameters:
+    # Mission preflight requires the node that turns /ackermann_drive into motion. On the car
+    # that is ackermann_to_vesc_node (VESC stack, off in sim); in sim Isaac's bridge node
+    # consumes /ackermann_drive itself (~/isaac_ws/config/ros_interface.yaml ros.node_name).
+    preflight_actuation_node: isaac_f1tenth_sim
+
+reset_manager:
+  ros__parameters:
+    wheel_odom:
+      # /reset_all zeroes wheel odometry by restarting 'hardware' (vesc_to_odom has no reset).
+      # In sim /odom comes from Isaac, and restarting the sim 'hardware' stand-in (a static TF)
+      # cannot zero it. Isaac's /sim/reset (std_srvs/Trigger) zeroes its wheel odometry and puts
+      # the car (and the person) back at their start poses.
+      method: service
+      service: /sim/reset

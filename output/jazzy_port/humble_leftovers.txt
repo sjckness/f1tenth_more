@@ -1,0 +1,142 @@
+### C1 RecordOptions.all (guarded?)
+src/f1tenth_logger/f1tenth_logger/mission_logger_node.py:827:                    record_options.all_topics = False
+src/f1tenth_logger/f1tenth_logger/mission_logger_node.py:829:                    record_options.all = False
+
+### C2 TopicMetadata( without id=
+src/f1tenth_logger/test/test_object_run_summary.py:64:        # TopicMetadata(id: int, name: str, type: str, serialization_format:
+src/f1tenth_logger/test/test_object_run_summary.py:68:        writer.create_topic(rosbag2_py.TopicMetadata(
+
+### C3a rosbag2_py readers with hardcoded sqlite3
+(no hits)
+
+### C3b raw sqlite readers (deferred F1)
+src/corridor_perception/corridor_perception/replay.py:119:            dbs = sorted(candidate.glob('*.db3'))
+src/corridor_perception/corridor_perception/replay.py:128:    return sqlite3.connect(f'file:{db}?mode=ro', uri=True)
+src/f1tenth_logger/f1tenth_logger/mission_debug_video.py:93:    return sorted(bag.glob('*.db3'))
+src/f1tenth_logger/f1tenth_logger/mission_debug_video.py:108:        con = sqlite3.connect(f'file:{db3}?mode=ro', uri=True)
+tools/measure_stop_distance.py:88:    for db in sorted(glob.glob(os.path.join(run_dir, 'bag', '*.db3'))):
+tools/measure_stop_distance.py:91:        con = sqlite3.connect(f'file:{db}?mode=ro', uri=True)
+tools/scene_labels_replay.py:84:    db = sorted(glob.glob(f'{run}/bag/*.db3'))[0]
+tools/scene_labels_replay.py:85:    con = sqlite3.connect(f'file:{db}?mode=ro', uri=True)
+tools/test_campaign_backfill.py:170:    db = bag_dir / 'bag_0.db3'
+tools/test_campaign_backfill.py:173:    con = sqlite3.connect(f'file:{db}?mode=ro', uri=True)
+tools/test_campaign_backfill.py:237:        return None, f'{run.name}: no bag_0.db3'
+
+### C6 Humble apt names in hints
+(no hits)
+
+### C7 slam_toolbox lifecycle
+src/f1tenth_navigation/launch/slam.launch.py:1
+
+### C8 on/off/yes/no launch defaults
+(no hits)
+
+### C9 ROS_LOCALHOST_ONLY
+tools/scene_labels_replay.py:50:os.environ['ROS_AUTOMATIC_DISCOVERY_RANGE'] = 'LOCALHOST'   # Jazzy: ROS_LOCALHOST_ONLY is deprecated
+
+### C10 ROS_SUPER_CLIENT scoped
+scripts/stackctl.py:114:    os.environ['ROS_SUPER_CLIENT'] = 'TRUE'
+src/f1tenth_bringup/launch/foxglove_bridge.launch.py:111:    super_client_env = SetEnvironmentVariable('ROS_SUPER_CLIENT', 'TRUE')
+src/f1tenth_bringup/launch/viz_relays.launch.py:112:        SetEnvironmentVariable('ROS_SUPER_CLIENT', 'TRUE'),
+src/f1tenth_diagnostics/launch/steering_offset_calibration.launch.py:162:    super_client_env = SetEnvironmentVariable('ROS_SUPER_CLIENT', 'TRUE')
+src/f1tenth_localization/launch/localization.launch.py:116:            additional_env={'ROS_SUPER_CLIENT': 'TRUE'},
+src/f1tenth_logger/launch/mission_logger.launch.py:90:    super_client_env = SetEnvironmentVariable('ROS_SUPER_CLIENT', 'TRUE')
+
+### C13 FASTRTPS profile exports (must be none)
+(no hits)
+
+### C14 transport_drivers gone
+(no hits)
+
+### C15 submodule pins
+160000 commit 42b7cd70bf4cd1d11c2eb1eea62ad275af9b5a77	src/f1tenth_external/ackermann_mux
+160000 commit 4337558fd38e0e1a5c08bdd3c7b4b1a9454a74a9	src/f1tenth_external/teleop_tools
+160000 commit e97008721d56ecf3733b95265ff4deaddf3f664e	src/f1tenth_external/zed-ros2-interfaces
+160000 commit 86171bccda22de6e83ccc69b3c0e67af99dece7c	src/f1tenth_external/zed_ros2_wrapper
+160000 commit 2848a9ff208689359aae3625657c46f2e70cc0fc	src/f1tenth_hardware/vesc
+
+### C17 ZED v4 RGB topic names
+src/f1tenth_bringup/test/test_foxglove_whitelists.py:39:        '/zed2/zed_node/rgb/image_rect_color/compressed',
+src/f1tenth_description/urdf/sensors.xacro:137:        <topic>zed2/zed_node/rgb/image_rect_color</topic>
+src/f1tenth_perception/config/zed2_perception.yaml:25:      publish_rgb: true            # keep: rgb/color/rect/image (v4: rgb/image_rect_color) for YOLO
+src/f1tenth_perception/launch/camera.launch.py:99:                # zed_ros2_wrapper v5 renamed ~/rgb/image_rect_color to
+
+### C18 zed2i pins
+16:      # wrapper (Jazzy) changed them to grab_frame_rate 60, min_depth 0.01,
+17:      # max_depth 15.0. Port only: the values are the campaign's.
+18:      grab_frame_rate: 30
+30:      min_depth: 0.3               # humble-v4.2.5 zed2i default (v5.4.1: 0.01), see general above
+31:      max_depth: 10.0              # humble-v4.2.5 zed2i default (v5.4.1: 15.0)
+
+### C20 v4 optical frame name
+src/f1tenth_description/urdf/sensors.xacro:14:                 -> zed2_left_camera_frame -> zed2_left_camera_optical_frame
+src/f1tenth_description/urdf/sensors.xacro:127:    <link name="zed2_left_camera_optical_frame"/>
+src/f1tenth_description/urdf/sensors.xacro:130:      <child link="zed2_left_camera_optical_frame"/>
+src/f1tenth_description/urdf/sensors.xacro:138:        <ignition_frame_id>zed2_left_camera_optical_frame</ignition_frame_id>
+src/f1tenth_description/urdf/sensors.xacro:158:        <ignition_frame_id>zed2_left_camera_optical_frame</ignition_frame_id>
+src/f1tenth_perception/f1tenth_perception/detection_3d_node.py:17:*optical* frame, e.g. `zed2_left_camera_optical_frame`), since that's the
+src/f1tenth_perception/f1tenth_perception/detection_3d_node.py:168:        # fixed zed2_left_camera_frame -> zed2_left_camera_optical_frame joint,
+src/f1tenth_perception/scripts/verify_seg_live_deploy.py:96:    img_msg.header.frame_id = 'zed2_left_camera_optical_frame'
+src/f1tenth_perception/scripts/verify_seg_live_deploy.py:131:    identity_tf.child_frame_id = 'zed2_left_camera_optical_frame'
+src/f1tenth_perception/scripts/verify_seg_live_deploy.py:145:    depth_msg.header.frame_id = 'zed2_left_camera_optical_frame'
+src/f1tenth_perception/test/test_detection_3d_node.py:82:def _fake_depth_image(depth_arr, frame_id='zed2_left_camera_optical_frame'):
+src/f1tenth_perception/test/test_detection_3d_node.py:95:        child_frame='zed2_left_camera_optical_frame',
+src/f1tenth_perception/test/test_empty_mask_invariant.py:69:    msg.header.frame_id = 'zed2_left_camera_optical_frame'
+src/f1tenth_perception/test/test_empty_mask_invariant.py:125:        depth.header.frame_id = 'zed2_left_camera_optical_frame'
+src/f1tenth_perception/test/test_front_clearance_node.py:64:CAMERA_FRAME = 'test_zed2_left_camera_optical_frame'
+src/f1tenth_perception/test/test_front_depth_monitor_node.py:25:CAMERA_FRAME = 'test_zed2_left_camera_optical_frame'
+src/f1tenth_perception/test/test_ground_plane.py:4:zed2_left_camera_optical_frame, z 0.165, level): a floor at z 0 and a wall
+src/f1tenth_perception/test/test_obstacle_projector_radius.py:151:                parent='zed2_left_camera_frame', child='zed2_left_camera_optical_frame'))
+src/f1tenth_perception/test/test_obstacle_projector_radius.py:167:            depth.header.frame_id = 'zed2_left_camera_optical_frame'
+src/f1tenth_perception/test/test_perception_debug.py:138:        assert _wall_payload(frame_id='zed2_left_camera_optical_frame')['frame_id'] == \
+src/f1tenth_perception/test/test_perception_debug.py:139:            'zed2_left_camera_optical_frame'
+src/f1tenth_perception/test/test_swept_clearance_node.py:104:        _transform('zed2_left_camera_optical_frame', CAMERA_T, OPTICAL_QUATERNION),
+src/f1tenth_perception/test/test_swept_clearance_node.py:144:    msg.header.frame_id = 'zed2_left_camera_optical_frame'
+src/f1tenth_perception/test/test_swept_clearance_node.py:152:    msg.header.frame_id = 'zed2_left_camera_optical_frame'
+tools/scene_labels_replay.py:333:    cam_tf = to_base('zed2_left_camera_optical_frame')
+tools/scene_labels_replay.py:576:    frame = 'zed2_left_camera_optical_frame'
+
+### C22 inflate_polytope keep count (1 = CF, P1 not applied)
+1
+
+### C23 removed numpy aliases
+(no hits)
+
+### C24a py3.12 removed modules
+(no hits)
+
+### C24b invalid escapes (SyntaxWarning as error)
+(no hits)
+
+### C25a setup.py without test extra
+(no hits)
+
+### C25b tests_require
+(no hits)
+
+### C25c -- in package.xml comments
+(no hits)
+
+### C26 mpc test_depend
+src/f1tenth_control/mpc_controller/package.xml:50:       ('f1tenth_hardware') to read the real steering-limit config. Test
+src/f1tenth_control/mpc_controller/package.xml:51:       only; no cycle (f1tenth_hardware does not depend back on this
+src/f1tenth_control/mpc_controller/package.xml:53:  <test_depend>f1tenth_hardware</test_depend>
+
+### C28 Gazebo Fortress names (deferred F3)
+src/f1tenth_description/urdf/macros.xacro
+src/f1tenth_description/urdf/roboracer.urdf.xacro
+src/f1tenth_description/urdf/robot.urdf.xacro
+src/f1tenth_description/urdf/ros2_control.xacro
+src/f1tenth_description/urdf/sensors.xacro
+src/f1tenth_params/config/stack_params.yaml
+src/f1tenth_sim/config/controllers.yaml
+src/f1tenth_sim/config/ros_gz_bridge.yaml
+src/f1tenth_sim/launch/sim_bringup.launch.py
+src/f1tenth_sim/package.xml
+
+### C29 ros2 bag record positional topics
+scripts/replay_bag_through_mpc.sh:65:ros2 bag record -o "$OUT" --storage sqlite3 \
+
+### C34 f1tenth_sim ignored
+COLCON_IGNORE present
+

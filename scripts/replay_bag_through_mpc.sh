@@ -32,7 +32,7 @@ LOGDIR="$(mktemp -d)"
 
 rm -rf "$OUT"
 unset ROS_DISCOVERY_SERVER ROS_SUPER_CLIENT
-export ROS_DOMAIN_ID="${REPLAY_DOMAIN_ID:-77}" ROS_LOCALHOST_ONLY=1
+export ROS_DOMAIN_ID="${REPLAY_DOMAIN_ID:-77}" ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 cd "$WS" || exit 1
 source install/setup.bash
 
@@ -63,7 +63,7 @@ ros2 run mpc_controller mpc_corr > "$LOGDIR/mpc.log" 2>&1 &
 MPC=$!
 sleep 5
 ros2 bag record -o "$OUT" --storage sqlite3 \
-    --qos-profile-overrides-path "$LOGDIR/qos.yaml" $REC_TOPICS > "$LOGDIR/record.log" 2>&1 &
+    --qos-profile-overrides-path "$LOGDIR/qos.yaml" --topics $REC_TOPICS > "$LOGDIR/record.log" 2>&1 &
 REC=$!
 sleep 4
 ros2 bag play "$SRC" --rate "${REPLAY_RATE:-1.0}" --topics $PLAY_TOPICS > "$LOGDIR/play.log" 2>&1

@@ -1028,3 +1028,92 @@ def test_static_sweep_aborts_cleanly_when_the_operator_quits():
         assert not node.run_static_sweep(prompt=lambda _t: 'q')
     finally:
         node.destroy_node()
+
+
+# ------------------------------------------- e-stop graph wait (fix batch 4)
+class _FakeGraph:
+    """
+    Graph counts that appear at a given fake time.
+
+    A fake clock that rclpy.spin_once() advances by its timeout, so the wait
+    is deterministic and the test takes no real time.
+    """
+
+    def __init__(self, appear_at, monkeypatch):
+        import f1tenth_diagnostics.steering_offset_calibration_node as mod
+        self.now = 1000.0
+        self.appear_at = None if appear_at is None else self.now + appear_at
+        self.spins = 0
+        monkeypatch.setattr(mod.time, 'monotonic', lambda: self.now)
+        monkeypatch.setattr(mod.rclpy, 'spin_once', self._spin_once)
+
+    def _spin_once(self, node, timeout_sec=None):
+        self.spins += 1
+        self.now += timeout_sec or 0.1
+
+    def count(self, _topic):
+        return 1 if self.appear_at is not None and self.now >= self.appear_at else 0
+
+
+def _estop_node(graph, monkeypatch, **params):
+    node = _construct(params)
+    monkeypatch.setattr(node, 'count_subscribers', graph.count)
+    monkeypatch.setattr(node, 'count_publishers', graph.count)
+    return node
+
+
+def test_estop_check_passes_at_once_when_the_graph_is_already_complete(monkeypatch):
+    graph = _FakeGraph(appear_at=0.0, monkeypatch=monkeypatch)
+    node = _estop_node(graph, monkeypatch)
+    try:
+        assert node._check_estop_path()
+        assert graph.spins == 0
+    finally:
+        node.destroy_node()
+
+
+def test_estop_check_waits_for_a_graph_that_completes_after_two_seconds(monkeypatch):
+    graph = _FakeGraph(appear_at=2.0, monkeypatch=monkeypatch)
+    node = _estop_node(graph, monkeypatch)
+    try:
+        subs, pubs, waited = node._wait_for_estop_graph()
+        assert (subs, pubs) == (1, 1)
+        assert waited == pytest.approx(2.0, abs=0.11)
+        graph.now -= waited  # same scenario again, through the full check
+        graph.appear_at = graph.now + 2.0
+        assert node._check_estop_path()
+    finally:
+        node.destroy_node()
+
+
+def test_estop_check_refuses_after_the_limit_when_the_graph_never_completes(monkeypatch):
+    graph = _FakeGraph(appear_at=None, monkeypatch=monkeypatch)
+    node = _estop_node(graph, monkeypatch)
+    try:
+        assert node.estop_graph_wait_sec == 5.0  # the default
+        start = graph.now
+        assert not node._check_estop_path()
+        assert graph.now - start == pytest.approx(5.0, abs=0.11)
+    finally:
+        node.destroy_node()
+
+
+def test_estop_check_wait_limit_is_a_parameter(monkeypatch):
+    graph = _FakeGraph(appear_at=None, monkeypatch=monkeypatch)
+    node = _estop_node(graph, monkeypatch, estop_graph_wait_sec=1.5)
+    try:
+        start = graph.now
+        assert not node._check_estop_path()
+        assert graph.now - start == pytest.approx(1.5, abs=0.11)
+    finally:
+        node.destroy_node()
+
+
+def test_estop_check_still_refuses_with_the_lane_but_no_safety_stop(monkeypatch):
+    graph = _FakeGraph(appear_at=None, monkeypatch=monkeypatch)
+    node = _estop_node(graph, monkeypatch)
+    monkeypatch.setattr(node, 'count_subscribers', lambda _t: 1)  # mux up, no BT
+    try:
+        assert not node._check_estop_path()
+    finally:
+        node.destroy_node()

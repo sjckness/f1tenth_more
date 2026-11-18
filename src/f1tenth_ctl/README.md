@@ -63,16 +63,29 @@ the CLI see the same variables.
 **One rule for every target: the env file gives exactly the ROS environment
 of a shell on that target.** The details are in `output/telegram/discovery.md`.
 
-- **Car:** `config/ctl.env` is a literal copy of the ROS part of the Orin's
-  `~/.bashrc`:
-  - Humble and the workspace;
+- **Car (Jazzy):** `config/ctl.env` sources `scripts/env/jazzy.sh` of its own
+  checkout (`F1TENTH_WS` overrides it), the file a Jazzy host's `~/.bashrc`
+  sources:
+  - Jazzy and the workspace install;
   - `ROS_DISCOVERY_SERVER=127.0.0.1:11811`;
-  - `ROS_SUPER_CLIENT=TRUE`;
-  - the CUDA `LD_LIBRARY_PATH`.
+  - **no** `ROS_SUPER_CLIENT`: the stack's nodes are plain Discovery Server
+    clients; the probe, the monitor and the gateway set it for themselves;
+  - the pip CUDA `LD_LIBRARY_PATH` only where torch is in this python's user site.
 
-  Read on 2026-10-20, it was identical on all 13 compared variables.
-- **Sim:** `config/sim_linus.env` sources jazzy's own `scripts/sim/sim_net.sh`,
-  with the discovery server on loopback. See also `output/telegram/test.md`.
+  The car's Humble profile (a copy of the Orin's `~/.bashrc`, read on
+  2026-10-20) is the one on `campaign-final`.
+- **Car, Jazzy container on the Orin:** `config/ctl_container.env` sources
+  `ctl.env` (the image's `/opt/f1tenth_ws`) and adds what the container
+  needs: the proc backend (below), `F1T_WORKDIR`, the archive trigger file,
+  the image's provenance files, and the **car profile**: the stack starts with
+  the values the native car runs (`enable_intelligence:=true
+  enable_mission_logger:=true enable_comms:=false`, from
+  `output/orin_container/params_delta.md`). One line of extra launch
+  arguments for trials can go in `~/.config/f1tenth_car/stack_args`
+  (`name:=value` words only, else the file is ignored; the stack's log says
+  which).
+- **Sim:** `config/sim_linus.env`: the Isaac sim on one host (`scripts/sim/sim_isaac.sh`'s
+  stack environment, `--net local`). See also `output/telegram/test.md`.
 
 `check` compares the env file with the reference shell `F1T_SHELL_REF`:
 
@@ -123,14 +136,15 @@ This is the `ros2 node list` check: the node list is read as a super client.
 
 **The same graph from a shell.** With the discovery server, the ros2 CLI sees
 what f1tenth_ctl sees only with the env file's environment
-(`ROS_DISCOVERY_SERVER=127.0.0.1:11811`, `ROS_SUPER_CLIENT=TRUE`) and
+(`ROS_DISCOVERY_SERVER=127.0.0.1:11811`), as a **super client** and
 **without the ros2 daemon**. The daemon keeps the environment of whoever
-started it, so through it `ros2 topic list` can show nothing, or another graph:
+started it, so through it `ros2 topic list` can show nothing, or another graph.
+`scripts/env/jazzy.sh`'s `ros2cli` helper does both:
 
 ```bash
-set -a; . ~/dev_ws/f1tenth_more/src/f1tenth_ctl/config/ctl.env; set +a
-ros2 node list --no-daemon
-ros2 topic list --no-daemon
+source ~/dev_ws/f1tenth_more/scripts/env/jazzy.sh
+ros2cli node list
+ros2cli topic list
 ```
 
 `f1tenth_ctl check` warns (`super_client`) when the env file leaves
@@ -147,6 +161,54 @@ ros2 topic list --no-daemon
 
 **Survives the ssh session:** the user manager keeps the units. On the Orin
 Linger is on; check it with `loginctl show-user $USER -p Linger`.
+
+## Without systemd: the proc backend (the container)
+
+A container has no user systemd manager, so `systemd-run --user` cannot
+hold the processes. `F1T_PROCESS_BACKEND` in the env file picks how they
+run:
+
+| Value | Backend |
+|---|---|
+| `systemd` | transient user units, as above |
+| `proc` | one runner process per managed process (`f1tenth_ctl/runner.py`) |
+| `auto` (default) | `proc` inside a container (`/.dockerenv`, `/run/.containerenv`) or where no user manager answers, else `systemd` |
+
+It is read from the env file only, never from the caller's shell.
+`config/ctl_container.env` sets `proc`. `units.py` is the same facade for
+both (`procunits.py` is the proc side): same unit names, logs, FIFOs, desired
+states, stop ladder and JSON. `test_process_manager.py` runs every test on
+both backends and compares the JSON of both.
+
+**What the runner does in place of systemd:**
+
+- **Detaches.** Double fork + `setsid`, so it belongs neither to the caller
+  (ssh, `docker exec`, the gateway) nor to the caller's session. The
+  container's init (tini) adopts it.
+- **Child subreaper.** Orphans of the process (daemons, grandchildren whose
+  parent died) are re-parented to the runner, not to init. The runner's
+  descendants are the unit's "control group" (`unit_pids`).
+- **Runs the process like a unit.** Own session and process group, so SIGINT
+  to the group is Ctrl-C. `F1T_WORKDIR` (default `$HOME`) as working
+  directory, stdin `/dev/null` (or the FIFO, through the same script),
+  output appended to the log.
+- **KillMode=control-group.** When the process ends, whatever is left below
+  the runner gets SIGTERM, then SIGKILL after `F1T_STOP_SIGTERM_WAIT_S`.
+  `stop`'s SIGTERM and SIGKILL steps go to the whole tree, like `systemctl kill`.
+
+**Records,** in `~/.local/state/f1tenth_ctl/proc/<unit>/`:
+
+- `proc.json`: runner and main pid with their `/proc` start times and the
+  boot id. A pid that was reused is never taken for the process.
+- `exit.json`: how the process ended, in systemd's terms. A clean signal
+  (SIGINT, SIGTERM, SIGHUP, SIGPIPE) or exit 0 counts as success, as systemd's
+  default `SuccessExitStatus` does.
+- `<unit>.lock`: so two callers never start the same unit twice.
+
+`check` reports `process_backend` and `workdir` instead of `systemd_user`
+and `linger`. The container's main process (`docker/orin/container/`)
+resets all records when it starts: a new container starts as "everything
+stopped".
 
 ## status and READY
 

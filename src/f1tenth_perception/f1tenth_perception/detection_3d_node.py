@@ -22,7 +22,8 @@ TF-tree-aligned tooling) get a REP-103-style axis convention (x-forward,
 y-left, z-up) instead of the optical one (z-forward, x-right, y-down). The
 optical -> camera_frame transform is a fixed joint already broadcast by the
 ZED wrapper's own robot_state_publisher -- this node only looks it up, it does
-not (re)publish it.
+not (re)publish it, and by default from /tf_static alone (no TransformListener:
+static_tf.py, parameter tf_static_only).
 
 Detections with hypothesis.score below `confidence_threshold` are dropped
 before either output is built.
@@ -92,8 +93,6 @@ from tf2_ros import (
     ExtrapolationException,
     LookupException,
 )
-from tf2_ros.buffer import Buffer
-from tf2_ros.transform_listener import TransformListener
 from vision_msgs.msg import (
     BoundingBox3D,
     Detection2DArray,
@@ -106,6 +105,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from f1tenth_perception.scene_labels import LABEL_OTHER
 from f1tenth_perception.latest_frame_qos import LATEST_FRAME_QOS
 from f1tenth_perception.stage_timing import StageTimer
+from f1tenth_perception.static_tf import refuse_dynamic_frame, STATIC_ONLY_HINT, StaticTf
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
     declare_nice_param,
@@ -278,8 +278,19 @@ class Detection3DNode(Node):
         self.bridge = CvBridge()
 
         # ---- tf2 (optical frame -> output_frame) ------------------------
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
+        # A fixed joint chain, so by default the buffer is fed from /tf_static
+        # alone, no TransformListener (static_tf.py says why; the lookup in
+        # _synced_callback is unchanged). tf_static_only:=false restores the
+        # listener, for an output_frame reached through a moving joint. A
+        # moving output_frame (map, odom) is refused here instead of failing
+        # every frame at runtime.
+        self.tf_static_only = bool(self.declare_parameter(
+            'tf_static_only', get_value('detection_3d_tf_static_only')).value)
+        if self.tf_static_only:
+            refuse_dynamic_frame(self.output_frame)
+        self._tf = StaticTf(self, self.tf_static_only, 'detection_3d_tf_static')
+        self.tf_buffer = self._tf.buffer
+        self.tf_listener = self._tf.listener
 
         # ---- ROS interfaces ---------------------------------------------
         self.det3d_pub = self.create_publisher(
@@ -603,7 +614,8 @@ class Detection3DNode(Node):
         except (LookupException, ConnectivityException, ExtrapolationException) as exc:
             self.get_logger().warn(
                 f'tf2 lookup "{depth_msg.header.frame_id}" -> '
-                f'"{self.output_frame}" failed: {exc} -- skipping frame',
+                f'"{self.output_frame}" failed: {exc} -- skipping frame' +
+                (f' ({STATIC_ONLY_HINT})' if self.tf_static_only else ''),
                 throttle_duration_sec=5.0)
             self._stats['drop_tf2'] += 1
             return

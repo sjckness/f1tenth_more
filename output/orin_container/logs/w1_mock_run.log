@@ -1,0 +1,23 @@
+[f1tenth_container_main] 2026-10-24T23:51:58+02:00 role car, env /tmp/pytest-of-andreas/pytest-119/test_the_container_main_runs_t0/test_ctl.env, backend proc (F1T_PROCESS_BACKEND=proc), autostart stack
+[f1tenth_container_main] 2026-10-24T23:51:59+02:00 preflight WARN: no ZED calibration in /usr/local/zed/settings (SN*.conf): the SDK will try to download it
+[f1tenth_container_main] 2026-10-24T23:51:59+02:00 preflight WARN: no *.gguf in /tmp/pytest-of-andreas/pytest-119/test_the_container_main_runs_t0/home/projects/llm/models: enable_intelligence cannot start llama-server
+[f1tenth_container_main] 2026-10-24T23:51:59+02:00 preflight WARN (F1T_PREFLIGHT=warn): 104 live Fast DDS shared-memory segment(s) in /dev/shm (another DDS stack on this host), e.g. /dev/shm/fastrtps_00cdcbb91fd42e03_el
+[f1tenth_container_main] 2026-10-24T23:51:59+02:00 reset: stopped stack,planner,logger,discovery,monitor; still alive -
+[f1tenth_container_main] 2026-10-24T23:52:00+02:00 discovery server 127.0.0.1:49760 (pid 109043)
+[f1tenth_container_main] 2026-10-24T23:52:00+02:00 gateway started (pid 109151), log /tmp/pytest-of-andreas/pytest-119/test_the_container_main_runs_t0/home/.local/state/f1tenth_gateway/gateway.log
+[f1tenth_container_main] 2026-10-24T23:52:03+02:00 autostart stack: ok=True state=running 
+[f1tenth_container_main] 2026-10-24T23:52:03+02:00 up
+[f1tenth_container_main] 2026-10-24T23:52:05+02:00 gateway exited (-9); restart in 3 s (see /tmp/pytest-of-andreas/pytest-119/test_the_container_main_runs_t0/home/.local/state/f1tenth_gateway/gateway.log)
+[f1tenth_container_main] 2026-10-24T23:52:08+02:00 gateway started (pid 109590), log /tmp/pytest-of-andreas/pytest-119/test_the_container_main_runs_t0/home/.local/state/f1tenth_gateway/gateway.log
+[f1tenth_container_main] 2026-10-24T23:52:09+02:00 SIGTERM: ordered stop
+[f1tenth_container_main] 2026-10-24T23:52:09+02:00 stop planner: ok=True already=stopped (0.1 s)
+[f1tenth_container_main] 2026-10-24T23:52:10+02:00 stop logger: ok=True already=stopped (0.1 s)
+[f1tenth_container_main] 2026-10-24T23:52:10+02:00 stop monitor: ok=True signals=['SIGINT'] (0.4 s)
+[f1tenth_container_main] 2026-10-24T23:52:10+02:00 stop stack: ok=True signals=['SIGINT'] (0.3 s)
+[f1tenth_container_main] 2026-10-24T23:52:11+02:00 stop gateway: ok=True signals=['SIGINT'] (0.3 s)
+[f1tenth_container_main] 2026-10-24T23:52:11+02:00 stop discovery: ok=True signals=['SIGINT'] (0.2 s)
+[f1tenth_container_main] 2026-10-24T23:52:11+02:00 stop runners: ok=True  (0.0 s)
+[f1tenth_container_main] 2026-10-24T23:52:11+02:00 stop leftovers, shm: skipped (not in a container: the other ROS processes and segments of this user are not ours)
+[f1tenth_container_main] 2026-10-24T23:52:11+02:00 stopped (clean)
+.
+1 passed, 9 deselected in 13.48s

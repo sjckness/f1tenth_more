@@ -1,0 +1,49 @@
+$ timeout 900 python3 -m pytest -q -p no:cacheprovider docker/orin/tests scripts/orin/test_drift_check.py
+...............................                                          [100%]
+31 passed in 24.13s
+rc=0
+$ timeout 900 python3 -m pytest -q -p no:cacheprovider test/test_procunits.py test/test_process_manager.py -rs
+..................................................................       [100%]
+66 passed in 65.62s (0:01:05)
+rc=0
+$ ament_flake8 src/f1tenth_ctl/f1tenth_ctl/procunits.py src/f1tenth_ctl/f1tenth_ctl/runner.py src/f1tenth_ctl/test/test_procunits.py docker/orin/container/f1tenth_container_main.py docker/orin/set_installed_params.py docker/orin/tests/test_set_installed_params.py docker/orin/tests/test_container_main.py scripts/orin/drift_check.py scripts/orin/test_drift_check.py tools/car_sync/params_delta.py
+
+10 files checked
+No problems found
+
+Checked files:
+
+* src/f1tenth_ctl/f1tenth_ctl/procunits.py
+* src/f1tenth_ctl/f1tenth_ctl/runner.py
+* src/f1tenth_ctl/test/test_procunits.py
+* docker/orin/container/f1tenth_container_main.py
+* docker/orin/set_installed_params.py
+* docker/orin/tests/test_set_installed_params.py
+* docker/orin/tests/test_container_main.py
+* scripts/orin/drift_check.py
+* scripts/orin/test_drift_check.py
+* tools/car_sync/params_delta.py
+rc=0
+$ ament_pep257 src/f1tenth_ctl/f1tenth_ctl/procunits.py src/f1tenth_ctl/f1tenth_ctl/runner.py src/f1tenth_ctl/test/test_procunits.py docker/orin/container/f1tenth_container_main.py docker/orin/set_installed_params.py docker/orin/tests/test_set_installed_params.py docker/orin/tests/test_container_main.py scripts/orin/drift_check.py scripts/orin/test_drift_check.py tools/car_sync/params_delta.py
+checking docker/orin/container/f1tenth_container_main.py
+checking docker/orin/set_installed_params.py
+checking docker/orin/tests/test_container_main.py
+checking docker/orin/tests/test_set_installed_params.py
+checking scripts/orin/drift_check.py
+checking scripts/orin/test_drift_check.py
+checking src/f1tenth_ctl/f1tenth_ctl/procunits.py
+checking src/f1tenth_ctl/f1tenth_ctl/runner.py
+checking src/f1tenth_ctl/test/test_procunits.py
+checking tools/car_sync/params_delta.py
+No problems found
+rc=0
+$ pipx run --spec shellcheck-py shellcheck docker/orin/container/healthcheck.sh scripts/orin/drift_check.sh
+rc=0
+$ pipx run --spec shellcheck-py shellcheck -e SC1090,SC1091 src/f1tenth_ctl/config/ctl_container.env
+rc=0
+$ python3 tools/car_sync/params_delta.py --check
+24 differing keys -> output/orin_container/params_delta.md
+rc=0
+$ python3 -c import ast,sys; [ast.parse(open(f).read(), feature_version=(3,10)) for f in sys.argv[1:]]; print("py3.10 syntax ok:", len(sys.argv)-1) src/f1tenth_ctl/f1tenth_ctl/procunits.py src/f1tenth_ctl/f1tenth_ctl/runner.py src/f1tenth_ctl/test/test_procunits.py docker/orin/container/f1tenth_container_main.py docker/orin/set_installed_params.py docker/orin/tests/test_set_installed_params.py docker/orin/tests/test_container_main.py scripts/orin/drift_check.py scripts/orin/test_drift_check.py tools/car_sync/params_delta.py src/f1tenth_ctl/f1tenth_ctl/units.py src/f1tenth_ctl/f1tenth_ctl/config.py src/f1tenth_ctl/f1tenth_ctl/cli.py src/f1tenth_logger/f1tenth_logger/mission_logger_node.py
+py3.10 syntax ok: 14
+rc=0

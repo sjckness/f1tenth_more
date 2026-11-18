@@ -13,6 +13,13 @@ States reported for a managed process:
   never stopped it (an exit 0 nobody asked for is still a crash).
 The "desired" state that tells the last two apart is a small JSON file per
 process in the state directory, written on start and on stop.
+
+Two backends behind the same functions (F1T_PROCESS_BACKEND in the env
+file): 'systemd', the units above, and 'proc' (procunits.py), one runner
+process per managed process (runner.py) for a container, which has no user
+systemd manager. 'auto', the default, picks proc inside a container or where
+no user manager answers, else systemd. Both report the same property dicts
+to classify(), so every caller and the JSON stay the same.
 """
 
 import json
@@ -32,10 +39,65 @@ _RUNNING = ('active', 'activating', 'reloading')
 # si_code values systemd reports in ExecMainCode.
 _EXIT_CODES = {'1': 'exited', '2': 'killed', '3': 'dumped'}
 
+# Answers of `systemctl --user is-system-running` from a manager that is there.
+_MANAGER_UP = ('initializing', 'starting', 'running', 'degraded', 'maintenance', 'stopping')
+_CONTAINER_MARKERS = ('/.dockerenv', '/run/.containerenv')
+
 
 def systemctl(args: List[str], timeout: float = 10.0, env=None):
     return subprocess.run(['systemctl', '--user', *args], capture_output=True,
                           text=True, timeout=timeout, env=env)
+
+
+# ---- the backend ----------------------------------------------------------
+
+_auto_choice: Dict[str, str] = {}
+
+
+def _proc():
+    from . import procunits
+    return procunits
+
+
+def in_container() -> bool:
+    return any(os.path.exists(p) for p in _CONTAINER_MARKERS)
+
+
+def user_manager_answers(settings: Optional[Settings] = None) -> bool:
+    env = _systemd_env(settings) if settings is not None else None
+    try:
+        out = systemctl(['is-system-running'], timeout=5.0, env=env).stdout.strip()
+    except OSError:
+        return False
+    except subprocess.TimeoutExpired:
+        # A manager that is slow to answer is still there: a loaded host must
+        # never fall back to proc (and cache that) by accident.
+        return True
+    return out in _MANAGER_UP
+
+
+def backend_choice(settings: Settings) -> Dict[str, str]:
+    """
+    Return {'backend': 'systemd'|'proc', 'why': ...} for these settings.
+
+    'auto' is decided once per process (a container stays a container) and
+    then cached, so status never pays for the systemctl call twice.
+    """
+    choice = getattr(settings, 'process_backend', 'auto') or 'auto'
+    if choice in ('systemd', 'proc'):
+        return {'backend': choice, 'why': f'F1T_PROCESS_BACKEND={choice}'}
+    if not _auto_choice:
+        if in_container():
+            _auto_choice.update(backend='proc', why='auto: inside a container')
+        elif not user_manager_answers(settings):
+            _auto_choice.update(backend='proc', why='auto: no systemd --user manager answers')
+        else:
+            _auto_choice.update(backend='systemd', why='auto: systemd --user answers')
+    return dict(_auto_choice)
+
+
+def backend(settings: Settings) -> str:
+    return backend_choice(settings)['backend']
 
 
 def parse_show(text: str) -> List[Dict[str, str]]:
@@ -126,7 +188,10 @@ def _signal_name(num: str) -> str:
 def unit_states(settings: Settings, names) -> Dict[str, dict]:
     specs = [settings.procs[n] if n in settings.procs
              else ProcSpec(n, '', unit_prefix=settings.unit_prefix) for n in names]
-    props = show([s.unit for s in specs])
+    if backend(settings) == 'proc':
+        props = _proc().show(settings, [s.unit for s in specs])
+    else:
+        props = show([s.unit for s in specs])
     out = {}
     for spec in specs:
         out[spec.name] = classify(props.get(spec.unit, {'Id': spec.unit}),
@@ -173,7 +238,7 @@ def build_command(settings: Settings, spec: ProcSpec) -> List[str]:
         '-p', f'TimeoutStopSec={max(1, int(settings.sigterm_wait_s))}',
         '-p', f'StandardOutput=append:{log}',
         '-p', f'StandardError=append:{log}',
-        '-p', f'WorkingDirectory={settings.env.get("HOME", "~")}',
+        '-p', f'WorkingDirectory={settings.workdir or settings.env.get("HOME", "~")}',
         f'--setenv=F1T_CTL_ENV={settings.env_file}',
         f'--setenv=F1T_UNIT_NAME={spec.name}',
         f'--setenv=F1T_UNIT_CMD={spec.cmd}',
@@ -193,20 +258,37 @@ def _ensure_fifo(path: str) -> None:
     os.mkfifo(path, 0o600)
 
 
-def start(settings: Settings, spec: ProcSpec, settle_s: float = 1.5) -> dict:
-    os.makedirs(settings.log_dir, exist_ok=True)
-    if spec.stdin_fifo:
-        _ensure_fifo(settings.fifo_path(spec.name))
+def _systemd_launch(settings: Settings, spec: ProcSpec) -> Optional[str]:
+    """Start the transient unit; return an error text, or None."""
     systemctl(['reset-failed', spec.unit])
     cmd = build_command(settings, spec)
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15,
                           env=_systemd_env(settings))
     if proc.returncode != 0:
-        return {'ok': False, 'error': f'systemd-run failed: {proc.stderr.strip()}'}
+        return f'systemd-run failed: {proc.stderr.strip()}'
+    return None
+
+
+def start(settings: Settings, spec: ProcSpec, settle_s: float = 1.5) -> dict:
+    os.makedirs(settings.log_dir, exist_ok=True)
+    if spec.stdin_fifo:
+        _ensure_fifo(settings.fifo_path(spec.name))
+    if backend(settings) == 'proc':
+        error = _proc().launch(settings, spec)
+    else:
+        error = _systemd_launch(settings, spec)
+    if error:
+        return {'ok': False, 'error': error}
     write_desired(settings, spec.name, 'running', cmd=spec.cmd)
     deadline = time.monotonic() + settle_s
+    # A process that ended at once is 'stopping' while what it left behind is
+    # stopped (TimeoutStopSec at most): wait for how it ended, not that.
+    grace = deadline + max(1, int(settings.sigterm_wait_s)) + 1.0
     while True:
         state = unit_states(settings, [spec.name])[spec.name]
+        if state['state'] == 'stopping' and time.monotonic() < grace:
+            time.sleep(0.1)
+            continue
         if state['state'] != 'running' or time.monotonic() >= deadline:
             break
         time.sleep(0.25)
@@ -259,10 +341,14 @@ def stop_ladder(is_down: Callable[[float], bool],
 
 
 def stop(settings: Settings, spec: ProcSpec) -> dict:
+    proc_backend = backend(settings) == 'proc'
     state = unit_states(settings, [spec.name])[spec.name]
     write_desired(settings, spec.name, 'stopped')
     if state['state'] not in ('running', 'stopping'):
-        systemctl(['reset-failed', spec.unit])
+        if proc_backend:
+            _proc().reset_failed(settings, spec.unit)
+        else:
+            systemctl(['reset-failed', spec.unit])
         return {'ok': True, 'already': state['state'], 'signals': []}
     pid = state.get('pid')
 
@@ -282,13 +368,19 @@ def stop(settings: Settings, spec: ProcSpec) -> dict:
                         os.kill(pid, signal.SIGINT)
                 except ProcessLookupError:
                     pass
+        elif proc_backend:
+            # `systemctl kill`: every process of the unit (its "cgroup").
+            _proc().kill(settings, spec.unit, getattr(signal, signame))
         else:
             systemctl(['kill', f'--signal={signame}', spec.unit])
 
     result = stop_ladder(lambda t: _wait_inactive(settings, spec.name, t), send,
                          settings.sigint_wait_s, settings.sigterm_wait_s)
-    systemctl(['stop', spec.unit], timeout=15)
-    systemctl(['reset-failed', spec.unit])
+    if proc_backend:
+        _proc().finish_stop(settings, spec.unit)
+    else:
+        systemctl(['stop', spec.unit], timeout=15)
+        systemctl(['reset-failed', spec.unit])
     result['ok'] = result['stopped']
     return result
 
@@ -306,8 +398,15 @@ def log_tail(settings: Settings, name: str, lines: int = 15) -> List[str]:
     return data.splitlines()[-lines:]
 
 
-def unit_pids(unit: str) -> List[int]:
-    """Every pid in the unit's cgroup (for telling managed from strays)."""
+def unit_pids(unit: str, settings: Optional[Settings] = None) -> List[int]:
+    """
+    Every pid in the unit's cgroup (for telling managed from strays).
+
+    With the proc backend (settings needed to know it): the unit's runner and
+    every process below it.
+    """
+    if settings is not None and backend(settings) == 'proc':
+        return _proc().unit_pids(settings, unit)
     proc = systemctl(['show', '-p', 'ControlGroup', '--value', unit])
     cg = proc.stdout.strip()
     if not cg:
@@ -423,3 +522,8 @@ def read_log_since(path: str, since: Optional[int], max_bytes: int = 65536) -> d
 
 def main_pid(settings: Settings, name: str) -> Optional[int]:
     return unit_states(settings, [name])[name].get('pid')
+
+
+def proc_check(settings: Settings) -> List[dict]:
+    """Return the `check` items of the proc backend (systemd's are in cli.cmd_check)."""
+    return _proc().check_items(settings, backend_choice(settings)['why'])

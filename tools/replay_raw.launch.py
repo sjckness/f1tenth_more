@@ -60,7 +60,7 @@ from launch_ros.actions import SetParameter, SetRemap
 # Before anything in this process (or its children) creates a ROS node.
 os.environ.pop('ROS_DISCOVERY_SERVER', None)
 os.environ.pop('ROS_SUPER_CLIENT', None)
-os.environ['ROS_LOCALHOST_ONLY'] = '1'
+os.environ['ROS_AUTOMATIC_DISCOVERY_RANGE'] = 'LOCALHOST'
 
 PLAY_TOPICS = ['/scan', '/tf', '/tf_static', '/odometry/filtered', '/sensors/imu/raw']
 LEAD_S = 1.5   # SVO playback starts this long before the bag (settling, see the sync node)
@@ -134,8 +134,9 @@ def _setup(context):
             launch_arguments=(args or {}).items())
 
     zed = GroupAction([
-        SetRemap(src='/zed2/zed_node/rgb/image_rect_color', dst='/camera/image_raw'),
-        SetRemap(src='/zed2/zed_node/rgb/camera_info', dst='/camera/camera_info'),
+        # zed_ros2_wrapper v5 topic names, as camera.launch.py remaps them.
+        SetRemap(src='/zed2/zed_node/rgb/color/rect/image', dst='/camera/image_raw'),
+        SetRemap(src='/zed2/zed_node/rgb/color/rect/camera_info', dst='/camera/camera_info'),
         include('zed_wrapper', 'zed_camera.launch.py', {
             'camera_model': 'zed2i', 'camera_name': 'zed2',
             'ros_params_override_path': zed_yaml, 'svo_path': svos[0],
@@ -166,7 +167,7 @@ def _setup(context):
     return [
         # The launch context may hold its own copy of the environment.
         SetEnvironmentVariable('ROS_DOMAIN_ID', domain_id),
-        SetEnvironmentVariable('ROS_LOCALHOST_ONLY', '1'),
+        SetEnvironmentVariable('ROS_AUTOMATIC_DISCOVERY_RANGE', 'LOCALHOST'),
         UnsetEnvironmentVariable('ROS_DISCOVERY_SERVER'),
         UnsetEnvironmentVariable('ROS_SUPER_CLIENT'),
         SetParameter(name='use_sim_time', value=True),

@@ -1,0 +1,41 @@
+#define ZED_SDK_MAJOR_VERSION 5
+#define ZED_SDK_MINOR_VERSION 4
+#define ZED_SDK_PATCH_VERSION 0
+    uint32_t _zed_sdk_major_version = ZED_SDK_MAJOR_VERSION, _zed_sdk_minor_version = ZED_SDK_MINOR_VERSION, \
+             _zed_sdk_patch_version = ZED_SDK_PATCH_VERSION;
+    major = ZED_SDK_MAJOR_VERSION;
+    minor = ZED_SDK_MINOR_VERSION;
+    patch = ZED_SDK_PATCH_VERSION;
+doc
+drivers
+firmware
+get_python_api.py
+include
+lib
+resources
+samples
+settings
+tools
+zed-config.cmake
+zed-config-version.cmake
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ModuleNotFoundError: No module named 'pyzed'
+ii  gir1.2-pango-1.0:arm64                           1.52.1+ds-1build1                                arm64        Layout and rendering of internationalized text - gir bindings
+ii  libblosc-dev:arm64                               1.21.5+ds-1build1                                arm64        high performance meta-compressor optimized for binary data (development files)
+ii  libblosc1:arm64                                  1.21.5+ds-1build1                                arm64        high performance meta-compressor optimized for binary data
+ii  libidn2-0:arm64                                  2.3.7-2build1.1                                  arm64        Internationalized domain names (IDNA2008/TR46) library
+ii  libopenblas-dev:arm64                            0.3.26+ds-1ubuntu0.1                             arm64        Optimized BLAS (linear algebra) library (dev, meta)
+ii  libopenblas-pthread-dev:arm64                    0.3.26+ds-1ubuntu0.1                             arm64        Optimized BLAS (linear algebra) library (dev, pthread)
+ii  libopenblas0:arm64                               0.3.26+ds-1ubuntu0.1                             arm64        Optimized BLAS (linear algebra) library (meta)
+ii  libopenblas0-pthread:arm64                       0.3.26+ds-1ubuntu0.1                             arm64        Optimized BLAS (linear algebra) library (shared lib, pthread)
+ii  liborc-0.4-0t64:arm64                            1:0.4.38-1ubuntu0.1                              arm64        Library of Optimized Inner Loops Runtime Compiler
+ii  liborc-0.4-dev:arm64                             1:0.4.38-1ubuntu0.1                              arm64        Library of Optimized Inner Loops Runtime Compiler (development headers)
+ii  liborc-0.4-dev-bin                               1:0.4.38-1ubuntu0.1                              arm64        Library of Optimized Inner Loops Runtime Compiler (development tools)
+ii  libpango-1.0-0:arm64                             1.52.1+ds-1build1                                arm64        Layout and rendering of internationalized text
+ii  libpangocairo-1.0-0:arm64                        1.52.1+ds-1build1                                arm64        Layout and rendering of internationalized text
+ii  libpangoft2-1.0-0:arm64                          1.52.1+ds-1build1                                arm64        Layout and rendering of internationalized text
+ii  libpangoxft-1.0-0:arm64                          1.52.1+ds-1build1                                arm64        Layout and rendering of internationalized text
+ii  libturbojpeg:arm64                               1:2.1.5-2ubuntu2                                 arm64        TurboJPEG runtime library - SIMD optimized
+ii  ros-jazzy-rosbag2-storage                        0.26.11-1noble.20260902.224341                   arm64        ROS2 independent storage format to store serialized ROS2 messages
+ii  ros-jazzy-zed-description                        0.1.5-1noble.20260907.042945                     arm64        Contains URDF and meshes to create models of Stereolabs ZED Cameras.

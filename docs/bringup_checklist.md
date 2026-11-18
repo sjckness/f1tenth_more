@@ -78,6 +78,9 @@ supervisor's per-component logs in `~/.ros/log/component_supervisor/`.
    `RestartComponent{name: wall_distance}` and again across
    `{name: swept_clearance}`. Note its PID before and after.
 5. **Register that `swept_clearance_node` came up at all.** It has never run.
+   Since 2026-10-23 it does not start with the stack (`enable_swept_clearance`,
+   default false: nothing consumes it); start it first with
+   `scripts/stackctl.py start swept_clearance`.
    Confirm `/perception/swept_clearance` publishes and that
    `/perception/swept_clearance/steering` is NaN until a steering command
    exists. Remember its value is **arc length to body contact**, not a gap.

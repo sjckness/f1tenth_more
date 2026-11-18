@@ -610,3 +610,190 @@ class TestRecordedTopics:
             assert topic in _DEFAULT_TOPICS
             # All three publishers are RELIABLE (rclpy's default profile).
             assert topic not in _DEFAULT_BEST_EFFORT_TOPICS
+
+
+class _LogSpy:
+    """Stands in for node.get_logger(): records every line by level."""
+
+    def __init__(self):
+        self.lines = {'info': [], 'warn': [], 'error': []}
+
+    def info(self, msg):
+        self.lines['info'].append(msg)
+
+    def warn(self, msg):
+        self.lines['warn'].append(msg)
+
+    warning = warn
+
+    def error(self, msg):
+        self.lines['error'].append(msg)
+
+
+class TestArchiveSync:
+    """F3 (output/orin_container): the archive sync without a user systemd.
+
+    The car's container has none: a trigger file replaces `systemctl --user`
+    there. Elsewhere the systemctl call is reaped and a missing user bus is
+    said once, not per run.
+    """
+
+    def _node(self, tmp_path):
+        node = _make_node(tmp_path)
+        spy = _LogSpy()
+        node.get_logger = lambda: spy
+        return node, spy
+
+    def test_the_trigger_file_replaces_systemctl(self, tmp_path, monkeypatch):
+        trigger = tmp_path / 'trigger_dir' / 'request'
+        monkeypatch.setenv('F1TENTH_ARCHIVE_TRIGGER', str(trigger))
+
+        def no_systemctl(*_a, **_k):
+            raise AssertionError('systemctl must not run when a trigger file is set')
+        monkeypatch.setattr(mission_logger_node_module.subprocess, 'run', no_systemctl)
+        monkeypatch.setattr(mission_logger_node_module.subprocess, 'Popen', no_systemctl)
+        node, spy = self._node(tmp_path)
+        node._spawn_sync({'run_id': 'R1'})
+        node._spawn_sync({'run_id': 'R2'})
+        data = json.loads(trigger.read_text())
+        assert data['run_id'] == 'R2' and data['time']
+        # Written by rename: no temporary file is left next to it.
+        assert sorted(p.name for p in trigger.parent.iterdir()) == ['request']
+        assert any('trigger file' in line for line in spy.lines['info'])
+        node.destroy_node()
+
+    def test_no_user_bus_is_one_warning_not_one_per_run(self, tmp_path, monkeypatch):
+        monkeypatch.delenv('F1TENTH_ARCHIVE_TRIGGER', raising=False)
+        calls = []
+
+        def fake_run(argv, **kwargs):
+            calls.append(argv)
+            return subprocess.CompletedProcess(
+                argv, 1, '', 'Failed to connect to bus: No medium found\n')
+        monkeypatch.setattr(mission_logger_node_module.subprocess, 'run', fake_run)
+        node, spy = self._node(tmp_path)
+        for run_id in ('R1', 'R2', 'R3'):
+            node._spawn_sync({'run_id': run_id})
+        assert len(calls) == 3
+        assert calls[0][:4] == ['systemctl', '--user', '--no-block', 'start']
+        assert len(spy.lines['warn']) == 1 and 'no systemd user bus' in spy.lines['warn'][0]
+        assert spy.lines['error'] == []
+        node.destroy_node()
+
+    def test_another_systemctl_failure_is_warned_every_time(self, tmp_path, monkeypatch):
+        monkeypatch.delenv('F1TENTH_ARCHIVE_TRIGGER', raising=False)
+        monkeypatch.setattr(
+            mission_logger_node_module.subprocess, 'run',
+            lambda argv, **k: subprocess.CompletedProcess(
+                argv, 5, '', 'Unit f1tenth-archive.service not found.\n'))
+        node, spy = self._node(tmp_path)
+        node._spawn_sync({'run_id': 'R1'})
+        node._spawn_sync({'run_id': 'R2'})
+        assert len(spy.lines['warn']) == 2 and 'exit 5' in spy.lines['warn'][0]
+        node.destroy_node()
+
+    def test_a_started_sync_is_info_only(self, tmp_path, monkeypatch):
+        monkeypatch.delenv('F1TENTH_ARCHIVE_TRIGGER', raising=False)
+        monkeypatch.setattr(mission_logger_node_module.subprocess, 'run',
+                            lambda argv, **k: subprocess.CompletedProcess(argv, 0, '', ''))
+        node, spy = self._node(tmp_path)
+        node._spawn_sync({'run_id': 'R1'})
+        assert spy.lines['warn'] == [] and 'archive sync started' in spy.lines['info'][0]
+        node.destroy_node()
+
+    def test_the_real_systemctl_without_a_bus_leaves_no_zombie(self, tmp_path, monkeypatch):
+        """Run systemctl to its end, whatever it answers.
+
+        The old Popen was never waited for: a zombie per run until the next
+        Popen.
+        """
+        monkeypatch.delenv('F1TENTH_ARCHIVE_TRIGGER', raising=False)
+        monkeypatch.delenv('DBUS_SESSION_BUS_ADDRESS', raising=False)
+        monkeypatch.setenv('XDG_RUNTIME_DIR', str(tmp_path / 'no_runtime_dir'))
+        node, spy = self._node(tmp_path)
+        node._spawn_sync({'run_id': 'R1'})
+        assert spy.lines['error'] == []
+        zombies = []
+        for name in os.listdir('/proc'):
+            if not name.isdigit():
+                continue
+            try:
+                with open(f'/proc/{name}/stat') as fh:
+                    fields = fh.read().rsplit(')', 1)[1].split()
+            except OSError:
+                continue
+            if int(fields[1]) == os.getpid() and fields[0] == 'Z':
+                zombies.append(int(name))
+        assert zombies == []
+        node.destroy_node()
+
+
+class TestImageProvenance:
+    """The manifest's git block inside the car's container, which has no .git.
+
+    It comes from the image's SOURCES and CAR_SYNC.json (source: image).
+    """
+
+    SOURCES = ('commit 0123456789abcdef0123456789abcdef01234567\n'
+               'subject car profile\n'
+               'branch main-jazzy-rust\n'
+               'describe v0-12-g0123456\n'
+               'submodule src/f1tenth_hardware/vesc 0e74a600 https://example/vesc.git\n'
+               'submodule src/husarion_gz_worlds skipped (sim only)\n'
+               'tree_sha256 abc123\n')
+
+    def _files(self, tmp_path):
+        sources = tmp_path / 'SOURCES'
+        sources.write_text(self.SOURCES)
+        car_sync = tmp_path / 'CAR_SYNC.json'
+        car_sync.write_text(json.dumps({
+            'schema': 1, 'captured_at': '2026-10-24T23:01:56+02:00',
+            'native_branch': 'stack-campaign-final-2026-10-22',
+            'native_head': '6c329992609d3e6c38939c8da1d240393af718aa',
+            'main_commit': 'ca66fc27', 'untracked': {'a': 'b'}}))
+        return str(sources), str(car_sync)
+
+    def test_sources_and_car_sync_are_read(self, tmp_path):
+        from f1tenth_logger.mission_logger_node import read_image_provenance
+        sources, car_sync = self._files(tmp_path)
+        info = read_image_provenance(sources, car_sync)
+        assert info['source'] == 'image'
+        assert info['commit'] == '0123456789abcdef0123456789abcdef01234567'
+        assert info['dirty'] is False and info['branch'] == 'main-jazzy-rust'
+        assert info['describe'] == 'v0-12-g0123456' and info['tree_sha256'] == 'abc123'
+        assert info['submodules'] == {'src/f1tenth_hardware/vesc': '0e74a600'}
+        assert info['car_sync']['native_head'].startswith('6c329992')
+        assert 'untracked' not in info['car_sync']
+
+    def test_missing_files_leave_the_git_block_unknown(self, tmp_path):
+        from f1tenth_logger.mission_logger_node import read_image_provenance
+        assert read_image_provenance(None, None) == {
+            'commit': None, 'dirty': None, 'branch': None}
+        assert 'source' not in read_image_provenance(str(tmp_path / 'nope'),
+                                                     str(tmp_path / 'nope.json'))
+
+    def test_the_manifest_falls_back_to_the_image_without_git(self, tmp_path, monkeypatch):
+        sources, car_sync = self._files(tmp_path)
+        monkeypatch.setenv('F1TENTH_IMAGE_SOURCES', sources)
+        monkeypatch.setenv('F1TENTH_CAR_SYNC', car_sync)
+        monkeypatch.setattr(mission_logger_node_module, '_find_git_root', lambda _p: None)
+        node = _make_node(tmp_path)
+        run = TestRunMetadata()._run(tmp_path)
+        node._write_manifest(run)
+        with open(run['manifest_path']) as fh:
+            git = json.load(fh)['git']
+        assert {'commit', 'dirty', 'branch'} <= set(git)
+        assert git['source'] == 'image' and git['commit'].startswith('0123456789')
+        node.destroy_node()
+
+    def test_a_git_checkout_still_wins(self, tmp_path, monkeypatch):
+        sources, car_sync = self._files(tmp_path)
+        monkeypatch.setenv('F1TENTH_IMAGE_SOURCES', sources)
+        monkeypatch.setenv('F1TENTH_CAR_SYNC', car_sync)
+        if mission_logger_node_module._find_git_root(
+                mission_logger_node_module._stack_params_path()) is None:
+            pytest.skip('this install is not in a git checkout')
+        node = _make_node(tmp_path)
+        git = node._git_state()
+        assert 'source' not in git and git['commit']
+        node.destroy_node()

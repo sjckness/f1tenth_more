@@ -73,20 +73,38 @@ def test_no_scan_consumer_is_in_the_perception_component():
         assert consumer not in perception, consumer
 
 
-def test_every_scan_consumer_auto_starts():
+# The /scan consumers that start only with their stack_params switch on
+# (default false): wall_distance since cpu-cleanup, swept_clearance since R3
+# (2026-10-23, no subscriber to /perception/swept_clearance).
+_GATED_SCAN_CONSUMERS = {
+    'wall_distance': 'enable_wall_distance',
+    'swept_clearance': 'enable_swept_clearance',
+}
+
+
+def test_every_scan_consumer_auto_starts_or_is_gated_on_its_switch():
     """
     An uncategorized component silently never starts: no warning, no error.
 
-    wall_distance is the one exception since cpu-cleanup: it auto-starts only
-    with stack_params' enable_wall_distance (default false), and the gate must
-    name exactly that key.
+    lidar_front_wall auto-starts always. wall_distance and swept_clearance
+    auto-start only with their stack_params key, and the gate must name
+    exactly that key.
     """
     for name in _SCAN_CONSUMERS:
-        if name == 'wall_distance':
-            assert name not in _ALWAYS_AUTO_START
-            assert _CONDITIONAL_AUTO_START[name] == 'enable_wall_distance'
+        if name in _GATED_SCAN_CONSUMERS:
+            assert name not in _ALWAYS_AUTO_START, name
+            assert _CONDITIONAL_AUTO_START[name] == _GATED_SCAN_CONSUMERS[name]
         else:
             assert name in _ALWAYS_AUTO_START, name
+
+
+def test_the_gated_scan_consumers_default_off():
+    stack_params = os.path.join(
+        os.path.dirname(__file__), '..', '..', 'f1tenth_params', 'config', 'stack_params.yaml')
+    with open(stack_params) as f:
+        params = yaml.safe_load(f)
+    for key in _GATED_SCAN_CONSUMERS.values():
+        assert params[key]['default'] is False, key
 
 
 def test_no_component_holds_two_scan_consumers_either():

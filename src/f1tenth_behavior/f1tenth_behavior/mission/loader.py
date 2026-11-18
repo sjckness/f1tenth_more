@@ -124,6 +124,7 @@ from std_srvs.srv import Trigger
 
 from f1tenth_behavior.mission.mission_config import MissionConfigError, load_mission_file
 from f1tenth_behavior.mission.preflight import (
+    DEFAULT_ACTUATION_NODE,
     PREFLIGHT_BLACKBOARD_KEYS,
     check_liveness,
     required_dependencies,
@@ -190,6 +191,14 @@ class MissionLoader:
                  test_event_topic='/test/mission_event'):
         self._node = node
         self._lock = threading.Lock()
+        # Node preflight requires to turn /ackermann_drive into motion (mission/preflight.py).
+        # The car's ackermann_to_vesc_node unless preflight_actuation_node is passed (only the
+        # sim overlay does, config/sim/isaac.yaml); declared only then, so the car's node keeps
+        # its parameter set.
+        self._actuation_node = DEFAULT_ACTUATION_NODE
+        if 'preflight_actuation_node' in getattr(node, '_parameter_overrides', {}):
+            self._actuation_node = str(node.declare_parameter(
+                'preflight_actuation_node', DEFAULT_ACTUATION_NODE).value)
         self.blackboard = py_trees.blackboard.Client(name='MissionLoader')
         self.blackboard.register_key(key=MISSION_KEY, access=py_trees.common.Access.WRITE)
         setattr(self.blackboard, MISSION_KEY, MissionRuntimeState())
@@ -412,7 +421,7 @@ class MissionLoader:
             # what's missing." Leaves state at LOADED on failure (not
             # consumed/aborted) so the caller can fix the dependency and retry
             # the same /mission/start_mission call.
-            reqs = required_dependencies(state.config)
+            reqs = required_dependencies(state.config, self._actuation_node)
             failures = check_liveness(
                 reqs,
                 self._node.get_node_names(),

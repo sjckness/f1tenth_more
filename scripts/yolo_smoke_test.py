@@ -28,11 +28,11 @@ Usage on linus (bash; the GPU lock is taken inside each child):
   $PY scripts/yolo_smoke_test.py --b gpu_pipeline=false   # A vs A: must PASS
   $PY scripts/yolo_smoke_test.py --a cpu_threads=0 --b gpu_pipeline=true,cpu_threads=2
 
-Usage on the Orin (frames copied to ~/yolo_gpu/, the people set is generated
-there from the ultralytics assets when missing; results in ~/yolo_gpu/smoke):
-  source /opt/ros/humble/setup.bash
-  source ~/dev_ws/f1tenth_more/install/setup.bash
+Usage on a Jazzy host: the Thor, the Orin's Jazzy container (frames copied
+to ~/yolo_gpu/, the people set is generated there from the ultralytics
+assets when missing; results in ~/yolo_gpu/smoke):
   cd ~/dev_ws/f1tenth_more
+  source scripts/env/jazzy.sh
   python3 scripts/yolo_smoke_test.py \
       --frames ~/yolo_gpu/frames_corridor10m_20261015T171753 \
       --frames ~/yolo_gpu/frames_people

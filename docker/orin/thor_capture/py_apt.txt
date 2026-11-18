@@ -1,0 +1,346 @@
+libopencv-core-dev 
+libopencv-core4.0 
+libopencv-core4.5 
+libopencv-core406 
+libopencv-core406t64 4.6.0+dfsg-13.1ubuntu1
+libopencv-dev 4.8.0-3-g6ef37b4
+python3-all 
+python3-altair 
+python3-anndata 
+python3-appdirs 1.4.4-4
+python3-apport 2.28.1-0ubuntu3.8
+python3-apt 2.7.7ubuntu5.2
+python3-aptdaemon 1.1.1+bzr982-0ubuntu44
+python3-aptdaemon.gtk3widgets 1.1.1+bzr982-0ubuntu44
+python3-aptdaemon.pkcompat 
+python3-argcomplete 3.1.4-1ubuntu0.1
+python3-atomicwrites 
+python3-attr 23.2.0-2
+python3-babel 2.10.3-3build1
+python3-bcrypt 3.2.2-1build1
+python3-beaker 
+python3-biom-format 
+python3-blinker 1.7.0-1
+python3-bloom 0.14.3+upstream-1
+python3-boto3 
+python3-bottleneck 
+python3-braceexpand 
+python3-breezy 3.3.5-6build2
+python3-breezy-dbg 
+python3-breezy.tests 
+python3-brlapi 6.6-4ubuntu5
+python3-brotli 1.1.0-2build2
+python3-bs4 
+python3-bson 3.11.0-1ubuntu0.24.04.1
+python3-cairo 1.25.1-2build2
+python3-cairocffi 
+python3-catkin-pkg 1.1.0-101
+python3-catkin-pkg-modules 1.1.0-2
+python3-cbor2 5.6.2-1build1
+python3-certifi 2023.11.17-1
+python3-cffi-backend 1.16.0-2build1
+python3-cffi-backend-api-9729 
+python3-cffi-backend-api-max 
+python3-cffi-backend-api-min 
+python3-cfgrib 
+python3-chardet 5.2.0+dfsg-1
+python3-click 8.1.6-2
+python3-click-threading 
+python3-colcon-argcomplete 0.3.3+upstream-1
+python3-colcon-bash 0.5.0-100
+python3-colcon-cd 0.2.1-100
+python3-colcon-cmake 0.2.29-100
+python3-colcon-common-extensions 0.3.0-100
+python3-colcon-core 0.20.1+upstream-1
+python3-colcon-defaults 0.2.9+upstream-1
+python3-colcon-devtools 0.3.0-100
+python3-colcon-installed-package-information 0.2.1-100
+python3-colcon-library-path 0.2.1-100
+python3-colcon-metadata 0.2.5-100
+python3-colcon-mixin 0.2.3-100
+python3-colcon-notification 0.3.1+upstream-1
+python3-colcon-output 0.2.14+upstream-1
+python3-colcon-override-check 0.0.1-100
+python3-colcon-package-information 0.4.1+upstream-1
+python3-colcon-package-selection 0.2.10-100
+python3-colcon-parallel-executor 0.3.0-100
+python3-colcon-pkg-config 0.1.0-100
+python3-colcon-powershell 0.5.0+upstream-1
+python3-colcon-python-setup-py 0.2.9-100
+python3-colcon-recursive-crawl 0.2.3-100
+python3-colcon-ros 0.5.0+upstream-1
+python3-colcon-test-result 0.3.8-100
+python3-colcon-zsh 0.5.0-100
+python3-colorama 0.4.6-4
+python3-configobj 5.0.8-3
+python3-contourpy 1.0.7-2build1
+python3-cooler 
+python3-coverage 7.4.4+dfsg1-0ubuntu2
+python3-cpuset 1.6.2-1
+python3-crypto 
+python3-cryptography 41.0.7-4ubuntu0.4
+python3-cryptography-vectors 
+python3-cssselect 
+python3-cups 2.0.1-5build6
+python3-cupshelpers 1.5.18-1ubuntu9
+python3-cycler 0.11.0-2
+python3-dask 
+python3-dateutil 2.8.2-3ubuntu1
+python3-dbus 1.3.2-5build3
+python3-dbusmock 0.31.1-1
+python3-debconf 1.5.86ubuntu1
+python3-debian 0.1.49ubuntu2
+python3-decorator 5.1.1-5
+python3-defcon 
+python3-defer 1.0.6-2.1ubuntu1
+python3-deprecated 1.2.14-1
+python3-dev 3.12.3-0ubuntu2.1
+python3-dials 
+python3-distlib 0.3.8-1
+python3-distro 1.9.0-1
+python3-distro-info 1.7build1
+python3-distupgrade 1:24.04.28
+python3-distutils 
+python3-doc 
+python3-docutils 0.20.1+dfsg-3
+python3-dulwich 0.21.6-1build2
+python3-dyda 
+python3-emperor 
+python3-empy 3.3.4-2
+python3-esda 
+python3-exceptiongroup 
+python3-f2py 
+python3-fastbencode 0.2-1build2
+python3-fasteners 0.18-2
+python3-fastimport 0.9.14-2.1
+python3-feather-format 
+python3-filelock 3.13.1-1
+python3-flake8 7.0.0-1
+python3-flake8-builtins 2.1.0-1
+python3-flake8-comprehensions 3.14.0-1
+python3-flake8-docstrings 1.6.0-2
+python3-flake8-import-order 0.18.2-2
+python3-flake8-polyfill 
+python3-flake8-quotes 3.4.0-1
+python3-flaky 
+python3-fonttools 4.46.0-1build2
+python3-fs 2.4.16-3
+python3-gdbm 
+python3-gi 3.48.2-1
+python3-gi-cairo 3.48.2-1
+python3-github 2.2.0-1
+python3-gmpy2 
+python3-gobject 
+python3-gpg 1.18.0-4.1ubuntu4
+python3-gssapi 
+python3-html5lib 
+python3-httplib2 0.20.4-3
+python3-hypothesis 
+python3-ibus-1.0 1.5.29-2
+python3-icalendar 
+python3-icu 2.12-1build2
+python3-idna 3.6-2ubuntu0.1
+python3-imaging 
+python3-imaging-tk 
+python3-importlib-metadata 4.12.0-1
+python3-importlib-resources 
+python3-iniconfig 1.1.1-2
+python3-invoke 
+python3-iptables 
+python3-jetson-gpio 2.1.12-0ubuntu1
+python3-jinja2 3.1.2-1ubuntu1.3
+python3-joypy 
+python3-json-pointer 2.0-0ubuntu1
+python3-jsonpatch 1.32-3
+python3-jsonpickle 
+python3-jsonschema 4.10.3-2ubuntu1
+python3-jwt 2.7.0-1ubuntu0.1
+python3-kerberos 
+python3-keyring 
+python3-kiwisolver 1.4.4-2build1
+python3-lark 1.1.9-1
+python3-launchpadlib 1.11.0-6
+python3-lazr.restfulclient 0.14.6-1
+python3-lazr.uri 1.0.6-3
+python3-libnvinfer 10.13.3.9-1+cuda13.0
+python3-libnvinfer-dev 10.13.3.9-1+cuda13.0
+python3-libnvinfer-dispatch 10.13.3.9-1+cuda13.0
+python3-libnvinfer-lean 10.13.3.9-1+cuda13.0
+python3-louis 3.29.0-1build1
+python3-lxml 5.2.1-1
+python3-lz4 4.0.2+dfsg-1build4
+python3-m2r 
+python3-mako 1.3.2-1ubuntu0.1
+python3-markdown-it 3.0.0-2
+python3-markupsafe 2.1.5-1build2
+python3-matplotlib 3.6.3-1ubuntu5
+python3-mccabe 0.7.0-1
+python3-mdit-py-plugins 
+python3-mdurl 0.1.2-1
+python3-mercurial 
+python3-merge3 0.0.8-1
+python3-migrate 
+python3-minimal 3.12.3-0ubuntu2.1
+python3-mirtop 
+python3-monotonic 1.6-2
+python3-more-itertools 10.2.0-1
+python3-mpi4py 3.1.5-5ubuntu2
+python3-mpmath 1.2.1-3
+python3-munkres 
+python3-mysqldb 
+python3-nacl 1.5.0-4build1
+python3-nanoget 
+python3-netplan 1.1.2-8ubuntu1~24.04.2
+python3-notify2 0.3-5
+python3-numexpr 
+python3-numpy 1:1.26.4+ds-6ubuntu1
+python3-numpy-abi9 
+python3-numpy-api17 
+python3-numpy-dev 
+python3-oauthlib 3.2.2-1
+python3-odf 
+python3-olefile 0.46-3
+python3-opencv 4.6.0+dfsg-13.1ubuntu1
+python3-opengl 3.1.7+dfsg-1
+python3-openpyxl 
+python3-openssl 
+python3-packaging 24.0-1
+python3-pam 0.4.2-18build2
+python3-pam-dbg 
+python3-pandas 2.1.4+dfsg-7
+python3-pandas-lib 2.1.4+dfsg-7
+python3-paramiko 2.12.0-2ubuntu4.1
+python3-patiencediff 0.2.13-1build2
+python3-pauvre 
+python3-pexpect 4.9-2
+python3-pgmagick 
+python3-pil 10.2.0-1ubuntu1
+python3-pil.imagetk 10.2.0-1ubuntu1
+python3-pillow 
+python3-pip 24.0+dfsg-1ubuntu1.3
+python3-pkg-resources 68.1.2-2ubuntu1.2
+python3-pluggy 1.4.0-1
+python3-problem-report 2.28.1-0ubuntu3.8
+python3-profiler 
+python3-psutil 5.9.8-2build2
+python3-ptyprocess 0.7.0-5
+python3-pyani 
+python3-pycodestyle 2.11.1-1
+python3-pycurl 
+python3-pydocstyle 6.3.0-1.1
+python3-pydot 1.4.2-2
+python3-pydrive2 
+python3-pyflakes 3.2.0-1
+python3-pygithub 
+python3-pygments 2.17.2+dfsg-1
+python3-pykdl 1.5.1-4build1
+python3-pylama 
+python3-pymatgen 
+python3-pyparsing 3.1.1-1
+python3-pyqt5 5.15.10+dfsg-1build6
+python3-pyqt5.qsci 
+python3-pyqt5.qtchart 
+python3-pyqt5.qtsvg 5.15.10+dfsg-1build6
+python3-pyqt5.qtwebengine 
+python3-pyqt5.sip 12.13.0-1build3
+python3-pyranges 
+python3-pyrsistent 0.20.0-1build2
+python3-pyside2.qtcore 5.15.13-1
+python3-pyside2.qtgui 5.15.13-1
+python3-pyside2.qtsvg 5.15.13-1
+python3-pyside2.qtwidgets 5.15.13-1
+python3-pytest 7.4.4-1
+python3-pytest-cov 4.1.0-1
+python3-pytest-flake8 
+python3-pytest-mock 
+python3-pytest-repeat 
+python3-pytest-rerunfailures 
+python3-pytest-xdist 
+python3-pytest-xvfb 
+python3-pyxdg 
+python3-regex 
+python3-requests 2.31.0+dfsg-1ubuntu1.1
+python3-rfc3987 
+python3-rich 13.7.1-1
+python3-roman 3.3-3
+python3-rosdep 0.26.0-1
+python3-rosdep-modules 0.26.0-1
+python3-rosdep2 
+python3-rosdistro 1.0.1-100
+python3-rosdistro-modules 1.0.1-1
+python3-rospkg 
+python3-rospkg-modules 1.6.1-1
+python3-ruamel.yaml 0.17.21-1
+python3-ruamel.yaml.clib 0.2.8-1build1
+python3-scipy 1.11.4-6build1
+python3-scriptforge 
+python3-seaborn 
+python3-serial 3.5-2
+python3-setuptools 68.1.2-2ubuntu1.2
+python3-sip 4.19.25+dfsg-5build3
+python3-sip-dev 4.19.25+dfsg-5build3
+python3-six 1.16.0-4
+python3-skbio 
+python3-sklearn-pandas 
+python3-smbc 
+python3-smbus 
+python3-snowballstemmer 2.2.0-4build1
+python3-socks 
+python3-software-properties 0.99.49.4
+python3-speechd 0.12.0~rc2-2build3
+python3-sphinx 
+python3-spyder 
+python3-sss 2.9.4-1.1ubuntu6.4
+python3-statsmodels 
+python3-stemmer 
+python3-sunpy 
+python3-supported-max 
+python3-supported-min 
+python3-swiftclient 
+python3-sympy 1.12-7
+python3-systemd 235-1build4
+python3-tables 
+python3-talloc 
+python3-testresources 
+python3-tk 3.12.3-0ubuntu1
+python3-tk-dbg 
+python3-toml 
+python3-tomli 
+python3-tornado 6.4.0-1ubuntu0.5
+python3-translate 
+python3-twisted 
+python3-typeguard 4.1.5-1
+python3-typing-extensions 4.10.0-1
+python3-tz 2024.1-2
+python3-tzlocal 5.2-1.1
+python3-ufolib2 0.16.0+dfsg1-1
+python3-ujson 5.9.0-1build1
+python3-ulmo 
+python3-unicodedata2 15.1.0+ds-1build1
+python3-uno 4:24.2.7-0ubuntu0.24.04.4
+python3-update-manager 1:24.04.12
+python3-upsetplot 
+python3-uritemplate 
+python3-urllib3 2.0.7-1ubuntu0.6
+python3-urwid 2.6.10-1
+python3-vcstool 0.3.0-1
+python3-vcstools 0.1.42-1
+python3-venv 
+python3-vobject 
+python3-vtk6 
+python3-vtk7 
+python3-vtk9 9.1.0+really9.1.0+dfsg2-7.1build3
+python3-wadllib 1.3.6-5
+python3-wcwidth 0.2.5+dfsg1-1.1ubuntu1
+python3-webcolors 
+python3-wheel 0.42.0-2
+python3-wrapt 1.15.0-2build3
+python3-wsgi-intercept 
+python3-wxgtk 
+python3-wxgtk3.0 
+python3-xarray-sentinel 
+python3-xdg 0.28-2
+python3-xkit 0.5.0ubuntu6
+python3-yaml 6.0.1-2build2
+python3-zipp 1.0.0-6ubuntu0.1
+python3-zstandard 

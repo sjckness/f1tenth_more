@@ -1,0 +1,10 @@
+# Pinned binary inputs of the Orin Jazzy image (Phase 5d D1). fetch_inputs.sh
+# downloads any that are missing into the inputs dir and checks every hash;
+# build.sh refuses to build when one does not match.
+# Format: <sha256>  <file>  <url>
+3ef4230f55d65fed8ecfbcc1ec54fb4d88dbe855553cba8480573a646d93fd43  cuda-tegra-repo-ubuntu2204-12-9-local_12.9.1-1_arm64.deb  https://developer.download.nvidia.com/compute/cuda/12.9.1/local_installers/cuda-tegra-repo-ubuntu2204-12-9-local_12.9.1-1_arm64.deb
+c18caa5858e222da63f5956fac99c425611b3d3690462f466f4f47d55cc41eea  cudnn-local-tegra-repo-ubuntu2404-9.10.2_1.0-1_arm64.deb  https://developer.download.nvidia.com/compute/cudnn/9.10.2/local_installers/cudnn-local-tegra-repo-ubuntu2404-9.10.2_1.0-1_arm64.deb
+35e7e7bf0a6b8e1a3429d9d2bcdbf6ce30d44683d5d78abab9fcc52bfbe9638a  TensorRT-10.3.0.26.l4t.aarch64-gnu.cuda-12.6.tar.gz  https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.3.0/tars/TensorRT-10.3.0.26.l4t.aarch64-gnu.cuda-12.6.tar.gz
+c2776f846072692a6207e6b8cf949992616e351fb513b96d444eec9c257dd090  ZED_SDK_Tegra_L4T36.5_v5.4.0.zstd.run  https://stereolabs.sfo2.cdn.digitaloceanspaces.com/zedsdk/5.4/ZED_SDK_Tegra_L4T36.5_v5.4.0.zstd.run
+f360db283b1249b36a97b332bf8688917d9c7dbde4bc5120a03ae7a7e5a5d32c  torch-2.8.0-cp312-cp312-linux_aarch64.whl  https://pypi.jetson-ai-lab.io/jp6/cu129/+f/f36/0db283b1249b3/torch-2.8.0-cp312-cp312-linux_aarch64.whl
+255341cb5beb4673f0f1a26061105623f17a2b32188478c68b3f2e1a897d49a2  torchvision-0.23.0-cp312-cp312-linux_aarch64.whl  https://pypi.jetson-ai-lab.io/jp6/cu129/+f/255/341cb5beb4673/torchvision-0.23.0-cp312-cp312-linux_aarch64.whl

@@ -1,0 +1,41 @@
+[INFO] [1792159013.549918265] [llm_planner_node]: planner_path=v2 -- prompt prompts/planner_system_prompt.v2.it.txt, validazione schemas/intent_v1.json, traduttore translate(), go_to_enabled=True
+[INFO] [1792159013.774771945] [llm_planner_node]: Server raggiunto e scaldato in 0.2s.
+[INFO] [1792159013.782058857] [llm_planner_node]: LLM Planner (llama-server @ http://127.0.0.1:8083/completion) pronto -- consegna via /mission/load_mission + /mission/start_mission.
+[INFO] [1792159022.863183654] [llm_planner_node]: missione identica gia' presente, riusata: /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_fd5d8fd4f171.json
+[INFO] [1792159022.933704556] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=IDLE)
+[INFO] [1792159022.941626005] [llm_planner_node]: load_mission OK: loaded 'llm_fd5d8fd4f171', 1 moves
+[INFO] [1792159022.946377484] [llm_planner_node]: start_mission OK: starting in 15.0 s
+
+missione generata in 9.08s (v2), 1 move:
+  0. vai dritto
+       id       move_0_straight
+       velocita 0.5 m/s
+       fino a   percorsi 3.0 m
+       timeout  23 s -> abort
+       note     TERMINALE
+
+JSON (llm_fd5d8fd4f171):
+{
+  "mission_id": "llm_fd5d8fd4f171",
+  "schema_version": "3.0",
+  "moves": [
+    {
+      "id": "move_0_straight",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.5
+      },
+      "stop_condition": {
+        "type": "distance_reached",
+        "distance": 3.0
+      },
+      "timeout_sec": 23,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
+
+scritta in: /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_fd5d8fd4f171.json
+
+RESULT {"status": "ok", "stage": "translator", "error_type": null, "error_message": null, "attempts": 1, "rejections": [], "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"distance\", \"thresh\": 3.0}], \"unsupported\": []}", "mission_id": "llm_fd5d8fd4f171", "schema_version": "3.0", "n_moves": 1, "plan_seconds": 9.08, "unsupported": [], "notes": [], "mission": {"mission_id": "llm_fd5d8fd4f171", "schema_version": "3.0", "moves": [{"id": "move_0_straight", "drive": {"mode": "straight", "speed": 0.5}, "stop_condition": {"type": "distance_reached", "distance": 3.0}, "timeout_sec": 23, "on_timeout": "abort", "terminal": true}]}, "mission_path": "/home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_fd5d8fd4f171.json"}

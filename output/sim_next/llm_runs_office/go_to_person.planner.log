@@ -1,0 +1,43 @@
+[INFO] [1792158713.450309044] [llm_planner_node]: planner_path=v2 -- prompt prompts/planner_system_prompt.v2.it.txt, validazione schemas/intent_v1.json, traduttore translate(), go_to_enabled=True
+[INFO] [1792158713.681240840] [llm_planner_node]: Server raggiunto e scaldato in 0.2s.
+[INFO] [1792158713.687651675] [llm_planner_node]: LLM Planner (llama-server @ http://127.0.0.1:8083/completion) pronto -- consegna via /mission/load_mission + /mission/start_mission.
+[INFO] [1792158722.792615108] [llm_planner_node]: missione identica gia' presente, riusata: /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_78efffab64a2.json
+[INFO] [1792158722.794353365] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=COMPLETE)
+[INFO] [1792158722.796652345] [llm_planner_node]: load_mission OK: loaded 'llm_78efffab64a2', 1 moves
+[INFO] [1792158722.798775268] [llm_planner_node]: start_mission OK: starting in 15.0 s
+
+missione generata in 9.10s (v2), 1 move:
+  0. vai verso "person" (il piu' vicino), fermati a 0.6 m tra muso e bordo
+       id       move_0_go_to
+       velocita 0.5 m/s
+       fino a   oggetto raggiunto alla distanza indicata sopra
+       timeout  65 s -> abort
+       note     TERMINALE
+
+JSON (llm_78efffab64a2):
+{
+  "mission_id": "llm_78efffab64a2",
+  "schema_version": "5.0",
+  "moves": [
+    {
+      "id": "move_0_go_to",
+      "go_to_object": {
+        "target_class": "person",
+        "gap_m": 0.6,
+        "speed": 0.5,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+      },
+      "stop_condition": {
+        "type": "object_reached"
+      },
+      "timeout_sec": 65,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
+
+scritta in: /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_78efffab64a2.json
+
+RESULT {"status": "ok", "stage": "translator", "error_type": null, "error_message": null, "attempts": 1, "rejections": [], "llm_raw": "{\"plan\": [{\"mode\": \"go_to\", \"target\": \"person\"}], \"unsupported\": []}", "mission_id": "llm_78efffab64a2", "schema_version": "5.0", "n_moves": 1, "plan_seconds": 9.104, "unsupported": [], "notes": [], "mission": {"mission_id": "llm_78efffab64a2", "schema_version": "5.0", "moves": [{"id": "move_0_go_to", "go_to_object": {"target_class": "person", "gap_m": 0.6, "speed": 0.5, "acquire_timeout_sec": 5.0, "lost_grace_sec": 1.5}, "stop_condition": {"type": "object_reached"}, "timeout_sec": 65, "on_timeout": "abort", "terminal": true}]}, "mission_path": "/home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_78efffab64a2.json"}

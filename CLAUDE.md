@@ -87,6 +87,148 @@ silently downgrades the package type to plain `python`, which then shows up as
 a runtime-only "package not found" crash long after the build reported success.
 Use a single hyphen in comment prose.
 
+## DDS / discovery
+
+### Every participant loads `config/fastdds_profile.xml` (5 s lease)
+
+`src/f1tenth_bringup/config/fastdds_profile.xml` sets a 5 s participant lease
+(Fast DDS default 20 s). A participant that dies without disposing is dropped
+from the Discovery Server within 5 s; with 20 s, a stack started inside that
+window intermittently never matched some endpoints (old `jazzy` line, backlog
+H1: 8 of 30 bringups, slam_toolbox never activating; 0 of 90 with the profile,
+fix batches 4 and 5).
+
+The lease is announced by **each participant itself**: the server and the
+other side cannot impose it (measured: profile on the server only, a killed
+node still stays 19.4 s). So it must reach every process:
+
+- the stack: `supervisor_bringup.launch.py` / `stack_bringup.launch.py` set
+  `FASTRTPS_DEFAULT_PROFILES_FILE` (launch argument `fastdds_profile`). A new
+  top-level launch entry point must set it the same way, next to
+  `ROS_DISCOVERY_SERVER`;
+- everything started by hand: `source scripts/env/jazzy.sh` (bash or zsh),
+  and f1tenth_ctl through `ctl.env`. After changing it, `ros2 daemon stop`;
+- the Isaac sim: its own profiles (`config/sim/dds/*.xml`, loopback or the
+  link interface) carry the same lease, and `scripts/sim/sim_isaac.sh` passes
+  its profile as `fastdds_profile:=...`, so the launch does not replace it;
+- the car's Docker image runs the launch files, so it is covered.
+
+Never add another `is_default_profile` next to these: Fast DDS loads one
+default profile per process.
+
+### Launch parameters: never `on` / `off` / `yes` / `no` as string values
+
+Launch writes parameters through a YAML file, and YAML turns `on`/`off`
+into booleans: a string parameter declared with default `'on'` received
+`True` and the node refused to start (fix batch 5, `health_watchdog`). Use
+words YAML leaves alone (`enforce`, `alert`, `disabled`).
+
+## Harness gotchas
+
+- `pkill -f PATTERN` / `pgrep -f` inside a Bash tool call match the calling
+  shell's own command line, which contains PATTERN: `pkill -f` then kills the
+  call itself. Kill by PID, or by exact process name (`pkill -x`).
+- **Never `rm -rf` a path built from a variable** unless the variable is
+  expanded as `${VAR:?}` (an unset or empty variable aborts instead of
+  expanding to nothing) **and** the resolved path is checked to be under an
+  expected prefix (`/scratch/fabiocar/`, `~/p5d_*`, `~/jazzy_orin/`, the repo)
+  before deleting. On every machine. Phase 5d: a broken SSH here-doc ran
+  `rm -rf $VAL` with `VAL=$OUT/pydeps_validated` and `$OUT` empty, i.e. `rm -rf /pydeps_validated` on
+  the Thor. The path did not exist; the same slip with another name wipes a
+  directory tree.
+- **Remote work goes through a script, not a here-doc typed into `ssh '…'`.**
+  Write the script locally with `set -euo pipefail` (`set +u` only around
+  sourcing ROS setup files, which read unset variables), then
+  `ssh andre@jetson-thor bash -s < script.sh`, or `scp` it and run it. Nested
+  quoting of a multi-line here-doc inside `ssh '…'` breaks silently and runs
+  the rest of the text as shell commands.
+
+## Rebuild policy
+
+### After any `ros-jazzy-*` apt upgrade, clean-rebuild every CMake package
+
+An apt upgrade can change a library's ABI inside a distro. `diagnostic_updater`
+4.2.6 → 4.2.7 added a parameter to `Updater`'s constructor; the workspace's
+`ackermann_mux` (and `zed_components`, `zed_debug`), built the day before the
+2026-10-01 upgrade, then died at startup with `symbol lookup error: undefined
+symbol: _ZN18diagnostic_updater7UpdaterC1E...` and the supervisor's `control`
+component crash-looped. Nothing failed at build time, and no unit test runs the
+binary. Found in Phase 5, only by running the full stack.
+
+A plain rebuild is **not** enough: dpkg installs headers with their original
+mtimes (months old), so make considers the old object files up to date and the
+link fails again. After every `ros-jazzy-*` upgrade:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install --cmake-clean-first \
+  --packages-select $(colcon list -t | awk '$3=="(ros.ament_cmake)"{print $1}')
+```
+
+then scan the install space for unresolved symbols —
+it must print nothing:
+
+```bash
+source install/setup.bash
+find install -path '*/lib/*' \( -type f -o -type l \) | while read f; do
+  file -L "$f" | grep -q ELF || continue
+  ldd -r "$f" 2>&1 | grep 'undefined symbol' | grep -v '__rosidl_\|__msg__\|__srv__\|__action__' \
+    | sed "s|^|$f: |"
+done
+```
+
+(The message-type symbols filtered out are resolved at load time through the
+generated typesupport libraries and are reported by `ldd -r` on those libraries
+alone.)
+
+The workspace is built with `--symlink-install`; keep it that way when
+rebuilding single packages.
+
+**Docker:** the image for the car must build the workspace against the same apt
+snapshot it runs. Never copy an `install/` built against a different set of
+`ros-jazzy-*` packages into it.
+
+## Orin Docker
+
+### Host networking only: every build, every container
+
+The Orin's custom kernel (5.15.185-tegra) and its `/lib/modules` come from
+different builds (`CONFIG_MODVERSIONS=y`): `ipv6.ko` fails on
+`__skb_flow_dissect`, `nf_tables.ko` on `__skb_get_hash`, so `bridge.ko` cannot
+load, `xt_connmark` is missing, and there is no IPv6 or nftables. `dockerd`
+failed at boot until `/etc/docker/daemon.json` got `"bridge": "none"`,
+`"iptables": false`, `"ip6tables": false` (2026-10-07; the original is
+`daemon.json.pre-5d`). Backlog M21/M22.
+
+There is no `bridge` network, so:
+
+- `docker build` without `--network=host` fails at its first `RUN` with
+  `network bridge not found`;
+- `docker run` without `--network host` starts **silently** with only `lo`
+  and no DNS (a `WARNING: IPv4 forwarding is disabled` is all you get).
+
+Always `docker build --network=host` and `docker run --network host`; in
+compose, `network_mode: host` **and** `build: {network: host}`.
+`docker/orin/build.sh` does this; a future run script (`scripts/docker_orin.sh`,
+Phase 5d D2, not written yet) must too. The stack wants host networking anyway (lidar on Ethernet, Discovery
+Server on 127.0.0.1:11811, linus over Tailscale).
+
+## Thor
+
+### A second checkout needs a clean shell
+
+The Thor's `~/.bashrc` sources `~/dev_ws/f1tenth_more/scripts/env/jazzy.sh`,
+which sources **that** checkout's install. A worktree (e.g.
+`~/dev_ws/f1tenth_more_main`) built or run from a normal login shell chains
+the main checkout's install underneath its own, and a package missing from
+the worktree silently comes from the other one. Build and run a second
+checkout from `env -i HOME=$HOME USER=$USER PATH=/usr/bin:/bin bash --noprofile
+--norc`, then `export F1TENTH_WS=<worktree>` and `source <worktree>/scripts/env/jazzy.sh`.
+
+`f1tenth_sim` (Gazebo) carries `COLCON_IGNORE` on this line, so the old
+`~/.colcon/defaults.yaml` skip of `f1tenth_sim` and `f1tenth_more` is harmless
+but no longer needed.
+
 ## Analyses and module versions
 
 - Every test or analysis is a folder `docs/analysis/<area>/<id>/` (`report.md` with the front matter of `docs/analysis/_template/report.md`, `figures/`, `data/`), committed on `main` in a docs-only commit. Never leave results only on a feature branch; raw data (bags, videos) stays out of git, pointed to by `raw_data`.

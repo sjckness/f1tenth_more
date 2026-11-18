@@ -1,0 +1,1663 @@
+{
+ "summary": {
+  "stack_cpu_pct": {
+   "mean": 287.1,
+   "p95": 360.8,
+   "max": 386.7
+  },
+  "stack_rss_mib": {
+   "mean": 4838.2,
+   "p95": 5874,
+   "max": 5882
+  },
+  "isaac_cpu_pct": {
+   "mean": 128.7,
+   "p95": 133.8,
+   "max": 233.3
+  },
+  "isaac_rss_mib": {
+   "mean": 4439.7,
+   "p95": 4681,
+   "max": 4681
+  },
+  "host_cpu_pct": {
+   "mean": 73.2,
+   "p95": 86.1,
+   "max": 94.4
+  },
+  "host_ram_used_mib": {
+   "mean": 16663.1,
+   "p95": 17434,
+   "max": 17455
+  },
+  "vram_used_mib": {
+   "mean": 3801.8,
+   "p95": 4005.0,
+   "max": 4005.0
+  },
+  "gpu_util_pct": {
+   "mean": 27.2,
+   "p95": 40.0,
+   "max": 40.0
+  },
+  "samples": 41,
+  "cpus": 8,
+  "ram_total_mib": 32002
+ },
+ "samples": [
+  {
+   "t": 1792142053.0,
+   "stack_cpu_pct": 0.0,
+   "stack_rss_mib": 0,
+   "stack_procs": 0,
+   "isaac_cpu_pct": 0.0,
+   "isaac_rss_mib": 0,
+   "host_cpu_pct": 24.8,
+   "host_ram_used_mib": 11332,
+   "vram_used_mib": 1833.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 8.0,
+   "top5": []
+  },
+  {
+   "t": 1792142058.0,
+   "stack_cpu_pct": 0.0,
+   "stack_rss_mib": 103,
+   "stack_procs": 4,
+   "isaac_cpu_pct": 117.0,
+   "isaac_rss_mib": 2033,
+   "host_cpu_pct": 28.4,
+   "host_ram_used_mib": 11806,
+   "vram_used_mib": 1860.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 5.0,
+   "top5": [
+    [
+     117.0,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     0.0,
+     "stack",
+     "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock"
+    ],
+    [
+     0.0,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ]
+   ]
+  },
+  {
+   "t": 1792142063.1,
+   "stack_cpu_pct": 0.0,
+   "stack_rss_mib": 103,
+   "stack_procs": 4,
+   "isaac_cpu_pct": 101.3,
+   "isaac_rss_mib": 2380,
+   "host_cpu_pct": 24.6,
+   "host_ram_used_mib": 11954,
+   "vram_used_mib": 1892.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 5.0,
+   "top5": [
+    [
+     101.3,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     0.0,
+     "stack",
+     "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock"
+    ],
+    [
+     0.0,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ]
+   ]
+  },
+  {
+   "t": 1792142068.2,
+   "stack_cpu_pct": 0.0,
+   "stack_rss_mib": 103,
+   "stack_procs": 4,
+   "isaac_cpu_pct": 233.3,
+   "isaac_rss_mib": 4463,
+   "host_cpu_pct": 42.9,
+   "host_ram_used_mib": 13903,
+   "vram_used_mib": 3507.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 26.0,
+   "top5": [
+    [
+     233.3,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     0.0,
+     "stack",
+     "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock"
+    ],
+    [
+     0.0,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ]
+   ]
+  },
+  {
+   "t": 1792142073.3,
+   "stack_cpu_pct": 0.2,
+   "stack_rss_mib": 103,
+   "stack_procs": 4,
+   "isaac_cpu_pct": 110.1,
+   "isaac_rss_mib": 4670,
+   "host_cpu_pct": 26.0,
+   "host_ram_used_mib": 14101,
+   "vram_used_mib": 3798.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 6.0,
+   "top5": [
+    [
+     110.1,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     0.2,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock"
+    ]
+   ]
+  },
+  {
+   "t": 1792142078.4,
+   "stack_cpu_pct": 0.4,
+   "stack_rss_mib": 32,
+   "stack_procs": 3,
+   "isaac_cpu_pct": 115.6,
+   "isaac_rss_mib": 4670,
+   "host_cpu_pct": 73.8,
+   "host_ram_used_mib": 15068,
+   "vram_used_mib": 3798.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 18.0,
+   "top5": [
+    [
+     115.6,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     0.4,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "stack",
+     "python3 /opt/ros/jazzy/bin/../tools/fastdds/fastdds.py discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     0.0,
+     "isaac",
+     "/bin/bash /isaac-sim/python.sh /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed.len"
+    ]
+   ]
+  },
+  {
+   "t": 1792142083.9,
+   "stack_cpu_pct": 327.9,
+   "stack_rss_mib": 3699,
+   "stack_procs": 49,
+   "isaac_cpu_pct": 132.3,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 94.4,
+   "host_ram_used_mib": 16434,
+   "vram_used_mib": 3658.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 15.0,
+   "top5": [
+    [
+     132.3,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     43.9,
+     "stack",
+     "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811"
+    ],
+    [
+     38.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     23.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     18.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142089.3,
+   "stack_cpu_pct": 357.0,
+   "stack_rss_mib": 5663,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 133.1,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 81.3,
+   "host_ram_used_mib": 17455,
+   "vram_used_mib": 4005.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 23.0,
+   "top5": [
+    [
+     133.1,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     45.2,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.5,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     27.8,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     27.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142094.4,
+   "stack_cpu_pct": 316.0,
+   "stack_rss_mib": 5661,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 126.4,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 73.0,
+   "host_ram_used_mib": 17386,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 26.0,
+   "top5": [
+    [
+     126.4,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     36.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     30.7,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     28.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     27.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142099.5,
+   "stack_cpu_pct": 326.2,
+   "stack_rss_mib": 5661,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 129.6,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 75.3,
+   "host_ram_used_mib": 17269,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 24.0,
+   "top5": [
+    [
+     129.6,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     36.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.8,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.2,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     28.2,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142104.6,
+   "stack_cpu_pct": 322.6,
+   "stack_rss_mib": 5662,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 127.9,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 73.5,
+   "host_ram_used_mib": 17263,
+   "vram_used_mib": 4005.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 27.0,
+   "top5": [
+    [
+     127.9,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     36.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.4,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     28.8,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     27.7,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142109.7,
+   "stack_cpu_pct": 324.7,
+   "stack_rss_mib": 5664,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 128.6,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 74.3,
+   "host_ram_used_mib": 17290,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 24.0,
+   "top5": [
+    [
+     128.6,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     36.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     28.8,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     27.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142114.9,
+   "stack_cpu_pct": 330.3,
+   "stack_rss_mib": 5668,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 129.4,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 76.0,
+   "host_ram_used_mib": 17277,
+   "vram_used_mib": 4005.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 23.0,
+   "top5": [
+    [
+     129.4,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     27.8,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142120.0,
+   "stack_cpu_pct": 332.7,
+   "stack_rss_mib": 5673,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 129.6,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 77.0,
+   "host_ram_used_mib": 17279,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 24.0,
+   "top5": [
+    [
+     129.6,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     36.5,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     28.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142125.1,
+   "stack_cpu_pct": 325.2,
+   "stack_rss_mib": 5667,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 132.2,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 80.0,
+   "host_ram_used_mib": 17304,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 36.0,
+   "top5": [
+    [
+     132.2,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     28.7,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     27.5,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142130.2,
+   "stack_cpu_pct": 327.0,
+   "stack_rss_mib": 5669,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 132.0,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 78.4,
+   "host_ram_used_mib": 17291,
+   "vram_used_mib": 4005.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 40.0,
+   "top5": [
+    [
+     132.0,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.8,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.2,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     28.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142135.4,
+   "stack_cpu_pct": 323.1,
+   "stack_rss_mib": 5667,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 131.3,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 78.7,
+   "host_ram_used_mib": 17294,
+   "vram_used_mib": 4005.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 36.0,
+   "top5": [
+    [
+     131.3,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     36.9,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.7,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     28.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ],
+    [
+     27.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ]
+   ]
+  },
+  {
+   "t": 1792142140.5,
+   "stack_cpu_pct": 336.1,
+   "stack_rss_mib": 5672,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 131.3,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 79.8,
+   "host_ram_used_mib": 17290,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 35.0,
+   "top5": [
+    [
+     131.3,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.4,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     28.9,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     28.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142145.7,
+   "stack_cpu_pct": 331.8,
+   "stack_rss_mib": 5673,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 131.1,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 78.1,
+   "host_ram_used_mib": 17310,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 25.0,
+   "top5": [
+    [
+     131.1,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     32.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.2,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     28.4,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142150.8,
+   "stack_cpu_pct": 338.4,
+   "stack_rss_mib": 5670,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 132.1,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 78.6,
+   "host_ram_used_mib": 17302,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 40.0,
+   "top5": [
+    [
+     132.1,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     32.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     28.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142156.0,
+   "stack_cpu_pct": 332.8,
+   "stack_rss_mib": 5672,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 133.2,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 77.3,
+   "host_ram_used_mib": 17297,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 24.0,
+   "top5": [
+    [
+     133.2,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.2,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     32.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.7,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     29.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142161.1,
+   "stack_cpu_pct": 330.1,
+   "stack_rss_mib": 5670,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 132.0,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 77.3,
+   "host_ram_used_mib": 17290,
+   "vram_used_mib": 4005.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 28.0,
+   "top5": [
+    [
+     132.0,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     32.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     28.5,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142166.2,
+   "stack_cpu_pct": 327.1,
+   "stack_rss_mib": 5666,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 130.2,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 77.6,
+   "host_ram_used_mib": 17286,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 32.0,
+   "top5": [
+    [
+     130.2,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     36.2,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     28.8,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     27.8,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142171.4,
+   "stack_cpu_pct": 360.8,
+   "stack_rss_mib": 5726,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 132.5,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 81.7,
+   "host_ram_used_mib": 17300,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 24.0,
+   "top5": [
+    [
+     132.5,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.7,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     32.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     27.4,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142176.5,
+   "stack_cpu_pct": 339.3,
+   "stack_rss_mib": 5725,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 133.2,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 77.0,
+   "host_ram_used_mib": 17309,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 25.0,
+   "top5": [
+    [
+     133.2,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.4,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     32.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.4,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     28.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142181.6,
+   "stack_cpu_pct": 340.2,
+   "stack_rss_mib": 5725,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 132.2,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 78.0,
+   "host_ram_used_mib": 17293,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 35.0,
+   "top5": [
+    [
+     132.2,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     32.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     28.2,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142186.8,
+   "stack_cpu_pct": 356.0,
+   "stack_rss_mib": 5733,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 131.7,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 80.7,
+   "host_ram_used_mib": 17302,
+   "vram_used_mib": 4005.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 28.0,
+   "top5": [
+    [
+     131.7,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     44.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     37.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.4,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     27.5,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142191.9,
+   "stack_cpu_pct": 386.7,
+   "stack_rss_mib": 5789,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 130.2,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 83.8,
+   "host_ram_used_mib": 17220,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 31.0,
+   "top5": [
+    [
+     130.2,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     46.5,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_logger/lib/f1tenth_logger/mission_logger_node --ros-args -r __node:=mission_logger_node -p"
+    ],
+    [
+     41.9,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     32.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     30.4,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ]
+   ]
+  },
+  {
+   "t": 1792142197.1,
+   "stack_cpu_pct": 331.5,
+   "stack_rss_mib": 5852,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 133.2,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 76.1,
+   "host_ram_used_mib": 17277,
+   "vram_used_mib": 4005.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 40.0,
+   "top5": [
+    [
+     133.2,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     31.5,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.4,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     28.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142202.2,
+   "stack_cpu_pct": 330.1,
+   "stack_rss_mib": 5846,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 135.3,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 75.9,
+   "host_ram_used_mib": 17299,
+   "vram_used_mib": 4005.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 39.0,
+   "top5": [
+    [
+     135.3,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     33.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     32.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     29.2,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142207.4,
+   "stack_cpu_pct": 327.8,
+   "stack_rss_mib": 5853,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 132.8,
+   "isaac_rss_mib": 4680,
+   "host_cpu_pct": 78.1,
+   "host_ram_used_mib": 17331,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 39.0,
+   "top5": [
+    [
+     132.8,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     31.8,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     30.8,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     28.7,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     27.9,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142212.5,
+   "stack_cpu_pct": 300.0,
+   "stack_rss_mib": 5349,
+   "stack_procs": 56,
+   "isaac_cpu_pct": 132.4,
+   "isaac_rss_mib": 4681,
+   "host_cpu_pct": 87.3,
+   "host_ram_used_mib": 17361,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 27.0,
+   "top5": [
+    [
+     132.4,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     35.7,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     30.9,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     27.7,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     26.8,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142217.8,
+   "stack_cpu_pct": 329.7,
+   "stack_rss_mib": 5706,
+   "stack_procs": 60,
+   "isaac_cpu_pct": 133.8,
+   "isaac_rss_mib": 4681,
+   "host_cpu_pct": 83.4,
+   "host_ram_used_mib": 17434,
+   "vram_used_mib": 4005.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 31.0,
+   "top5": [
+    [
+     133.8,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     38.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     32.4,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     28.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ],
+    [
+     27.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ]
+   ]
+  },
+  {
+   "t": 1792142222.9,
+   "stack_cpu_pct": 367.8,
+   "stack_rss_mib": 5874,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 132.1,
+   "isaac_rss_mib": 4681,
+   "host_cpu_pct": 81.6,
+   "host_ram_used_mib": 17451,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 35.0,
+   "top5": [
+    [
+     132.1,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.7,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     32.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.5,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     29.5,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142228.0,
+   "stack_cpu_pct": 347.2,
+   "stack_rss_mib": 5881,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 132.0,
+   "isaac_rss_mib": 4681,
+   "host_cpu_pct": 80.1,
+   "host_ram_used_mib": 17335,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 36.0,
+   "top5": [
+    [
+     132.0,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     29.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142233.2,
+   "stack_cpu_pct": 334.6,
+   "stack_rss_mib": 5882,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 131.1,
+   "isaac_rss_mib": 4681,
+   "host_cpu_pct": 77.5,
+   "host_ram_used_mib": 17315,
+   "vram_used_mib": 4005.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 23.0,
+   "top5": [
+    [
+     131.1,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.3,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ],
+    [
+     29.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ]
+   ]
+  },
+  {
+   "t": 1792142238.3,
+   "stack_cpu_pct": 357.0,
+   "stack_rss_mib": 5874,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 129.0,
+   "isaac_rss_mib": 4681,
+   "host_cpu_pct": 80.8,
+   "host_ram_used_mib": 17322,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 40.0,
+   "top5": [
+    [
+     129.0,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     38.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     36.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     27.9,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142243.4,
+   "stack_cpu_pct": 354.2,
+   "stack_rss_mib": 5864,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 131.7,
+   "isaac_rss_mib": 4681,
+   "host_cpu_pct": 79.0,
+   "host_ram_used_mib": 17325,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 27.0,
+   "top5": [
+    [
+     131.7,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     37.4,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     32.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     29.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ],
+    [
+     29.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ]
+   ]
+  },
+  {
+   "t": 1792142248.6,
+   "stack_cpu_pct": 337.3,
+   "stack_rss_mib": 5864,
+   "stack_procs": 62,
+   "isaac_cpu_pct": 133.6,
+   "isaac_rss_mib": 4681,
+   "host_cpu_pct": 78.1,
+   "host_ram_used_mib": 17331,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 33.0,
+   "top5": [
+    [
+     133.6,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     38.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     32.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     30.1,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     29.9,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142253.7,
+   "stack_cpu_pct": 310.8,
+   "stack_rss_mib": 5357,
+   "stack_procs": 56,
+   "isaac_cpu_pct": 131.4,
+   "isaac_rss_mib": 4681,
+   "host_cpu_pct": 84.4,
+   "host_ram_used_mib": 17144,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 29.0,
+   "top5": [
+    [
+     131.4,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     38.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.8,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     28.7,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     27.7,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  },
+  {
+   "t": 1792142259.0,
+   "stack_cpu_pct": 352.5,
+   "stack_rss_mib": 5647,
+   "stack_procs": 59,
+   "isaac_cpu_pct": 130.7,
+   "isaac_rss_mib": 4681,
+   "host_cpu_pct": 86.1,
+   "host_ram_used_mib": 17359,
+   "vram_used_mib": 3977.0,
+   "vram_total_mib": 8151.0,
+   "gpu_util_pct": 24.0,
+   "top5": [
+    [
+     130.7,
+     "isaac",
+     "/isaac-sim/kit/python/bin/python3 /home/isaac_ws/sim/main.py --scene base_room --rtf-log --set ros_interface.publish_static_tf=false --set car_spec.sensors.zed."
+    ],
+    [
+     36.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/yolo_detector_node --ros-args -r __node:=yolo_detector_n"
+    ],
+    [
+     31.0,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_perception/lib/f1tenth_perception/front_clearance_node --ros-args -r __node:=front_clearan"
+    ],
+    [
+     26.6,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --"
+    ],
+    [
+     26.2,
+     "stack",
+     "/usr/bin/python3 /home/andreas/dev_ws/f1tenth_more_jc/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_execut"
+    ]
+   ]
+  }
+ ]
+}

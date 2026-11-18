@@ -456,7 +456,21 @@ def inflate_polytope(
             j = int(np.argmax(alignment))
             if alignment[j] >= cos_dedup:
                 faces_b[j] = min(faces_b[j], float(faces_n[j] @ p))
-                remaining = remaining[(remaining @ faces_n[j]) < faces_b[j]]
+                # keep[i_pt] is forced rather than trusted to the
+                # recomputed dot product: remaining @ faces_n[j] is a
+                # batched matvec (BLAS gemv on this platform) while
+                # faces_b[j] above came from a separate scalar dot of the
+                # same two vectors. The two are mathematically identical
+                # but not guaranteed bit-identical -- different
+                # instruction selection (e.g. FMA contraction on aarch64
+                # vs. not) can round the batched result a ULP below the
+                # scalar one, so p survives its own exclusion test and
+                # the loop never makes progress. Reproduced hanging
+                # forever on Thor (aarch64/OpenBLAS) while passing on
+                # x86; see test_safe_corridor.py.
+                keep = (remaining @ faces_n[j]) < faces_b[j]
+                keep[i_pt] = False
+                remaining = remaining[keep]
                 n_merged += 1
                 merged = True
 
@@ -466,8 +480,12 @@ def inflate_polytope(
             # Drop every blocked point this face already excludes
             # (n . q >= b). Strict < keeps only points genuinely still
             # inside; p itself has n . p == b and so is always removed,
-            # which is what guarantees the loop terminates.
-            remaining = remaining[(remaining @ n_vec) < b_val]
+            # which is what guarantees the loop terminates -- forced via
+            # keep[i_pt] rather than trusted to the recomputed dot product
+            # for the same cross-platform reason as the merge branch above.
+            keep = (remaining @ n_vec) < b_val
+            keep[i_pt] = False
+            remaining = remaining[keep]
 
         # Re-truncate the covered arc against EVERY face, not just the one
         # added: a merge tightens a face placed on an earlier iteration, so

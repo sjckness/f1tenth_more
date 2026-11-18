@@ -41,8 +41,10 @@ class _FakeResponse:
     """Just enough of requests.Response for get_plan_from_llm()'s own use
     of it (.raise_for_status(), .json())."""
 
-    def __init__(self, content_field):
+    def __init__(self, content_field, status_code=200):
         self._content_field = content_field
+        self.status_code = status_code
+        self.text = content_field
 
     def raise_for_status(self):
         pass
@@ -232,6 +234,24 @@ class TestWaitForLlamaServer:
 
         assert mock_post.call_count == 3
         assert mock_sleep.call_count == 2  # backed off twice before succeeding
+        assert isinstance(elapsed, float)
+
+    @patch('llm.llm_planner_node.time.sleep')
+    @patch('llm.llm_planner_node.requests.post')
+    def test_retries_while_server_answers_503_loading_model(self, mock_post, mock_sleep):
+        """llama-server answers 503 while the model loads (measured on the Thor
+        between the port opening and /health 200): retried like a refused
+        connection, not raised as an HTTP error."""
+        mock_post.side_effect = [
+            _FakeResponse('{"error":"Loading model"}', status_code=503),
+            _FakeResponse('{"plan":[]}'),
+        ]
+
+        elapsed = llm_planner_node._wait_for_llama_server(
+            'http://x/completion', max_wait_s=10.0)
+
+        assert mock_post.call_count == 2
+        assert mock_sleep.call_count == 1
         assert isinstance(elapsed, float)
 
     @patch('llm.llm_planner_node.time.sleep')

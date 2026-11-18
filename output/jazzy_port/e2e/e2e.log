@@ -1,0 +1,13 @@
+[e2e 11:14:07] starting: scripts/sim/sim_isaac.sh all --scene base_room (log /home/andreas/dev_ws/f1tenth_more_jc/output/jazzy_port/e2e/sim_isaac.log)
+[e2e 11:14:37] stack launched (/clock at 11:14:33); waiting for /odometry/filtered and detector warm-up
+[e2e 11:15:08] step 1_up: PASS
+[e2e 11:15:17] step 2_graph: PASS
+[e2e 11:15:38] step 3_hz: PASS
+[e2e 11:15:49] step 4_tf: PASS
+[e2e 11:16:05] step 5_perception: PASS
+[e2e 11:16:44] step 6_mission: PASS
+[e2e 11:16:56] step 7_reset: PASS
+[e2e 11:17:18] step 8_person: PASS
+[e2e 11:17:39] step 9_perf: PASS
+[e2e 11:17:39] stopping sim_isaac.sh (SIGTERM -> its cleanup stops the stack, Isaac, the Discovery Server)
+[e2e 11:18:05] clean: no Isaac container, no ROS process left

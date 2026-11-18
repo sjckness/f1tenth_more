@@ -20,7 +20,9 @@ lookup_transform(..., rclpy.time.Time()) pattern detection_3d_node.py already
 uses for its own optical -> camera_frame step, since this is likewise a fixed
 joint chain -- base_link -> zed2_camera_link is a static transform published by
 f1tenth_perception/camera.launch.py, and zed2_camera_link -> zed2_left_camera_frame
-is a fixed joint broadcast by the ZED wrapper's own robot_state_publisher).
+is a fixed joint broadcast by the ZED wrapper's own robot_state_publisher), read
+by default from /tf_static alone (no TransformListener: static_tf.py, parameter
+tf_static_only).
 Detections whose transformed z falls outside [obstacle_z_min, obstacle_z_max]
 are dropped -- rejects ground-plane and overhead false positives.
 
@@ -59,8 +61,6 @@ from tf2_ros import (
     ExtrapolationException,
     LookupException,
 )
-from tf2_ros.buffer import Buffer
-from tf2_ros.transform_listener import TransformListener
 from vision_msgs.msg import Detection3DArray
 
 from f1tenth_messages.msg import Obstacle2D, Obstacle2DArray
@@ -72,6 +72,7 @@ from f1tenth_perception.cpu_affinity import (
     apply_nice,
     declare_nice_param,
 )
+from f1tenth_perception.static_tf import refuse_dynamic_frame, STATIC_ONLY_HINT, StaticTf
 
 RADIUS_SOURCES = ('footprint', 'legacy')
 
@@ -193,8 +194,19 @@ class ObstacleProjectorNode(Node):
         self.obstacle_class_margin_m = parse_class_margins(
             self.declare_parameter('obstacle_class_margin_m', '{}').value)
 
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
+        # detections frame -> output_frame is a chain of fixed joints (module
+        # docstring), so by default the buffer is fed from /tf_static alone, no
+        # TransformListener (static_tf.py; the lookup is unchanged).
+        # tf_static_only:=false restores the listener, for a chain through a
+        # moving joint. A moving output_frame (map, odom) is refused here
+        # instead of dropping every batch at runtime.
+        self.tf_static_only = bool(self.declare_parameter(
+            'tf_static_only', get_value('obstacle_projector_tf_static_only')).value)
+        if self.tf_static_only:
+            refuse_dynamic_frame(self.output_frame)
+        self._tf = StaticTf(self, self.tf_static_only, 'obstacle_projector_tf_static')
+        self.tf_buffer = self._tf.buffer
+        self.tf_listener = self._tf.listener
 
         self.obstacles_pub = self.create_publisher(
             Obstacle2DArray, self.obstacles_topic, 10)
@@ -222,7 +234,9 @@ class ObstacleProjectorNode(Node):
         except (LookupException, ConnectivityException, ExtrapolationException) as exc:
             self.get_logger().warn(
                 f'tf2 lookup "{msg.header.frame_id}" -> "{self.output_frame}" failed: '
-                f'{exc} -- skipping frame', throttle_duration_sec=5.0)
+                f'{exc} -- skipping frame' +
+                (f' ({STATIC_ONLY_HINT})' if self.tf_static_only else ''),
+                throttle_duration_sec=5.0)
             return
 
         obstacles = []

@@ -60,18 +60,17 @@ than that, for the same reason the spec calls out SIGINT-not-SIGKILL for the
 subprocess approach: readers and post-hoc analysis trust metadata.yaml, and a
 bag without it reports wrong counts/duration or refuses to open.
 
-STORAGE FORMAT: mcap requested by default, BUT NOT AVAILABLE ON THIS BOX AS
-SHIPPED -- rosbag2_py.get_registered_writers() returns {'sqlite3'} only; the
-rosbag2_storage_mcap plugin is not installed (checked live). Rather than fail
-every mission recording on a missing plugin, _resolve_storage_id() below
-checks the registered writers at startup and falls back to sqlite3 with a
-loud one-time WARNING naming the exact package to install
-(ros-humble-rosbag2-storage-mcap). Install it and this node switches to mcap
-on the next start with no code or config change. The fallback is deliberately
-noisy rather than silent: sqlite3 bags are what Foxglove reads least well, so
-"it recorded fine" must not quietly mean "in the format you didn't want".
-The run-report overlay (mission_overlay) reads sqlite3 bags only: an mcap run
-gets the plain recorded stills, so the warning says that too.
+STORAGE FORMAT: sqlite3 by default (storage_id), as the car has always
+recorded: its Humble install has no mcap writer, so the old 'mcap' default
+fell back to sqlite3 there, while on Jazzy the mcap writer is registered and
+the same default silently switched the format. The run-report overlay
+(mission_overlay), mission_debug_video and the replay tools in tools/ read
+sqlite3 bags only (backlog: make them format-agnostic), so the default stays
+sqlite3. storage_id:=mcap still works for a Foxglove-first run: if the
+requested plugin is not registered, _resolve_storage_id() below falls back to
+sqlite3 with a loud one-time WARNING naming the exact package to install
+(ros-jazzy-rosbag2-storage-mcap). An mcap run gets the plain recorded stills
+in its report, so the warning says that too.
 
 QoS -- THE TRAP THIS NODE EXPLICITLY GUARDS AGAINST: rosbag2's recorder does
 not simply inherit a publisher's QoS, and a recorder subscribing RELIABLE to
@@ -776,6 +775,77 @@ def _find_git_root(start_path):
         d = parent
 
 
+# The CAR_SYNC.json keys a manifest carries (the whole file is in the image).
+_CAR_SYNC_KEYS = ('captured_at', 'native_branch', 'native_head', 'main_commit')
+
+
+def read_image_provenance(sources_path, car_sync_path):
+    """Return the manifest's `git` block for an image without .git (pure).
+
+    Files only. sources_path: docker/orin/stage_sources.sh's SOURCES
+    ("commit <sha>", "subject ...", "branch ...", "describe ...",
+    "submodule <path> <sha> <url>", "tree_sha256 <hash>"); car_sync_path:
+    docker/orin/car_sync.json, what of the car's native tree the image
+    carries. Either may be missing. The image's tree IS that commit (a
+    `git archive`), so dirty is False when a commit is known. source is
+    'image' once either file was read.
+    """
+    info = {'commit': None, 'dirty': None, 'branch': None}
+    read_any = False
+    lines = None
+    if sources_path:
+        try:
+            with open(sources_path) as fh:
+                lines = fh.read().splitlines()
+        except OSError:
+            lines = None
+    if lines is not None:
+        read_any = True
+        submodules = {}
+        for line in lines:
+            key, _, rest = line.partition(' ')
+            rest = rest.strip()
+            if key in ('commit', 'branch'):
+                info[key] = rest or None
+            elif key in ('subject', 'describe', 'tree_sha256'):
+                info[key] = rest
+            elif key == 'submodule':
+                parts = rest.split()
+                if len(parts) >= 2 and parts[1] != 'skipped':
+                    submodules[parts[0]] = parts[1]
+        if submodules:
+            info['submodules'] = submodules
+        info['dirty'] = False if info['commit'] else None
+        info['sources_file'] = sources_path
+    if car_sync_path:
+        try:
+            with open(car_sync_path) as fh:
+                car_sync = json.load(fh)
+        except (OSError, ValueError):
+            car_sync = None
+        if isinstance(car_sync, dict):
+            read_any = True
+            info['car_sync'] = {k: car_sync.get(k) for k in _CAR_SYNC_KEYS}
+    if read_any:
+        info['source'] = 'image'
+    return info
+
+
+def write_archive_trigger(path, run_id):
+    """Write the archive-sync request at `path` atomically.
+
+    JSON with run_id and time, by rename, so the host's .path unit
+    (PathChanged=) sees one complete file, never a half-written one.
+    """
+    directory = os.path.dirname(os.path.abspath(path))
+    os.makedirs(directory, exist_ok=True)
+    tmp = os.path.join(directory, f'.{os.path.basename(path)}.{os.getpid()}.tmp')
+    with open(tmp, 'w') as fh:
+        json.dump({'run_id': run_id,
+                   'time': datetime.datetime.now(datetime.timezone.utc).isoformat()}, fh)
+    os.replace(tmp, path)
+
+
 class MissionLoggerNode(Node):
 
     def __init__(self, **kwargs):
@@ -789,7 +859,10 @@ class MissionLoggerNode(Node):
         self.active_dir = os.path.join(self.runs_dir, 'active')
         self.complete_dir = os.path.join(self.runs_dir, 'complete')
         self.incomplete_dir = os.path.join(self.runs_dir, 'incomplete')
-        self.requested_storage_id = str(self.declare_parameter('storage_id', 'mcap').value)
+        # sqlite3, as the car records (Humble had no mcap writer): the overlay,
+        # the debug video and the replay tools read .db3 only (the launch arg's
+        # description; mcap readers are on the backlog).
+        self.requested_storage_id = str(self.declare_parameter('storage_id', 'sqlite3').value)
         topics = list(self.declare_parameter('topics', _DEFAULT_TOPICS).value)
         # Off by default: the raw annotated stream was 134 of the 179 MB of
         # the 2026-10-13 R007 bag, and the debug video covers it.
@@ -840,6 +913,7 @@ class MissionLoggerNode(Node):
         self._active_bag_dir = None
         self._active_run = None      # dict -> becomes the manifest
         self._finalize_thread = None
+        self._no_bus_warned = False  # _spawn_sync: no user systemd, said once
 
         self._last_state = None
         self._last_estop = False
@@ -887,7 +961,7 @@ class MissionLoggerNode(Node):
         self.get_logger().warn(
             f'storage_id "{self.requested_storage_id}" is NOT a registered rosbag2 '
             f'writer on this system (registered: {sorted(available)}) -- falling back to '
-            f'"{fallback}". For mcap: sudo apt install ros-humble-rosbag2-storage-mcap, '
+            f'"{fallback}". For mcap: sudo apt install ros-jazzy-rosbag2-storage-mcap, '
             'then restart this node; no config change needed. But the run-report overlay '
             '(mask and LiDAR on the snapshots) reads sqlite3 bags only: with mcap the '
             'snapshots are the plain recorded frames.')
@@ -968,7 +1042,13 @@ class MissionLoggerNode(Node):
                     uri=bag_dir, storage_id=self.storage_id,
                     max_cache_size=100 * 1024 * 1024)
                 record_options = rosbag2_py.RecordOptions()
-                record_options.all = False
+                # Jazzy's rosbag2_py (0.26) split RecordOptions.all into
+                # all_topics/all_services and removed `all`: assigning it
+                # raises AttributeError, and no run was ever recorded.
+                if hasattr(record_options, 'all_topics'):
+                    record_options.all_topics = False
+                else:
+                    record_options.all = False
                 record_options.topics = list(self.topics)
                 record_options.is_discovery_disabled = False
                 record_options.rmw_serialization_format = 'cdr'
@@ -1195,15 +1275,61 @@ class MissionLoggerNode(Node):
                 '-- no snapshots.')
 
     def _spawn_sync(self, run):
-        """Detached, never waited on. A failed sync is not a failed run: the
-        bag is already safe in complete/, and f1tenth-archive.timer retries
-        every 15 minutes for anything finalized while linus was unreachable."""
-        subprocess.Popen(
-            ['systemctl', '--user', '--no-block', 'start', 'f1tenth-archive.service'],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            start_new_session=True)
-        self.get_logger().info(
-            f'archive sync spawned for "{run["run_id"]}" (detached, not awaited).')
+        """Ask for an archive sync; the sync itself is never waited for.
+
+        A failed sync is not a failed run: the bag is already safe in
+        complete/, and f1tenth-archive.timer retries every 15 minutes for
+        anything finalized while linus was unreachable.
+
+        With F1TENTH_ARCHIVE_TRIGGER set (the car's container, which has no
+        user systemd): the request is a small JSON file written atomically at
+        that path; the host's f1tenth-archive-trigger.path unit watches it and
+        starts f1tenth-archive.service. Otherwise `systemctl --user --no-block
+        start f1tenth-archive.service` as before -- --no-block returns once
+        the job is queued, so its exit status is read and the child reaped
+        (it used to be left a zombie). Without a user bus that call fails:
+        ONE warning per node, not one per run, and never an error.
+        """
+        run_id = run['run_id']
+        trigger = os.environ.get('F1TENTH_ARCHIVE_TRIGGER')
+        if trigger:
+            write_archive_trigger(trigger, run_id)
+            self.get_logger().info(
+                f'archive sync requested for "{run_id}": trigger file {trigger}.')
+            return
+        try:
+            proc = subprocess.run(
+                ['systemctl', '--user', '--no-block', 'start', 'f1tenth-archive.service'],
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                text=True, timeout=30, start_new_session=True)
+        except FileNotFoundError:
+            self._warn_no_user_bus('systemctl not found')
+            return
+        except subprocess.TimeoutExpired:
+            self.get_logger().warn(
+                f'archive sync for "{run_id}": systemctl --user did not answer in 30 s.')
+            return
+        if proc.returncode == 0:
+            self.get_logger().info(
+                f'archive sync started for "{run_id}" (f1tenth-archive.service, not awaited).')
+            return
+        err = (proc.stderr or '').strip()
+        if 'bus' in err.lower():
+            self._warn_no_user_bus(err)
+        else:
+            self.get_logger().warn(
+                f'archive sync for "{run_id}" not started: systemctl exit '
+                f'{proc.returncode}: {err[-200:]}')
+
+    def _warn_no_user_bus(self, why):
+        if self._no_bus_warned:
+            return
+        self._no_bus_warned = True
+        self.get_logger().warn(
+            f'archive sync: no systemd user bus here ({why[-160:]}) -- runs are NOT synced '
+            'by this node (set F1TENTH_ARCHIVE_TRIGGER for a host-side trigger); '
+            'f1tenth-archive.timer on the host still picks up complete/. '
+            'Said once per node.')
 
     # -- run metadata ------------------------------------------------------
     def _write_params_snapshot(self, run):
@@ -1242,11 +1368,16 @@ class MissionLoggerNode(Node):
 
     def _git_state(self):
         """Commit AND dirty flag -- a hash alone names the wrong tree whenever
-        there are uncommitted working-tree changes."""
+        there are uncommitted working-tree changes. Without a git checkout
+        (the car's container: the image holds a `git archive` of one commit)
+        the image's own record stands in: F1TENTH_IMAGE_SOURCES and
+        F1TENTH_CAR_SYNC, marked source: image (read_image_provenance)."""
         info = {'commit': None, 'dirty': None, 'branch': None}
         root = _find_git_root(_stack_params_path())
         if root is None:
-            return info
+            image = read_image_provenance(os.environ.get('F1TENTH_IMAGE_SOURCES'),
+                                          os.environ.get('F1TENTH_CAR_SYNC'))
+            return image if image.get('source') == 'image' else info
 
         def _git(*args):
             return subprocess.run(

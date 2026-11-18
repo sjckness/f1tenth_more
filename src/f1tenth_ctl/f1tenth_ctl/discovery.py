@@ -9,11 +9,15 @@ alone by `down` unless --force.
 """
 
 import os
+import time
 
 from . import procscan, units
 from .config import ProcSpec, Settings
 
 NAME = 'discovery'
+# The `fastdds` CLI is a Python script: on the Orin (container, cold page cache)
+# it takes several seconds before the server binds its port.
+LISTEN_TIMEOUT_S = 15.0
 
 
 def spec(settings: Settings) -> ProcSpec:
@@ -56,6 +60,10 @@ def status(settings: Settings) -> dict:
     return info
 
 
+def _starting(info: dict) -> bool:
+    return info.get('state') == 'starting' and not info.get('listening', False)
+
+
 def up(settings: Settings) -> dict:
     before = status(settings)
     if before['state'] == 'disabled':
@@ -64,6 +72,10 @@ def up(settings: Settings) -> dict:
         return {'ok': True, 'already': True, **before}
     result = units.start(settings, spec(settings), settle_s=1.0)
     after = status(settings)
+    deadline = time.monotonic() + LISTEN_TIMEOUT_S
+    while result.get('ok', False) and _starting(after) and time.monotonic() < deadline:
+        time.sleep(0.2)
+        after = status(settings)
     ok = result.get('ok', False) and after.get('listening', False)
     out = {'ok': ok, **after}
     if not ok:

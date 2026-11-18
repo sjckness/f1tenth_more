@@ -1,0 +1,39 @@
+# Paths the car container may change in its own writable layer (docker diff),
+# for docker_diff_check.py. Everything else the stack writes belongs on a volume
+# or a bind mount (compose.yaml) and never shows in `docker diff`. One fnmatch
+# glob per line.
+#
+# Review this list after the first 10 min run of a new image (P8): add a path
+# only when it is MEANT to be ephemeral; a path that holds state the car needs
+# after a restart is a missing mount, not an allow-list entry.
+#
+# NOT listed on purpose: the bind mounts and named volumes of compose.yaml.
+# Their contents live on the host (/scratch/fabiocar/f1tenth_container/...) or
+# in the volume and never appear in `docker diff`; the image creates every one
+# of their mount points (Dockerfile `install -d`). A diff entry below one of
+# them therefore means the mount is missing, and must fail:
+#   /home/fabiocar/{.ros,f1tenth_archive,.cache/huggingface}
+#   /home/fabiocar/.local/state/{f1tenth_ctl,f1tenth_gateway,f1tenth_archive_trigger}
+#   /home/fabiocar/{projects/llm/models,.local/share/f1tenth_gateway/www,.config/f1tenth_car}
+#   /usr/local/zed/{settings,resources}  /var/cache/f1tenth/{cuda,trt}
+#   /opt/f1tenth_ws/src/f1tenth_control/corridors_jsons
+#   /opt/f1tenth_ws/src/f1tenth_behavior/mission_reports
+#   /opt/f1tenth_ws/mission_videos
+#   /opt/f1tenth_ws/install/share/f1tenth_behavior/missions/llm_generated
+
+# Scratch: launch_ros parameter files, the supervisor's default log dir and
+# lock, the logger lock, Python/numba/matplotlib caches.
+/tmp
+/tmp/*
+# Runtime sockets and pid files (the jtop socket's file mount point too).
+/run
+/run/*
+/var/run
+/var/run/*
+# File mount points of compose.yaml that the image may lack: Docker creates an
+# empty file there to mount onto (only the file itself; nothing below it).
+/etc/localtime
+/home/fabiocar/.config/f1tenth_gateway/env
+# Python bytecode the image did not ship (first import of a module).
+*/__pycache__
+*/__pycache__/*

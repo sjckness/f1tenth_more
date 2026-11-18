@@ -1,0 +1,44 @@
+[INFO] [1792159066.759319016] [llm_planner_node]: planner_path=v2 -- prompt prompts/planner_system_prompt.v2.it.txt, validazione schemas/intent_v1.json, traduttore translate(), go_to_enabled=True
+[INFO] [1792159066.985341707] [llm_planner_node]: Server raggiunto e scaldato in 0.2s.
+[INFO] [1792159066.991763019] [llm_planner_node]: LLM Planner (llama-server @ http://127.0.0.1:8083/completion) pronto -- consegna via /mission/load_mission + /mission/start_mission.
+[INFO] [1792159076.090010902] [llm_planner_node]: missione identica gia' presente, riusata: /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json
+[INFO] [1792159076.093684243] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=COMPLETE)
+[INFO] [1792159076.096818093] [llm_planner_node]: load_mission OK: loaded 'llm_2b356aac445f', 1 moves
+[INFO] [1792159076.100141962] [llm_planner_node]: start_mission OK: starting in 15.0 s
+
+missione generata in 9.10s (v2), 1 move:
+  0. vai dritto
+       id       move_0_straight
+       velocita 0.5 m/s
+       fino a   muro entro 2.0 m per 3 tick consecutivi
+       timeout  65 s -> abort
+       note     TERMINALE
+
+JSON (llm_2b356aac445f):
+{
+  "mission_id": "llm_2b356aac445f",
+  "schema_version": "3.0",
+  "moves": [
+    {
+      "id": "move_0_straight",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.5
+      },
+      "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+      },
+      "timeout_sec": 65,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
+
+NOTA: fase 1: distanza dal muro non detta, uso 2.0 m
+
+scritta in: /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json
+
+RESULT {"status": "ok", "stage": "translator", "error_type": null, "error_message": null, "attempts": 1, "rejections": [], "llm_raw": "{\"plan\": [{\"mode\": \"straight\", \"guard\": \"wall\"}], \"unsupported\": []}", "mission_id": "llm_2b356aac445f", "schema_version": "3.0", "n_moves": 1, "plan_seconds": 9.097, "unsupported": [], "notes": ["fase 1: distanza dal muro non detta, uso 2.0 m"], "mission": {"mission_id": "llm_2b356aac445f", "schema_version": "3.0", "moves": [{"id": "move_0_straight", "drive": {"mode": "straight", "speed": 0.5}, "stop_condition": {"type": "front_clearance", "distance": 2.0, "debounce_ticks": 3}, "timeout_sec": 65, "on_timeout": "abort", "terminal": true}]}, "mission_path": "/home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_2b356aac445f.json"}

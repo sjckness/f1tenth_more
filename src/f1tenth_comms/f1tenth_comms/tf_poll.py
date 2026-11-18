@@ -73,6 +73,17 @@ class PolledTf:
         self._drain()
         return self.buffer.lookup_transform(target, source, Time())
 
+    def poll(self) -> None:
+        """
+        Take every waiting message into the buffer now, without a lookup.
+
+        For a caller that looks up only now and then but polls on a clock of
+        its own (MPC_corr, once per control tick): the DDS reader never holds
+        more than one period of messages, so nothing ages out of its depth
+        between lookups.
+        """
+        self._drain()
+
     def close(self) -> None:
         self.side.destroy_node()
 
@@ -86,6 +97,9 @@ class ListenerTf:
 
     def lookup(self, target: str, source: str):
         return self.buffer.lookup_transform(target, source, Time())
+
+    def poll(self) -> None:
+        """Nothing to do: the executor already delivers every message."""
 
     def close(self) -> None:
         self.listener.unregister()

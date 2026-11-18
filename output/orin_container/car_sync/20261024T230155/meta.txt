@@ -1,0 +1,6 @@
+host=jetson-orin
+captured_at=2026-10-24T23:01:56+02:00
+ws=/home/fabiocar/dev_ws/f1tenth_more
+head=6c329992609d3e6c38939c8da1d240393af718aa
+branch=stack-campaign-final-2026-10-22
+base=fa5471f3ea4b2e62a8cadc0819f6b280e872338b

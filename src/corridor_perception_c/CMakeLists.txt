@@ -9,6 +9,10 @@ find_package(ament_cmake REQUIRED)
 # same object has to build and behave identically on the Orin and on Thor,
 # and an -march=native build is neither portable nor reproducible.
 add_compile_options(-O3 -fno-fast-math -std=c11 -Wall -Wextra -Wpedantic)
+# M_PI is not ISO C: under -std=c11 glibc exposes it only with _DEFAULT_SOURCE
+# (Jazzy/Ubuntu 24.04 build: 'M_PI undeclared'). The define widens the headers
+# only; -std=c11 stays, so FP contraction stays off (ISO mode) on aarch64 too.
+add_compile_definitions(_DEFAULT_SOURCE)
 
 add_library(extract_lines SHARED src/extract_lines.c)
 target_include_directories(extract_lines PUBLIC

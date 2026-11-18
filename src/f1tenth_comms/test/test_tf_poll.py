@@ -68,6 +68,31 @@ def test_polled_lookup_composes_static_and_dynamic(ros_context):
         node.destroy_node()
 
 
+def test_poll_takes_the_queue_without_a_lookup(ros_context):
+    """poll() fills the buffer; a lookup straight on the buffer then needs no take."""
+    import rclpy.time
+    from rclpy.node import Node
+    from f1tenth_comms.tf_poll import PolledTf
+
+    node = Node('poll_only_owner', context=ros_context)
+    tf = PolledTf(node)
+    peer, ex = _publish(ros_context)
+    try:
+        for _ in range(50):
+            tf.poll()
+            if tf.buffer.can_transform('map', 'base_link', rclpy.time.Time()):
+                break
+            ex.spin_once(timeout_sec=0.05)
+        assert tf.taken > 10
+        t = tf.buffer.lookup_transform('map', 'base_link', rclpy.time.Time())
+        assert (t.transform.translation.x, t.transform.translation.y) == (10.0, 2.0)
+    finally:
+        tf.close()
+        ex.shutdown()
+        peer.destroy_node()
+        node.destroy_node()
+
+
 def test_listener_fallback(ros_context):
     from rclpy.node import Node
     from f1tenth_comms.tf_poll import ListenerTf, make_tf

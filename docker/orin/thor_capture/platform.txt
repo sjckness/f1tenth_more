@@ -1,0 +1,20 @@
+PRETTY_NAME="Ubuntu 24.04.4 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+VERSION="24.04.4 LTS (Noble Numbat)"
+Linux thor 6.8.12-tegra #1 SMP PREEMPT Tue Dec 30 15:40:41 PST 2025 aarch64 aarch64 aarch64 GNU/Linux
+# R38 (release), REVISION: 4.0, GCID: 43443517, BOARD: generic, EABI: aarch64, DATE: Wed Dec 31 00:15:19 UTC 2025
+# KERNEL_VARIANT: oot
+TARGET_USERSPACE_LIB_DIR=nvidia
+TARGET_USERSPACE_LIB_DIR_PATH=usr/lib/aarch64-linux-gnu/nvidia
+INSTALL_TYPE=
+cuda-toolkit-10-0 
+cuda-toolkit-13-0 13.0.0-1
+cuda-toolkit-13-0-config-common 13.0.48-1
+cuda-toolkit-13-config-common 13.0.48-1
+cuda-toolkit-config-common 13.0.48-1
+nvidia-l4t-core 38.4.0-20251230160601
+Python 3.12.3
+ldd (Ubuntu GLIBC 2.39-0ubuntu8.7) 2.39
+gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+cmake version 3.28.3

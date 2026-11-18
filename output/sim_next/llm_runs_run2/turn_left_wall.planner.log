@@ -1,0 +1,64 @@
+[INFO] [1792159218.836107551] [llm_planner_node]: planner_path=v2 -- prompt prompts/planner_system_prompt.v2.it.txt, validazione schemas/intent_v1.json, traduttore translate(), go_to_enabled=True
+[INFO] [1792159219.057621284] [llm_planner_node]: Server raggiunto e scaldato in 0.2s.
+[INFO] [1792159219.064271716] [llm_planner_node]: LLM Planner (llama-server @ http://127.0.0.1:8083/completion) pronto -- consegna via /mission/load_mission + /mission/start_mission.
+[INFO] [1792159228.247188139] [llm_planner_node]: missione identica gia' presente, riusata: /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_e8f5ca47b036.json
+[INFO] [1792159228.249468898] [llm_planner_node]: Nessuna missione da abortire (o servizio assente): no mission to abort (state=ABORTED)
+[INFO] [1792159228.254996896] [llm_planner_node]: load_mission OK: loaded 'llm_e8f5ca47b036', 2 moves
+[INFO] [1792159228.260030912] [llm_planner_node]: start_mission OK: starting in 15.0 s
+
+missione generata in 9.18s (v2), 2 move:
+  0. gira a sinistra di 90.0 gradi
+       id       move_0_turn
+       velocita 0.5 m/s
+       fino a   ruotato di 90.0 gradi
+       timeout  27 s -> abort
+  1. vai dritto
+       id       move_1_straight
+       velocita 0.5 m/s
+       fino a   muro entro 2.0 m per 3 tick consecutivi
+       timeout  65 s -> abort
+       note     TERMINALE
+
+JSON (llm_e8f5ca47b036):
+{
+  "mission_id": "llm_e8f5ca47b036",
+  "schema_version": "3.0",
+  "moves": [
+    {
+      "id": "move_0_turn",
+      "drive": {
+        "mode": "wall_turn",
+        "turn_sign": 1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.5
+      },
+      "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+      },
+      "timeout_sec": 27,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "move_1_straight",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.5
+      },
+      "stop_condition": {
+        "type": "front_clearance",
+        "distance": 2.0,
+        "debounce_ticks": 3
+      },
+      "timeout_sec": 65,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
+
+NOTA: fase 2: distanza dal muro non detta, uso 2.0 m
+
+scritta in: /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_e8f5ca47b036.json
+
+RESULT {"status": "ok", "stage": "translator", "error_type": null, "error_message": null, "attempts": 1, "rejections": [], "llm_raw": "{\"plan\": [{\"mode\": \"turn\", \"dir\": \"left\"}, {\"mode\": \"straight\", \"guard\": \"wall\"}], \"unsupported\": []}", "mission_id": "llm_e8f5ca47b036", "schema_version": "3.0", "n_moves": 2, "plan_seconds": 9.182, "unsupported": [], "notes": ["fase 2: distanza dal muro non detta, uso 2.0 m"], "mission": {"mission_id": "llm_e8f5ca47b036", "schema_version": "3.0", "moves": [{"id": "move_0_turn", "drive": {"mode": "wall_turn", "turn_sign": 1.0, "turn_mag_deg": 90.0, "speed": 0.5}, "stop_condition": {"type": "orientation_delta", "value": 90.0}, "timeout_sec": 27, "on_timeout": "abort"}, {"id": "move_1_straight", "drive": {"mode": "straight", "speed": 0.5}, "stop_condition": {"type": "front_clearance", "distance": 2.0, "debounce_ticks": 3}, "timeout_sec": 65, "on_timeout": "abort", "terminal": true}]}, "mission_path": "/home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/missions/llm_generated/llm_e8f5ca47b036.json"}

@@ -125,6 +125,15 @@ def _launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration('start_server')),
     )
 
+    # Warm-up at component start (llm_warmup.py): waits for /health, then one planner-prompt
+    # completion, so the first operator command does not pay the cold first request (up to
+    # 58 s observed on a freshly booted Thor, against LLAMA_TIMEOUT 90 s). Exits when done.
+    warmup_process = ExecuteProcess(
+        cmd=['ros2', 'run', 'llm', 'llm_warmup', '--url', f'http://127.0.0.1:{port}'],
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('start_server')),
+    )
+
     return [
         LogInfo(msg=(
             f"[llm.launch] model='{model_name}' "
@@ -136,6 +145,7 @@ def _launch_setup(context, *args, **kwargs):
             f'server {"starting now" if start_server else "assumed already running"}.'
         )),
         server_process,
+        warmup_process,
     ]
 
 

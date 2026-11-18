@@ -105,7 +105,8 @@ class SystemObserverNode(Node):
                     zone_type = f.read().strip()
                 with open(zone_dir + '/temp') as f:
                     milli_c = int(f.read().strip())
-            except (OSError, ValueError):
+            # TypeError: a sysfs read that returns None (EAGAIN, e.g. an idle GPU zone).
+            except (OSError, ValueError, TypeError):
                 continue
             temp_c = milli_c / 1000.0
             if first_zone is None:

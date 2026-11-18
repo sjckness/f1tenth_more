@@ -1,0 +1,16 @@
+# Host overlay for the sim host linus (i7-9700K, 8 CPUs: 0-7), used with
+# supervisor_bringup.launch.py sim:=isaac sim_overlay_extra:=<this file>
+# (scripts/sim/sim_isaac.sh adds it automatically on hosts with fewer than 12 CPUs).
+#
+# Not a sim setting: the car's CPU pinning is sized for the 12-core Orin. `taskset -c 10,11`
+# and `taskset -c 8,9` fail with "Invalid argument" on 8 CPUs, and the node then never starts
+# while its launch keeps running, so the supervisor does not notice (mpc_corr, yolo).
+# Same number of cores as on the car, moved inside 0-7.
+
+component_supervisor_node:
+  ros__parameters:
+    sim_component_args:
+      navigation:
+        cpu_affinity: '6,7'          # mpc_corr; car: '10,11' (mpc_corr.launch.py)
+      perception:
+        yolo_cpu_affinity: '4,5'     # yolo_detector_node; car: '8,9' (detection.launch.py)

@@ -21,11 +21,18 @@
   <!-- /mpc/corridor_markers (MPC_corr.py's _publish_corridor_markers()):
        Foxglove/RViz visualization of the MPC's own soft reference corridor. -->
   <depend>visualization_msgs</depend>
-  <!-- map <-> odom lookups ONLY (MPC_corr.py's _lookup_map_odom()), for the
-       frozen straight-move anchor's drift correction. The control loop's own
+  <!-- map <-> odom lookups (MPC_corr.py's _lookup_map_odom()), for the
+       frozen straight-move anchor's drift correction, and the static
+       base_link <- laser edge of the wall tracker. The control loop's own
        state stays odom frame, straight off the odometry topic; no other TF
        edge is consulted. -->
   <depend>tf2_ros</depend>
+  <!-- TFMessage: the /tf_static-only buffer for base_link <- laser. -->
+  <exec_depend>tf2_msgs</exec_depend>
+  <!-- f1tenth_comms.tf_poll.PolledTf: map -> odom polled once per control
+       tick from an unspun side node instead of a TransformListener taking
+       every /tf message on this node's executor (R3, 2026-10-23). -->
+  <exec_depend>f1tenth_comms</exec_depend>
   <!-- param_defaults.get_odom_topic(): single source of truth for the active
        odometry topic given localization_source (see f1tenth_params/config/
        stack_params.yaml). f1tenth_params is a dependency-free leaf package. -->
@@ -37,6 +44,9 @@
   <!-- ParameterDescriptor(read_only=True) for the LLM2 switch and whitelist
        (MPC_corr.py's _llm2_setup). Comes with rclpy, declared anyway. -->
   <exec_depend>rcl_interfaces</exec_depend>
+  <!-- mpc_solver.py and cost_to_go.py import numpy and scipy (rosdep keys). -->
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
@@ -49,6 +59,11 @@
   <!-- test_llm_go_to_end_to_end.py starts the same chain from the LLM
        translator and the planner's mission writer. Test only as well. -->
   <test_depend>llm</test_depend>
+  <!-- test_steering_limits.py resolves get_package_share_directory
+       ('f1tenth_hardware') to read the real steering-limit config. Test
+       only; no cycle (f1tenth_hardware does not depend back on this
+       package). -->
+  <test_depend>f1tenth_hardware</test_depend>
 
   <export>
     <build_type>ament_python</build_type>
