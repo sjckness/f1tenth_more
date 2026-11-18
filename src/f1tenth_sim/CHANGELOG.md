@@ -13,19 +13,22 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 ## [0.1.0] - 2026-11-18
 
 ### Changed
-- Prima versione numerata: il modulo com'è su `main` al commit `e376731f`, nessuna modifica al codice
-  rispetto a 0.0.0. Da qui ogni modifica porta un bump di versione e una voce in questo file.
+- Prima versione numerata: il modulo com'è su `main` dopo il merge della linea Jazzy
+  (`origin/main` 74c08897), nessuna modifica al codice rispetto a 0.0.0. Da qui ogni modifica porta un bump di versione e una voce in questo file.
 
-## [0.0.0] - 2026-10-13
+## [0.0.0] - 2026-10-16
 
 Versione segnaposto di `ros2 pkg create`, mai incrementata: copre la storia del modulo su `main` dal
-2026-06-19 al 2026-10-13. Voci ricostruite da `git log main -- src/f1tenth_sim` (commit e data tra parentesi), solo i
+2026-06-19 al 2026-10-16. Voci ricostruite da `git log main -- src/f1tenth_sim` (commit e data tra parentesi), solo i
 cambi significativi.
 
 ### Added
 - Supporto Docker per la Thor. (`895d9ca9`; 2026-06-19)
 - Mission logic, EKF doppio, confini costmap e gate di calibrazione (checkpoint di sessione). (`76804f59`; 2026-08-21)
+
 ### Changed
+- Porting a Gazebo Harmonic rinviato sulla linea Jazzy: il pacchetto porta `COLCON_IGNORE` (`3d5ee896`; 2026-10-16).
 - Frame del veicolo: interasse 0.305 m nell'URDF; paraurti, LiDAR e ZED seguono. (`d7b2770e`; 2026-10-13)
+
 ### Fixed
 - Dichiarato l'extra `test` in `setup.py` così `colcon test` esegue pytest. (`aaae3770`; 2026-09-03)

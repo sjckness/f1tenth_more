@@ -10,6 +10,12 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-18
+
+### Fixed
+- Correzioni di build e test per Jazzy, entrate su `main` con la linea Jazzy dopo la 0.1.0
+  senza bump di versione (`2893d419`; 2026-10-19).
+
 ## [0.1.0] - 2026-10-16
 
 Versione dichiarata alla creazione del pacchetto e mai cambiata. Voci ricostruite da

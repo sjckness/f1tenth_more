@@ -13,13 +13,13 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 ## [0.1.0] - 2026-11-18
 
 ### Changed
-- Prima versione numerata: il modulo com'è su `main` al commit `e376731f`, nessuna modifica al codice
-  rispetto a 0.0.1. Da qui ogni modifica porta un bump di versione e una voce in questo file.
+- Prima versione numerata: il modulo com'è su `main` dopo il merge della linea Jazzy
+  (`origin/main` 74c08897), nessuna modifica al codice rispetto a 0.0.1. Da qui ogni modifica porta un bump di versione e una voce in questo file.
 
-## [0.0.1] - 2026-10-22
+## [0.0.1] - 2026-10-23
 
 Versione segnaposto di `ros2 pkg create`, mai incrementata: copre la storia del modulo su `main` dal
-2026-10-20 al 2026-10-22. Voci ricostruite da `git log main -- src/f1tenth_gateway` (commit e data tra parentesi), solo i
+2026-10-20 al 2026-10-23. Voci ricostruite da `git log main -- src/f1tenth_gateway` (commit e data tra parentesi), solo i
 cambi significativi.
 
 ### Added
@@ -30,7 +30,10 @@ cambi significativi.
 - CPU per core, GPU % e processi fissati nel messaggio di stato. (`3accf86d`, `cf9e5ab5`; 2026-10-22)
 - Stato di LLM2 nello status ed endpoint `/llm2/set_active`. Evidence: docs/analysis/llm-pipeline/2026-10-21_two-llm-arch/report.md (`53fa6f1d`, `175da113`; 2026-10-22)
 - Badge MOCK permanente nella PWA quando il gateway simula l'auto; vista Cockpit rinominata `lamacchinina`; messaggio chiaro con voce disattivata. (`9c5371d4`, `306782f7`, `fc273b75`; 2026-10-22)
+
 ### Changed
+- Su Jazzy il gateway è super client del Discovery Server (`3ae4befa`; 2026-10-23).
 - READY segue subito il latch dell'e-stop. (`c58cdda1`; 2026-10-20)
+
 ### Fixed
 - Il parsing dello stato LLM2 non può più fermare l'executor ROS; gestiti hang di `nvidia-smi` e processi in uscita. (`175da113`, `cf9e5ab5`; 2026-10-22)

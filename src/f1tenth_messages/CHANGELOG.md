@@ -31,6 +31,7 @@ cambi significativi.
 - Door e DoorArray per `/perception/doors`, con `jamb_height_unknown` e stato CANDIDATE (`3034c94`, `35e9c91`, `a335113`, `48df121`; 2026-10-20). Evidence: docs/analysis/perception/2026-10-28_semantic-doors/report.md
 - ReverseStatus e servizio RequestReverse; SemanticObject(Array) (`b5f46ea`, `c33f969`, `6f48d19`; 2026-10-20).
 - LinkStatus (copertura Wi-Fi), SpeedChannelStatus (comando di velocità senza offset) e MpcParamUpdate (due LLM) (`4bbe122`, `4701caa`, `bc8eebd`; 2026-10-22).
+
 ### Changed
 - WallEstimate espone il contratto WALL / CLEAR / NO_DATA; WallLineFit riporta taglio di rilevamento, piani e muro virtuale (`b188f12`, `8b352d2`; 2026-10-15).
 - **BREAKING:** il ruolo `other` di MultiWallTrack diventa `unknown` (`c1b4883`; 2026-10-20).

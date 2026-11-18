@@ -28,8 +28,10 @@ cambi significativi.
 - Righe-muro (semipiani dal tracker multi-muro) dietro `boundary_source`, con i launch argument che ora arrivano davvero. Evidence: docs/analysis/mpc-control/2026-10-19_avoidance-wall-boundaries/report.md (`91fe0b0e`, `d3671b17`; 2026-10-19)
 - `hard_stop_node`: stop LiDAR di ultima istanza fuori dal behaviour tree (solo `/scan` a 40 Hz, nessuno sterzo), consapevole della direzione dietro `hard_stop_allow_reverse` (default true). (`16c91ded`, `b31155e1`; 2026-10-19..2026-10-20)
 - Sottoscrizione `MPC_corr` e whitelist per gli aggiornamenti parametri di LLM2, con mock e test. (`4e93fdc0`, `b2acbe82`; 2026-10-22)
+
 ### Changed
 - Pesi `mpc_corr` normalizzati e unica fonte via `stack_params`, limiti di sterzo reali dalla calibrazione del servo, geometria del corridoio e spostamento target ostacolo (0.36 -> 0.30) fissati per misura; opt-out da launch argument per frequenza corridoio e vincoli duri. (`431aed8a`, `ee9fb1db`, `6dc5a37d`, `863304aa`, `ea66819f`; 2026-09-03..2026-09-09)
 - Campagna finale: passo di predizione MPC 0.2 s, N = 20 (orizzonte 4 s, ciclo 10 Hz). (`30b0580e`; 2026-10-13)
+
 ### Fixed
 - Il default `cpu_affinity` di `mpc_corr` non era mai collegato. (`5200d2d1`; 2026-08-13)

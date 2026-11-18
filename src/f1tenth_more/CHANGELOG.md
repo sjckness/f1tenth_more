@@ -26,6 +26,7 @@ cambi significativi.
 - README di tutti i pacchetti e indice documentale di primo livello che li collega. (`581dfcc6`, `15621b17`, `e3378fd9`, `81bde294`; 2026-08-10..2026-08-11)
 - Documentazione dell'indagine wall_turn, checklist di bringup e diagnostica. (`60cb162e`; 2026-09-14)
 - Mock LLM2 della due-LLM con test e documentazione. Evidence: docs/analysis/llm-pipeline/2026-10-21_two-llm-arch/report.md (`b2acbe82`; 2026-10-22)
+
 ### Changed
 - Metapacchetto con lista `exec_depend` completata; dichiarato l'extra `test` in `setup.py`. (`b3805ec7`, `aaae3770`; 2026-08-10..2026-09-03)
 - Pass stack-wide: percezione a segmentazione, corridoio MPC, logging di missione; messa a punto del corridoio e rework del launch di detection. (`96c6bbcb`, `ace2446e`; 2026-09-03..2026-09-10)

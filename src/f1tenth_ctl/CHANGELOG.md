@@ -13,21 +13,27 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 ## [0.1.0] - 2026-11-18
 
 ### Changed
-- Prima versione numerata: il modulo com'è su `main` al commit `e376731f`, nessuna modifica al codice
-  rispetto a 0.0.1. Da qui ogni modifica porta un bump di versione e una voce in questo file.
+- Prima versione numerata: il modulo com'è su `main` dopo il merge della linea Jazzy
+  (`origin/main` 74c08897), nessuna modifica al codice rispetto a 0.0.1. Da qui ogni modifica porta un bump di versione e una voce in questo file.
 
-## [0.0.1] - 2026-10-22
+## [0.0.1] - 2026-10-25
 
 Versione segnaposto di `ros2 pkg create`, mai incrementata: copre la storia del modulo su `main` dal
-2026-10-20 al 2026-10-22. Voci ricostruite da `git log main -- src/f1tenth_ctl` (commit e data tra parentesi), solo i
+2026-10-20 al 2026-10-25. Voci ricostruite da `git log main -- src/f1tenth_ctl` (commit e data tra parentesi), solo i
 cambi significativi.
 
 ### Added
+- Backend proc, processo principale del container, profilo car, trigger dell'archivio del logger, drift check e params delta (W1) (`1b813a7a`; 2026-10-25). Evidence: docs/analysis/platform/2026-10-24_orin-container/report.md
+- Profilo sim per Isaac; il ready file è relativo al file env (`0ecdd9bf`, `af8bb901`; 2026-10-23).
 - CLI di gestione processi dell'auto: stack, planner, logger, READY, e-stop. Evidence: docs/analysis/hardware-comms/2026-10-20_telegram-control/report.md (`c9338de4`; 2026-10-20)
 - Comando `estop-reset` e campo `estop_latched` in READY; un solo ambiente ROS per target, verificato; ambiente ROS per la shell (discovery server, super client, `--no-daemon`). (`f4a12c9c`, `2819c62f`; 2026-10-20)
 - `rosprobe.estop_with(node, ...)` per l'e-stop su un nodo già esistente. (`55b00e7f`; 2026-10-20)
+
 ### Changed
+- ctl.env su Jazzy: solo sonde e gateway sono super client; lease Fast DDS 5 s (`3ae4befa`, `04ef8214`; 2026-10-23).
 - Il conteggio alla partenza è quello armato dal loader, non un 15 s fisso; il guard di caricamento usa il conteggio armato dallo start. (`04db46fe`, `22f2bf51`; 2026-10-22)
 - Planner LLM spento di default (`enable_intelligence` false). (`9bed2561`; 2026-10-22)
+
 ### Fixed
+- `discovery up` attende fino a 15 s che il server sia in ascolto (`4bb39fb0`; 2026-10-25).
 - La scoperta di `/mission/status` ha 15 s a disposizione invece di 3. (`adb91439`; 2026-10-21)

@@ -13,8 +13,8 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 ## [0.1.0] - 2026-11-18
 
 ### Changed
-- Prima versione numerata: il modulo com'è su `main` al commit `e376731f`, nessuna modifica al codice
-  rispetto a 0.0.0. Da qui ogni modifica porta un bump di versione e una voce in questo file.
+- Prima versione numerata: il modulo com'è su `main` dopo il merge della linea Jazzy
+  (`origin/main` 74c08897), nessuna modifica al codice rispetto a 0.0.0. Da qui ogni modifica porta un bump di versione e una voce in questo file.
 
 ## [0.0.0] - 2026-10-24
 
@@ -37,7 +37,9 @@ cambi significativi.
 - Comando di velocità senza offset (modello di lag + osservatore di disturbo), `speed_command_mode` `offset_free` come nuovo default (il legacy resta bit-identico). Evidence: docs/analysis/mpc-control/2026-10-21_speed-gap/report.md (`4701caa0`; 2026-10-21)
 - Sottoscrizione MPC_corr agli aggiornamenti parametri di LLM2, con whitelist dei parametri tunabili (`w_obs` mai tunabile, parametri LLM2 in sola lettura). (`4e93fdc0`, `384621fc`; 2026-10-22)
 - Fonti dati della campagna di test: `/mpc/status`, `/corridor`, `/safety/event`, `/obstacle_clearance`. (`3e50039b`; 2026-09-21)
+
 ### Changed
+- R3: correzioni CPU in Python (`ceb7c884`; 2026-10-23).
 - Pesi normalizzati e unica fonte via `stack_params`, bilanciamento stadio/terminale invariante all'orizzonte, righe di bordo morbide di default con numero di slot configurabile, costo di intestazione per stadio (inerte), limiti di sterzo reali derivati dalla calibrazione del servo, spostamento del target ostacolo 0.36 -> 0.30. (`ea66819f`, `62e9777f`, `69aa44a0`, `7eb56ab3`, `863304aa`, `6dc5a37d`; 2026-09-08..2026-09-09)
 - Geometria e frequenza di ricostruzione del corridoio fissate per misura; default `corridor_update_period` 1.0 e vincoli duri disattivi. (`ee9fb1db`, `f000ae0f`, `8107f72c`, `01240dd2`; 2026-09-04..2026-09-08)
 - Campagna finale: corridoio trapezoidale con rapporto fisso fine/inizio 2.3/1.3 e semi-larghezza iniziale 0.64 m (`corr_width_scale_with_length` ripristina il vecchio scaling), passo di predizione 0.2 s con N = 20 (orizzonte 4 s, ciclo 10 Hz), calibrazione guadagno erpm, guadagni servo e limiti di sterzo. (`a6dd23e2`, `30b0580e`, `9b8f1b86`; 2026-10-13)
@@ -45,7 +47,9 @@ cambi significativi.
 - Consumatori di muro (stop e wall_turn) leggono l'unica verità sul muro; CLEAR guida, NO_DATA tiene fermo, e 50 m non arriva mai al solver. (`ca8e15bc`, `796f3693`; 2026-10-13..2026-10-15)
 - Ogni velocità su `/drive` passa da un solo clamp (niente retromarcia, max 1.0 m/s), pavimenti 2026-09-18 (`max_forward_speed_mps` 0.5, go_to 0.4), ogni abort di missione attiva `/mpc/hold`; la retromarcia si sblocca solo da manovra o scelta MPC, mai da un sottopasso in avanti. (`e00cd8d7`, `04152e23`, `07023d86`, `a8a03ea4`; 2026-09-16..2026-10-20)
 - Il conteggio di retromarcia usa l'odometria, non l'ancora della mappa, e termina sul maggiore tra i conteggi odom e mappa; la riga CTRL riporta ciò che è stato pubblicato a ogni tick. (`dd129b97`, `65368775`, `3a13b1db`; 2026-10-20..2026-10-21)
+
 ### Fixed
+- Dipendenze dichiarate: python3-numpy e python3-scipy (exec_depend), f1tenth_hardware (test_depend) (`4a5e212a`, `974a8455`; 2026-10-16..2026-10-23).
 - Warm-start dell'RTI che in realtà non partiva, e riferimento rettilineo dopo curva con spin errato nell'`orientation_delta` di 180 gradi. (`84ddc90e`, `2bd64204`; 2026-08-21..2026-09-10)
 - Nessun margine persona sopravvive al dropout del campo visivo (margine resta `{}`). (`56ec0265`; 2026-09-17)
 - wall_turn senza distanza dal muro non solleva più eccezioni. (`75bf2469`; 2026-10-14)

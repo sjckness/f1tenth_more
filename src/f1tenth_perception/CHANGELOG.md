@@ -13,13 +13,13 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 ## [0.1.0] - 2026-11-18
 
 ### Changed
-- Prima versione numerata: il modulo com'è su `main` al commit `e376731f`, nessuna modifica al codice
-  rispetto a 0.0.1. Da qui ogni modifica porta un bump di versione e una voce in questo file.
+- Prima versione numerata: il modulo com'è su `main` dopo il merge della linea Jazzy
+  (`origin/main` 74c08897), nessuna modifica al codice rispetto a 0.0.1. Da qui ogni modifica porta un bump di versione e una voce in questo file.
 
-## [0.0.1] - 2026-10-22
+## [0.0.1] - 2026-10-23
 
 Versione segnaposto di `ros2 pkg create`, mai incrementata: copre la storia del modulo su `main` dal
-2026-06-19 al 2026-10-22. Voci ricostruite da `git log main -- src/f1tenth_perception` (commit e data tra parentesi), solo i
+2026-06-19 al 2026-10-23. Voci ricostruite da `git log main -- src/f1tenth_perception` (commit e data tra parentesi), solo i
 cambi significativi.
 
 ### Added
@@ -34,13 +34,18 @@ cambi significativi.
 - Rilevamento porte sul tracker multi-muro: regola di merge collineare, battente aperto, veto vetro, stipiti per pareti di vetro, nodo dedicato con `/perception/doors` solo confermate e `/viz/doors`; host frontali opzionali (`door_host_front_facing`) (`5d75fa6`, `35e9c91`, `a335113`, `31a1839`, `b2495a3`, `961c996`; 2026-10-20). Evidence: docs/analysis/perception/2026-10-20_doors-wall-tracker/report.md
 - Blocco del muro per l'arresto in `front_clearance`: il controllo si aggancia al muro verso cui punta la manovra (`wall_lock_enabled`) (`6002cb0`; 2026-10-21). Evidence: docs/analysis/localization-frames/2026-10-22_front-wall-lock/report.md
 - Temporizzazione per stadio (`perception_stage_timing`, default false) e, per `yolo_detector_node`, backend TensorRT con fallback `.pt`, script di export, pipeline GPU (`gpu_pipeline`, default on), limiti thread, sync CUDA bloccante e scarto frame a 15 Hz (`0084422`, `c45a621`, `26c76f6`, `e78f240`, `5792e2b`; 2026-10-22). Evidence: docs/analysis/perception/2026-10-22_yolo-gpu-recon/report.md
+
 ### Changed
+- zed_ros2_wrapper da humble-v4.2.5 a v5.4.1, con le modifiche lato camera (`bddd0149`; 2026-10-16).
+- R3: correzioni CPU in Python (`ceb7c884`; 2026-10-23).
 - Frame del veicolo dalle misure reali: interasse 0.305 m, `base_link` a terra, altezze misurate di LiDAR (z 0.190) e ZED (z 0.205), beccheggio di 2.083 gradi del supporto ZED; la ZED viene lanciata come ZED 2i (`d7b2770`, `f48e4205`, `83e8bb9`, `704dc40`, `1ff0644`; 2026-10-15).
 - Prestazioni: QoS "frame più recente" (KEEP_LAST 1, best effort) su immagini e profondità; immagine annotata disegnata e pubblicata solo se sottoscritta e non registrata di default; coda di sync di `detection_3d_node` da 60 a 15; etichette di scena accoppiate alla profondità per timestamp più vicino; la ZED non trasmette più il TF dell'IMU a 179 Hz (`01c6bff`, `f809b1d`, `14f449b`, `4c85668`, `dd04a2b`, `16b2013`; 2026-10-14).
 - Costo CPU: `extract_lines` riscritto in C (da 24.6 ms a 1.1 ms a scansione), tracker muri su una scansione su quattro, budget di pubblicazione per ruolo, payload di debug opt-in, `wall_distance_node` spento di default (`enable_wall_distance`), EKF a 20 Hz, muro virtuale solo su nuove stime; oltre 8 m lo stereo non è più evidenza (`c4215787`, `e41f606`, `eaffd16`, `686d9119`, `9786bfc`, `bb297fe`, `05c5898`; 2026-10-16). Evidence: docs/analysis/platform/2026-10-16_cpu-h1-h5/report.md
 - Ruolo `unknown` al posto di `other` nel tracker muri, tracce tentative riportate come unknown; il bersaglio della manovra non è mai un ostacolo, un solo gate per oggetti vivi e ricordati (`c1b4883`, `6f48d19`; 2026-10-20).
 - Il rilevamento porte è spento di default (`lidar_front_wall_door_detection_enabled: false`) (`fb913d1`; 2026-10-20).
+
 ### Fixed
+- Correzioni di ambiente e parità del porting Jazzy (`d9c381e9`; 2026-10-16).
 - `front_clearance_node`: un punto a lato dell'auto è escluso invece di essere clampato a 0.01 m; caso "troppo vicino" gestito esplicitamente (`d8609b5`, `6871b08`; 2026-10-13).
 - Il gate di confidenza del FRONT non dipende più dalla distanza (il muro lontano risultava CLEAR); una scansione senza trasformata pubblica NO_DATA; nessun FRONT fantasma da pezzi collineari attraverso un'apertura (`6cbda12`, `0c1cd41`, `d578963`; 2026-10-18).
 - Un muro stretto dietro una persona rilevata viene ricreato; un muro in coasting vale come muro frontale per al massimo 0.3 s (`61708b6`, `9a1ecc1`; 2026-10-20).

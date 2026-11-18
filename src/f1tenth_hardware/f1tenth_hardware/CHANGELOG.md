@@ -24,6 +24,7 @@ cambi significativi.
 
 ### Added
 - Porte di sicurezza della calibrazione (fase A). (`8dcee01e`; 2026-08-19)
+
 ### Changed
 - Offset del centro sterzo del VESC ritarato su 50 bag archiviati. (`9896615c`; 2026-09-08)
 - Pre-controllo batteria: gate d'avvio consultivo, e-stop a runtime mantenuto. (`9cbc064b`; 2026-09-08)

@@ -13,8 +13,8 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 ## [0.1.0] - 2026-11-18
 
 ### Changed
-- Prima versione numerata: il modulo com'è su `main` al commit `e376731f`, nessuna modifica al codice
-  rispetto a 0.0.1. Da qui ogni modifica porta un bump di versione e una voce in questo file.
+- Prima versione numerata: il modulo com'è su `main` dopo il merge della linea Jazzy
+  (`origin/main` 74c08897), nessuna modifica al codice rispetto a 0.0.1. Da qui ogni modifica porta un bump di versione e una voce in questo file.
 
 ## [0.0.1] - 2026-10-24
 
@@ -42,13 +42,16 @@ cambi significativi.
 - YOLO: backend TensorRT con fallback `.pt` e script di export, pipeline GPU (`gpu_pipeline`, default on), limiti di thread e scarto frame a 15 Hz. Evidence: docs/analysis/perception/2026-10-22_yolo-gpu-recon/report.md (`26c76f6c`, `e78f2400`, `5792e2ba`; 2026-10-22)
 - Logger di missione: archivio di run a due stati, registrazione profondità ZED a 5 Hz (`mission_logger_record_depth`), registrazione opt-in, overlay del report di run con maschera di scena e LiDAR. (`6ecda96e`, `fa79f593`, `774b2e0f`, `e9d18c26`; 2026-10-22)
 - Argomento di launch `enable_comms` e livello di copertura Wi-Fi (`f1tenth_comms`), off di default. Evidence: docs/analysis/hardware-comms/2026-10-21_comms-base-wifi/report.md (`4bbe1229`, `e72e67c5`; 2026-10-21)
+
 ### Changed
+- Lease Fast DDS 5 s e parametri di R3 (thread, TF) (`04ef8214`, `ceb7c884`; 2026-10-23).
 - Calibrazione e default di campagna: velocità massima in avanti 0.5 m/s e velocità go_to 0.4, guadagno erpm, guadagni servo, limiti di sterzo MPC, spostamento del bersaglio ostacolo 0.36 -> 0.30, corridoio a 1.0 s. (`04152e23`, `9b8f1b86`, `f000ae0f`, `6dc5a37d`, `ee9fb1db`; 2026-10-13)
 - Il precheck batteria all'avvio diventa solo consultivo, resta l'e-stop a runtime. (`9cbc064b`; 2026-09-08)
 - Politica dei tassi per ridurre la CPU: EKF a 20 Hz, muro virtuale a ogni nuova stima, `costmap_boundary` 10 Hz, layer muri semantico 5 Hz, tracker muri su 1 scansione su 4, `extract_lines` in C (24.6 ms -> 1.1 ms a scansione). Evidence: docs/analysis/platform/2026-10-16_cpu-cleanup/report.md (`c4215787`, `e41f606a`, `752f1600`, `9786bfc5`; 2026-10-16)
 - Il ruolo `unknown` sostituisce `other` nel tracker muri; le tracce provvisorie sono riportate come `unknown`. (`c1b4883a`; 2026-10-20)
 - Default aggiornati dopo i test: conteggio alla partenza missione 0 e a sorgente unica, attivo solo mentre il logger registra; `unknown_objects_mode` spento (gli oggetti solo-LiDAR bloccavano l'auto); rilevamento porte spento di default; `enable_intelligence` false (planner LLM spento). (`a14ec2f5`, `3ac5865e`, `ed2e4a42`, `fb913d16`, `9bed2561`; 2026-10-22)
 - `wall_distance_node` spento di default (`enable_wall_distance`). (`686d9119`; 2026-10-16)
+
 ### Fixed
 - Il gate di confidenza FRONT non dipende più dalla distanza (il muro lontano risultava CLEAR); il muro in coasting vale come frontale al massimo 0.3 s; niente FRONT fantasma da pezzi collineari oltre un'apertura. (`6cbda121`, `9a1ecc10`, `d5789630`; 2026-10-18)
 - Un punto a lato dell'auto è escluso dalla distanza frontale invece di essere forzato a 0.01. (`d8609b50`; 2026-10-13)

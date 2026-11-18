@@ -25,5 +25,6 @@ cambi significativi.
 ### Added
 - Frame `base_front` (xacro) che porta ogni distanza frontale al paraurti, con modulo `vehicle_frames` (`10d3eb3`; 2026-10-13).
 - Pubblicazione di `/joint_states` così i giunti mobili raggiungono il TF (`bad6d7c`; 2026-09-08).
+
 ### Changed
 - Geometria del veicolo dalle misure reali del 2026-10-13/15: posizioni di paraurti, LiDAR e ZED, interasse 0.305 m, `base_link` a terra, altezze di laser (z 0.190) e ZED (z 0.205), beccheggio di 2.083 gradi del supporto ZED (`bdc7c93`, `d7b2770`, `f48e4205`, `83e8bb9`, `704dc40`; 2026-10-15).

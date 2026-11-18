@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>corridor_perception_c</name>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <description>
     The C port of corridor_perception.extraction.extract_segments: one shared
     library, one call per scan, no allocation in the hot path. C11, no external

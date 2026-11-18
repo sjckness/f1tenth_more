@@ -13,16 +13,19 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 ## [0.1.0] - 2026-11-18
 
 ### Changed
-- Prima versione numerata: il modulo com'è su `main` al commit `e376731f`, nessuna modifica al codice
-  rispetto a 0.0.1. Da qui ogni modifica porta un bump di versione e una voce in questo file.
+- Prima versione numerata: il modulo com'è su `main` dopo il merge della linea Jazzy
+  (`origin/main` 74c08897), nessuna modifica al codice rispetto a 0.0.1. Da qui ogni modifica porta un bump di versione e una voce in questo file.
 
-## [0.0.1] - 2026-10-21
+## [0.0.1] - 2026-10-23
 
 Versione segnaposto di `ros2 pkg create`, mai incrementata: copre la storia del modulo su `main` dal
-2026-10-21 al 2026-10-21. Voci ricostruite da `git log main -- src/f1tenth_comms` (commit e data tra parentesi), solo i
+2026-10-21 al 2026-10-23. Voci ricostruite da `git log main -- src/f1tenth_comms` (commit e data tra parentesi), solo i
 cambi significativi.
 
 ### Added
 - Nodo `link_manager`: heartbeat, stati OK/DEGRADED/LOST, riconnessione, più il risponditore lato base. Evidence: docs/analysis/hardware-comms/2026-10-21_comms-base-wifi/report.md (`b7baa835`; 2026-10-21)
 - Livello di copertura Wi-Fi (`wifi_coverage_node`), spento di default. Evidence: docs/analysis/hardware-comms/2026-10-21_comms-base-wifi/report.md (`4bbe1229`; 2026-10-21)
 - `enable_comms` come argomento di launch di entrambi i bringup, non solo nel yaml. (`e72e67c5`; 2026-10-21)
+
+### Changed
+- R3: correzioni CPU in Python (`ceb7c884`; 2026-10-23).

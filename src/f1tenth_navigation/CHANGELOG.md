@@ -13,8 +13,8 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 ## [0.1.0] - 2026-11-18
 
 ### Changed
-- Prima versione numerata: il modulo com'è su `main` al commit `e376731f`, nessuna modifica al codice
-  rispetto a 0.0.0. Da qui ogni modifica porta un bump di versione e una voce in questo file.
+- Prima versione numerata: il modulo com'è su `main` dopo il merge della linea Jazzy
+  (`origin/main` 74c08897), nessuna modifica al codice rispetto a 0.0.0. Da qui ogni modifica porta un bump di versione e una voce in questo file.
 
 ## [0.0.0] - 2026-10-22
 
@@ -26,10 +26,14 @@ cambi significativi.
 - Pacchetto spostato nel workspace colcon sotto `src/`; pubblicazione della mappa pista su `/map` e TF `map->odom`. (`9997d580`, `38121375`; 2026-06-15)
 - Doppio EKF, confini costmap, logica di missione e gate di calibrazione (checkpoint); supporto Docker per la Thor. (`76804f59`, `895d9ca9`; 2026-08-21)
 - Sottoscrizione MPC_corr e whitelist per gli aggiornamenti parametri di LLM2. Evidence: docs/analysis/llm-pipeline/2026-10-21_two-llm-arch/report.md (`4e93fdc0`; 2026-10-22)
+
 ### Changed
 - `odom_tf_broadcaster` pubblica il delta relativo. (`0d7714fc`; 2026-06-15)
 - Le righe di muro sono la sorgente di confine di default e gli argomenti di launch ora arrivano davvero. Evidence: docs/analysis/mpc-control/2026-10-19_avoidance-wall-boundaries/report.md (`d3671b17`; 2026-10-19)
+
 ### Fixed
+- `slam.launch.py` non attivava mai slam_toolbox; dichiarate le dipendenze slam_toolbox e lifecycle_msgs (`3954b6af`, `e02ba592`; 2026-10-16). Evidence: docs/analysis/platform/2026-10-01_thor-phase0/report.md
 - Dichiarato l'extra `test` in `setup.py`. (`aaae3770`; 2026-09-03)
+
 ### Removed
 - Rimosso `tests_require` deprecato da `setup.py`. (`e1cf5247`; 2026-06-15)
