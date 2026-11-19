@@ -10,6 +10,21 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-19
+
+### Added
+- `rrt_target_retreat` in `stack_params.yaml` (default `false`): il flag di `corridor_rrt` che fa
+  arretrare il punto da raggiungere quando l'estremo del corridoio e' bloccato. Descrizione completa,
+  con i numeri misurati, in [`f1tenth_planners` 0.1.0](../f1tenth_control/f1tenth_planners/CHANGELOG.md).
+
+  Provenienza: macchina **work** (`DESKTOP-Q3F81S6`), branch `planner-modes-hil`, commit `3af7d70c`
+  del 2026-11-13, portato su `main` con cherry-pick il 2026-11-19.
+  `Evidence: docs/analysis/mpc-control/2026-11-13_planner-modes-compare/report.md`
+
+### Fixed
+- `version` in `setup.py` riallineato a `package.xml` (era rimasto a 0.0.1 dopo il bump a 0.1.0 del
+  2026-11-18).
+
 ## [0.1.0] - 2026-11-18
 
 ### Changed
