@@ -4,7 +4,7 @@ title: "corridor_mpc, corridor_rrt e p2p_geometric a confronto: 11 sessioni HIL 
 area: mpc-control
 date: 2026-11-13
 tags: [isaac, hil, planner-modes, rrt, p2p, cpu, llm, doors]
-modules: {f1tenth_planners: "0.0.1", mpc_controller: "0.1.0", f1tenth_params: "0.1.0", llm: "0.1.0"}
+modules: {f1tenth_planners: "0.1.0", mpc_controller: "0.1.0", f1tenth_params: "0.2.0", llm: "0.1.0"}
 branch: "planner-modes-hil"
 commit: "22a960e8 (8 sessioni), e326bb42 (3 sessioni door)"
 status: open
@@ -32,6 +32,12 @@ introdotto in `266eebae`). Harness: `scripts/sim/planner_compare/` (`run.sh`, `p
 `pc_analyze.py`), che per ogni modo riavvia lo stack, manda **lo stesso comando in linguaggio
 naturale** al planner LLM e registra `/drive`, odom, ground truth e la CPU del processo controller da
 `/proc`. I PDF per sessione li assembla `pc_pdf.py`, che non era nel repo (recuperato nel tar).
+
+Le versioni in `modules:` sono quelle che **contengono** il risultato di questa analisi
+(`f1tenth_planners` 0.1.0 e `f1tenth_params` 0.2.0, numerate il 2026-11-19 quando
+`rrt_target_retreat` e' arrivato su `main`). I run sono girati ai commit indicati in `commit:`,
+quando i due moduli erano ancora a 0.0.1 e 0.1.0: le 7 sessioni tracciate **senza** il flag, le due
+sessioni `retreat_on_142913` e `rrt_test_1m5_141256` con il codice del flag non ancora committato.
 
 Tre scene: `base_room` layout `campaign` (muro frontale a 4.61 m misurato dal lidar), `corridor`
 layout `matte`, `office` layout `door_left`.
