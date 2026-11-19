@@ -10,11 +10,14 @@ Planner LLM (intent, traduttore, missione JSON), valutazioni dei prompt, LLM2 tu
 - Campagna dry-run di 50 prompt (2026-09-18): 17 ok, 24 rifiutati, 9 errori; `goal_door_opening` 0/10.
 - LLM2 (tuner MPC) esiste solo come mock: 151/151 risposte valide, latenza mediana 862 ms; tutto spento di default; i pesi MPC si leggono una volta all'avvio.
 - Il planner end to end in Isaac sta in [simulation](../simulation/README.md) (`sim_next`).
+- Mondo `office` dell'HIL: 3 dei 4 comandi di campagna sono fattibili sulla carta. "go straight 2 meters" dopo una sedia non puo' completare in nessuna posa del mondo: `go_to chair` ferma l'auto a 0.5 m dal bordo vicino e il move successivo trova un ostacolo a 0.40 m, quindi `distance_reached 2.0` non scatta e si abortisce sul timeout di 17 s.
+- Un ordinale ("la **prima** porta a sinistra") viene instradato a `unsupported` dal prompt porte, e un `unsupported` non vuoto fa chiedere a `llm_planner_node` una conferma `[s/N]` per cui non esiste un flag: una campagna non assistita si ferma li'.
 
 ## 2. Decisioni prese
 
 - Prompt spedito: variante DG senza blocco duplicato (18/20); niente selezione nelle prove a terra ([2026-09-17_go-to-live-eval](2026-09-17_go-to-live-eval/report.md))
 - LLM2: due interruttori indipendenti, default false; whitelist di parametri con range check ([2026-10-21_two-llm-arch](2026-10-21_two-llm-arch/report.md))
+- Comandi di campagna senza ordinale ("enter the door on the left"): `side` seleziona gia' la porta piu' vicina su quel lato ([2026-11-13_office-missions](2026-11-13_office-missions/report.md))
 
 ## 3. Domande aperte / prossimi esperimenti
 
@@ -29,6 +32,7 @@ Tabella generata da `python3 tools/analysis_index.py`: non modificarla a mano.
 <!-- AUTO:START -->
 | data | esperimento | status | risultato | moduli (versione) |
 |---|---|---|---|---|
+| 2026-11-13 | [Quali missioni LLM il mondo office HIL puo' davvero eseguire](2026-11-13_office-missions/report.md) | open | 3 comandi su 4 fattibili. 'go straight 2 meters' dopo una sedia non puo' completare in nessuna posa del mondo: go_to chair ferma l'auto a 0,5 m dal bordo vicino (object_geometry.gap_min) e il move successivo trova un os… | llm 0.1.0, f1tenth_behavior 0.1.0, f1tenth_sim 0.1.0, f1tenth_params 0.1.0 |
 | 2026-10-21 | [Architettura a due LLM: LLM2 tuner parametri MPC (mock)](2026-10-21_two-llm-arch/report.md) | open | Su linus, 300 s a 0.5 Hz: 151/151 ok, echo_match 100%, latenza mediana 862 ms (max 1062); 161 pubblicazioni = 161 applicazioni, mediana 18.6 ms; VRAM LLM2 2578 MiB. Nulla misurato sull'Orin. | llm 0.0.1, mpc_controller 0.0.0, f1tenth_bringup 0.0.1, f1tenth_messages 0.0.1, f1tenth_logger 0.0.1 |
 | 2026-09-18 | [Campagna dry-run del planner LLM (50 prompt)](2026-09-18_llm-dry-campaign/report.md) | done | Run 20260918_160413 su 50 prompt: 17 ok, 24 refused, 5 translator_error, 4 llm_error; goal_door_opening 10/10 refused; run piccoli di prova su timeout e URL irraggiungibile. | llm 0.0.1 |
 | 2026-09-17 | [Eval live del go_to del planner LLM (qwen2.5-3b) con e senza go_to](2026-09-17_go-to-live-eval/report.md) | done | 18/20 passati con go_to, 3/3 senza; falliti 'vai dalla persona a sinistra' (selezione pianificata come go_to) e 'la seconda sedia'; prompt +668 token (1710 -> 2378) | llm 0.0.1, f1tenth_behavior 0.0.1 |

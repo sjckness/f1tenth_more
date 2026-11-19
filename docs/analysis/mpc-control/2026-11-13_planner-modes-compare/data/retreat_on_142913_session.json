@@ -1,0 +1,18 @@
+{
+  "command": "go straight 3m",
+  "target_m": 3.0,
+  "modes": [
+    "corridor_rrt"
+  ],
+  "scene": "base_room",
+  "layout": "campaign",
+  "net": "eth",
+  "domain": 44,
+  "isaac": "external",
+  "stack_args": [],
+  "host": "DESKTOP-Q3F81S6",
+  "started": "2026-11-13 14:29:13",
+  "git_branch": "planner-modes-hil",
+  "git_commit": "22a960e",
+  "git_dirty": true
+}

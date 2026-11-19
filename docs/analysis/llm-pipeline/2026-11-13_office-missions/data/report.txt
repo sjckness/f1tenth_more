@@ -1,0 +1,92 @@
+husarion_office: 99 models, grid (580, 552) at 0.05 m, origin (-1.76, -24.43)
+drivable floor 595.1 m2, 93 furniture models, 25 chairs, 0 people
+
+### M-A  go straight, enter the first door on the left and then approach the chair
+    start (9.33, -15.87) yaw 90 deg  room 11 (open space centrale)
+  straight 2.6 m : nearest obstacle ahead 3.35 m, corridor clear True  => OK
+       pose now (9.33, -13.27) yaw 90
+  enter_door side=left : 2 detectable door(s) visible; picks (8.06,-13.10) at 1.28 m, bearing 82 deg  => OK, that is the intended one
+       (  8.06, -13.10) w1.45  1.28 m  bearing   82 deg  [left sector]
+       ( 18.16, -13.40) w0.60  8.83 m  bearing  -91 deg  [right sector]
+       the move ENDS IN the opening (8.08, -13.07) facing -x, 1.27 m away, not beyond it
+       pose now (8.08, -13.07) yaw 180
+  go_to chair ConfOfficeChairBlack5 @(3.85,-14.02) : range 4.34 m, bearing 12.6 deg (FOV +-50: True), occluder None, approach 3.13 m clear True  => OK
+       pose now (5.02, -13.75) yaw -167
+  LIGHT: waypoint (9.33, -13.27) is 6.2 m from the nearest sphere_light -- add one, or the camera has nothing to detect
+  LIGHT: waypoint (8.08, -13.07) is 6.3 m from the nearest sphere_light -- add one, or the camera has nothing to detect
+  LIGHT: waypoint (5.02, -13.75) is 6.4 m from the nearest sphere_light -- add one, or the camera has nothing to detect
+  == M-A: FEASIBLE
+  -- a person on this path (keep-out 0.99 m + half width 0.186 m = 1.18 m of gap needed to slip past):
+  person at (  9.33, -15.07) on the 90 deg leg: free left 1.00 / right 4.00  -> pass on right (2.82 m spare)
+  person at (  6.78, -13.07) on the 180 deg leg: free left 4.00 / right 0.90  -> pass on left (2.82 m spare)
+  person at (  5.78, -13.07) on the 180 deg leg: free left 4.00 / right 4.00  -> pass on left (2.82 m spare) and right (2.82 m spare)
+
+### M-A2  variant: ... the first door on the RIGHT ... (kitchen NE, 6 chairs)
+    start (17.33, -6.37) yaw 90 deg  room 4 (corridoio centrale N)
+  straight 3.6 m : nearest obstacle ahead 7.40 m, corridor clear True  => OK
+       pose now (17.33, -2.77) yaw 90
+  enter_door side=right : 4 detectable door(s) visible; picks (18.71,-2.50) at 1.41 m, bearing -79 deg  => OK, that is the intended one
+       ( 18.71,  -2.50) w1.40  1.41 m  bearing  -79 deg  [right sector]
+       ( 17.11,  -1.30) w1.35  1.49 m  bearing    9 deg
+       ( 15.26,  -2.55) w1.35  2.08 m  bearing   84 deg  [left sector]
+       ( 13.31,  -1.35) w1.40  4.26 m  bearing   71 deg  [left sector]
+       the move ENDS IN the opening (18.68, -2.52) facing +x, 1.37 m away, not beyond it
+       pose now (18.68, -2.52) yaw 0
+  go_to chair WoodenChair_4 @(23.36,-2.26) : range 4.69 m, bearing 3.2 deg (FOV +-50: True), occluder None, approach 3.49 m clear True  => OK
+       pose now (22.16, -2.33) yaw 3
+  LIGHT: waypoint (22.16, -2.33) is 5.6 m from the nearest sphere_light -- add one, or the camera has nothing to detect
+  == M-A2: FEASIBLE
+  -- a person on this path (keep-out 0.99 m + half width 0.186 m = 1.18 m of gap needed to slip past):
+  person at ( 17.33,  -5.37) on the 90 deg leg: free left 4.00 / right 1.35  -> pass on left (2.82 m spare) and right (0.17 m spare)
+  person at ( 17.33,  -4.37) on the 90 deg leg: free left 1.80 / right 1.35  -> pass on left (0.62 m spare) and right (0.17 m spare)
+  person at ( 20.48,  -2.52) on the 0 deg leg: free left 4.00 / right 4.00  -> pass on left (2.82 m spare) and right (2.82 m spare)
+
+### M-B  go straight at the wall, turn left and then approach the wall
+    start (16.83, -9.87) yaw 180 deg  room 11 (open space centrale)
+  straight -> wall at 3.0 m : wall 7.00 m, nearest obstacle 7.00 m, drive 4.00 m, corridor clear True  => OK
+       pose now (12.83, -9.87) yaw 180
+  turn left 90 deg (R=1.20 m) : swept footprint clear True -> (11.63, -11.07) yaw 270  => OK
+       pose now (11.63, -11.07) yaw 270
+  straight -> wall at 2.0 m : wall 12.55 m, nearest obstacle 12.55 m, drive 10.55 m, corridor clear True  => OK
+       pose now (11.63, -21.62) yaw 270
+  == M-B: FEASIBLE
+  -- a person on this path (keep-out 0.99 m + half width 0.186 m = 1.18 m of gap needed to slip past):
+  person at ( 14.83,  -9.87) on the 180 deg leg: free left 4.00 / right 1.05  -> pass on left (2.82 m spare)
+  person at ( 11.63, -12.57) on the -90 deg leg: free left 4.00 / right 4.00  -> pass on left (2.82 m spare) and right (2.82 m spare)
+  person at ( 11.63, -14.07) on the -90 deg leg: free left 0.45 / right 0.80  -> BLOCKS (neither side reaches 1.18 m)
+  person at ( 11.63, -17.07) on the -90 deg leg: free left 4.00 / right 1.80  -> pass on left (2.82 m spare) and right (0.62 m spare)
+
+### M-C  at the wall turn left, then go to the chair, then go straight 2 meters
+    start (16.83, -9.87) yaw 180 deg  room 11 (open space centrale)
+  straight -> wall at 3.0 m : wall 7.00 m, nearest obstacle 7.00 m, drive 4.00 m, corridor clear True  => OK
+       pose now (12.83, -9.87) yaw 180
+  turn left 90 deg (R=1.20 m) : swept footprint clear True -> (11.63, -11.07) yaw 270  => OK
+       pose now (11.63, -11.07) yaw 270
+  go_to chair DeskChair_7 @(11.05,-13.46) : range 2.46 m, bearing -13.6 deg (FOV +-50: True), occluder None, approach 1.26 m clear True  => OK
+       pose now (11.34, -12.29) yaw -104
+  straight 2.0 m : nearest obstacle ahead 0.40 m, corridor clear False  => FAIL
+  == M-C: NOT feasible as written
+  -- a person on this path (keep-out 0.99 m + half width 0.186 m = 1.18 m of gap needed to slip past):
+  person at ( 14.83,  -9.87) on the 180 deg leg: free left 4.00 / right 1.05  -> pass on left (2.82 m spare)
+
+### M-D  at the wall turn left, then go to the person, then enter the first door on the right
+    start (16.83, -9.87) yaw 180 deg  room 11 (open space centrale)
+    requires a person at (11.63, -13.3) (none in the SDF: add it through scene config)
+  straight -> wall at 3.0 m : wall 7.00 m, nearest obstacle 7.00 m, drive 4.00 m, corridor clear True  => OK
+       pose now (12.83, -9.87) yaw 180
+  turn left 90 deg (R=1.20 m) : swept footprint clear True -> (11.63, -11.07) yaw 270  => OK
+       pose now (11.63, -11.07) yaw 270
+  go_to person  @(11.63,-13.30) : range 2.23 m, bearing 0.0 deg (FOV +-50: True), occluder None, approach 0.52 m clear True  => OK
+       pose now (11.63, -11.59) yaw -90
+  enter_door side=right : 3 detectable door(s) visible; picks (8.06,-13.10) at 3.87 m, bearing -67 deg  => OK, that is the intended one
+       (  8.06, -13.10) w1.45  3.87 m  bearing  -67 deg  [right sector]
+       ( 18.16, -13.40) w0.60  6.77 m  bearing   75 deg  [left sector]
+       (  8.06, -19.45) w1.30  8.63 m  bearing  -24 deg  [right sector]
+       the move ENDS IN the opening (8.08, -13.07) facing -x, 3.84 m away, not beyond it
+       pose now (8.08, -13.07) yaw 180
+  LIGHT: waypoint (8.08, -13.07) is 6.3 m from the nearest sphere_light -- add one, or the camera has nothing to detect
+  == M-D: FEASIBLE
+  -- a person on this path (keep-out 0.99 m + half width 0.186 m = 1.18 m of gap needed to slip past):
+  person at ( 14.83,  -9.87) on the 180 deg leg: free left 4.00 / right 1.05  -> pass on left (2.82 m spare)
+
+wrote map_geo.json and results.json to output/office_missions

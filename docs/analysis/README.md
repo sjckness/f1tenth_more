@@ -17,15 +17,15 @@ Ogni prova, analisi o esperimento ha una cartella `docs/analysis/<area>/<id>/` c
 |---|---|---|---|---|
 | [field-tests](field-tests/README.md) | 10 | 5 / 5 / 0 | 2026-10-21 | Prima campagna analizzata (stop spiegati, bag spesso incompleti); dopo il 2026-10-22 nessun nuovo run analizzato qui. |
 | [hardware-comms](hardware-comms/README.md) | 5 | 4 / 1 / 0 | 2026-10-21 | Telegram, PWA e hotspot funzionano su linus, nessuno provato sull'auto; il recorder perdeva l'inizio delle missioni. |
-| [llm-pipeline](llm-pipeline/README.md) | 3 | 1 / 2 / 0 | 2026-10-21 | Planner: 18/20 live sul set go_to, 17/50 nella campagna dry-run; LLM2 solo come mock. |
+| [llm-pipeline](llm-pipeline/README.md) | 4 | 2 / 2 / 0 | 2026-11-13 | Planner: 18/20 live sul set go_to, 17/50 nella campagna dry-run; LLM2 solo come mock. |
 | [localization-frames](localization-frames/README.md) | 3 | 2 / 1 / 0 | 2026-10-22 | Tracker muri corretto sul muro lontano (P0), foot da depth non superato (P1); wall lock solo su replay. |
-| [mpc-control](mpc-control/README.md) | 12 | 4 / 8 / 0 | 2026-11-18 | MPC ok sugli statici; ostacoli in moto migliorati solo in Isaac (dodge 12-13/18); nulla del 2026-11 è stato provato sull'auto. |
+| [mpc-control](mpc-control/README.md) | 13 | 5 / 8 / 0 | 2026-11-18 | MPC ok sugli statici; ostacoli in moto migliorati solo in Isaac (dodge 12-13/18); nulla del 2026-11 è stato provato sull'auto. |
 | [perception](perception/README.md) | 8 | 7 / 1 / 0 | 2026-10-28 | Semantic layer e ostacoli unknown validati su replay; porte, vetro e parte stereo mai validati su dati reali. |
 | [platform](platform/README.md) | 28 | 14 / 14 / 0 | 2026-11-11 | Jazzy in parità con Humble su Thor e linus; container Orin pronto ma P9-P12 in attesa; CPU dominata da glue Python. |
-| [simulation](simulation/README.md) | 5 | 3 / 2 / 0 | 2026-11-10 | Isaac è il simulatore di riferimento (e2e 9/9); HIL con l'Orin non ancora eseguito. |
-| [_unsorted](_unsorted/README.md) | 3 | 2 / 1 / 0 | 2026-11-10 | 3 voci da decidere: bench senza report, log di processo git, documento Hydra. |
+| [simulation](simulation/README.md) | 7 | 5 / 2 / 0 | 2026-11-13 | Isaac è il simulatore di riferimento (e2e 9/9); l'HIL gira sulla work con Isaac nativo su Windows, l'Orin nel giro resta senza risultati. |
+| [_unsorted](_unsorted/README.md) | 4 | 3 / 1 / 0 | 2026-11-13 | 4 voci da decidere: bench senza report, log di processo git, documento Hydra, campagna office HIL senza risultati. |
 
-Totale: 77 esperimenti. Elenco completo: [INDEX.csv](INDEX.csv).
+Totale: 82 esperimenti. Elenco completo: [INDEX.csv](INDEX.csv).
 <!-- AUTO:END -->
 
 ## Aggiungere un esperimento

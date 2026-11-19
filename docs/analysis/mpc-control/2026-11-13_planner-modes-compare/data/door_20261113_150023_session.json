@@ -1,0 +1,20 @@
+{
+  "command": "go straight 5m then enter the door on the left",
+  "target_m": 5.0,
+  "modes": [
+    "corridor_mpc",
+    "corridor_rrt",
+    "p2p_geometric"
+  ],
+  "scene": "office",
+  "layout": "door_left",
+  "net": "eth",
+  "domain": 44,
+  "isaac": "external",
+  "stack_args": [],
+  "host": "DESKTOP-Q3F81S6",
+  "started": "2026-11-13 15:00:23",
+  "git_branch": "planner-modes-hil",
+  "git_commit": "e326bb4",
+  "git_dirty": false
+}

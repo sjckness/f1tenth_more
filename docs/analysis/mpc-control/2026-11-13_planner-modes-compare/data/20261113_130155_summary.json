@@ -1,0 +1,17 @@
+[
+  {
+    "mode": "corridor_mpc",
+    "error": "no RUNNING state or no ground truth recorded",
+    "final_state": "IDLE"
+  },
+  {
+    "mode": "corridor_rrt",
+    "error": "no RUNNING state or no ground truth recorded",
+    "final_state": "IDLE"
+  },
+  {
+    "mode": "p2p_geometric",
+    "error": "no RUNNING state or no ground truth recorded",
+    "final_state": "IDLE"
+  }
+]

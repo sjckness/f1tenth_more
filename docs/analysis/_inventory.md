@@ -1361,3 +1361,37 @@ Percorsi aggiunti in qualche commit ma assenti da ogni ref di oggi (rinominati o
 **tag** (64): `archive/door-detection`, `archive/jazzy-20261110`, `archive/jazzy-campaign`, `archive/jazzy-linus-backup-20261028`, `archive/jazzy-reverse-planner`, `archive/main-jazzy-rust`, `archive/mpc-corridor-split`, `archive/mpc_corr_v2_reverse`, `archive/orin-main-jazzy-rust`, `archive/orin-snapshot-20261013`, `archive/orin-stash-0-20261020`, `archive/orin-stash-1-20261020`, `archive/orin-stash-2-20261020`, `archive/orin-stash-3-20261020`, `archive/orin-stash-4-20261020`, `archive/orin-verify-campaign-dirty`, `archive/pre-campaign-final-20261012`, `archive/test-campaign`, `archive/tmp-door-fixes-replay`, `archive/tmp-door-fixes-replay2`, `archive/tmp-door-fixes-tracker`, `backup/campaign-final-9c46add`, `backup/campaign-final-c6d8f99`, `backup/cpu-cleanup-20261020`, `backup/door-detection-20261020`, `backup/door-fixes-20261020`, `backup/jazzy-pre-align-3dbe37f`, `backup/jazzy-rust-pre-sync-ced4d90`, `backup/mpc_corr_v2_reverse-20261020`, `backup/obstacles-v2-20261020`, `backup/orin/campaign-final-doors-20261020`, `backup/orin/jazzy-20261020`, `backup/orin/llm-20261020`, `backup/orin/orin-snapshot-20261013-20261020`, `backup/orin/orin-verify-campaign-dirty-20261020`, `backup/orin/refactor/mpc-corridor-split-20261020`, `backup/orin/scene-graph-20261020`, `backup/orin/sick-20261020`, `backup/orin/test-campaign-20261020`, `backup/orin/test-logging-20261020`, `backup/pre-avoidance-69830ecf`, `backup/pre-obstacles-v2-29dd3aa`, `backup/pre-wall-v2-0c1cd417`, `backup/tmp/door-fixes-core-20261020`, `backup/tmp/door-fixes-node-20261020`, `backup/tmp/door-fixes-replay-20261020`, `backup/tmp/door-fixes-replay2-20261020`, `backup/tmp/door-fixes-tracker-20261020`, `backup/tmp/door-fixes-unknown-20261020`, `evidence/campaign-dirty-p004-r012-r019`, `jazzy-p0`, `jazzy-p1`, `jazzy-p3`, `jazzy-p4`, `jazzy-p5`, `night-pre-rebase/two-llm-arch`, `night-pre-rebase2/two-llm-arch`, `night-start/campaign-final`, `night-start/main`, `night-start/mpc_corr_v2_reverse`, `night-start/mpc_corr_v2_reverse-origin`, `night-start/pwa-control`, `night-start/pwa-control-origin`, `orin-before-pull-2026-10-22`
 
 Stash: nessuno (`git stash list` vuoto).
+
+## Recupero dalla macchina work (2026-11-19)
+
+Secondo giro di raccolta, sulla macchina **work** (`DESKTOP-Q3F81S6`), che la migrazione del
+2026-11-18 non aveva potuto vedere: i suoi 11 commit stavano solo sul ref remote-tracking
+`orin/campaign-office`, che **non** e' fra i 29 `orin/*` elencati in "Ref controllati" — esiste solo
+nel checkout Windows di quella macchina, verso un Orin spento. Nessuno dei file qui sotto era su
+`main`, ne' per blob identico ne' attraverso la mappatura di questo inventario.
+
+I commit sono ora su GitHub nei tag `archive/work-planner-modes-hil-20261119` (punta
+`47ac7b8b`, copre anche `hil-hydra-integration` `bd12e552`) e `archive/work-rrt-p2p-20261119`
+(`3af7d70c`). I file fuori da git sono in `~/f1tenth_salvataggi/work-20261119.tar.gz` sulla work
+(17.3 MB, 521 voci) e le bag in `~/f1tenth_salvataggi/work-sim-archive-20261119.tar.gz` (2.4 GB,
+da 7.0 GB di `.mcap`/`.db3`; da spostare su linus).
+
+| file | origine | commit | data | area | destinazione | stato |
+|---|---|---|---|---|---|---|
+| `output/planner_compare/<7 sessioni>/{report.md,summary.json,summary.csv,*.png}` | work: `planner-modes-hil` | `3b39917f` | 2026-11-13 | mpc-control | [mpc-control/2026-11-13_planner-modes-compare/](mpc-control/2026-11-13_planner-modes-compare/report.md) | migrato (resta nel tag) |
+| `output/planner_compare/<7 sessioni>/planner_compare.pdf` | work: `planner-modes-hil` | `3b39917f` | 2026-11-13 | mpc-control | — | segnalato (circa 2 MB l'uno; assemblaggio dei PNG gia' migrati) |
+| `output/planner_compare/{retreat_on_142913,rrt_test_1m5_141256}/` | work: WSL `~/dev_ws/f1tenth_hil`, **mai committate** | — | 2026-11-13 | mpc-control | [mpc-control/2026-11-13_planner-modes-compare/](mpc-control/2026-11-13_planner-modes-compare/report.md) | migrato (prova del `rrt_target_retreat`) |
+| `output/planner_compare/{20261113_130155,20261113_131424,20261113_140018}/` | work: WSL `~/dev_ws/f1tenth_hil`, **mai committate** | — | 2026-11-13 | mpc-control | idem, in `sessions/` e `data/` | migrato (sessioni senza dati utilizzabili) |
+| `output/planner_compare/*/*/*.csv` (133 file per-run) | work: ignorati da `*.csv` | — | 2026-11-13 | mpc-control | — | grezzo (nel tar) |
+| `output/runs/office_hydra_20261112_160339/{summary.md,hydra_cost_summary.md,graph.png,mask/*.png,*.txt,*.json}` | work: `planner-modes-hil` | `bd12e552` | 2026-11-13 | simulation | [simulation/2026-11-12_office-hydra-run/](simulation/2026-11-12_office-hydra-run/report.md) | migrato (resta nel tag) |
+| `output/runs/office_hydra_20261112_160339/what_hydra_saw.mp4` | work: ignorato da `output/**/*.mp4` | `bd12e552` | 2026-11-12 | simulation | — | segnalato (4.9 MB; si rigenera dal bag in 14 s) |
+| `output/hil/run_windows.md` | work: `planner-modes-hil` | `8842c1f1` | 2026-11-13 | simulation | [simulation/2026-11-13_hil-windows-wsl/report.md](simulation/2026-11-13_hil-windows-wsl/report.md) | migrato (resta nel tag) |
+| `output/hil/hydra_wsl_status.md` | work: `planner-modes-hil` | `bd12e552` | 2026-11-13 | simulation | [simulation/2026-11-13_hil-windows-wsl/hydra_wsl_status.md](simulation/2026-11-13_hil-windows-wsl/hydra_wsl_status.md) | migrato (resta nel tag) |
+| `output/hil/path_check_office_corridor_loop.json` | work: `planner-modes-hil` | `bd12e552` | 2026-11-13 | simulation | `simulation/2026-11-13_hil-windows-wsl/data/` | migrato |
+| `output/office_missions/{README.md,office_hil.html,report.txt,results.json,map_geo.json}` | work: `planner-modes-hil` | `6b38cea8` | 2026-11-13 | llm-pipeline | [llm-pipeline/2026-11-13_office-missions/](llm-pipeline/2026-11-13_office-missions/report.md) | migrato (resta nel tag) |
+| `office_hil_campaign/{README.md,RUNBOOK.md}` | work: `planner-modes-hil` | `47ac7b8b` | 2026-11-13 | _unsorted | [_unsorted/2026-11-13_office-hil-campaign/](_unsorted/2026-11-13_office-hil-campaign/report.md) | dubbio (runbook, nessun risultato) |
+| `scripts/sim/win/night/*.log` (15 log Isaac) | work: ignorati | — | 2026-11-13/14 | _unsorted | — | grezzo (nel tar; unica traccia dei 9 run della campagna) |
+| `~/f1tenth_sim_archive/` (7.0 GB di bag) | work: WSL, fuori dal repo | — | 2026-11-12/13 | — | — | grezzo (nel tar.gz delle bag; nessun report dentro) |
+| `~/hydra_runs/20261112_144157/` (2.5 MB) | work: WSL, fuori dal repo | — | 2026-11-12 | — | — | grezzo (nel tar; run Hydra senza report) |
+| `~/{rrt_analyse,pc_pdf,scan_probe,kill_stack,fail_detail}.py`, `~/f1t_apt.sh` | work: WSL, fuori dal repo, blob in nessun ref | — | 2026-11-13 | — | — | unico, nel tar (`pc_pdf.py` genera i PDF delle sessioni e manca all'harness) |
+| `sim/isaac/usd/generated/` (24 MB), `sim/isaac/config/hil.local.yaml` | work: ignorati (asset e config Isaac) | — | 2026-11 | — | — | grezzo (nel tar) |

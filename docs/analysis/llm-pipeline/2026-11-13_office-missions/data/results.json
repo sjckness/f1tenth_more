@@ -1,0 +1,289 @@
+{
+ "missions": [
+  {
+   "id": "M-A",
+   "feasible": true,
+   "waypoints": [
+    [
+     9.33,
+     -15.87
+    ],
+    [
+     9.33,
+     -13.27
+    ],
+    [
+     8.08,
+     -13.07
+    ],
+    [
+     5.02,
+     -13.75
+    ]
+   ],
+   "obstacles": [
+    {
+     "xy": [
+      9.33,
+      -15.07
+     ],
+     "heading_deg": 90.0,
+     "left_m": 1.0,
+     "right_m": 4.0,
+     "need_m": 1.18,
+     "pass_on": [
+      "right"
+     ]
+    },
+    {
+     "xy": [
+      6.78,
+      -13.07
+     ],
+     "heading_deg": 180.0,
+     "left_m": 4.0,
+     "right_m": 0.9,
+     "need_m": 1.18,
+     "pass_on": [
+      "left"
+     ]
+    },
+    {
+     "xy": [
+      5.78,
+      -13.07
+     ],
+     "heading_deg": 180.0,
+     "left_m": 4.0,
+     "right_m": 4.0,
+     "need_m": 1.18,
+     "pass_on": [
+      "left",
+      "right"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "M-A2",
+   "feasible": true,
+   "waypoints": [
+    [
+     17.33,
+     -6.37
+    ],
+    [
+     17.33,
+     -2.77
+    ],
+    [
+     18.68,
+     -2.52
+    ],
+    [
+     22.16,
+     -2.33
+    ]
+   ],
+   "obstacles": [
+    {
+     "xy": [
+      17.33,
+      -5.37
+     ],
+     "heading_deg": 90.0,
+     "left_m": 4.0,
+     "right_m": 1.35,
+     "need_m": 1.18,
+     "pass_on": [
+      "left",
+      "right"
+     ]
+    },
+    {
+     "xy": [
+      17.33,
+      -4.37
+     ],
+     "heading_deg": 90.0,
+     "left_m": 1.8,
+     "right_m": 1.35,
+     "need_m": 1.18,
+     "pass_on": [
+      "left",
+      "right"
+     ]
+    },
+    {
+     "xy": [
+      20.48,
+      -2.52
+     ],
+     "heading_deg": 0.0,
+     "left_m": 4.0,
+     "right_m": 4.0,
+     "need_m": 1.18,
+     "pass_on": [
+      "left",
+      "right"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "M-B",
+   "feasible": true,
+   "waypoints": [
+    [
+     16.83,
+     -9.87
+    ],
+    [
+     12.83,
+     -9.87
+    ],
+    [
+     11.63,
+     -11.07
+    ],
+    [
+     11.63,
+     -21.62
+    ]
+   ],
+   "obstacles": [
+    {
+     "xy": [
+      14.83,
+      -9.87
+     ],
+     "heading_deg": 180.0,
+     "left_m": 4.0,
+     "right_m": 1.05,
+     "need_m": 1.18,
+     "pass_on": [
+      "left"
+     ]
+    },
+    {
+     "xy": [
+      11.63,
+      -12.57
+     ],
+     "heading_deg": -90.0,
+     "left_m": 4.0,
+     "right_m": 4.0,
+     "need_m": 1.18,
+     "pass_on": [
+      "left",
+      "right"
+     ]
+    },
+    {
+     "xy": [
+      11.63,
+      -14.07
+     ],
+     "heading_deg": -90.0,
+     "left_m": 0.45,
+     "right_m": 0.8,
+     "need_m": 1.18,
+     "pass_on": []
+    },
+    {
+     "xy": [
+      11.63,
+      -17.07
+     ],
+     "heading_deg": -90.0,
+     "left_m": 4.0,
+     "right_m": 1.8,
+     "need_m": 1.18,
+     "pass_on": [
+      "left",
+      "right"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "M-C",
+   "feasible": false,
+   "waypoints": [
+    [
+     16.83,
+     -9.87
+    ],
+    [
+     12.83,
+     -9.87
+    ],
+    [
+     11.63,
+     -11.07
+    ],
+    [
+     11.34,
+     -12.29
+    ]
+   ],
+   "obstacles": [
+    {
+     "xy": [
+      14.83,
+      -9.87
+     ],
+     "heading_deg": 180.0,
+     "left_m": 4.0,
+     "right_m": 1.05,
+     "need_m": 1.18,
+     "pass_on": [
+      "left"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "M-D",
+   "feasible": true,
+   "waypoints": [
+    [
+     16.83,
+     -9.87
+    ],
+    [
+     12.83,
+     -9.87
+    ],
+    [
+     11.63,
+     -11.07
+    ],
+    [
+     11.63,
+     -11.59
+    ],
+    [
+     8.08,
+     -13.07
+    ]
+   ],
+   "obstacles": [
+    {
+     "xy": [
+      14.83,
+      -9.87
+     ],
+     "heading_deg": 180.0,
+     "left_m": 4.0,
+     "right_m": 1.05,
+     "need_m": 1.18,
+     "pass_on": [
+      "left"
+     ]
+    }
+   ]
+  }
+ ],
+ "free_area_m2": 595.1
+}

@@ -1,0 +1,7 @@
+nodes 1036, interlayer edges 1002, mesh vertices 0
+  AGENTS           70 nodes     69 edges
+  BUILDINGS         1 nodes      0 edges
+  MESH_PLACES      28 nodes     38 edges
+  OBJECTS           0 nodes      0 edges
+  PLACES          932 nodes   3102 edges
+  ROOMS             5 nodes      3 edges

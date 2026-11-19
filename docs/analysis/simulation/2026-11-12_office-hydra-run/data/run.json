@@ -1,0 +1,644 @@
+{
+  "out": "/home/andreas/f1tenth_sim_archive/office_hydra_20261112_160339",
+  "scene": "office",
+  "segments_requested": [
+    {
+      "name": "settle",
+      "speed": 0.0,
+      "steer": 0.0,
+      "dur": 2.0
+    },
+    {
+      "name": "shift_east",
+      "speed": 0.3,
+      "steer": 0.09,
+      "dur": 3.0
+    },
+    {
+      "name": "shift_back",
+      "speed": 0.3,
+      "steer": -0.09,
+      "dur": 3.0
+    },
+    {
+      "name": "down",
+      "speed": 0.3,
+      "steer": 0.0,
+      "dur": 34.0
+    },
+    {
+      "name": "loop_360",
+      "speed": 0.3,
+      "steer": -0.3,
+      "dur": 21.7
+    },
+    {
+      "name": "settle2",
+      "speed": 0.0,
+      "steer": 0.0,
+      "dur": 2.0
+    },
+    {
+      "name": "loop_again",
+      "speed": 0.3,
+      "steer": -0.3,
+      "dur": 21.7
+    },
+    {
+      "name": "stop",
+      "speed": 0.0,
+      "steer": 0.0,
+      "dur": 5.0
+    }
+  ],
+  "reset": [
+    true,
+    "reset #1: car and person at start poses"
+  ],
+  "segments": [
+    {
+      "name": "settle",
+      "speed": 0.0,
+      "steer": 0.0,
+      "dur_s": 2.0,
+      "ran_s": 2.0,
+      "from": [
+        16.812,
+        0.975
+      ],
+      "to": [
+        16.812,
+        0.983
+      ],
+      "path_m": 0.008,
+      "front_m": 24.6,
+      "guard": null
+    },
+    {
+      "name": "shift_east",
+      "speed": 0.3,
+      "steer": 0.09,
+      "dur_s": 3.0,
+      "ran_s": 3.0,
+      "from": [
+        16.812,
+        0.983
+      ],
+      "to": [
+        16.919,
+        0.153
+      ],
+      "path_m": 0.839,
+      "front_m": 6.91,
+      "guard": null
+    },
+    {
+      "name": "shift_back",
+      "speed": 0.3,
+      "steer": -0.09,
+      "dur_s": 3.0,
+      "ran_s": 3.0,
+      "from": [
+        16.919,
+        0.153
+      ],
+      "to": [
+        17.038,
+        -0.724
+      ],
+      "path_m": 0.888,
+      "front_m": 22.91,
+      "guard": null
+    },
+    {
+      "name": "down",
+      "speed": 0.3,
+      "steer": 0.0,
+      "dur_s": 34.0,
+      "ran_s": 34.02,
+      "from": [
+        17.038,
+        -0.724
+      ],
+      "to": [
+        17.467,
+        -10.784
+      ],
+      "path_m": 10.07,
+      "front_m": 3.09,
+      "guard": null
+    },
+    {
+      "name": "loop_360",
+      "speed": 0.3,
+      "steer": -0.3,
+      "dur_s": 21.7,
+      "ran_s": 21.7,
+      "from": [
+        17.467,
+        -10.784
+      ],
+      "to": [
+        17.426,
+        -10.563
+      ],
+      "path_m": 6.414,
+      "front_m": 4.13,
+      "guard": null
+    },
+    {
+      "name": "settle2",
+      "speed": 0.0,
+      "steer": 0.0,
+      "dur_s": 2.0,
+      "ran_s": 2.0,
+      "from": [
+        17.426,
+        -10.563
+      ],
+      "to": [
+        17.44,
+        -10.61
+      ],
+      "path_m": 0.057,
+      "front_m": 5.07,
+      "guard": null
+    },
+    {
+      "name": "loop_again",
+      "speed": 0.3,
+      "steer": -0.3,
+      "dur_s": 21.7,
+      "ran_s": 21.7,
+      "from": [
+        17.44,
+        -10.61
+      ],
+      "to": [
+        17.329,
+        -10.358
+      ],
+      "path_m": 6.363,
+      "front_m": 6.04,
+      "guard": null
+    },
+    {
+      "name": "stop",
+      "speed": 0.0,
+      "steer": 0.0,
+      "dur_s": 5.0,
+      "ran_s": 5.0,
+      "from": [
+        17.329,
+        -10.358
+      ],
+      "to": [
+        17.346,
+        -10.386
+      ],
+      "path_m": 0.063,
+      "front_m": 6.0,
+      "guard": null
+    }
+  ],
+  "path_m": 24.902,
+  "masks": 106,
+  "mask_ids_seen": [
+    0,
+    1,
+    2
+  ],
+  "graphs": 12,
+  "graph_log": [
+    {
+      "name": "dsg_t00000",
+      "sim_t": 41.32,
+      "path_m": 0.15,
+      "summary": {
+        "layers": {
+          "OBJECTS": {
+            "nodes": 0,
+            "edges": 0
+          },
+          "PLACES": {
+            "nodes": 74,
+            "edges": 234
+          },
+          "ROOMS": {
+            "nodes": 1,
+            "edges": 0
+          },
+          "BUILDINGS": {
+            "nodes": 1,
+            "edges": 0
+          },
+          "MESH_PLACES": {
+            "nodes": 8,
+            "edges": 4
+          }
+        },
+        "interlayer_edges": 74,
+        "nodes": 84,
+        "mesh_vertices": 0
+      }
+    },
+    {
+      "name": "dsg_t00003",
+      "sim_t": 51.7,
+      "path_m": 0.47,
+      "summary": {
+        "layers": {
+          "OBJECTS": {
+            "nodes": 0,
+            "edges": 0
+          },
+          "PLACES": {
+            "nodes": 81,
+            "edges": 248
+          },
+          "ROOMS": {
+            "nodes": 1,
+            "edges": 0
+          },
+          "BUILDINGS": {
+            "nodes": 1,
+            "edges": 0
+          },
+          "MESH_PLACES": {
+            "nodes": 8,
+            "edges": 4
+          }
+        },
+        "interlayer_edges": 81,
+        "nodes": 91,
+        "mesh_vertices": 0
+      }
+    },
+    {
+      "name": "dsg_t00013",
+      "sim_t": 61.72,
+      "path_m": 3.43,
+      "summary": {
+        "layers": {
+          "OBJECTS": {
+            "nodes": 0,
+            "edges": 0
+          },
+          "PLACES": {
+            "nodes": 142,
+            "edges": 341
+          },
+          "ROOMS": {
+            "nodes": 2,
+            "edges": 1
+          },
+          "BUILDINGS": {
+            "nodes": 1,
+            "edges": 0
+          },
+          "AGENTS": {
+            "nodes": 6,
+            "edges": 5
+          },
+          "MESH_PLACES": {
+            "nodes": 4,
+            "edges": 2
+          }
+        },
+        "interlayer_edges": 139,
+        "nodes": 155,
+        "mesh_vertices": 0
+      }
+    },
+    {
+      "name": "dsg_t00024",
+      "sim_t": 72.32,
+      "path_m": 6.57,
+      "summary": {
+        "layers": {
+          "OBJECTS": {
+            "nodes": 0,
+            "edges": 0
+          },
+          "PLACES": {
+            "nodes": 204,
+            "edges": 618
+          },
+          "ROOMS": {
+            "nodes": 2,
+            "edges": 1
+          },
+          "BUILDINGS": {
+            "nodes": 1,
+            "edges": 0
+          },
+          "AGENTS": {
+            "nodes": 15,
+            "edges": 14
+          },
+          "MESH_PLACES": {
+            "nodes": 6,
+            "edges": 4
+          }
+        },
+        "interlayer_edges": 219,
+        "nodes": 228,
+        "mesh_vertices": 0
+      }
+    },
+    {
+      "name": "dsg_t00034",
+      "sim_t": 82.92,
+      "path_m": 9.71,
+      "summary": {
+        "layers": {
+          "OBJECTS": {
+            "nodes": 0,
+            "edges": 0
+          },
+          "PLACES": {
+            "nodes": 337,
+            "edges": 976
+          },
+          "ROOMS": {
+            "nodes": 3,
+            "edges": 2
+          },
+          "BUILDINGS": {
+            "nodes": 1,
+            "edges": 0
+          },
+          "AGENTS": {
+            "nodes": 23,
+            "edges": 22
+          },
+          "MESH_PLACES": {
+            "nodes": 6,
+            "edges": 4
+          }
+        },
+        "interlayer_edges": 360,
+        "nodes": 370,
+        "mesh_vertices": 0
+      }
+    },
+    {
+      "name": "dsg_t00045",
+      "sim_t": 93.12,
+      "path_m": 12.72,
+      "summary": {
+        "layers": {
+          "OBJECTS": {
+            "nodes": 0,
+            "edges": 0
+          },
+          "PLACES": {
+            "nodes": 487,
+            "edges": 1490
+          },
+          "ROOMS": {
+            "nodes": 2,
+            "edges": 1
+          },
+          "BUILDINGS": {
+            "nodes": 1,
+            "edges": 0
+          },
+          "AGENTS": {
+            "nodes": 30,
+            "edges": 29
+          },
+          "MESH_PLACES": {
+            "nodes": 6,
+            "edges": 4
+          }
+        },
+        "interlayer_edges": 517,
+        "nodes": 526,
+        "mesh_vertices": 0
+      }
+    },
+    {
+      "name": "dsg_t00055",
+      "sim_t": 103.38,
+      "path_m": 15.76,
+      "summary": {
+        "layers": {
+          "OBJECTS": {
+            "nodes": 0,
+            "edges": 0
+          },
+          "PLACES": {
+            "nodes": 753,
+            "edges": 2373
+          },
+          "ROOMS": {
+            "nodes": 2,
+            "edges": 1
+          },
+          "BUILDINGS": {
+            "nodes": 1,
+            "edges": 0
+          },
+          "AGENTS": {
+            "nodes": 38,
+            "edges": 37
+          },
+          "MESH_PLACES": {
+            "nodes": 12,
+            "edges": 13
+          }
+        },
+        "interlayer_edges": 791,
+        "nodes": 806,
+        "mesh_vertices": 0
+      }
+    },
+    {
+      "name": "dsg_t00065",
+      "sim_t": 113.78,
+      "path_m": 18.45,
+      "summary": {
+        "layers": {
+          "OBJECTS": {
+            "nodes": 0,
+            "edges": 0
+          },
+          "PLACES": {
+            "nodes": 898,
+            "edges": 2875
+          },
+          "ROOMS": {
+            "nodes": 5,
+            "edges": 3
+          },
+          "BUILDINGS": {
+            "nodes": 1,
+            "edges": 0
+          },
+          "AGENTS": {
+            "nodes": 47,
+            "edges": 46
+          },
+          "MESH_PLACES": {
+            "nodes": 11,
+            "edges": 13
+          }
+        },
+        "interlayer_edges": 945,
+        "nodes": 962,
+        "mesh_vertices": 0
+      }
+    },
+    {
+      "name": "dsg_t00075",
+      "sim_t": 123.92,
+      "path_m": 21.24,
+      "summary": {
+        "layers": {
+          "OBJECTS": {
+            "nodes": 0,
+            "edges": 0
+          },
+          "PLACES": {
+            "nodes": 919,
+            "edges": 3052
+          },
+          "ROOMS": {
+            "nodes": 5,
+            "edges": 3
+          },
+          "BUILDINGS": {
+            "nodes": 1,
+            "edges": 0
+          },
+          "AGENTS": {
+            "nodes": 54,
+            "edges": 53
+          },
+          "MESH_PLACES": {
+            "nodes": 27,
+            "edges": 25
+          }
+        },
+        "interlayer_edges": 973,
+        "nodes": 1006,
+        "mesh_vertices": 0
+      }
+    },
+    {
+      "name": "dsg_t00086",
+      "sim_t": 134.5,
+      "path_m": 24.38,
+      "summary": {
+        "layers": {
+          "OBJECTS": {
+            "nodes": 0,
+            "edges": 0
+          },
+          "PLACES": {
+            "nodes": 893,
+            "edges": 2954
+          },
+          "ROOMS": {
+            "nodes": 5,
+            "edges": 3
+          },
+          "BUILDINGS": {
+            "nodes": 1,
+            "edges": 0
+          },
+          "AGENTS": {
+            "nodes": 63,
+            "edges": 62
+          },
+          "MESH_PLACES": {
+            "nodes": 27,
+            "edges": 26
+          }
+        },
+        "interlayer_edges": 956,
+        "nodes": 989,
+        "mesh_vertices": 0
+      }
+    },
+    {
+      "name": "dsg_t00096",
+      "sim_t": 144.98,
+      "path_m": 24.9,
+      "summary": {
+        "layers": {
+          "OBJECTS": {
+            "nodes": 0,
+            "edges": 0
+          },
+          "PLACES": {
+            "nodes": 939,
+            "edges": 3137
+          },
+          "ROOMS": {
+            "nodes": 5,
+            "edges": 3
+          },
+          "BUILDINGS": {
+            "nodes": 1,
+            "edges": 0
+          },
+          "AGENTS": {
+            "nodes": 70,
+            "edges": 69
+          },
+          "MESH_PLACES": {
+            "nodes": 28,
+            "edges": 38
+          }
+        },
+        "interlayer_edges": 1009,
+        "nodes": 1043,
+        "mesh_vertices": 0
+      }
+    },
+    {
+      "name": "dsg_final",
+      "sim_t": 146.18,
+      "path_m": 24.9,
+      "summary": {
+        "layers": {
+          "OBJECTS": {
+            "nodes": 0,
+            "edges": 0
+          },
+          "PLACES": {
+            "nodes": 932,
+            "edges": 3102
+          },
+          "ROOMS": {
+            "nodes": 5,
+            "edges": 3
+          },
+          "BUILDINGS": {
+            "nodes": 1,
+            "edges": 0
+          },
+          "AGENTS": {
+            "nodes": 70,
+            "edges": 69
+          },
+          "MESH_PLACES": {
+            "nodes": 28,
+            "edges": 38
+          }
+        },
+        "interlayer_edges": 1002,
+        "nodes": 1036,
+        "mesh_vertices": 0
+      }
+    }
+  ],
+  "end_pose": [
+    17.336368868057605,
+    -10.369591019496292
+  ],
+  "pose_was_finite": true,
+  "guards_fired": []
+}
