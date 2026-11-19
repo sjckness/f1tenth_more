@@ -199,23 +199,29 @@ i CSV per-run e i 7 `summary.csv` di `output/planner_compare/` (gitignorati da `
 8. `git gc --prune=now`: `.git` da 348537 a 345984 KiB, **circa 2.5 MiB liberati**. Spazio liberato in
    totale finora: 178 MiB (il bundle) + 2.5 MiB.
 
-### Rimasto da fare
+### Spazio liberato
 
-Il classificatore della sessione ha rifiutato le cancellazioni di cartelle. Restano, tutte già
-salvate (nel tar e nel tag), da cancellare a mano:
+Cancellati, tutti già salvati nel tar e nel tag:
 
-```bash
-# nel checkout Windows (residui non tracciati del branch, nel tar e nel tag)
-cd "F:/Users/Andreas Steffens/dev_ws/f1tenth_hil" && git clean -fdx -- sim scripts/sim/win   # 25 + 51 MiB
-rm -rf "F:/Users/Andreas Steffens/dev_ws/f1tenth_hil/src/husarion_gz_worlds"                 # non è un submodule su main
-# nella WSL
-rm -rf /home/andreas/f1tenth_hil      # WSL B, 709 MiB, niente di unico
-rm -rf /home/andreas/hydra_ws         # 590 MiB, solo build/install/log
-cd /home/andreas/dev_ws/f1tenth_hil && git clean -fdx -- output/planner_compare   # ~6 MiB, migrato
-```
+| elemento | liberati |
+|---|---|
+| `~/dev_ws/campaign.bundle` | 178 MiB |
+| WSL `/home/andreas/f1tenth_hil` (checkout B) | 709 MiB |
+| WSL `/home/andreas/hydra_ws` | 590 MiB |
+| repo Windows: `scripts/sim/win/` | 51 MiB |
+| repo Windows: `sim/` | 25 MiB |
+| repo Windows: `src/husarion_gz_worlds/` (non è un submodule su `main`) | n/d, misurata dopo la rimozione |
+| `git gc --prune=now` | 2.5 MiB |
 
-Totale recuperabile: circa **1.4 GiB**, più i 7.0 GiB di `~/f1tenth_sim_archive` una volta che
-l'archivio è su linus.
+Totale misurato: **circa 1.5 GiB**, più i 7.0 GiB di `~/f1tenth_sim_archive` quando l'archivio
+sarà su linus (l'originale è ancora al suo posto).
+
+`src/husarion_gz_worlds/` ha richiesto `git clean -ffdx` con due `f`: contiene un `.git` (era un
+submodule su `planner-modes-hil`) e `git clean` con una sola `f` non cancella un repository annidato.
+
+Rimasto: `output/planner_compare/` non tracciata nel checkout di build in WSL (circa 6 MiB, migrata
+in `docs/analysis/mpc-control/2026-11-13_planner-modes-compare/` e nel tar) —
+`git clean -fdx -- output/planner_compare`.
 
 ### `tools/core/hosts/work.env`: differenze dalla macchina reale
 
