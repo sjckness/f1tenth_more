@@ -70,9 +70,61 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+import yaml
+
+
+def load_profile(name, profiles_dir=None):
+    """Return the launch arguments of profile ``name`` ({} for 'none').
+
+    config/profiles/<name>.yaml, key launch_arguments: {argument: value}.
+    """
+    if name in ('', 'none'):
+        return {}
+    profiles_dir = profiles_dir or os.path.join(
+        get_package_share_directory('f1tenth_bringup'), 'config', 'profiles')
+    path = os.path.join(profiles_dir, f'{name}.yaml')
+    if not os.path.isfile(path):
+        known = sorted(f[:-5] for f in os.listdir(profiles_dir) if f.endswith('.yaml'))
+        raise RuntimeError(f'profile {name!r}: no {path} (known: {known})')
+    with open(path) as f:
+        args = (yaml.safe_load(f) or {}).get('launch_arguments') or {}
+    return {str(k): str(v).lower() if isinstance(v, bool) else str(v)
+            for k, v in args.items()}
+
+
+def _apply_profile(context, declared, profiles_dir=None):
+    """Set the profile's values as defaults, before the arguments are declared.
+
+    Runs ahead of every DeclareLaunchArgument below: an argument already in
+    the context came from the command line and wins; any other key of the
+    profile is set here, so its DeclareLaunchArgument keeps it (a declared
+    default only fills a missing value) and still checks its choices.
+    """
+    name = LaunchConfiguration('profile').perform(context)
+    values = load_profile(name, profiles_dir)
+    unknown = sorted(set(values) - set(declared))
+    if unknown:
+        raise RuntimeError(f'profile {name!r}: not arguments of this launch file: {unknown}')
+    applied, kept = [], []
+    for key, value in values.items():
+        if key in context.launch_configurations:
+            kept.append(f'{key}:={context.launch_configurations[key]}')
+        else:
+            context.launch_configurations[key] = value
+            applied.append(f'{key}:={value}')
+    if not values:
+        return []
+    return [LogInfo(msg=(f'[supervisor_bringup] profile {name}: {" ".join(applied) or "-"}'
+                         + (f' (command line wins: {" ".join(kept)})' if kept else '')))]
 
 
 def generate_launch_description():
+    profile_la = DeclareLaunchArgument(
+        'profile', default_value='none',
+        description='Launch profile: config/profiles/<profile>.yaml sets the defaults of '
+                    'some of these arguments (e.g. campaign3_rrt). An argument given on the '
+                    'command line wins. none: no profile.')
+
     discovery_server_address_default, discovery_server_address_desc = get_default(
         'discovery_server_address')
     discovery_server_address_la = DeclareLaunchArgument(
@@ -387,7 +439,7 @@ def generate_launch_description():
 
     component_supervisor_node = OpaqueFunction(function=_supervisor_node)
 
-    return LaunchDescription([
+    entities = [
         discovery_server_address_la,
         discovery_server_port_la,
         discovery_server_env,
@@ -420,4 +472,10 @@ def generate_launch_description():
         tcl_config_la,
         component_supervisor_node,
         OpaqueFunction(function=_test_campaign_logger),
+    ]
+    declared = [e.name for e in entities if isinstance(e, DeclareLaunchArgument)]
+    return LaunchDescription([
+        profile_la,
+        OpaqueFunction(function=_apply_profile, args=[declared]),
+        *entities,
     ])

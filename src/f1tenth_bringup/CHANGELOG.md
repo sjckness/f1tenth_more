@@ -10,6 +10,17 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-21
+
+### Added
+- `supervisor_bringup.launch.py profile:=<nome>`: un profilo (`config/profiles/<nome>.yaml`,
+  chiave `launch_arguments`) imposta i default di alcuni argomenti di lancio; un argomento dato
+  sulla riga di comando (o in `~/.config/f1tenth_car/stack_args`) vince. Default `none`: nessun
+  cambiamento.
+- Profilo `campaign3_rrt` (campagna a 3 comandi): `planner_controller_mode=corridor_rrt`,
+  `enable_mission_logger=true`, `enable_test_campaign_logger=true`, `enable_intelligence=true`.
+  Il test_campaign_logger resta spento per default fuori dal profilo.
+
 ## [0.1.0] - 2026-11-18
 
 ### Changed

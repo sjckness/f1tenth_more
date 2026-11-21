@@ -1,0 +1,22 @@
+# Launch profile campaign3_rrt: supervisor_bringup.launch.py profile:=campaign3_rrt
+#
+# The 3-command test campaign on the car: corridors + RRT* (corridor_rrt, pure
+# pursuit on the path; the MPC is not started), both loggers on, llama-server
+# up so llm_planner_node can turn the 3 prompts into missions.
+#
+# Each key is a launch argument of supervisor_bringup.launch.py; the profile
+# only replaces its default. An argument given explicitly on the command line
+# (or in ~/.config/f1tenth_car/stack_args) wins over the profile. Everything
+# not listed here keeps the stack_params.yaml default. Values are strings,
+# exactly as they would be written after `name:=`.
+launch_arguments:
+  planner_controller_mode: corridor_rrt
+  # Per-mission rosbag2 recording (mission_logger_node).
+  enable_mission_logger: 'true'
+  # The campaign logger (test_campaign_logger: runs, results.csv, the
+  # MATLAB export input), off by default everywhere else. Root and config
+  # keep their defaults: /home/fabiocar/f1tenth_archive, the same place as
+  # the earlier campaigns (the container mounts the archive there).
+  enable_test_campaign_logger: 'true'
+  # llama-server (the 'intelligence' component), needed by llm_planner_node.
+  enable_intelligence: 'true'
