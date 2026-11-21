@@ -148,6 +148,20 @@ test_deploy_remote_switch_allow_drift() {
   assert_rc 2 "--allow-drift senza STACK_MODE" && assert_in "vuole STACK_MODE"
 }
 
+# shellcheck disable=SC2016  # $* e $2 vanno scritti tali e quali negli script finti
+test_deploy_remote_switch_failed_unit_uses_stack_mode() {
+  # Una unit "failed" (avvio fallito, poi rollback) senza --allow-drift: stack_mode container, non exit 3.
+  local d; d=$(mktemp -d)
+  printf '#!/bin/bash\necho "dorin $*" >> %s/calls\n' "$d" > "$d/docker_orin"
+  printf '#!/bin/bash\necho "smode $*" >> %s/calls\n' "$d" > "$d/stack_mode"
+  printf '#!/bin/bash\n[ "$2" = is-active ] && echo failed\nexit 3\n' > "$d/systemctl"
+  chmod +x "$d"/*
+  run env PATH="$d:$PATH" bash "$REPO/tools/core/deploy/remote/orin_deploy.sh" switch img:0 "$d/docker_orin" car.service "$d/stack_mode"
+  assert_rc 0 "switch con unit failed" || return 1
+  OUT=$(cat "$d/calls")
+  [ "$OUT" = "$(printf 'dorin pin img:0\nsmode container')" ] || fail "chiamate: $(tr '\n' ';' <<< "$OUT")"
+}
+
 test_deploy_allow_drift_option_parses() {
   run "$F1T" deploy --dry-run --allow-drift
   assert_rc 1 "deploy --allow-drift senza Orin" && assert_in "ssh" && assert_clean

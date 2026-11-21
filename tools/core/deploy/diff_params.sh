@@ -55,7 +55,7 @@ else
   git --no-pager -C "$F1T_ROOT" diff --stat=100 "$FROM" "$TO" -- "${files[@]}" >&2
   out=$(git --no-pager -C "$F1T_ROOT" diff --no-color -U1 "$FROM" "$TO" -- "${files[@]}")
   n=$(printf '%s\n' "$out" | wc -l)
-  printf '%s\n' "$out" | head -n "$MAX"
+  head -n "$MAX" <<< "$out"
   [ "$n" -le "$MAX" ] || log_warn "diff troncato a $MAX righe su $n (--max-lines)"
 fi
 [ -z "$OVERRIDE" ] || log_info "override a caldo attivo sull'Orin ($F1T_ORIN_OVERRIDE_DIR/stack_args): $OVERRIDE"

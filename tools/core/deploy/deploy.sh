@@ -17,7 +17,8 @@
 # (sha, immagine, versioni dei moduli lette dal container, data, chi, immagine precedente).
 # --allow-drift: il container parte anche se il checkout nativo dell'Orin ha modifiche che l'immagine
 # non ha (drift check di docker_orin up). Lo switch diventa pin + stop della unit + stack_mode
-# container --allow-drift, per il deploy e per il rollback; resta scritto in deployed.json.
+# container --allow-drift; resta scritto in deployed.json. Il rollback automatico usa sempre
+# --allow-drift (l'immagine di prima girava gia' con questo checkout nativo).
 set -euo pipefail
 F1T_CORE=${F1T_CORE:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)}
 # shellcheck source=tools/core/lib/config.sh
@@ -156,12 +157,13 @@ if [ "$DRY" = 1 ]; then
   summary "f1t deploy (dry-run)"; exit $?
 fi
 
+# switch_to IMAGE [--allow-drift]: STACK_MODE sempre, cosi' anche una unit gia' caduta (un avvio fallito
+# la lascia "failed") riparte con stack_mode container invece di finire in "unit non attiva".
 switch_to() {
-  local img=$1 mode='' rc
+  local img=$1 rc
   local -a extra=()
-  { [ "$MODE_OK" = 1 ] && [ "$ALLOW_DRIFT" = 0 ]; } || mode=$F1T_ORIN_STACK_MODE
-  [ "$ALLOW_DRIFT" = 0 ] || extra=(--allow-drift)
-  orin_script "$DCTL" switch "$img" "$F1T_ORIN_DOCKER_ORIN" "$F1T_ORIN_UNIT" ${mode:+"$mode"} "${extra[@]}" 2>&1 \
+  { [ "$ALLOW_DRIFT" = 0 ] && [ "${2:-}" != --allow-drift ]; } || extra=(--allow-drift)
+  orin_script "$DCTL" switch "$img" "$F1T_ORIN_DOCKER_ORIN" "$F1T_ORIN_UNIT" "$F1T_ORIN_STACK_MODE" "${extra[@]}" 2>&1 \
     | while read -r l; do log_info "Orin: $l"; done
   rc=${PIPESTATUS[0]}
   MODE_OK=1
@@ -190,8 +192,10 @@ else
   check_record FAIL "health check" "$(printf '%s\n' "$out" | head -1)"
   printf '%s\n' "$out" >&2
   if [ -n "$CUR_IMAGE" ] && [ "$ROLLBACK" = 0 ]; then
-    log_warn "rollback automatico a $CUR_IMAGE"
-    rc=0; switch_to "$CUR_IMAGE" || rc=$?
+    # --allow-drift sempre: l'immagine di prima girava gia' con questo checkout nativo; meglio l'auto
+    # sull'immagine vecchia che senza stack (2026-11-21: rollback fallito sul drift check).
+    log_warn "rollback automatico a $CUR_IMAGE (con --allow-drift)"
+    rc=0; switch_to "$CUR_IMAGE" --allow-drift || rc=$?
     if out=$(health "$CUR_ID" 2>&1); then check_record WARN "rollback" "tornato a $CUR_IMAGE: $(printf '%s\n' "$out" | tail -1)"
     else check_record FAIL "rollback" "anche $CUR_IMAGE non e' sano: f1t orin status"; fi
   fi

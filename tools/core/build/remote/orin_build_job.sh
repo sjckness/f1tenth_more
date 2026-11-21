@@ -22,6 +22,9 @@ case "$ROOT/" in /scratch/fabiocar/*|"$HOME"/p5d_*) ;; *) echo "refusing: BUILD_
 say() { echo "$(date +%H:%M:%S) [f1t build] $*"; }
 fail() { echo "fail $1 $2" > "$STATUS"; say "FALLITO al passo $1 (exit $2)"; exit "$2"; }
 echo running > "$STATUS"
+# Un'uscita qualsiasi (set -e, kill) che non sia passata da fail() o dall'ok finale lascerebbe "running"
+# per sempre: chi segue la build non finirebbe mai e ogni f1t build successiva rifiuterebbe.
+trap 'rc=$?; grep -q "^running" "$STATUS" 2>/dev/null && echo "fail exit $rc" > "$STATUS"' EXIT
 
 say "commit $SHA, immagine $IMAGE, test $TEST"
 if [ -d "$WT" ]; then

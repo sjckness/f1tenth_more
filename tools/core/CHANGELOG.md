@@ -7,6 +7,16 @@ nello stesso commit, su main.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-21
+
+### Fixed
+- `f1t deploy`: il rollback automatico lasciava l'auto senza container. Dopo un avvio fallito la unit e'
+  "failed" e lo switch, senza STACK_MODE, finiva in exit 3. Ora STACK_MODE si passa sempre e il
+  rollback usa `--allow-drift` (l'immagine di prima girava gia' con quel checkout nativo).
+- `f1t build`: un'uscita del job sull'Orin non passata da fail()/ok (set -e, kill) lasciava lo stato
+  `running` per sempre (build seguita all'infinito, build successive rifiutate): trap EXIT -> `fail exit N`.
+- `f1t diff-params`: niente SIGPIPE (exit 141) su un diff piu' lungo di --max-lines.
+
 ## [1.2.0] - 2026-11-21
 
 ### Added
