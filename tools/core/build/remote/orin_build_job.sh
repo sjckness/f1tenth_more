@@ -62,13 +62,22 @@ if [ "$TEST" != none ]; then
 fi
 tests="none"
 if [ ${#pkgs[@]} -gt 0 ]; then
-  say "pytest in $IMAGE (rete none, dominio $DOMAIN): ${pkgs[*]}"
+  say "pytest in $IMAGE (rete none, dominio $DOMAIN), un package per volta come colcon: ${pkgs[*]}"
+  # Un pytest per package, dalla sua cartella: in una sola sessione i file omonimi di package diversi
+  # (test_flake8.py, test_pep257.py...) fermano la raccolta con ImportPathMismatchError e non gira
+  # nessun test. Riga "PKG <dir> rc=<n> <esito>" per package; exit = numero di package falliti.
   rc=0
   docker run --rm --network none -e ROS_DOMAIN_ID="$DOMAIN" -e ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST \
     --entrypoint /opt/f1tenth_ws/entrypoint.sh "$IMAGE" \
-    bash -c 'cd /opt/f1tenth_ws && python3 -m pytest -q -p no:cacheprovider "$@" 2>&1 | tail -40; exit "${PIPESTATUS[0]}"' _ "${pkgs[@]}" \
+    bash -c 'nf=0
+      for t in "$@"; do
+        out=$(cd "/opt/f1tenth_ws/$(dirname "$t")" && python3 -m pytest -q -p no:cacheprovider test 2>&1); r=$?
+        echo "PKG $(dirname "$t") rc=$r $(printf "%s\n" "$out" | tail -n 1)"
+        if [ "$r" != 0 ]; then nf=$((nf + 1)); printf "%s\n" "$out" | grep -E "^(FAILED|ERROR) " | head -n 20 | sed "s/^/    /"; fi
+      done
+      exit "$nf"' _ "${pkgs[@]}" \
     < /dev/null || rc=$?
-  [ "$rc" = 0 ] || fail test "$rc"
+  [ "$rc" = 0 ] || { say "test: $rc package con test falliti (righe PKG sopra)"; fail test "$rc"; }
   tests="${pkgs[*]}"
 elif [ "$TEST" != none ]; then
   say "nessun package con test/ da provare"

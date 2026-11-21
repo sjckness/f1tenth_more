@@ -52,8 +52,8 @@ if [ ${#files[@]} -eq 0 ]; then
   log_ok "nessun yaml dei package cambiato tra ${FROM:0:8} e $(git -C "$F1T_ROOT" rev-parse --short "$TO")"
 else
   log_warn "${#files[@]} file yaml cambiati (deployato -> nuovo):"
-  git -C "$F1T_ROOT" diff --stat=100 "$FROM" "$TO" -- "${files[@]}" >&2
-  out=$(git -C "$F1T_ROOT" diff --no-color -U1 "$FROM" "$TO" -- "${files[@]}")
+  git --no-pager -C "$F1T_ROOT" diff --stat=100 "$FROM" "$TO" -- "${files[@]}" >&2
+  out=$(git --no-pager -C "$F1T_ROOT" diff --no-color -U1 "$FROM" "$TO" -- "${files[@]}")
   n=$(printf '%s\n' "$out" | wc -l)
   printf '%s\n' "$out" | head -n "$MAX"
   [ "$n" -le "$MAX" ] || log_warn "diff troncato a $MAX righe su $n (--max-lines)"

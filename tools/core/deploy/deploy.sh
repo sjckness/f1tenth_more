@@ -3,7 +3,7 @@
 # alias: orin deploy
 #
 #   f1t deploy [--dry-run] [--dev] [--after-hil] [--force-untested] [--force-busy] [--switch-mode]
-#              [IMAGE|COMMIT]                       default: l'immagine di HEAD di questo checkout
+#              [--allow-drift] [IMAGE|COMMIT]       default: l'immagine di HEAD di questo checkout
 #   f1t deploy --rollback [--dry-run]               torna all'immagine precedente (deployed.json)
 #
 # Cancelli, in ordine (il primo che fallisce ferma tutto, l'auto resta com'e'):
@@ -15,6 +15,9 @@
 # F1T_HEALTH_TIMEOUT_S (container healthy con l'immagine giusta). Se fallisce: rollback automatico
 # all'immagine di prima, stesso health check, exit 1. Se riesce: deployed.json sull'Orin
 # (sha, immagine, versioni dei moduli lette dal container, data, chi, immagine precedente).
+# --allow-drift: il container parte anche se il checkout nativo dell'Orin ha modifiche che l'immagine
+# non ha (drift check di docker_orin up). Lo switch diventa pin + stop della unit + stack_mode
+# container --allow-drift, per il deploy e per il rollback; resta scritto in deployed.json.
 set -euo pipefail
 F1T_CORE=${F1T_CORE:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)}
 # shellcheck source=tools/core/lib/config.sh
@@ -22,7 +25,7 @@ source "$F1T_CORE/lib/config.sh"
 # shellcheck source=tools/core/lib/checks.sh
 source "$F1T_CORE/lib/checks.sh"
 
-DRY=0 DEV=0 AFTER_HIL=0 FORCE_UNTESTED=0 FORCE_BUSY=0 SWITCH=0 ROLLBACK=0 TARGET=HEAD
+DRY=0 DEV=0 AFTER_HIL=0 FORCE_UNTESTED=0 FORCE_BUSY=0 SWITCH=0 ROLLBACK=0 ALLOW_DRIFT=0 TARGET=HEAD
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1 ;;
@@ -31,6 +34,7 @@ while [ $# -gt 0 ]; do
     --force-untested) FORCE_UNTESTED=1 ;;
     --force-busy) FORCE_BUSY=1 ;;
     --switch-mode) SWITCH=1 ;;
+    --allow-drift) ALLOW_DRIFT=1 ;;
     --rollback) ROLLBACK=1 ;;
     -h|--help) sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
     -*) log_die "opzione sconosciuta: $1 (f1t deploy -h)" 2 ;;
@@ -142,17 +146,26 @@ fi
 
 if [ "$DRY" = 1 ]; then
   log_step "Deploy (dry-run)"
-  log_info "verrebbe eseguito sull'Orin: docker_orin pin $IMAGE; systemctl --user restart $F1T_ORIN_UNIT; health check ${F1T_HEALTH_TIMEOUT_S}s"
+  if [ "$ALLOW_DRIFT" = 1 ]; then
+    log_info "verrebbe eseguito sull'Orin: docker_orin pin $IMAGE; systemctl --user stop $F1T_ORIN_UNIT; stack_mode container --allow-drift; health check ${F1T_HEALTH_TIMEOUT_S}s"
+  else
+    log_info "verrebbe eseguito sull'Orin: docker_orin pin $IMAGE; systemctl --user restart $F1T_ORIN_UNIT; health check ${F1T_HEALTH_TIMEOUT_S}s"
+  fi
   [ "$MODE_OK" = 1 ] || log_info "  prima: stack_mode container"
   check_skip "deploy" "dry-run"
   summary "f1t deploy (dry-run)"; exit $?
 fi
 
 switch_to() {
-  local img=$1 mode=
-  [ "$MODE_OK" = 1 ] || mode=$F1T_ORIN_STACK_MODE
-  orin_script "$DCTL" switch "$img" "$F1T_ORIN_DOCKER_ORIN" "$F1T_ORIN_UNIT" ${mode:+"$mode"} 2>&1 | while read -r l; do log_info "Orin: $l"; done
+  local img=$1 mode='' rc
+  local -a extra=()
+  { [ "$MODE_OK" = 1 ] && [ "$ALLOW_DRIFT" = 0 ]; } || mode=$F1T_ORIN_STACK_MODE
+  [ "$ALLOW_DRIFT" = 0 ] || extra=(--allow-drift)
+  orin_script "$DCTL" switch "$img" "$F1T_ORIN_DOCKER_ORIN" "$F1T_ORIN_UNIT" ${mode:+"$mode"} "${extra[@]}" 2>&1 \
+    | while read -r l; do log_info "Orin: $l"; done
+  rc=${PIPESTATUS[0]}
   MODE_OK=1
+  return "$rc"
 }
 health() {
   orin_script "$DCTL" health "$F1T_ORIN_CONTAINER" "$F1T_ORIN_DOCKER_ORIN" "$F1T_HEALTH_TIMEOUT_S" "$1"
@@ -192,7 +205,7 @@ json=$(python3 - "$tmp" image="$IMAGE" image_id="${IMG[id]}" sha="${IMG[revision
   tested="${IMG[tested]:-}" forced_untested="$FORCE_UNTESTED" deployed_at="$(date -Iseconds)" \
   deployed_by="$(id -un)@$(hostname)" \
   linus_checkout="$(git -C "$F1T_ROOT" describe --always --dirty 2>/dev/null) $(git -C "$F1T_ROOT" rev-parse --abbrev-ref HEAD)" \
-  previous_image="$CUR_IMAGE" previous_image_id="$CUR_ID" rollback="$ROLLBACK" <<'EOF'
+  previous_image="$CUR_IMAGE" previous_image_id="$CUR_ID" rollback="$ROLLBACK" allow_drift="$ALLOW_DRIFT" <<'EOF'
 import json, sys
 mods = {}
 for line in open(sys.argv[1]):
@@ -203,6 +216,7 @@ d = dict(a.split('=', 1) for a in sys.argv[2:])
 d['tested'] = d['tested'] == 'true'
 d['forced_untested'] = d['forced_untested'] == '1'
 d['rollback'] = d['rollback'] == '1'
+d['allow_drift'] = d['allow_drift'] == '1'
 d['modules'] = mods
 print(json.dumps(d, indent=2, sort_keys=True))
 EOF

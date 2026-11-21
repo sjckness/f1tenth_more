@@ -2,9 +2,11 @@
 # Gira SULL'ORIN (orin_script da tools/core/deploy/deploy.sh). Usa gli strumenti dell'Orin
 # (docker_orin pin/status, la unit systemd --user del container), non ne duplica la logica.
 #   orin_deploy.sh image-info IMAGE                 righe chiave=valore (id, label) o exit 1
-#   orin_deploy.sh switch IMAGE DOCKER_ORIN UNIT [STACK_MODE]
+#   orin_deploy.sh switch IMAGE DOCKER_ORIN UNIT [STACK_MODE] [--allow-drift]
 #                                                   docker_orin pin IMAGE + restart della unit; con
-#                                                   STACK_MODE e la unit spenta: stack_mode container
+#                                                   STACK_MODE e la unit spenta: stack_mode container.
+#                                                   --allow-drift (vuole STACK_MODE): pin + stop della
+#                                                   unit + stack_mode container --allow-drift
 #   orin_deploy.sh pin IMAGE DOCKER_ORIN            solo il pin (nessun restart)
 #   orin_deploy.sh health CONTAINER DOCKER_ORIN TIMEOUT_S EXPECTED_ID
 #   orin_deploy.sh write-json PATH FALLBACK         scrive stdin in PATH (o FALLBACK se PATH non e' scrivibile)
@@ -25,9 +27,26 @@ case "$cmd" in
     echo "tests=$(lab f1tenth.tests | tr '\n' ' ')"
     echo "car_sync=$(lab f1tenth.car_sync.sha256)" ;;
   switch)
-    img=$1 dorin=$(exp "$2") unit=$3 smode=${4:-}
+    img=$1 dorin=$(exp "$2") unit=$3 smode='' allow=0
+    for a in "${@:4}"; do case "$a" in --allow-drift) allow=1 ;; *) smode=$a ;; esac; done
     "$dorin" pin "$img"
-    if [ "$(systemctl --user is-active "$unit" 2>/dev/null || true)" = active ]; then
+    if [ "$allow" = 1 ]; then
+      [ -n "$smode" ] || { echo "--allow-drift vuole STACK_MODE" >&2; exit 2; }
+      # restart della unit userebbe F1T_ALLOW_DRIFT=0: si ferma e la riavvia stack_mode, che scrive
+      # F1T_ALLOW_DRIFT=1 solo per questo avvio.
+      if [ "$(systemctl --user is-active "$unit" 2>/dev/null || true)" = active ]; then
+        echo "stop $unit"
+        systemctl --user stop "$unit" || echo "stop $unit: exit $? (ExecStop = docker_orin down)"
+      fi
+      # Un container avviato a mano (docker_orin up, senza la unit) resterebbe su con l'immagine
+      # vecchia: stack_mode direbbe "already in container mode" e non applicherebbe il pin.
+      if [ -n "$(docker ps -q --filter 'name=^f1tenth_car$')" ]; then
+        echo "docker_orin down (container avviato fuori dalla unit)"
+        "$dorin" down || echo "docker_orin down: exit $? (avanzi elencati sopra)"
+      fi
+      echo "stack_mode container --allow-drift"
+      "$(exp "$smode")" container --allow-drift
+    elif [ "$(systemctl --user is-active "$unit" 2>/dev/null || true)" = active ]; then
       echo "restart $unit"
       systemctl --user restart "$unit"
     elif [ -n "$smode" ]; then

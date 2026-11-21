@@ -7,6 +7,22 @@ nello stesso commit, su main.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-21
+
+### Added
+- `f1t deploy --allow-drift`: il container parte anche se il checkout nativo dell'Orin ha modifiche
+  che l'immagine non ha (drift check di `docker_orin up`). Lo switch, per il deploy e per il rollback,
+  diventa pin + stop della unit (+ `docker_orin down` di un container avviato a mano) +
+  `stack_mode container --allow-drift`; `deployed.json` lo registra (`allow_drift`). Prima il deploy
+  e il rollback automatico fallivano entrambi sul drift (2026-11-21).
+
+### Fixed
+- `f1t build`, passo test: un pytest per package, dalla cartella del package (come colcon), con una
+  riga `PKG` di esito per package. In una sola sessione i file omonimi (`test_flake8.py`, ...) di
+  package diversi fermavano la raccolta con `ImportPathMismatchError` e non girava nessun test.
+- `f1t diff-params` (e quindi `f1t deploy`): `git --no-pager`. Su un terminale `git diff --stat`
+  apriva `less` e il deploy restava fermo a meta', prima del pin.
+
 ## [1.1.0] - 2026-11-18
 
 ### Added

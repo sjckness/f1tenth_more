@@ -129,6 +129,30 @@ test_deploy_unreachable_and_args() {
   assert_rc 2 "opzione sconosciuta" && assert_clean
 }
 
+# shellcheck disable=SC2016  # $* e $2 vanno scritti tali e quali negli script finti
+test_deploy_remote_switch_allow_drift() {
+  # switch --allow-drift sull'Orin: pin, stop della unit, down del container avviato a mano,
+  # stack_mode container --allow-drift, in quest'ordine (docker, systemctl e strumenti finti).
+  local d; d=$(mktemp -d)
+  printf '#!/bin/bash\necho "dorin $*" >> %s/calls\n' "$d" > "$d/docker_orin"
+  printf '#!/bin/bash\necho "smode $*" >> %s/calls\n' "$d" > "$d/stack_mode"
+  printf '#!/bin/bash\necho "systemctl $*" >> %s/calls\n[ "$2" = is-active ] && echo active\nexit 0\n' "$d" > "$d/systemctl"
+  printf '#!/bin/bash\necho abc123\n' > "$d/docker"
+  chmod +x "$d"/*
+  run env PATH="$d:$PATH" bash "$REPO/tools/core/deploy/remote/orin_deploy.sh" switch img:1 "$d/docker_orin" car.service "$d/stack_mode" --allow-drift
+  assert_rc 0 "switch --allow-drift" || return 1
+  OUT=$(grep -v 'is-active' "$d/calls")
+  [ "$OUT" = "$(printf 'dorin pin img:1\nsystemctl --user stop car.service\ndorin down\nsmode container --allow-drift')" ] \
+    || fail "ordine delle chiamate: $(tr '\n' ';' <<< "$OUT")" || return 1
+  run env PATH="$d:$PATH" bash "$REPO/tools/core/deploy/remote/orin_deploy.sh" switch img:1 "$d/docker_orin" car.service --allow-drift
+  assert_rc 2 "--allow-drift senza STACK_MODE" && assert_in "vuole STACK_MODE"
+}
+
+test_deploy_allow_drift_option_parses() {
+  run "$F1T" deploy --dry-run --allow-drift
+  assert_rc 1 "deploy --allow-drift senza Orin" && assert_in "ssh" && assert_clean
+}
+
 test_diff_params_between_tags() {
   run "$F1T" diff-params --from pkg_a/v0.0.1 --to pkg_a/v0.1.0
   assert_rc 0 diff-params && assert_in "params.yaml" && assert_in "+gain: 2.0" || return 1
