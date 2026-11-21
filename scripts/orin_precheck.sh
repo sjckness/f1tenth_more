@@ -79,6 +79,12 @@ val() { awk -v k="$1" '$1==k {$1=""; sub(/^ /,""); print; exit}' <<<"$out"; }
 missing=$(grep '^missing' <<<"$out" | awk '{print $2}' | tr '\n' ' ' || true)
 if [ "$rc" = skip ]; then I=$((I + 1)); check_skip "container + nodi su" "--no-start"
 else rec "$([ -z "$missing" ] && echo OK || echo FAIL)" "container + nodi su" "${missing:-tutti presenti} (exit $rc)"; fi
+if [ -z "$(val sha)" ]; then
+  for d in "SOURCES nel container" planner "logger (test_campaign + mission)" stack_args "modello LLM" \
+           llama-server "Foxglove bridge" "nodi ROS in totale" "archivio dei run"; do
+    I=$((I + 1)); check_skip "$d" "container fermo: nessun riepilogo"
+  done
+else
 rec "$(is "$(val sha)" "$SHA")" "SOURCES nel container" "$(val sha | cut -c1-12) $(val branch)"
 rec "$([[ $(val planner) == corridor_rrt* ]] && echo OK || echo FAIL)" "planner" "$(val planner)"
 rec "$(is "$(grep -c '^logger .* on$' <<<"$out" || true)" 2)" "logger (test_campaign + mission)" "$(grep '^logger' <<<"$out" | awk '{print $2"="$3}' | tr '\n' ' ')"
@@ -89,6 +95,7 @@ rec "$([[ $(val llama_server) == up* ]] && echo OK || echo WARN)" "llama-server"
 rec "$([[ $(val foxglove) == up* ]] && echo OK || echo FAIL)" "Foxglove bridge" "$(val foxglove)"
 rec "$([ "$(val nodes_total)" -gt 10 ] 2>/dev/null && echo OK || echo WARN)" "nodi ROS in totale" "$(val nodes_total)"
 rec OK "archivio dei run" "$(val archive)"
+fi
 ui_section "dettagli"
 for k in image describe subject params_file stack_params profile stack_cmd last_run; do ui_kv "$k" "$(val "$k")"; done
 
