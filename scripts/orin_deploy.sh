@@ -15,8 +15,10 @@
 #              nell'immagine -> label f1tenth.tested=true. Barra dai passi [K/M] di BuildKit.
 #              Tag f1tenth:jazzy-orin-<sha7>-norust. Nessun registry (F1T_REGISTRY vuoto).
 #   3 alias    f1tenth:<branch>-<sha7> sulla stessa immagine (stesso ID)
-#   4 deploy   tools/f1t deploy --switch-mode: pin, restart della unit, health check, rollback automatico
-#   5 script   scripts/orin_run_tests.sh dello stesso commit -> ~/.local/bin/orin_run_tests sull'Orin
+#   4 script   scripts/orin_run_tests.sh dello stesso commit -> ~/.local/bin/orin_run_tests sull'Orin
+#              (prima del deploy: c'e' anche se il deploy fallisce)
+#   5 deploy   tools/f1t deploy --switch-mode: pin, restart della unit, health check, rollback automatico.
+#              Se fallisce per il drift check: ~/.local/bin/docker_orin up --allow-drift sull'Orin
 #   6 verifica /opt/f1tenth_ws/SOURCES nell'immagine (il file di versione: commit, branch, tree hash)
 #              == commit di linus, pin == alias, script installato == commit -> OK / FAIL
 set -euo pipefail
@@ -114,12 +116,6 @@ if dry; then log_info "dry-run: docker tag $IMAGE $TAG"
 else ui_run orin_ssh docker tag "$IMAGE" "$TAG"; ui_kv "ID" "$(orin_ssh "docker image inspect -f '{{.Id}}' $TAG")"; fi
 ui_step_end
 
-ui_step "deploy (tools/f1t deploy --switch-mode ${FORCE[*]:-})"
-ui_run "$ROOT/tools/f1t" deploy "${DRY[@]}" "${FORCE[@]}" --switch-mode "$IMAGE" \
-  || { dry && log_warn "dry-run: deploy non pronto (atteso finche' l'immagine non esiste)"; } \
-  || log_die "deploy fallito (f1t deploy fa gia' il rollback all'immagine precedente)"
-ui_step_end
-
 ui_step "orin_run_tests dal commit $SHORT"
 if dry; then
   log_info "dry-run: git show $SHORT:scripts/orin_run_tests.sh -> ~/.local/bin/orin_run_tests"
@@ -127,6 +123,12 @@ else
   git -C "$ROOT" show "$SHA:scripts/orin_run_tests.sh" | orin_ssh 'install -D -m 755 /dev/stdin ~/.local/bin/orin_run_tests'
   ui_kv "installato" "\$HOME/.local/bin/orin_run_tests ($(orin_ssh 'sha256sum .local/bin/orin_run_tests' | cut -c1-12))"
 fi
+ui_step_end
+
+ui_step "deploy (tools/f1t deploy --switch-mode ${FORCE[*]:-})"
+ui_run "$ROOT/tools/f1t" deploy "${DRY[@]}" "${FORCE[@]}" --switch-mode "$IMAGE" \
+  || { dry && log_warn "dry-run: deploy non pronto (atteso finche' l'immagine non esiste)"; } \
+  || log_die "deploy fallito (f1t deploy fa gia' il rollback all'immagine precedente)"
 ui_step_end
 
 ui_step "verifica linus == Orin"
