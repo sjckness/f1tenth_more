@@ -76,7 +76,8 @@ ctr_state() { docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.
 ctr_running() { [ "$(docker inspect -f '{{.State.Running}}' "$CTR" 2>/dev/null)" = true ]; }
 in_ctr() { docker exec -i "$CTR" /opt/f1tenth_ws/entrypoint.sh "$@"; }
 nodes_now() { in_ctr bash -c 'ROS_SUPER_CLIENT=TRUE timeout 12 ros2 node list --no-daemon 2>/dev/null | sort -u' 2>/dev/null || true; }
-stack_cmd() { in_ctr bash -c "pgrep -af 'ros2 launch f1tenth_bringup supervisor_bringup' | head -1 | cut -d' ' -f2-" 2>/dev/null || true; }
+# [s]: il pattern non trova il bash -c che lo contiene (pgrep esclude se stesso, non il padre).
+stack_cmd() { in_ctr bash -c "pgrep -af 'ros2 launch f1tenth_bringup [s]upervisor_bringup' | head -1 | cut -d' ' -f2-" 2>/dev/null || true; }
 # Controlli READY di f1tenth_ctl che falliscono (stack, odometria, scan, tf, ...), in una riga.
 ctl_failing() {
   "$CTL" status --json 2>/dev/null | python3 -c 'import json,sys
@@ -104,7 +105,7 @@ echo "stack_args $(cat ~/.config/f1tenth_car/stack_args 2>/dev/null || echo abse
 echo "params_file $prof"
 echo "stack_params $params"
 echo "profile $(awk '/^  [a-z_]+:/{printf "%s=%s ", $1, $2}' "$prof" | tr -d ":'")"
-cmd=$(pgrep -af 'ros2 launch f1tenth_bringup supervisor_bringup' | head -1 | cut -d' ' -f2-)
+cmd=$(pgrep -af 'ros2 launch f1tenth_bringup [s]upervisor_bringup' | head -1 | cut -d' ' -f2-)
 echo "stack_cmd ${cmd:-non in esecuzione}"
 nodes=$(timeout 15 ros2 node list --no-daemon 2>/dev/null | sort -u)
 echo "nodes_total $(grep -c . <<<"$nodes")"
@@ -147,6 +148,10 @@ EOF
 print_summary() {   # stampa leggibile su stderr, righe chiave/valore su stdout
   local out
   out=$(summary 2>/dev/null) || { log "container $CTR non in esecuzione ($(ctr_state)): nessun riepilogo"; echo "container fermo"; return 1; }
+  local arch
+  arch=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/home/fabiocar/f1tenth_archive"}}{{.Source}}{{end}}{{end}}' "$CTR" 2>/dev/null || true)
+  out="$out
+archive_host ${arch:-?} (montato in /home/fabiocar/f1tenth_archive nel container)"
   log "== riepilogo campagna 3 comandi ($PROFILE)"
   kv "container" "$(ctr_state)"
   kv "READY di f1tenth_ctl, falliscono" "$(ctl_failing)"
@@ -195,8 +200,9 @@ kv "stato" "$(ctr_state)"
 step "stack (f1tenth_ctl)"
 cmd=$(stack_cmd)
 kv "stack in esecuzione" "${cmd:-no}"
-if [ -n "$cmd" ] && { [ "$MODE" = restart ] || [[ $cmd != *"profile:=$PROFILE"* ]]; }; then
-  log "lo stack gira $( [ "$MODE" = restart ] && echo '(--restart)' || echo "senza profile:=$PROFILE"): lo fermo e lo riavvio"
+want_tail=" $(cat "$ARGS_FILE")"
+if [ -n "$cmd" ] && { [ "$MODE" = restart ] || [[ $cmd != *"$want_tail" ]]; }; then
+  log "lo stack gira $( [ "$MODE" = restart ] && echo '(--restart)' || echo "con argomenti diversi da stack_args ($want_tail)"): lo fermo e lo riavvio"
   run "$CTL" stop stack || die "stop stack fallito ($CTL logs stack -n 80)"
   cmd=''
 fi
@@ -218,6 +224,10 @@ log ""
 
 out=$(print_summary || true)
 bar $STEPS $STEPS "finito in $(el)"; log ""
+if ! grep -q '^sha ' <<<"$out"; then
+  log "NON PRONTO: il container non risponde ($(ctr_state)). Diagnosi: $DO status; $DO logs -n 100; log: $LOG"
+  exit 1
+fi
 if grep -q '^missing' <<<"$out"; then
   log "NON PRONTO: nodi mancanti ($(grep '^missing' <<<"$out" | awk '{print $2}' | tr '\n' ' '))"
   log "diagnosi: $CTL logs stack -n 120   |   $DO logs -n 100   |   log: $LOG"

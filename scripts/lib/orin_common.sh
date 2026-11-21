@@ -5,10 +5,12 @@
 #   image_commit REV                  l'ultimo commit fino a REV che cambia cio' che entra nell'immagine
 #   same_image A B                    0 se A e B danno la stessa immagine (nessuna differenza in IMAGE_PATHS)
 #   branch_of SHA                     il branch per l'alias: quello corrente se contiene SHA, altrimenti
-#                                     il primo che lo contiene, altrimenti "detached"
+#                                     il primo che lo contiene, altrimenti "detached"; ripulito per un tag
+#                                     Docker (solo [A-Za-z0-9_.-], max 100 caratteri)
 #   image_tag_of SHA                  f1tenth:jazzy-orin-<sha7>[-norust], come lo chiama f1t build
-#   orin_reusable_image REV           "TAG SHA" di un'immagine gia' sull'Orin equivalente a REV (prima la
-#                                     fissata, poi la piu' recente); niente se non ce n'e'
+#   orin_reusable_image REV           "TAG SHA" di un'immagine gia' sull'Orin equivalente a REV: prima una
+#                                     testata (la fissata se lo e'), poi la fissata, poi la piu' recente;
+#                                     niente se non ce n'e'
 #   orin_running_containers           "nome immagine stato" dei container in esecuzione sull'Orin
 #   orin_drift_summary                riassunto del drift check (docker_orin drift) in una riga
 [ -n "${_ORIN_COMMON_SH:-}" ] && return 0
@@ -23,13 +25,14 @@ image_commit() { git -C "$F1T_ROOT" log -1 --format=%H "$1" -- "${IMAGE_PATHS[@]
 same_image() { git -C "$F1T_ROOT" diff --quiet "$1" "$2" -- "${IMAGE_PATHS[@]}" 2>/dev/null; }
 
 branch_of() {
-  local sha=$1 cur
-  cur=$(git -C "$F1T_ROOT" branch --show-current)
-  if [ -n "$cur" ] && git -C "$F1T_ROOT" merge-base --is-ancestor "$sha" HEAD 2>/dev/null; then
-    echo "$cur"; return
+  local sha=$1 b
+  b=$(git -C "$F1T_ROOT" branch --show-current)
+  if [ -z "$b" ] || ! git -C "$F1T_ROOT" merge-base --is-ancestor "$sha" HEAD 2>/dev/null; then
+    b=$(git -C "$F1T_ROOT" for-each-ref --contains "$sha" --format='%(refname:short)' refs/heads 2>/dev/null | head -1)
   fi
-  cur=$(git -C "$F1T_ROOT" branch --contains "$sha" --format='%(refname:short)' 2>/dev/null | head -1)
-  echo "${cur:-detached}"
+  b=${b:-detached}
+  b=${b//[^A-Za-z0-9_.-]/-}
+  echo "${b:0:100}"
 }
 
 image_tag_of() {
@@ -39,18 +42,19 @@ image_tag_of() {
 }
 
 orin_reusable_image() {
-  local rev=$1 pinned tags tag short sha
-  pinned=$(orin_ssh "awk '\$1==\"tag\"{print \$2}' ~/.config/f1tenth/car_image" 2>/dev/null || true)
-  tags=$(orin_ssh "docker images --format '{{.Repository}}:{{.Tag}}' $F1T_IMAGE_REPO" 2>/dev/null \
-    | grep -E "^${F1T_IMAGE_REPO}:${F1T_IMAGE_PREFIX}[0-9a-f]{7}(-norust)?\$" || true)
-  for tag in $pinned $tags; do
-    grep -qxF "$tag" <<<"$tags" || continue
-    short=${tag#"$F1T_IMAGE_REPO:$F1T_IMAGE_PREFIX"}; short=${short%-norust}
-    [ "$tag" = "$(image_tag_of "$short")" ] || continue
-    sha=$(git -C "$F1T_ROOT" rev-parse -q --verify "$short^{commit}" 2>/dev/null) || continue
-    if same_image "$sha" "$rev"; then echo "$tag $sha"; return 0; fi
-  done
-  return 1
+  local rev=$1 tag isha tested pin best='' fallback=''
+  while read -r tag isha tested pin; do
+    [ "$isha" != - ] || continue
+    git -C "$F1T_ROOT" cat-file -e "$isha^{commit}" 2>/dev/null || continue
+    same_image "$isha" "$rev" || continue
+    if [ "$tested" = true ]; then
+      if [ "$pin" = pin ] || [ -z "$best" ]; then best="$tag $isha"; fi
+    elif [ "$pin" = pin ] || [ -z "$fallback" ]; then
+      fallback="$tag $isha"
+    fi
+  done < <(orin_script "$F1T_ROOT/scripts/lib/orin_images.sh" "$F1T_IMAGE_REPO" "$F1T_IMAGE_PREFIX" 2>/dev/null || true)
+  [ -n "$best$fallback" ] || return 1
+  echo "${best:-$fallback}"
 }
 
 orin_running_containers() {
@@ -58,7 +62,7 @@ orin_running_containers() {
 }
 
 orin_drift_summary() {
-  orin_ssh "$F1T_ORIN_DOCKER_ORIN drift 2>/dev/null" 2>/dev/null | python3 -c '
+  { orin_ssh "$F1T_ORIN_DOCKER_ORIN drift 2>/dev/null" 2>/dev/null || true; } | python3 -c '
 import json, sys
 txt = sys.stdin.read()
 try:

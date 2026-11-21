@@ -11,7 +11,8 @@ set -uo pipefail
 ROOT=$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)
 SCRIPTS=("$ROOT"/scripts/orin_deploy.sh "$ROOT"/scripts/orin_run_tests.sh "$ROOT"/scripts/orin_precheck.sh \
          "$ROOT"/scripts/lib/orin_ui.sh "$ROOT"/scripts/lib/orin_common.sh "$ROOT"/scripts/lib/orin_summary.sh \
-         "$ROOT"/scripts/lib/orin_build_progress.sh "$ROOT"/scripts/tests/orin_scripts_test.sh)
+         "$ROOT"/scripts/lib/orin_build_progress.sh "$ROOT"/scripts/lib/orin_images.sh \
+         "$ROOT"/scripts/tests/orin_scripts_test.sh)
 NOK=0 NFAIL=0
 ok() { NOK=$((NOK + 1)); echo "ok   $1"; }
 ko() { NFAIL=$((NFAIL + 1)); echo "FAIL $1"; [ -z "${2:-}" ] || printf '%s\n' "$2" | sed 's/^/     | /' | tail -15; }
@@ -48,6 +49,18 @@ if git -C "$ROOT" cat-file -e 'b566ab70^{commit}' 2>/dev/null; then
 fi
 want="$F1T_IMAGE_REPO:${F1T_IMAGE_PREFIX}168dc95"; [ "$F1T_IMAGE_RUST" = skip ] && want=$want-norust
 if [ "$(image_tag_of 168dc958abc)" = "$want" ]; then ok "image_tag_of"; else ko "image_tag_of" "$(image_tag_of 168dc958abc)"; fi
+# branch_of su un repo finto: nome con caratteri da shell, e HEAD staccato.
+gr=$(mktemp -d)
+git -C "$gr" init -q && git -C "$gr" -c user.email=t@t -c user.name=t commit -q --allow-empty -m x
+# shellcheck disable=SC2016  # il $( ) deve restare letterale: e' il nome del branch
+weird='feat/a$(touch_x)&b'
+git -C "$gr" checkout -q -b "$weird"
+got=$(F1T_ROOT=$gr branch_of HEAD)
+[[ $got =~ ^[A-Za-z0-9_.-]+$ ]] && ok "branch_of ripulisce '$weird' -> $got" || ko "branch_of ripulisce" "$got"
+git -C "$gr" checkout -q --detach
+got=$(F1T_ROOT=$gr branch_of HEAD)
+[[ $got =~ ^[A-Za-z0-9_.-]+$ ]] && ok "branch_of con HEAD staccato -> $got" || ko "branch_of HEAD staccato" "$got"
+rm -rf "$gr"
 b=$(branch_of HEAD)
 if [ -n "$b" ] && [ "$b" != detached ]; then ok "branch_of HEAD = $b"; else ko "branch_of HEAD" "$b"; fi
 
@@ -83,7 +96,24 @@ REC=(); summary_checks "$BAD" HEAD 1
   || ko "riepilogo sbagliato: 5 FAIL" "$(printf '%s\n' "${REC[@]}")"
 REC=(); summary_checks "container fermo" HEAD skip
 [ "$(count SKIP)" = 11 ] && ok "container fermo: 11 SKIP" || ko "container fermo: 11 SKIP" "$(printf '%s\n' "${REC[@]}")"
+REC=(); summary_checks "container fermo" HEAD 1
+[ "$(count FAIL)" = 1 ] && [ "$(count SKIP)" = 10 ] && ok "container fermo dopo un avvio: FAIL, non OK" \
+  || ko "container fermo dopo un avvio: FAIL" "$(printf '%s\n' "${REC[@]}")"
 [ "$(summary_val "$GOOD" planner)" = "corridor_rrt (parametro del supervisor)" ] && ok "summary_val" || ko "summary_val"
+
+# ---- avanzamento della build (scripts/lib/orin_build_progress.sh) su un job finto
+bt=$(mktemp -d); mkdir -p "$bt/abc1234/output/orin_container/logs"
+echo running > "$bt/abc1234.status"; echo "11:00 [f1t build] build: ..." > "$bt/abc1234.log"
+echo "#12 [ws 5/16] RUN colcon build" > "$bt/abc1234/output/orin_container/logs/build_abc1234_x.log"
+p=$(bash "$ROOT/scripts/lib/orin_build_progress.sh" "$bt" abc1234)
+[[ $p == running\|build\|5\|16\|*\|*"[ws 5/16]"* ]] && ok "build: passo 5/16 letto" || ko "build: passo 5/16" "$p"
+echo "PKG src/foo rc=0 3 passed" >> "$bt/abc1234.log"
+p=$(bash "$ROOT/scripts/lib/orin_build_progress.sh" "$bt" abc1234)
+[[ $p == running\|test\|* ]] && ok "build: fase test riconosciuta" || ko "build: fase test" "$p"
+echo "fail exit 1" > "$bt/abc1234.status"
+p=$(bash "$ROOT/scripts/lib/orin_build_progress.sh" "$bt" abc1234)
+[[ $p == "fail exit 1|fine|"* ]] && ok "build: stato fail finale" || ko "build: stato fail" "$p"
+rm -rf "$bt"
 
 # ---- orin_run_tests: lato sbagliato e argomenti
 tmp=$(mktemp -d); touch "$tmp/.dockerenv"

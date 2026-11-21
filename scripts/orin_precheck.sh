@@ -68,7 +68,7 @@ rec "$(is "$tested" true WARN)" "label tested" "${tested:-assente} (deploy con -
 want=$(git -C "$ROOT" show "$SHA:scripts/orin_run_tests.sh" | sha256sum | cut -d' ' -f1)
 have=$(orin_ssh sha256sum .local/bin/orin_run_tests 2>/dev/null | cut -d' ' -f1 || true)
 rec "$(is "$have" "$want")" "orin_run_tests = commit" "${have:0:12} (atteso ${want:0:12})"
-free=$(orin_ssh "df -BG --output=avail /scratch/fabiocar | tail -1" | tr -dc 0-9)
+free=$( { orin_ssh "df -BG --output=avail /scratch/fabiocar | tail -1" 2>/dev/null || true; } | tr -dc 0-9)
 rec "$([ "${free:-0}" -ge "$MIN_FREE_GB" ] && echo OK || echo FAIL)" "spazio run (/scratch)" "${free:-?} GB (min $MIN_FREE_GB)"
 mode=$(orin_ssh 'cat ~/.config/f1tenth/car_mode 2>/dev/null' || true)
 rec "$(is "$mode" container WARN)" "modalita' auto" "${mode:-?} (orin_run_tests passa a container da solo)"
@@ -77,6 +77,10 @@ ui_step_end
 
 ui_step "container + stack (orin_run_tests sull'Orin, output dal vivo)"
 rc=skip
+before=$(orin_ssh .local/bin/orin_run_tests --summary 2>/dev/null || true)
+STARTED=0
+[[ $(summary_val "$before" stack_cmd) == *supervisor_bringup* ]] || STARTED=1
+log_info "stack prima del precheck: $( [ "$STARTED" = 1 ] && echo fermo || echo 'gia in esecuzione: non lo fermo alla fine')"
 if [ "$START" = 1 ]; then
   set +e
   orin_ssh .local/bin/orin_run_tests 2>&1 | while IFS= read -r l; do printf '  orin| %s\n' "$l" >&2; _log_to_file "  orin| $l"; done
@@ -94,8 +98,9 @@ summary_checks "$out" "$SHA" "$rc"
 ui_section "dettagli"
 for k in image describe subject params_file stack_params profile stack_cmd last_run; do ui_kv "$k" "$(summary_val "$out" "$k")"; done
 
-if [ "$KEEP" = 0 ] && [ "$START" = 1 ]; then
-  log_info "stack fermato (--keep per lasciarlo su)"; orin_ssh .local/bin/orin_run_tests --stop >/dev/null 2>&1 || log_warn "stop dello stack fallito"
+if [ "$KEEP" = 0 ] && [ "$START" = 1 ] && [ "$STARTED" = 1 ]; then
+  log_info "stack fermato (l'ha avviato il precheck; --keep per lasciarlo su)"
+  orin_ssh .local/bin/orin_run_tests --stop >/dev/null 2>&1 || log_warn "stop dello stack fallito"
 fi
 ui_bar 3 3 "precheck finito in $(ui_elapsed)"; ui_bar_done
 if summary "orin_precheck ${SHA:0:7}"; then echo "OK"; else echo "NOT OK: vedi i FAIL sopra (log: $F1T_LOG_FILE)"; exit 1; fi

@@ -21,7 +21,10 @@ summary_val() { awk -v k="$2" '$1==k {$1=""; sub(/^ /,""); print; exit}' <<<"$1"
 summary_checks() {
   local out=$1 sha=$2 rc=$3 v missing nlog d
   if [ -z "$(summary_val "$out" sha)" ]; then
-    for d in "${SUMMARY_CHECKS[@]}"; do skip "$d" "container fermo: nessun riepilogo"; done
+    # Con un avvio fatto (RC non skip) un container fermo e' un fallimento, non un controllo saltato.
+    if [ "$rc" != skip ]; then rec FAIL "${SUMMARY_CHECKS[0]}" "container fermo dopo orin_run_tests (exit $rc)"
+    else skip "${SUMMARY_CHECKS[0]}" "container fermo: nessun riepilogo"; fi
+    for d in "${SUMMARY_CHECKS[@]:1}"; do skip "$d" "container fermo: nessun riepilogo"; done
     return 0
   fi
   missing=$(awk '$1=="missing"{print $2}' <<<"$out" | tr '\n' ' ')
@@ -49,5 +52,5 @@ summary_checks() {
   v=$(summary_val "$out" foxglove)
   rec "$([[ $v == up* ]] && echo OK || echo FAIL)" "${SUMMARY_CHECKS[9]}" "${v:-?}"
   v=$(summary_val "$out" archive)
-  rec "$([ -n "$v" ] && echo OK || echo FAIL)" "${SUMMARY_CHECKS[10]}" "${v:-?}"
+  rec "$([ -n "$v" ] && echo OK || echo FAIL)" "${SUMMARY_CHECKS[10]}" "${v:-?}; sull'host $(summary_val "$out" archive_host | cut -d' ' -f1)"
 }

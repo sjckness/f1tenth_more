@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # orin_deploy.sh - da linus: immagine Jazzy dell'Orin per la campagna a 3 comandi, deploy, verifica.
 #
-#   scripts/orin_deploy.sh [--dry-run] [--force-untested] [--no-allow-drift] [COMMIT]
+#   scripts/orin_deploy.sh [--dry-run] [--force-untested] [--no-allow-drift] [--stop-stack] [COMMIT]
 #                                                        default COMMIT = HEAD (committato)
 #
 #   --dry-run          controlla tutto, non cambia niente
@@ -10,6 +10,9 @@
 #                      lo scrive in deployed.json
 #   --no-allow-drift   NON passa --allow-drift: il container non parte se il checkout nativo dell'Orin
 #                      ha modifiche che l'immagine non ha. Default: --allow-drift, scritto nel log
+#   --stop-stack       se serve una build e il container dell'auto gira: lo ferma (f1t build lo
+#                      rifiuta con il container su). Senza: si ferma prima di toccare qualcosa
+#   BUILD_MAX_S (7200) durata massima della build seguita; BUILD_STALE_S (1800) log fermi = build morta
 #
 # L'immagine: si riusa un'immagine gia' sull'Orin con lo stesso contenuto di COMMIT (stessi src/,
 # docker/orin, scripts/env: un commit che cambia solo questi script non si ricostruisce), prima quella
@@ -42,13 +45,15 @@ source "$ROOT/scripts/lib/orin_ui.sh"
 # shellcheck source=scripts/lib/orin_common.sh
 source "$ROOT/scripts/lib/orin_common.sh"
 
-DRY=() FORCE=() DRIFT=(--allow-drift) COMMIT=HEAD POLL_S=${POLL_S:-15}
+DRY=() FORCE=() DRIFT=(--allow-drift) STOP=() COMMIT=HEAD POLL_S=${POLL_S:-15}
+BUILD_MAX_S=${BUILD_MAX_S:-7200} BUILD_STALE_S=${BUILD_STALE_S:-1800}
 for a in "$@"; do
   case "$a" in
     --dry-run) DRY=(--dry-run) ;;
     --force-untested) FORCE=(--force-untested) ;;
     --no-allow-drift) DRIFT=() ;;
-    -h|--help) sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --stop-stack) STOP=(--stop-stack) ;;
+    -h|--help) sed -n '2,35p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) log_die "opzione sconosciuta: $a (scripts/orin_deploy.sh -h)" 2 ;;
     *) COMMIT=$a ;;
   esac
@@ -93,15 +98,19 @@ if reuse=$(orin_reusable_image "$SHA"); then
 else
   IMG_SHA=$(image_commit "$SHA") IMAGE=$(image_tag_of "$IMG_SHA")
   log_info "nessuna immagine equivalente sull'Orin: build di $IMAGE"
+  if ! dry && [ ${#STOP[@]} = 0 ] && grep -q "^$F1T_ORIN_CONTAINER " <<<"$running"; then
+    log_die "serve una build ma il container $F1T_ORIN_CONTAINER gira (f1t build lo rifiuta): rilancia con --stop-stack per fermarlo, oppure fermalo tu"
+  fi
   if dry; then
     ui_run "$ROOT/tools/f1t" build --dry-run "$IMG_SHA" || log_warn "dry-run: f1t build non pronto (sopra)"
   else
     short=${IMG_SHA:0:7}
-    ui_run "$ROOT/tools/f1t" build --detach "$IMG_SHA"
-    t0=$(date +%s) st=running
+    ui_run "$ROOT/tools/f1t" build --detach "${STOP[@]}" "$IMG_SHA"
+    t0=$(date +%s) st=running nssh=0
     while :; do
-      IFS='|' read -r st phase k m text < <(orin_script "$ROOT/scripts/lib/orin_build_progress.sh" "$F1T_ORIN_BUILD_ROOT" "$short" 2>/dev/null \
-        || echo "running|ssh|0|0|ssh lento, riprovo")
+      IFS='|' read -r st phase k m age text < <(orin_script "$ROOT/scripts/lib/orin_build_progress.sh" "$F1T_ORIN_BUILD_ROOT" "$short" 2>/dev/null \
+        || echo "running|ssh|0|0|-1|ssh non risponde, riprovo")
+      if [ "$phase" = ssh ]; then nssh=$((nssh + 1)); else nssh=0; fi
       case "$phase" in
         build) if [ "${m:-0}" -gt 0 ]; then ui_bar "$k" "$m" "build $(ui_elapsed "$t0") $text"; else ui_spin "$t0" "build: $text"; fi ;;
         test)  ui_spin "$t0" "pytest nell'immagine (un package per volta): $text" ;;
@@ -109,6 +118,11 @@ else
         *)     ui_spin "$t0" "$st: $text" ;;
       esac
       case "$st" in ok*|fail*|none) break ;; esac
+      el=$(( $(date +%s) - t0 ))
+      if [ "$el" -ge "$BUILD_MAX_S" ] || [ "${age:--1}" -ge "$BUILD_STALE_S" ] || [ $((nssh * POLL_S)) -ge 600 ]; then
+        ui_bar_done
+        log_die "build non conclusa: $(ui_elapsed "$t0") trascorsi, log fermi da ${age}s, ssh fallito ${nssh} volte. La build gira staccata: tools/f1t build --follow $short; stato sull'Orin in $F1T_ORIN_BUILD_ROOT/$short.status"
+      fi
       sleep "$POLL_S"
     done
     ui_bar_done
