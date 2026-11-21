@@ -20,6 +20,9 @@
 #   6 verifica /opt/f1tenth_ws/SOURCES nell'immagine (il file di versione: commit, branch, tree hash)
 #              == commit di linus, pin == alias, script installato == commit -> OK / FAIL
 set -euo pipefail
+# f1t deploy stampa il diff dei parametri con git diff: senza questo git apre less e il deploy
+# resta fermo in attesa di 'q' a meta' (prima del pin).
+export GIT_PAGER=cat PAGER=cat
 ROOT=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
 export F1T_CORE=$ROOT/tools/core F1T_SCRIPT=orin_deploy
 # shellcheck source=tools/core/lib/config.sh
