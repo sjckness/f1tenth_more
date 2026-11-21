@@ -11,7 +11,7 @@ st=$(cat "$root/$short.status" 2>/dev/null || echo none)
 job=$(tail -n 1 "$root/$short.log" 2>/dev/null | cut -c1-200 || true)
 phase=build k=0 m=0 text=$job
 case "$job" in
-  *pytest*|*"test dei package"*|*"test di tutti"*) phase="test" ;;
+  *pytest*|"PKG "*|"    "*|*"test dei package"*|*"test di tutti"*|*"test: "*) phase="test" ;;
   *label*) phase=label ;;
 esac
 case "$st" in ok*|fail*) phase=fine ;; esac
