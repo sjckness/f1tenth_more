@@ -52,7 +52,9 @@ log_step "alias $TAG"
 if [ ${#DRY[@]} = 0 ]; then orin_ssh docker tag "$IMAGE" "$TAG"; else log_info "dry-run: docker tag $IMAGE $TAG"; fi
 
 log_step "deploy (tools/f1t deploy --switch-mode)"
-"$ROOT/tools/f1t" deploy "${DRY[@]}" --switch-mode "$IMAGE"
+"$ROOT/tools/f1t" deploy "${DRY[@]}" --switch-mode "$IMAGE" \
+  || { [ ${#DRY[@]} = 1 ] && log_warn "dry-run: deploy non pronto (atteso finche' l'immagine non esiste)"; } \
+  || log_die "deploy fallito (f1t deploy fa gia' il rollback)"
 
 log_step "orin_run_tests dal commit $SHORT"
 if [ ${#DRY[@]} = 0 ]; then
