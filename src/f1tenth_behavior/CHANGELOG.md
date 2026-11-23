@@ -10,6 +10,13 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-23
+
+### Added
+- Missione `missions/turn_left_then_person_then_straight_2m.json`: giro a sinistra di 90°
+  (`wall_turn`), `go_to_object` sulla persona al gap di default (1.1 m con gli `stack_params`
+  attuali), poi dritto 2 m (`distance_reached`). L'ultima mossa parte rivolta verso la persona.
+
 ## [0.1.0] - 2026-11-18
 
 ### Changed

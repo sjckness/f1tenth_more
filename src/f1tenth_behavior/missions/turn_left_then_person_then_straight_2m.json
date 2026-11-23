@@ -1,0 +1,50 @@
+{
+  "mission_id": "turn_left_then_person_then_straight_2m",
+  "schema_version": "5.0",
+  "description": "Turn left 90 degrees (wall_turn, turn_sign +1 = left/CCW, as in turn_90_left), then approach the nearest confirmed person and stop at its default gap (gap_min(person) rounded up to 0.1 m, car front to the person's near edge, resolved at load), then drive straight 2 m. The person must be in view after the turn: acquire_timeout_sec 10 starts when the second move starts and gives semantic_layer_node time to confirm the track. The last move starts facing the person, so the 2 m straight leg drives toward them: clear the path before it starts. Needs semantic_layer_node (/costmap/semantic_tracks) and the global EKF.",
+  "moves": [
+    {
+      "id": "move_0_turn_left_90deg",
+      "drive": {
+        "mode": "wall_turn",
+        "turn_sign": 1.0,
+        "turn_mag_deg": 90.0,
+        "speed": 0.4
+      },
+      "stop_condition": {
+        "type": "orientation_delta",
+        "value": 90.0
+      },
+      "timeout_sec": 30,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "move_1_go_to_person",
+      "go_to_object": {
+        "target_class": "person",
+        "speed": 0.4,
+        "acquire_timeout_sec": 10.0,
+        "lost_grace_sec": 1.5
+      },
+      "stop_condition": {
+        "type": "object_reached"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "move_2_straight_2m",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.4
+      },
+      "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+      },
+      "timeout_sec": 20,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
