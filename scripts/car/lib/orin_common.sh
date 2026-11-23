@@ -114,7 +114,8 @@ car_tool_sum() {
 # (immagine si', script no) e' peggio di nessun deploy.
 #   all    gli script dell'host (CAR_TOOLS) esistono in SHA (il deploy li installa da li')
 #   se SHA e' HEAD, nessuna modifica non committata in cio' che finisce sull'Orin (si porterebbe HEAD,
-#   non quello che si vede): i file tracciati del contenuto dell'immagine; per "all" anche
+#   non quello che si vede): i file tracciati del contenuto dell'immagine (un sottomodulo conta solo
+#   se ne cambia il commit, non per file sporchi al suo interno); per "all" anche
 #   scripts/car, gli script dell'host e i profili, compresi i file nuovi mai aggiunti a git
 car_commit_gate() {
   local sha=$1 what=$2 t missing=() dirty='' extra=()
@@ -128,7 +129,7 @@ car_commit_gate() {
   fi
   [ "${#missing[@]}" = 0 ] || echo "non sono nel commit ${sha:0:12}: ${missing[*]}"
   if [ "$sha" = "$(git -C "$F1T_ROOT" rev-parse HEAD)" ]; then
-    dirty=$( { git -C "$F1T_ROOT" status --porcelain --untracked-files=no -- "${IMAGE_PATHS[@]}"
+    dirty=$( { git -C "$F1T_ROOT" status --porcelain --untracked-files=no --ignore-submodules=dirty -- "${IMAGE_PATHS[@]}"
                [ "${#extra[@]}" = 0 ] || git -C "$F1T_ROOT" status --porcelain --untracked-files=all -- "${extra[@]}"
              } | sort -u | head -20)
     [ -z "$dirty" ] || printf "modifiche non committate (andrebbe sull'Orin HEAD, non questo):\n%s\n" "$dirty"
