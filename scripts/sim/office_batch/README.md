@@ -39,8 +39,21 @@ modi hanno chiuso il rettilineo (5,14-5,17 m) e poi hanno fallito cosi'. Il fake
 stimato il varco 1,5 m troppo corto, cioe' gia' dietro l'auto, quindi in Isaac l'esito puo'
 essere diverso.
 
-Per misurare la variante senza pre-punto basta mettere in `batch.yaml`:
-`mission: scripts/sim/office_batch/missions/straight_5m_then_left_door_direct.json`.
+Per questo c'e' la variante senza pre-punto,
+`missions/straight_5m_then_left_door_direct.json` (`approach_dist_m` 0,05: il goal di
+`enter_door` e' la porta stessa). Non e' ancora stata provata in Isaac. Si sceglie al lancio,
+senza toccare `batch.yaml`:
+
+```bat
+scripts\sim\win\hil_office_batch.bat --smoke --poses 16 --modes corridor_mpc ^
+  --mission scripts/sim/office_batch/missions/straight_5m_then_left_door_direct.json
+```
+
+`--mission PATH` (relativo al checkout, o assoluto) sostituisce `batch.yaml:mission` per quella
+sessione. `session.json` registra quale missione ha girato: `mission` (il percorso),
+`mission_name`, `mission_id`, `mission_sha256` e `mission_override`. Il report dell'analisi
+riporta `mission_name`. Una sessione non mescola due missioni: riprenderla (`--session`) con
+una missione diversa da quella registrata viene rifiutato.
 
 ## Cosa si misura (`car-hil-agent analyze`)
 
@@ -119,6 +132,8 @@ Si possono anche scegliere pose, modi e ripetizioni:
 scripts\sim\win\hil_office_batch.bat --poses 2,16 --modes corridor_rrt --reps 1
 ```
 
+e la missione (`--mission PATH`, vedi [La missione](#la-missione)).
+
 Per riprendere una sessione interrotta (Ctrl+C, crash, reboot) si rilancia con lo stesso id.
 I run che hanno gia' un risultato vengono saltati:
 
@@ -164,7 +179,7 @@ I CSV per run restano sull'Orin, come `raw_data`.
 | `scripts/sim/win/hil_win.py` | work | lancia Isaac (`sim --net link --layout door_left --set scene.car.start.*`) |
 | `scripts/car/orin/hil.sh` = `car-hil` | host dell'Orin | container, Discovery Server, stack up/down, run, mark, analyze |
 | `scripts/car/orin/hil_agent.py` = `car-hil-agent` | nel container | profilo DDS, attese, ready, un run (reset, load, start, registrazione), analisi |
-| `scripts/sim/office_batch/batch.yaml` | work | pose, layout, missione, modi, ripetizioni, timeout, argomenti dello stack |
+| `scripts/sim/office_batch/batch.yaml` | work | pose, layout, missione di default (`--mission` la sostituisce), modi, ripetizioni, timeout, argomenti dello stack |
 | `scripts/sim/office_batch/fake_sim.py` | container (solo test) | sostituto cinematico di Isaac per provare la catena senza la work |
 
 ## Prova senza la work (fatta il 2026-11-23)

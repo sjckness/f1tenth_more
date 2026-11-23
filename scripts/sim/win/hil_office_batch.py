@@ -10,6 +10,7 @@ Nothing is edited on the Orin; the results stay there, in ~/f1tenth_hil_batch/<s
     hil_office_batch.bat                         the whole batch (scripts/sim/office_batch/batch.yaml)
     hil_office_batch.bat --smoke                 1 pose, 1 mode, 1 repetition: the chain end to end
     hil_office_batch.bat --poses 2,16 --modes corridor_rrt --reps 1
+    hil_office_batch.bat --smoke --poses 16 --mission scripts/sim/office_batch/missions/X.json
     hil_office_batch.bat --session 20261123_210000_office_door_left_5m    resume: skips finished runs
     hil_office_batch.bat --analyze-only SESSION
     hil_office_batch.bat --dry-run               the plan and the checks, nothing started
@@ -29,6 +30,10 @@ work, on the cable): the same thing as `scripts/car/deploy.sh --tools-only` does
 these two files only, taken from the COMMIT (git show HEAD:...), never from the working tree. Only
 from a clean checkout whose HEAD is on a remote branch, i.e. code that came from linus through git:
 the work does not develop. --no-install-tools keeps the old behaviour (stop on a mismatch).
+
+--mission PATH replaces batch.yaml:mission for this session (relative to the checkout, or absolute).
+The session records which one ran (session.json: mission, mission_id, mission_sha256); resuming a
+session with a different mission is refused, so one session never mixes two missions.
 
 Test-only options: --ssh TARGET (instead of orin.ssh), --sim-cmd "..." (instead of Isaac; {x} {y}
 {z} {yaw} are substituted; the command must run until killed or until its stdin closes).
@@ -288,6 +293,27 @@ def sha256(p: Path) -> str:
     return hashlib.sha256(p.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
+def resolve_mission(arg: str, batch: dict) -> tuple[Path, str, dict, str]:
+    """(path, path as recorded, parsed mission, sha256 of its LF form). arg '' = batch.yaml:mission."""
+    p = Path(arg) if arg else REPO / batch["mission"]
+    if not p.is_absolute():
+        p = p.resolve() if p.exists() else REPO / p
+    if not p.is_file():
+        die(f"missione {arg or batch['mission']}: file assente ({p})")
+    raw = p.read_bytes().replace(b"\r\n", b"\n")
+    try:
+        doc = json.loads(raw)
+    except ValueError as exc:
+        die(f"missione {p}: JSON non valido ({exc})")
+    if not isinstance(doc, dict) or not doc.get("moves"):
+        die(f"missione {p}: niente 'moves'")
+    try:
+        rec = p.resolve().relative_to(REPO.resolve()).as_posix()
+    except ValueError:
+        rec = str(p)
+    return p, rec, doc, hashlib.sha256(raw).hexdigest()
+
+
 def run_id(pidx: int, mode: str, rep: int) -> str:
     return f"p{pidx:02d}_{mode}_r{rep}"
 
@@ -301,6 +327,8 @@ def main() -> int:
     ap.add_argument("--modes", default="", help="comma-separated (default: batch.yaml)")
     ap.add_argument("--reps", type=int, default=0)
     ap.add_argument("--smoke", action="store_true", help="the first pose, the first mode, 1 repetition")
+    ap.add_argument("--mission", default="", metavar="PATH",
+                    help="mission JSON instead of batch.yaml:mission (recorded in session.json)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--analyze-only", default="", metavar="SESSION")
     ap.add_argument("--allow-version-mismatch", action="store_true",
@@ -352,6 +380,20 @@ def main() -> int:
     log(f"sessione {sid}: {len(sel)} pose x {len(modes)} modi x {reps} rip. = {len(plan)} run")
     log(f"checkout {gi['git_branch']} {str(gi['git_commit'])[:12]}{' (modifiche non committate!)' if gi['git_dirty'] else ''}")
     log(f"Orin {orin.target} (link {orin_ip}:{port}, dominio {domain}), workstation {ws_ip}; log {logdir}")
+    mpath, mrec, mdoc, msha = resolve_mission(a.mission, batch)
+    log(f"missione {mrec} (mission_id {mdoc.get('mission_id', '?')}, sha256 {msha[:12]})"
+        + ("" if a.mission else ", da batch.yaml"))
+    if a.session:
+        rc, out = orin.sh(f"cat f1tenth_hil_batch/{sid}/session.json", 30)
+        try:
+            old = json.loads(out) if rc == 0 else {}
+        except ValueError:
+            old = {}
+        if old.get("mission_sha256", msha) != msha or (
+                "mission_sha256" not in old and old.get("mission_name", mpath.name) != mpath.name):
+            die(f"la sessione {sid} ha girato con la missione {old.get('mission', old.get('mission_name'))} "
+                f"(sha256 {str(old.get('mission_sha256', '?'))[:12]}), non con {mrec}: "
+                "una sessione non mescola due missioni (nuova sessione, o --mission quella)")
 
     # ---- checks
     remote = remote_tool_sums(orin)
@@ -412,7 +454,9 @@ def main() -> int:
     # ---- session
     session = {"name": batch.get("name"), "sid": sid, "batch_file": os.path.relpath(a.batch, REPO),
                "poses_file": batch["poses_file"], "world": batch.get("world", "office"),
-               "layout": batch["layout"], "mission_name": Path(batch["mission"]).name, "modes": modes,
+               "layout": batch["layout"], "mission_name": mpath.name, "mission": mrec,
+               "mission_id": mdoc.get("mission_id"), "mission_sha256": msha,
+               "mission_override": bool(a.mission), "modes": modes,
                "reps": reps, "poses": sel, "stack_args": batch.get("stack_args", []), "timeouts": to,
                "workstation": os.environ.get("COMPUTERNAME") or os.uname().nodename,
                "isaac_cmd_example": Isaac(batch, a.sim_cmd, logdir).cmd(sel[0]),
@@ -433,7 +477,7 @@ def main() -> int:
                 orin.run(["put", sid, "session.json"], 60, input_text=json.dumps(old, indent=1))
         except (ValueError, KeyError):
             orin.run(["put", sid, "session.json"], 60, input_text=json.dumps(session, indent=1))
-    orin.run(["put", sid, "mission.json"], 60, input_text=(REPO / batch["mission"]).read_text(encoding="utf-8"))
+    orin.run(["put", sid, "mission.json"], 60, input_text=mpath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8"))
     if batch.get("map_geo") and (REPO / batch["map_geo"]).is_file():
         orin.run(["put", sid, "map_geo.json"], 60, input_text=(REPO / batch["map_geo"]).read_text(encoding="utf-8"),
                  echo=False)
