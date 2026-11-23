@@ -104,3 +104,6 @@ output/phase*/reports/*/*.log
 
 # sjck-graph run state (local tooling)
 .sjck/
+
+# HIL: the per-machine copy of sim/isaac/config/hil.yaml
+sim/isaac/config/hil.local.yaml
