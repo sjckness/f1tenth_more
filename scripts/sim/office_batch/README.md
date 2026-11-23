@@ -12,8 +12,9 @@ I modi sono `corridor_mpc`, `corridor_rrt` e `p2p_geometric`, con 3 ripetizioni:
 - **Lo stack** gira sull'Orin, nel container `f1tenth_hil` creato dall'immagine fissata
   dell'auto. Per ogni modo parte da zero, perche' `planner_controller_mode` si sceglie al
   lancio.
-- **La work comanda l'Orin** via ssh, attraverso `car-hil`. Sull'Orin non si modifica nulla:
-  `car-hil` e `car-hil-agent` ci arrivano da linus con `scripts/car/deploy.sh --tools-only`.
+- **La work comanda l'Orin** via ssh, attraverso `car-hil`. Sull'Orin non si modifica nulla a
+  mano: `car-hil` e `car-hil-agent` sono quelli del commit della work, che li installa da sé
+  (vedi sotto). Il codice arriva alla work solo via git (`git pull` dopo il push da linus).
 
 ## La missione
 
@@ -105,7 +106,10 @@ scripts\sim\win\hil_office_batch.bat             :: il batch intero
 Prima di partire il driver controlla tre cose, e si ferma se una fallisce:
 
 - che `car-hil` e `car-hil-agent` sull'Orin siano identici a quelli del checkout. Se non lo
-  sono, va fatto `scripts/car/deploy.sh --tools-only <commit>` da linus;
+  sono li installa lui, presi dal commit (`git show HEAD:...`, non dall'albero di lavoro), ma
+  solo se il checkout e' pulito e HEAD sta su un branch remoto; altrimenti si ferma.
+  `--no-install-tools` per fermarsi comunque; da linus resta `scripts/car/deploy.sh --tools-only`
+  (quando l'Orin e' raggiungibile da li');
 - `car-hil preflight`;
 - che l'USD dell'office esista.
 

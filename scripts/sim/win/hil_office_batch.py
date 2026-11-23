@@ -21,8 +21,14 @@ then car-hil stack-down; then Isaac off. A pose whose Isaac never comes up, or a
 never gets READY, is marked (isaac_failed / stack_not_ready) and the batch goes on.
 
 Before anything starts: the car-hil / car-hil-agent on the Orin must be byte-identical to this
-checkout's scripts/car/orin/hil.sh / hil_agent.py (deploy from linus if not), car-hil preflight
-must pass, and the office USD must exist here. Ctrl+C stops Isaac and the Orin side cleanly.
+checkout's scripts/car/orin/hil.sh / hil_agent.py, car-hil preflight must pass, and the office USD
+must exist here. Ctrl+C stops Isaac and the Orin side cleanly.
+
+When the two scripts differ, the batch installs them itself (the Orin is reachable only from the
+work, on the cable): the same thing as `scripts/car/deploy.sh --tools-only` does from linus, for
+these two files only, taken from the COMMIT (git show HEAD:...), never from the working tree. Only
+from a clean checkout whose HEAD is on a remote branch, i.e. code that came from linus through git:
+the work does not develop. --no-install-tools keeps the old behaviour (stop on a mismatch).
 
 Test-only options: --ssh TARGET (instead of orin.ssh), --sim-cmd "..." (instead of Isaac; {x} {y}
 {z} {yaw} are substituted; the command must run until killed or until its stdin closes).
@@ -88,6 +94,19 @@ class Orin:
 
     def sh(self, remote: str, timeout: float = 60) -> tuple[int, str]:
         return self._call(remote, timeout, None, False)
+
+    def put(self, rel_path: str, data: bytes, timeout: float = 60) -> tuple[int, str]:
+        """data -> ~/rel_path on the Orin, mode 755. Bytes, not text: a text pipe on Windows would
+        turn LF into CRLF."""
+        try:
+            r = subprocess.run(self.base + [f"install -D -m 755 /dev/stdin {shlex.quote(rel_path)}"],
+                               input=data, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                               timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return 124, f"timeout {timeout:.0f} s"
+        except OSError as exc:
+            return 255, str(exc)
+        return r.returncode, r.stdout.decode("utf-8", "replace")
 
     def _call(self, remote, timeout, input_text, echo):
         try:
@@ -240,6 +259,30 @@ def git_info() -> dict:
             "git_dirty": bool(g("status", "--porcelain", "--untracked-files=no"))}
 
 
+def git_bytes(*a: str) -> bytes | None:
+    try:
+        return subprocess.check_output(["git", "-C", str(REPO), *a], stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
+def install_gate(gi: dict) -> str:
+    """'' when this checkout may install its car-hil scripts on the Orin, else why not."""
+    if not gi["git_commit"]:
+        return "non e' un checkout git"
+    if gi["git_dirty"]:
+        return "il checkout ha modifiche non committate"
+    remotes = (git_bytes("branch", "-r", "--contains", "HEAD") or b"").decode().split()
+    if not remotes:
+        return f"HEAD {gi['git_commit'][:12]} non e' su nessun branch remoto (fai git fetch; la work non sviluppa)"
+    return ""
+
+
+def remote_tool_sums(orin: "Orin") -> dict:
+    _, out = orin.sh(f"sha256sum {CAR_HIL} {CAR_HIL}-agent", 30)
+    return {Path(ln.split()[1]).name: ln.split()[0] for ln in out.splitlines() if len(ln.split()) == 2}
+
+
 def sha256(p: Path) -> str:
     # git on Windows may check text out with CRLF: hash the LF form, as it is on the Orin
     return hashlib.sha256(p.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
@@ -262,6 +305,8 @@ def main() -> int:
     ap.add_argument("--analyze-only", default="", metavar="SESSION")
     ap.add_argument("--allow-version-mismatch", action="store_true",
                     help="run although car-hil on the Orin differs from this checkout")
+    ap.add_argument("--no-install-tools", action="store_true",
+                    help="do not install this commit's car-hil / car-hil-agent on the Orin when they differ")
     ap.add_argument("--ssh", default="", help="TEST: ssh target instead of orin.ssh")
     ap.add_argument("--sim-cmd", default="", help="TEST: replaces Isaac ({x} {y} {z} {yaw})")
     ap.add_argument("--keep-up", action="store_true", help="leave the Orin container up at the end")
@@ -309,16 +354,42 @@ def main() -> int:
     log(f"Orin {orin.target} (link {orin_ip}:{port}, dominio {domain}), workstation {ws_ip}; log {logdir}")
 
     # ---- checks
-    rc, out = orin.sh(f"sha256sum {CAR_HIL} {CAR_HIL}-agent", 30)
-    remote = {Path(ln.split()[1]).name: ln.split()[0] for ln in out.splitlines() if len(ln.split()) == 2}
-    mism = [f"{n}: Orin {remote.get(n, 'assente')[:12]} != checkout {sha256(p)[:12]}"
-            for n, p in ORIN_TOOLS.items() if remote.get(n) != sha256(p)]
+    remote = remote_tool_sums(orin)
+    would_install = False
+    differ = [n for n, p in ORIN_TOOLS.items() if remote.get(n) != sha256(p)]
+    mism = [f"{n}: Orin {remote.get(n, 'assente')[:12]} != checkout {sha256(ORIN_TOOLS[n])[:12]}"
+            for n in differ]
+    if mism and not a.no_install_tools and not a.allow_version_mismatch:
+        commit = str(gi["git_commit"])[:12]
+        why = install_gate(gi)
+        if why:
+            log(f"non installo car-hil dal checkout: {why}")
+        elif a.dry_run:
+            for n, m in zip(differ, mism):
+                log(f"dry-run: installerei {n} di {commit} sull'Orin ({m})")
+            mism, would_install = [], True
+        else:
+            for n in differ:
+                rel = ORIN_TOOLS[n].relative_to(REPO).as_posix()
+                data = git_bytes("show", f"HEAD:{rel}")
+                if data is None:
+                    die(f"git show HEAD:{rel} fallito")
+                rc, out = orin.put(f".local/bin/{n}", data)
+                if rc != 0:
+                    die(f"installazione di {n} sull'Orin fallita (rc {rc}): {out.strip()[-300:]}")
+                log(f"installato {n} di {commit} sull'Orin")
+            remote = remote_tool_sums(orin)
+            mism = [f"{n}: Orin {remote.get(n, 'assente')[:12]} != checkout {sha256(p)[:12]}"
+                    for n, p in ORIN_TOOLS.items() if remote.get(n) != sha256(p)]
     if mism:
         msg = ("car-hil sull'Orin non e' quello di questo checkout:\n  " + "\n  ".join(mism)
-               + f"\n  da linus: scripts/car/deploy.sh {str(gi['git_commit'])[:12]} (la work non sviluppa)")
+               + f"\n  committa su linus, git pull qui e rilancia (o scripts/car/deploy.sh --tools-only "
+               f"{str(gi['git_commit'])[:12]} da linus)")
         if not a.allow_version_mismatch:
             die(msg)
         log("ATTENZIONE " + msg)
+    elif would_install:
+        log("car-hil e car-hil-agent sull'Orin: diversi, il run vero li installa da questo checkout")
     else:
         log("car-hil e car-hil-agent sull'Orin == questo checkout")
     if not a.sim_cmd:
