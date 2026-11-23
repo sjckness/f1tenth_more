@@ -36,3 +36,8 @@ timeouts:
   stack_retries: 1      # per (pose, mode), when the stack does not get READY
 
 min_free_gb: 8          # on the Orin, checked by car-hil preflight
+
+# The work is shared: every yield_check_s seconds the batch looks at the Windows sessions; another
+# user logging in (or reconnecting) closes Isaac and the Orin stack at once, the repetition in
+# flight is lost, the rest resumes with --session. 0 = never give way. --yield-check-s overrides.
+yield_check_s: 300

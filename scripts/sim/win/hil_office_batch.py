@@ -35,7 +35,15 @@ the work does not develop. --no-install-tools keeps the old behaviour (stop on a
 The session records which one ran (session.json: mission, mission_id, mission_sha256); resuming a
 session with a different mission is refused, so one session never mixes two missions.
 
-Test-only options: --ssh TARGET (instead of orin.ssh), --sim-cmd "..." (instead of Isaac; {x} {y}
+The work is shared: every --yield-check-s seconds (default batch.yaml yield_check_s, 300; 0 = off)
+the batch looks at the Windows sessions (WTS API). When another user logs in, or reconnects to a
+session that was disconnected when the batch started, the batch gives way: it kills Isaac and the
+ssh in flight at once, then stack-down, analysis of what finished, container down. The repetition
+in flight is lost (no result: --session SID redoes it later). A batch never starts while another
+user's session is active.
+
+Test-only options: --sessions-file F (JSON list of {"user", "state", "id"} read at every check,
+instead of the WTS API; state "active" or "disconnected"), --ssh TARGET (instead of orin.ssh), --sim-cmd "..." (instead of Isaac; {x} {y}
 {z} {yaw} are substituted; the command must run until killed or until its stdin closes).
 """
 from __future__ import annotations
@@ -48,6 +56,7 @@ import shlex
 import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -83,6 +92,12 @@ class Orin:
         self.base = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
                      "-o", "ServerAliveInterval=10", "-o", "ServerAliveCountMax=6", target]
         self.target = target
+        self.proc: subprocess.Popen | None = None
+        self.guard = True     # False for the cleanup after a yield: stack-down / analyze / down
+
+    def check(self) -> None:
+        if self.guard and YIELD.is_set():
+            raise Yielded(YIELD_REASON[0])
 
     def run(self, args: list[str], timeout: float, input_text: str | None = None,
             echo: bool = True, retries: int = 2) -> tuple[int, str]:
@@ -90,7 +105,9 @@ class Orin:
         and, with echo, printed line by line as it arrives."""
         remote = " ".join(shlex.quote(a) for a in [CAR_HIL, *args])
         for attempt in range(retries + 1):
+            self.check()
             rc, out = self._call(remote, timeout, input_text, echo)
+            self.check()
             if rc != 255:
                 return rc, out
             log(f"ssh non riuscito (tentativo {attempt + 1}/{retries + 1}): {out.strip()[-200:]}")
@@ -120,6 +137,7 @@ class Orin:
                                  stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
         except OSError as exc:
             return 255, str(exc)
+        self.proc = p
         if input_text is not None:
             try:
                 p.stdin.write(input_text)
@@ -127,7 +145,6 @@ class Orin:
             except OSError:
                 pass
         out, t0 = [], time.monotonic()
-        import threading
         def reader():
             for ln in p.stdout:
                 out.append(ln)
@@ -146,7 +163,13 @@ class Orin:
                 return 124, "".join(out)
             time.sleep(0.2)
         th.join(5)
+        self.proc = None
         return p.returncode, "".join(out)
+
+    def kill_current(self) -> None:
+        p = self.proc
+        if p is not None and p.poll() is None:
+            p.kill()
 
 
 # ---- Isaac -----------------------------------------------------------------------------------
@@ -194,6 +217,8 @@ class Isaac:
 
     def start(self, pose: dict, attempt: int) -> None:
         self.stop()
+        if YIELD.is_set():
+            raise Yielded(YIELD_REASON[0])
         for pid in stray_isaac():
             log(f"un altro Isaac gira gia' (pid {pid}): lo chiudo, due sim pubblicherebbero /clock")
             kill_tree(pid)
@@ -231,6 +256,99 @@ class Isaac:
         if not self.logf or not self.logf.exists():
             return ""
         return "\n".join(self.logf.read_text(encoding="utf-8", errors="replace").splitlines()[-n:])
+
+
+# ---- other users on the work ------------------------------------------------------------------
+YIELD = threading.Event()
+YIELD_REASON = [""]
+
+
+class Yielded(Exception):
+    pass
+
+
+def win_sessions() -> list[dict]:
+    """The Windows sessions with a user: [{"user": "DOMAIN\\name", "state": "active"|"disconnected"|...,
+    "id": N}]. WTS API, not `query user`: its output is localized."""
+    import ctypes
+    from ctypes import wintypes
+
+    class SI(ctypes.Structure):
+        _fields_ = [("SessionId", wintypes.DWORD), ("pWinStationName", wintypes.LPWSTR),
+                    ("State", ctypes.c_int)]
+    wts = ctypes.WinDLL("wtsapi32")
+    wts.WTSEnumerateSessionsW.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD,
+                                          ctypes.POINTER(ctypes.POINTER(SI)), ctypes.POINTER(wintypes.DWORD)]
+    wts.WTSQuerySessionInformationW.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.c_int,
+                                                ctypes.POINTER(wintypes.LPWSTR), ctypes.POINTER(wintypes.DWORD)]
+    wts.WTSFreeMemory.argtypes = [ctypes.c_void_p]
+    states = {0: "active", 1: "connected", 4: "disconnected", 5: "idle"}
+    arr, n = ctypes.POINTER(SI)(), wintypes.DWORD()
+    if not wts.WTSEnumerateSessionsW(None, 0, 1, ctypes.byref(arr), ctypes.byref(n)):
+        raise OSError(f"WTSEnumerateSessionsW: {ctypes.GetLastError()}")
+    out = []
+    try:
+        for i in range(n.value):
+            sid, st = arr[i].SessionId, arr[i].State
+            vals = []
+            for cls in (5, 7):              # WTSUserName, WTSDomainName
+                buf, ln = wintypes.LPWSTR(), wintypes.DWORD()
+                if wts.WTSQuerySessionInformationW(None, sid, cls, ctypes.byref(buf), ctypes.byref(ln)):
+                    vals.append(buf.value or "")
+                    wts.WTSFreeMemory(buf)
+                else:
+                    vals.append("")
+            if vals[0]:
+                out.append({"user": f"{vals[1]}\\{vals[0]}" if vals[1] else vals[0],
+                            "state": states.get(st, str(st)), "id": int(sid)})
+    finally:
+        wts.WTSFreeMemory(arr)
+    return out
+
+
+def me() -> str:
+    return (os.environ.get("USERNAME") or os.environ.get("USER") or "").lower()
+
+
+def others(sessions: list[dict], user: str) -> list[dict]:
+    """The sessions of users other than `user` (the name, with or without the domain)."""
+    u = user.split("\\")[-1].lower()
+    return [s for s in sessions if s["user"].split("\\")[-1].lower() != u]
+
+
+def must_yield(now: list[dict], baseline: list[dict]) -> list[dict]:
+    """Another user's session that is new since the start, or active now. A session that was already
+    there and disconnected at the start is tolerated while it stays disconnected."""
+    old = {(s["id"], s["user"].lower()) for s in baseline}
+    return [s for s in now if s["state"] == "active" or (s["id"], s["user"].lower()) not in old]
+
+
+class SessionGuard(threading.Thread):
+    """Every `interval` s: probe() -> the other users' sessions; on must_yield, sets YIELD and calls
+    on_yield() (kill Isaac and the ssh in flight) once, then stops."""
+
+    def __init__(self, probe, interval: float, baseline: list[dict], on_yield) -> None:
+        super().__init__(daemon=True, name="session-guard")
+        self.probe, self.interval, self.baseline, self.on_yield = probe, interval, baseline, on_yield
+        self.stopped = threading.Event()
+
+    def run(self) -> None:
+        failed = False
+        while not self.stopped.wait(self.interval):
+            try:
+                hit = must_yield(self.probe(), self.baseline)
+            except Exception as exc:  # noqa: BLE001  a broken probe never stops the batch
+                if not failed:
+                    log(f"ATTENZIONE: controllo delle sessioni fallito ({exc}): continuo senza")
+                failed = True
+                continue
+            if hit:
+                who = ", ".join(f"{s['user']} ({s['state']}, sessione {s['id']})" for s in hit)
+                YIELD_REASON[0] = f"un altro utente sulla work: {who}"
+                log(f"CEDO LA WORK: {YIELD_REASON[0]}; chiudo Isaac e lo stack, la ripetizione in corso e' persa")
+                YIELD.set()
+                self.on_yield()
+                return
 
 
 def keep_awake() -> None:
@@ -338,6 +456,10 @@ def main() -> int:
     ap.add_argument("--ssh", default="", help="TEST: ssh target instead of orin.ssh")
     ap.add_argument("--sim-cmd", default="", help="TEST: replaces Isaac ({x} {y} {z} {yaw})")
     ap.add_argument("--keep-up", action="store_true", help="leave the Orin container up at the end")
+    ap.add_argument("--yield-check-s", type=float, default=-1,
+                    help="seconds between checks for other users' sessions on the work (default "
+                         "batch.yaml yield_check_s, 300; 0 = never give way)")
+    ap.add_argument("--sessions-file", default="", help="TEST: sessions from this JSON, not the WTS API")
     a = ap.parse_args()
 
     import yaml
@@ -439,6 +561,29 @@ def main() -> int:
         if not usd.is_file():
             die(f"manca {usd}: estrailo da work-20261119.tar.gz (sim/isaac/usd/generated/office/) "
                 "o rigeneralo con hil_world_convert.bat")
+    yield_s = a.yield_check_s if a.yield_check_s >= 0 else float(batch.get("yield_check_s", 300))
+    probe = None
+    if yield_s > 0:
+        if a.sessions_file:
+            probe = lambda: others(json.load(open(a.sessions_file, encoding="utf-8")), me())  # noqa: E731
+        elif WIN:
+            probe = lambda: others(win_sessions(), me())  # noqa: E731
+        else:
+            log("controllo delle sessioni: solo su Windows (o --sessions-file), qui spento")
+    baseline: list[dict] = []
+    if probe is not None:
+        try:
+            baseline = probe()
+        except Exception as exc:  # noqa: BLE001
+            log(f"ATTENZIONE: controllo delle sessioni non disponibile ({exc}): il batch non cede la work")
+            probe = None
+    if probe is not None:
+        act = [s for s in baseline if s["state"] == "active"]
+        if act:
+            die("un altro utente e' attivo sulla work: " + ", ".join(f"{s['user']} (sessione {s['id']})" for s in act)
+                + "; il batch non parte (--yield-check-s 0 per partire lo stesso)")
+        log(f"sessioni altrui: controllo ogni {yield_s:.0f} s, alla prima nuova o attiva il batch si chiude"
+            + (" (gia' presenti, disconnesse: " + ", ".join(s["user"] for s in baseline) + ")" if baseline else ""))
     rc, out = orin.run(["preflight", "--orin-ip", orin_ip, "--ws-ip", ws_ip, "--port", str(port),
                         "--min-free-gb", str(batch.get("min_free_gb", 8))], timeout=120)
     if rc != 0:
@@ -488,6 +633,14 @@ def main() -> int:
 
     keep_awake()
     isaac = Isaac(batch, a.sim_cmd, logdir)
+    guard = None
+    if probe is not None:
+        def on_yield():
+            orin.kill_current()
+            if isaac.p is not None and isaac.p.poll() is None:
+                kill_tree(isaac.p.pid)
+        guard = SessionGuard(probe, yield_s, baseline, on_yield)
+        guard.start()
     t_batch = time.monotonic()
     n_done = 0
     stack_args = list(batch.get("stack_args", []))
@@ -569,7 +722,12 @@ def main() -> int:
                 mark(p, m, r, "isaac_failed", f"Isaac not usable after {launches} launches")
     except KeyboardInterrupt:
         log("Ctrl+C: chiudo Isaac e lo stack sull'Orin")
+    except Yielded as exc:
+        log(f"batch interrotto: {exc}; riprendi con --session {sid}")
     finally:
+        if guard is not None:
+            guard.stopped.set()
+        orin.guard = False
         isaac.stop()
         orin.run(["stack-down", sid], 180)
     log("analisi sull'Orin")
@@ -578,9 +736,12 @@ def main() -> int:
     if rc == 0:
         (logdir / "report.md").write_text(out, encoding="utf-8")
         log(f"report: {logdir / 'report.md'} (copia); dati: Orin ~/f1tenth_hil_batch/{sid}/")
-    if not a.keep_up:
+    if not a.keep_up or YIELD.is_set():
         orin.run(["down", sid], 240)
     log(f"fine in {(time.monotonic() - t_batch) / 3600:.2f} h")
+    if YIELD.is_set():
+        log(f"CEDUTA LA WORK ({YIELD_REASON[0]}): sessione incompleta, --session {sid} per finirla")
+        return 3
     return 0
 
 

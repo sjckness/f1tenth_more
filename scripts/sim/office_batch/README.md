@@ -130,7 +130,20 @@ Prima di partire il driver controlla tre cose, e si ferma se una fallisce:
   `--no-install-tools` per fermarsi comunque; da linus resta `scripts/car/deploy.sh --tools-only`
   (quando l'Orin e' raggiungibile da li');
 - `car-hil preflight`;
-- che l'USD dell'office esista.
+- che l'USD dell'office esista;
+- che nessun altro utente Windows sia attivo sulla work.
+
+**La work e' condivisa: il batch cede il posto.** Ogni 5 minuti (`yield_check_s` in `batch.yaml`,
+`--yield-check-s N` da riga di comando, 0 = mai) il batch guarda le sessioni Windows. Se un altro
+utente entra (o riconnette una sessione che era disconnessa quando il batch e' partito), il batch:
+
+- chiude subito Isaac e l'ssh in corso;
+- fa `stack-down`, l'analisi di quello che ha finito e `down` del container;
+- esce con codice 3.
+
+La ripetizione in corso e' persa. Le altre restano da fare e si finiscono con `--session <id>`
+(l'id e' nell'ultima riga del log). Le sessioni altrui gia' disconnesse alla partenza sono tollerate
+finche' restano disconnesse.
 
 Si possono anche scegliere pose, modi e ripetizioni:
 
