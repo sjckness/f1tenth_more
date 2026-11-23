@@ -3,6 +3,7 @@
 #
 #   scripts/car/deploy.sh [--dry-run] [--force-untested] [--no-allow-drift] [--stop-stack]
 #                         [--allow-dirty-profiles] [COMMIT]                    default COMMIT = HEAD
+#   scripts/car/deploy.sh --tools-only [--dry-run] [COMMIT]
 #
 #   --dry-run          controlla tutto, non cambia niente
 #   --force-untested   accetta un'immagine senza label tested (f1t deploy lo scrive in deployed.json)
@@ -10,6 +11,9 @@
 #                      ha modifiche che l'immagine non ha. Default: --allow-drift, scritto nel log
 #   --stop-stack       se serve una build e il container dell'auto gira: lo ferma
 #   --allow-dirty-profiles   copia anche profili con modifiche non committate (vedi profiles.sh)
+#   --tools-only       solo gli script dell'host (passo 4) e la loro verifica: immagine, container e
+#                      profili restano come sono. Per un commit che cambia solo scripts/car/orin (es.
+#                      car-hil del batch HIL) quando l'immagine fissata ha gia' lo stesso contenuto
 #
 # Passi (log completo in logs/tools/car_deploy_<data>.log):
 #   1 stato    Orin, immagine fissata, modalita', container, drift, stack_args
@@ -39,7 +43,7 @@ source "$ROOT/scripts/car/lib/orin_common.sh"
 # shellcheck source=scripts/car/lib/car_build.sh
 source "$ROOT/scripts/car/lib/car_build.sh"
 
-DRY=() FORCE=() DRIFT=(--allow-drift) STOP=() PDIRTY=() COMMIT=HEAD
+DRY=() FORCE=() DRIFT=(--allow-drift) STOP=() PDIRTY=() COMMIT=HEAD TOOLS_ONLY=0
 for a in "$@"; do
   case "$a" in
     --dry-run) DRY=(--dry-run) ;;
@@ -47,6 +51,7 @@ for a in "$@"; do
     --no-allow-drift) DRIFT=() ;;
     --stop-stack) STOP=(--stop-stack) ;;
     --allow-dirty-profiles) PDIRTY=(--allow-dirty) ;;
+    --tools-only) TOOLS_ONLY=1 ;;
     -h|--help) sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
     -*) log_die "opzione sconosciuta: $a (scripts/car/deploy.sh -h)" 2 ;;
     *) COMMIT=$a ;;
@@ -68,11 +73,31 @@ ui_kv "contenuto immagine da" "$(image_commit "$SHA" | cut -c1-12)"
 ui_kv "Orin" "$(orin_target)"
 ui_kv "opzioni" "${DRY[*]:-reale} ${FORCE[*]:-} ${DRIFT[*]:---no-allow-drift} ${STOP[*]:-} ${PDIRTY[*]:-}"
 ui_kv "log" "$F1T_LOG_FILE"
-ui_steps 7
+ui_steps "$([ "$TOOLS_ONLY" = 1 ] && echo 1 || echo 7)"
 if ! gate=$(car_commit_gate "$SHA" all ${PDIRTY[@]:+--allow-dirty-profiles}); then
   log_die "${COMMIT} non e' pronto per l'Orin, niente e' stato toccato:
 $gate
 Committa e rilancia."
+fi
+
+if [ "$TOOLS_ONLY" = 1 ]; then
+  ui_step "solo script dell'host da ${SHA:0:12}: ${CAR_TOOLS[*]##*:}"
+  pin_tag=$(orin_ssh "awk '\$1==\"tag\"{print \$2}' $F1T_ORIN_PIN_FILE" 2>/dev/null || true)
+  if same_image "$(orin_ssh "docker image inspect -f '{{index .Config.Labels \"org.opencontainers.image.revision\"}}' $pin_tag" 2>/dev/null || echo x)" "$SHA"; then
+    log_ok "immagine fissata $pin_tag: stesso contenuto di ${SHA:0:12}, non serve un'immagine nuova"
+  else
+    log_warn "immagine fissata ${pin_tag:-nessuna}: contenuto DIVERSO da ${SHA:0:12} (gli script vanno, l'immagine no: deploy completo)"
+  fi
+  if dry; then
+    for t in "${CAR_TOOLS[@]}"; do log_info "dry-run: git show ${SHA:0:7}:${t%%:*} -> ~/.local/bin/${t##*:}"; done
+  else
+    car_tools_install "$SHA" || log_die "installazione degli script sull'Orin fallita"
+  fi
+  while read -r n st s; do check_record "$st" "$n = commit" "$s"; done < <(car_tools_check "$SHA")
+  ui_step_end
+  if summary "car deploy --tools-only ${SHA:0:12}"; then log_ok "script dell'host == ${SHA:0:12}"
+  else dry || log_die "script dell'host != ${SHA:0:12} (righe FAIL sopra)"; fi
+  exit 0
 fi
 
 car_state_step
