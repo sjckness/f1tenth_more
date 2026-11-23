@@ -1,0 +1,81 @@
+# F1Tenth car specification for the Isaac Sim model.
+# Every value has a `source`:
+#   repo:<path>:<line>   -> ~/dev_ws/f1tenth_more/src/<path> (local HEAD 7b17e2f)
+#   bag:<name>           -> ~/f1tenth_archive/mission_row/<name> (recorded on the real car;
+#                           newer than the local repo: commit e3793e47, see phase1_spec_review.md)
+#   measured             -> tape measurement on the real car (Andreas, task prompt)
+#   assumed              -> no source; REVIEW
+#   derived              -> computed from the values above (formula given)
+# Frame convention: base_link = rear-axle centre ON THE FLOOR (z = 0), x forward, y left, z up.
+#   source: repo:f1tenth_description/urdf/base.xacro:5-9, base_front.xacro:15-20
+
+geometry:
+  wheelbase: {value: 0.305, unit: m, source: "repo:f1tenth_description/urdf/core.xacro:74,87 (+ header :6-7); bag 2026-10-15T15-18-27 tf chassis->left_steering_hinge x=0.305; measured: front axle 0.10 m behind bumper, bumper at base_front x=0.405 -> 0.305"}
+  track_front: {value: 0.20, unit: m, source: "repo:f1tenth_description/urdf/core.xacro:74,87 (y=+-0.1)"}
+  track_rear: {value: 0.20, unit: m, source: "repo:f1tenth_description/urdf/core.xacro:47,61 (y=+-0.1)"}
+  wheel_radius: {value: 0.05, unit: m, source: "repo:f1tenth_description/urdf/macros.xacro:101"}
+  wheel_width: {value: 0.045, unit: m, source: "repo:f1tenth_description/urdf/macros.xacro:106"}
+  front_bumper_x: {value: 0.405, unit: m, source: "repo:f1tenth_params stack_params.yaml:713-717 / f1tenth_description/urdf/base_front.xacro:15-31 (taped bumper face)"}
+  rear_x: {value: -0.082, unit: m, source: "repo:f1tenth_params stack_params.yaml:713-717 (footprint)"}
+  half_width: {value: 0.136, unit: m, source: "repo:f1tenth_params stack_params.yaml:713-717 (footprint)"}
+
+mass:
+  total: {value: 5.562, unit: kg, source: "derived: repo:f1tenth_description/urdf/macros.xacro:20-59 inertials, chassis 4.0 + 4 x 0.34055 wheels + 2 x 0.1 hinges. No weighed mass found -> REVIEW (weigh the car)"}
+
+limits:
+  # Real limit = VESC servo clip [servo_min, servo_max] mapped through ackermann_to_vesc gains:
+  # delta = (servo - offset) / gain  (gain_left for delta>=0, gain_right for delta<0)
+  max_steering_left: {value: 0.31975, unit: rad, source: "derived: (0.15-0.4874)/-1.0552; repo:f1tenth_hardware/f1tenth_hardware/config/steering_calibration.yaml:27-28,38,50-51; clip in vesc_driver.cpp:63,389"}
+  max_steering_right: {value: 0.30935, unit: rad, source: "derived: (0.8318-0.4874)/-1.1133 (magnitude); same files"}
+  # Other steering values found (NOT enforced on every path): MPC [-0.309,+0.319] (stack_params.yaml:1487-1492),
+  # joystick scale 0.34 (f1tenth_bringup/config/joy_teleop.yaml:37), URDF hinge +-0.4 (core.xacro:78,91).
+  max_speed: {value: 2.0, unit: m/s, source: "assumed (task prompt). Stack: MPC max_forward 0.5 m/s (stack_params.yaml:1300-1314); teleop 5.0 m/s unclamped (joy_teleop.yaml:33); VESC speed_max 23250 ERPM ~ 5.15 m/s (vesc.yaml:14,96-97)"}
+  max_reverse_speed: {value: 2.0, unit: m/s, source: "assumed (VESC allows reverse; MPC uses none)"}
+  # Actuator dynamics, applied BEFORE the Ackermann controller (first-order lag then rate limit).
+  steering_rate: {value: 3.0, unit: rad/s, source: "assumed (task prompt default) - to be identified"}
+  acceleration: {value: 3.0, unit: m/s^2, source: "assumed (task prompt default) - to be identified"}
+  speed_tau: {value: 0.15, unit: s, source: "assumed - to be identified"}
+  steering_tau: {value: 0.08, unit: s, source: "assumed - to be identified"}
+  command_timeout: {value: 0.5, unit: s, source: "task prompt (watchdog). Real mux topic timeout is 0.2 s (f1tenth_bringup/config/mux.yaml)"}
+
+friction:
+  static: {value: 0.9, source: "assumed (task prompt, indoor floor)"}
+  dynamic: {value: 0.7, source: "assumed (task prompt, indoor floor)"}
+  restitution: {value: 0.0, source: "assumed"}
+
+# Sensor poses in base_link. Measured values win (task rule), URDF/bag values kept for the discrepancy table.
+sensors:
+  laser:
+    xyz: {value: [0.305, 0.0, 0.19], unit: m, source: "measured: 0.10 m behind bumper (0.405-0.10), 0.19 m high. Agrees with bag 2026-10-15T15-18-27 tf base_link->laser (0.305,0,0.19)"}
+    rpy: {value: [0.0, 0.0, 0.0], unit: rad, source: "bag 2026-10-15T15-18-27 tf; repo:f1tenth_bringup/launch/description.launch.py:196-203"}
+  imu:
+    xyz: {value: [0.0, 0.0, 0.0], unit: m, source: "repo:f1tenth_bringup/launch/vesc.launch.py:243-248 (static base_link->imu = 0); bag confirms"}
+    rpy: {value: [0.0, 0.0, 0.0], unit: rad, source: "same"}
+  zed:
+    # Measured point = lens plane, between the two lenses (= ZED 'left/right camera frame' x, centred in y).
+    lens_center_xyz: {value: [0.255, 0.0, 0.22], unit: m, source: "measured: 0.15 m behind bumper (0.405-0.15), 0.22 m high. Bag tf puts left_camera_frame at x=0.2294, z=0.2196 -> 2.6 cm x discrepancy, see review"}
+    pitch: {value: -0.0364, unit: rad, source: "bag 2026-10-15T15-18-27 tf base_link->zed2_camera_link q=(0,-0.0182,0,0.9998) = -2.083 deg; params.yaml:611 'ZED mount pitch is measured to 2.083 deg'. ROS sign: NEGATIVE pitch = optical axis tilted UP (nose-up). REVIEW sign (prompt expected nose-down if unknown)"}
+    baseline: {value: 0.12, unit: m, source: "bag tf zed2_camera_center->left/right (+-0.06); ZED2/2i nominal 0.12"}
+    # ZED wrapper URDF chain (zed2i, bag 2026-10-15): link->center->left/right camera frames.
+    link_to_center_xyz: {value: [0.0, 0.0, 0.015], unit: m, source: "bag tf zed2_camera_link->zed2_camera_center (ZED wrapper urdf)"}
+    center_to_left_xyz: {value: [-0.01, 0.06, 0.0], unit: m, source: "bag tf zed2_camera_center->zed2_left_camera_frame"}
+    center_to_right_xyz: {value: [-0.01, -0.06, 0.0], unit: m, source: "bag tf zed2_camera_center->zed2_right_camera_frame"}
+    model: {value: zed2i, source: "repo:f1tenth_perception/launch/camera.launch.py:97-127 (camera_model 'zed2i', camera_name 'zed2'; was zed2 before 2026-10-13)"}
+
+# Leatherback base asset (measured headless, tools/inspect_leatherback.py -> output/leatherback_inspection.json)
+leatherback:
+  usd: {value: "/Isaac/Robots/NVIDIA/Leatherback/leatherback.usd", source: "NVIDIA assets 5.1"}
+  drive_max_torque: {value: 2.0, unit: N m, source: "derived 2026-10-16 (sim_next S20): the USD velocity drives (kd 5.7e9) have no force limit, so a car pushing a wall builds unbounded wheel torque until PhysX goes NaN (office, 170 s stalled at 0.4 m/s). Traction limit 5.562 kg x 0.8 g / 4 wheels x 0.05 m = 0.55 N m per wheel; 2.0 = 3.6x that, never reached while driving (3 m/s^2 needs 0.21 N m)"}
+  wheelbase: {value: 0.320, unit: m, source: "measured: wheel body x +0.15 / -0.17"}
+  track: {value: 0.2416, unit: m, source: "measured: wheel centres y +-0.1208 (rear right 0.1215)"}
+  wheel_radius: {value: 0.052, unit: m, source: "measured: wheel bbox 0.104 dia; sample graph backWheelRadius 0.052"}
+  base_mass_explicit: {value: 0.94, unit: kg, source: "measured: sum of MassAPI masses of non-chassis bodies; chassis has no explicit mass (density)"}
+  steering_joints: {value: [Knuckle__Upright__Front_Left, Knuckle__Upright__Front_Right], source: "measured (+ leatherback_ROS sample graph)"}
+  drive_joints: {value: [Wheel__Knuckle__Front_Left, Wheel__Knuckle__Front_Right, Wheel__Upright__Rear_Left, Wheel__Upright__Rear_Right], source: "measured; order = AckermannController output (FL, FR, RL, RR)"}
+  rear_wheel_bodies: {value: [Wheel_Rear_Left, Wheel_Rear_Right], source: measured}
+  chassis_body: {value: Rigid_Bodies/Chassis, source: measured}
+  invert_steering: {value: false, source: "sample graph invertSteering=False; verified by driving test"}
+  # Uniform scale (rule: never non-uniform on the articulation)
+  scale: {value: 0.953125, source: "derived: wheelbase_real / wheelbase_leatherback = 0.305 / 0.320"}
+  # After scaling: track 0.2303 (+15.1 % vs 0.20), wheel radius 0.04956 (-0.9 % vs 0.05)
+  hide_body_shell: {value: false, source: "assumed; set true if the body shell occludes the cameras/lidar"}

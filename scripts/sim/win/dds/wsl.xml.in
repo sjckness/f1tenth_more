@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fast DDS profile TEMPLATE for the WSL2 path: Isaac Sim native on WINDOWS, Hydra in a WSL2
+  Ubuntu 24.04 distro on the SAME PC. The Orin is not in this path at all (Hydra with
+  seg_source:=gt + pose_source:=isaac_gt reads only Isaac's own topics).
+
+  Why this exists: Hydra needs Ubuntu 24.04 + ROS Jazzy + GTSAM/PCL, so it cannot run on Windows,
+  where Isaac must run natively (Docker Desktop/WSL2 does not expose the RTX renderer - see
+  output/hil/run_windows.md). WSL2 is therefore the only place for Hydra on this machine, and the
+  two halves have to meet over DDS across the vEthernet (WSL) NAT.
+
+  ONE template renders BOTH sides; only the substitutions differ (the placeholders are written
+  without their at signs here, so the renderer does not substitute them into this comment):
+    Isaac (Windows): OWN_IP = the vEthernet (WSL) address, PEER_IP = the Ubuntu address
+    Hydra (WSL):     OWN_IP = the Ubuntu address,          PEER_IP = the vEthernet (WSL) address
+  Rendered by scripts/sim/win/hil_win.py (net=wsl) and scripts/hydra/wsl_dds_profile.sh.
+  Never write the addresses in here by hand. (A literal double hyphen is illegal in an XML comment
+  body and makes Fast DDS discard the whole profile without a word: CLAUDE.md, "Packaging".)
+
+  BOTH addresses change every time the WSL VM restarts, so this is rendered AT EVERY LAUNCH. Read
+  them from inside WSL, where one call gives both (the default gateway IS the Windows side):
+    own  = hostname -I | awk '{print $1}'
+    peer = ip route show default | awk '{print $3}'
+
+  Why not the profiles that already exist:
+  - isaac_local.xml whitelists 127.0.0.1 only. WSL2 is a separate network namespace behind NAT, so
+    loopback never reaches it.
+  - hil.xml.in points every participant at the Discovery Server on the Orin, which is not running
+    for this path.
+
+  Why explicit unicast initial peers instead of multicast: WSL2 sits behind the NAT of the
+  vEthernet (WSL) adapter and multicast across it cannot be relied on. Unicast initial peers need
+  no multicast at all, and two hosts are too few to be worth a Discovery Server process.
+
+  The participant lease is the stack's own 5 s / 1 s, as in every other profile here. The lease is
+  announced by each participant itself, so BOTH sides must set it (CLAUDE.md, "DDS / discovery").
+
+  Socket buffers: the OS maximum must be at least @BUFFER_BYTES@ on BOTH sides, or Fast DDS
+  silently gets a small buffer and drops the ~15 datagrams of a 0.92 MB image in bursts. A WSL
+  distro starts at net.core.rmem_max = 212992 (208 kB), 80x too small; with systemd=true a file in
+  /etc/sysctl.d survives a restart, unlike the `sysctl -w` line setup.md gives for the Orin.
+
+  Windows firewall: the inbound direction (WSL -> Windows) is filtered by Windows, and the
+  existing HIL rules are per address pair (192.168.200.2 with the Thor and the Orin), so they do
+  not cover the 172.x WSL network. The WSL side has no firewall at all (no ufw, no iptables
+  binary). See output/hil/hydra_wsl_status.md.
+-->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>f1t_udp_wsl</transport_id>
+      <type>UDPv4</type>
+      <maxMessageSize>65000</maxMessageSize>
+      <sendBufferSize>@BUFFER_BYTES@</sendBufferSize>
+      <receiveBufferSize>@BUFFER_BYTES@</receiveBufferSize>
+      <!-- The Windows side has many adapters (Ethernet 2 and 3, Tailscale, VMnet1, VMnet8,
+           vEthernet (WSL)). Without this list Fast DDS announces locators on all of them and the
+           peer may pick one it cannot route to. 127.0.0.1 stays so that tools on the same host
+           (hil_topics.bat, hil_hz.bat) still see the graph. -->
+      <interfaceWhiteList>
+        <address>@OWN_IP@</address>
+        <address>127.0.0.1</address>
+      </interfaceWhiteList>
+    </transport_descriptor>
+  </transport_descriptors>
+  <participant profile_name="f1tenth_wsl" is_default_profile="true">
+    <rtps>
+      <builtin>
+        <discovery_config>
+          <leaseDuration><sec>5</sec></leaseDuration>
+          <leaseAnnouncement><sec>1</sec></leaseAnnouncement>
+        </discovery_config>
+        <!-- No port given: Fast DDS probes the well-known ports of participants
+             0..maxInitialPeersRange (default 4) at each address. @OWN_IP@ is listed too, so two
+             participants on the same side still find each other without multicast. -->
+        <initialPeersList>
+          <locator><udpv4><address>@PEER_IP@</address></udpv4></locator>
+          <locator><udpv4><address>@OWN_IP@</address></udpv4></locator>
+        </initialPeersList>
+      </builtin>
+      <userTransports>
+        <transport_id>f1t_udp_wsl</transport_id>
+      </userTransports>
+      <useBuiltinTransports>false</useBuiltinTransports>
+    </rtps>
+  </participant>
+</profiles>

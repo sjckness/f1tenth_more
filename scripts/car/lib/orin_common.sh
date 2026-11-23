@@ -93,7 +93,8 @@ print(f"{ncommit} commit e {files} file del checkout nativo non presenti nella i
 # Gli script che girano sull'host dell'Orin, installati da scripts/car/deploy.sh in ~/.local/bin dal
 # commit deployato (git show SHA:percorso): "percorso nel repo:nome installato".
 CAR_TOOLS=(scripts/car/orin/stack.sh:car-stack scripts/car/orin/container.sh:car-container
-           scripts/orin/preflight.sh:car-preflight)
+           scripts/orin/preflight.sh:car-preflight
+           scripts/car/orin/hil.sh:car-hil scripts/car/orin/hil_agent.py:car-hil-agent)
 # I profili di lancio: sorgente nel repo, copia sull'Orin (montata in sola lettura nel container,
 # stesso percorso: compose.yaml monta ~/.config/f1tenth_car).
 CAR_PROFILES_SRC=src/f1tenth_bringup/config/profiles

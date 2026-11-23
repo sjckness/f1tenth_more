@@ -1,0 +1,72 @@
+# room6x6: the REAL TEST ROOM, 1:1 with the Gazebo world the campaigns ran in
+# (f1tenth_sim/worlds/test_room_6x6.sdf on the `jazzy` line): 6.00 x 6.00 m INNER size, walls
+# 0.10 m thick and 2.5 m high, a person standing in the middle, the car on one side facing a wall.
+#
+# Coordinates. Gazebo centres the room on the origin (inner faces at +-3.0) and spawns the car at
+# (-2.5, 0) facing +x; this scene type puts the room corner at the origin, so every number is
+# shifted by (+3, +3): car (0.5, 3.0), person (3.0, 3.0), wall ahead at x = 6.0. The car's lidar
+# (base_link + 0.305 m) then sees the far wall at 5.195 m and the wall behind it at 0.805 m.
+# Same geometry as base_room.yaml's `gazebo_6x6` layout preset; a scene of its own because the
+# HIL runs select worlds by name (sim_isaac_hil --world room6x6) and this one is the fallback that
+# needs no downloaded asset and no GPU budget.
+name: room6x6
+type: procedural_room
+room:
+  size_x: 6.0
+  size_y: 6.0
+  wall_height: 2.5          # test_room_6x6.sdf: 2.5 m, full height at the lidar plane and in the ZED view
+  wall_thickness: 0.1
+  ceiling: false            # Gazebo has none either; the lights below replace the ceiling lights
+floor:
+  material: matte_grey      # glossy_grey with --layout glossy (the polished-floor variant)
+materials:
+  matte_grey: {color: [0.45, 0.45, 0.42], roughness: 0.9, metallic: 0.0}    # SDF floor diffuse
+  glossy_grey: {color: [0.45, 0.45, 0.42], roughness: 0.12, metallic: 0.0}
+  wall_white: {color: [0.85, 0.84, 0.80], roughness: 0.8, metallic: 0.0}    # SDF wall_px/nx diffuse
+lighting:
+  dome_intensity: 600.0
+  distant_intensity: 1500.0
+  distant_angle_deg: [-45.0, 30.0]
+  shadows: false
+  sphere_lights:            # the SDF's two ceiling point lights at (-1.5, 0) and (1.5, 0), z 2.4
+    - {position: [1.5, 3.0, 2.4], intensity: 25000.0, radius: 0.15}
+    - {position: [4.5, 3.0, 2.4], intensity: 25000.0, radius: 0.15}
+person:
+  enabled: true
+  usd: /Isaac/People/Characters/M_Medical_01/M_Medical_01.usd
+  position: [3.0, 3.0, 0.0]       # room centre, as the Gazebo launch spawns it (person_x/y default 0,0)
+  face_car: true
+  asset_yaw_offset_deg: 90.0
+  yaw_deg: 0.0
+  pose: arms_down
+  arm_abduction_deg: 4.0
+  collider: {radius: 0.175, height: 1.75}
+car:
+  start: {x: 0.5, y: 3.0, z: 0.01, yaw_deg: 0.0}   # Gazebo (-2.5, 0, 0): one side, facing the +x wall
+plant:
+  enabled: false
+  usd: /Isaac/Environments/Office/Props/SM_Plant02.usd
+  scale: 0.55
+  position: [3.0, 1.0]
+  yaw_deg: 0.0
+  label: potted plant
+obstacle:
+  enabled: false
+  size: [0.5, 1.0, 0.8]
+  position: [4.2, 3.0]
+  yaw_deg: 0.0
+  color: [0.55, 0.42, 0.28]
+  label: box
+layout: default
+presets:
+  default: {}
+  glossy:                   # polished floor: the ZED loses depth on it (sensor_overrides below do that)
+    floor: {material: glossy_grey}
+    sensor_overrides: {sensors.stereo.depth_noise.enabled: true}
+  plant:                    # + the potted plant 2.5 m ahead, 2 m right (campaign M03 geometry)
+    plant: {enabled: true, position: [3.0, 1.0]}
+  obstacle:                 # + a 1.0 m wide box across the path, near face 3.0 m ahead of base_link
+    obstacle: {enabled: true, position: [3.75, 3.0]}
+semantics: {unlabeled: 0, floor: 1, wall: 2, person: 3, car: 4, potted plant: 5, box: 6}
+expected:
+  wall_ahead_x: 6.0         # inner face of the +x wall: 5.5 m from base_link, 5.195 m from the lidar

@@ -1,0 +1,38 @@
+# The office HIL batch: every feasible start pose x every planner mode x N repetitions, one
+# unattended session. Read by scripts/sim/win/hil_office_batch.py on the workstation (the work);
+# the Orin side is car-hil / car-hil-agent (scripts/car/orin/, installed by scripts/car/deploy.sh).
+# Paths are relative to the repository root.
+name: office_door_left_5m
+
+# The start poses: find_door_runup.py --run 5 --side left, 35 run-ups that end with a doorway
+# exactly 2 m to the car's left (docs/analysis/simulation/2026-11-13_office-feasible-tests).
+# Every candidate is a pose: idx = its 1-based row in that file (= the '#' column of the .txt).
+poses_file: docs/analysis/simulation/2026-11-13_office-feasible-tests/data/door_runup_left_5m.json
+# Floor plan for the per-pose figures (optional).
+map_geo: docs/analysis/simulation/2026-11-13_office-feasible-tests/data/map_geo.json
+
+# Isaac: world office, this preset for everything but the car's start (lights, no people); the
+# start is overridden per pose with --set scene.car.start.{x,y,z,yaw_deg}.
+world: office
+layout: door_left
+
+mission: scripts/sim/office_batch/missions/straight_5m_then_left_door.json
+modes: [corridor_mpc, corridor_rrt, p2p_geometric]
+reps: 3
+
+# Extra supervisor_bringup arguments for every stack (sim:=isaac, use_sim_time, the Discovery
+# Server, the profile and planner_controller_mode are set by car-hil). No LLM (the mission is a
+# file), no rosbag per mission (disk: 315 runs on 14 GB), no test_campaign_logger.
+stack_args:
+  - enable_intelligence:=false
+  - enable_mission_logger:=false
+  - enable_test_campaign_logger:=false
+
+timeouts:
+  isaac_s: 300          # Isaac launch -> /clock, /scan, /odom, ground truth seen from the Orin
+  stack_ready_s: 240    # stack launch -> controller in the graph, mission status, odometry
+  run_s: 180            # one repetition, wall: reset + 5 m + door (mission timeouts 30 + 60 s)
+  isaac_restarts: 2     # per pose, when Isaac dies or never comes up
+  stack_retries: 1      # per (pose, mode), when the stack does not get READY
+
+min_free_gb: 8          # on the Orin, checked by car-hil preflight

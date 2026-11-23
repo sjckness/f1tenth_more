@@ -1,0 +1,38 @@
+#usda 1.0
+(
+    doc = """Thin wrapper around the generated husarion office stage: the HIL `office` world.
+
+WHAT IS WHERE. The office comes from the Gazebo SDF the stack's own Gazebo sim runs
+(src/f1tenth_sim/worlds/husarion_office_2x.sdf, meshes from the src/husarion_gz_worlds
+submodule, Apache-2.0). sim/isaac/tools/sdf_to_usd.py converts it into
+./generated/office/office.usd, which this layer REFERENCES - a read-only composition, so no
+original file is ever modified. The generated stage is tens of megabytes of converted geometry
+and is NOT committed (.gitignore); generate it on the workstation:
+
+    sim/isaac/tools/sdf_to_usd.py --plan                 # check first, no Isaac needed
+    scripts/sim/sim_isaac_hil world --convert            # inside the Isaac container
+
+Everything the simulation adds - car, sensors, lights, physics scene, semantic labels, the
+optional walking people - is created at run time by sim/scene_builder.py from
+config/scenes/office.yaml. Nothing of it is stored here.
+
+The transform on /World/Office is the hook for a world that is not Z-up or not in metres. The
+SDF is Z-up and in metres and sdf_to_usd.py keeps it that way, so this stays at identity.
+"""
+    metersPerUnit = 1
+    upAxis = "Z"
+    defaultPrim = "World"
+)
+
+def Xform "World"
+{
+    def Xform "Office" (
+        prepend references = @./generated/office/office.usd@
+    )
+    {
+        double3 xformOp:translate = (0, 0, 0)
+        float3 xformOp:rotateXYZ = (0, 0, 0)
+        float3 xformOp:scale = (1, 1, 1)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+    }
+}

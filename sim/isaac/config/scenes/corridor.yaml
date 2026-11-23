@@ -1,0 +1,83 @@
+# corridor: a long straight corridor, the geometry the corridor campaigns ran in
+# (bags corridor10m_*). Interior x in [0, length], y in [0, width]; the car starts near one end
+# in the middle of the width, facing +x.
+#
+# WHY THE FLOOR MATERIAL IS NOT ENOUGH. The real building's corridor floor is polished, and on it
+# the car's ZED returns almost no depth (stack_params.yaml:722-731: on corridor10m_20261015T171753
+# the wrapper's depth output collapsed mid-run; output/.../self_mask_proposal: textureless floor and
+# a glass wall at a median 1.5 m are where the stereo has nothing to match). Isaac's depth is the
+# distance_to_image_plane ANNOTATOR: geometric, computed from the depth buffer, and it does NOT
+# degrade on a shiny material however the floor is shaded. So the glossy layouts also switch on the
+# floor-NaN depth model in sensors.yaml (sim/noise.py: NaN on floor pixels beyond 1.5 m with
+# probability p, sigma = k z^2) through `sensor_overrides`. The material is still worth setting: it
+# is what the RGB image, YOLO and the scene mask see (specular highlights, no texture).
+#
+# The glass layout puts a transparent panel in a span of the left wall: the camera sees through it,
+# the PhysX collider on the same prim still returns the lidar beam. That is the real pair of
+# observations the glass detector (f1tenth_perception/glass_detector_node.py) is built on.
+name: corridor
+type: procedural_corridor
+corridor:
+  length: 20.0              # m, long enough for a 10 m mission plus run-up and stopping distance
+  width: 2.2                # m, inner wall to inner wall (the real corridor's glass wall sits at a
+                            # median 1.5 m to the side of the car, so ~1.1 m half width)
+  wall_height: 2.6
+  wall_thickness: 0.1
+  ceiling: false            # a ceiling costs render time and traps the light; the lights below replace it
+  end_walls: true           # closed at both ends: the lidar sees a real end wall, not open space
+  glass:                    # off by default, on in the `glass` layout
+    enabled: false
+    side: left              # left = +y (the car drives +x), right = y = 0
+    x_from: 8.0
+    x_to: 11.0
+    height: 2.2
+    thickness: 0.02
+floor:
+  material: glossy_grey     # the real corridor; `matte` layout for the dull-floor comparison
+materials:
+  matte_grey: {color: [0.45, 0.45, 0.42], roughness: 0.9, metallic: 0.0}
+  glossy_grey: {color: [0.42, 0.42, 0.40], roughness: 0.08, metallic: 0.05}
+  wall_white: {color: [0.86, 0.86, 0.84], roughness: 0.75, metallic: 0.0}
+  glass_clear: {color: [0.70, 0.78, 0.80], roughness: 0.03, metallic: 0.0, opacity: 0.12, ior: 1.52}
+lighting:
+  dome_intensity: 400.0
+  distant_intensity: 0.0    # no sun indoors
+  distant_angle_deg: [-45.0, 0.0]
+  shadows: false
+  sphere_lights:            # a ceiling light every 4 m, as in the building
+    - {position: [2.0, 1.1, 2.5], intensity: 25000.0, radius: 0.15}
+    - {position: [6.0, 1.1, 2.5], intensity: 25000.0, radius: 0.15}
+    - {position: [10.0, 1.1, 2.5], intensity: 25000.0, radius: 0.15}
+    - {position: [14.0, 1.1, 2.5], intensity: 25000.0, radius: 0.15}
+    - {position: [18.0, 1.1, 2.5], intensity: 25000.0, radius: 0.15}
+person:
+  enabled: false            # on in the `person` layout: someone standing in the corridor
+  usd: /Isaac/People/Characters/M_Medical_01/M_Medical_01.usd
+  position: [8.0, 1.1, 0.0]
+  face_car: true
+  asset_yaw_offset_deg: 90.0
+  yaw_deg: 0.0
+  pose: arms_down
+  arm_abduction_deg: 4.0
+  collider: {radius: 0.175, height: 1.75}
+car:
+  start: {x: 1.0, y: 1.1, z: 0.01, yaw_deg: 0.0}    # 1 m from the end wall, middle of the width
+layout: glossy
+presets:
+  glossy:                   # DEFAULT: polished floor + the ZED floor-NaN depth model
+    floor: {material: glossy_grey}
+    sensor_overrides: {sensors.stereo.depth_noise.enabled: true}
+  matte:                    # dull floor, full depth everywhere: the A/B against `glossy`
+    floor: {material: matte_grey}
+    sensor_overrides: {sensors.stereo.depth_noise.enabled: false}
+  glass:                    # glossy + a 3 m glass panel on the left wall at x 8..11
+    floor: {material: glossy_grey}
+    corridor: {glass: {enabled: true}}
+    sensor_overrides: {sensors.stereo.depth_noise.enabled: true}
+  person:                    # glossy + a person standing 7 m ahead
+    floor: {material: glossy_grey}
+    person: {enabled: true, position: [8.0, 1.1, 0.0]}
+    sensor_overrides: {sensors.stereo.depth_noise.enabled: true}
+semantics: {unlabeled: 0, floor: 1, wall: 2, person: 3, car: 4, glass: 7}
+expected:
+  wall_ahead_x: 20.0        # inner face of the end wall: 19.0 m from base_link at the start

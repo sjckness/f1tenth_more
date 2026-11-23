@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fast DDS profile TEMPLATE for the WSL2 path WITHOUT a Windows firewall rule.
+
+  Same job as wsl.xml.in (Isaac native on Windows, Hydra in the WSL2 distro on the same PC), but
+  over TCP instead of UDP, because of what the firewall does here. Measured on 2026-11-11 with the
+  same interpreter Isaac runs under:
+
+    WSL to Windows, unsolicited : 0 of 12 datagrams delivered
+    Windows to WSL, then a reply on the same socket : 5 of 5 replies received
+
+  So inbound to Windows is dropped for a program with no firewall rule, while anything WINDOWS
+  starts gets its answers back through the stateful filter. UDP discovery cannot live with that:
+  the WSL side has to send to Windows' well known port first, unsolicited, and that packet dies.
+  A TCP session started BY WINDOWS can: one outbound connection carries discovery and data both
+  ways, and needs no inbound rule at all.
+
+    Isaac (Windows) = TCP CLIENT   connects out to the distro, no listening port
+    Hydra (WSL)     = TCP SERVER   listens on @TCP_PORT@ (the distro has no firewall at all)
+
+  Prefer wsl.xml.in when the firewall rule is in place: plain UDP is simpler, and a TCP session is
+  one more thing that can wedge. Use this one when the rule is not available.
+
+  Placeholders (written without their at signs here, so the renderer does not substitute them
+  into this comment): OWN_IP this side's address, LISTEN_BLOCK the server's listening port,
+  META_BLOCK the server's advertised locator, PEER_BLOCK the client's initial peer, TCP_PORT the
+  TCP port, BUFFER_BYTES the socket buffer size.
+  Rendered per side by scripts/sim/win/hil_win.py (net=wsltcp) and
+  scripts/hydra/wsl_dds_profile.sh (with the tcp flag). Both addresses change at every WSL
+  restart, so this is rendered at every launch, never written out by hand.
+
+  A literal double hyphen is illegal in an XML comment body and makes Fast DDS discard the whole
+  profile without a word, so option names are written without their dashes here.
+-->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>f1t_tcp_wsl</transport_id>
+      <type>TCPv4</type>
+      <maxMessageSize>65000</maxMessageSize>
+      <sendBufferSize>@BUFFER_BYTES@</sendBufferSize>
+      <receiveBufferSize>@BUFFER_BYTES@</receiveBufferSize>
+      <calculate_crc>false</calculate_crc>
+      <check_crc>false</check_crc>
+      <!-- The client notices a dead session and reconnects; without this a wedged TCP connection
+           looks exactly like a silent sim. -->
+      <keep_alive_frequency_ms>5000</keep_alive_frequency_ms>
+      <keep_alive_timeout_ms>15000</keep_alive_timeout_ms>
+@LISTEN_BLOCK@
+    </transport_descriptor>
+  </transport_descriptors>
+  <participant profile_name="f1tenth_wsl_tcp" is_default_profile="true">
+    <rtps>
+      <builtin>
+        <discovery_config>
+          <leaseDuration><sec>5</sec></leaseDuration>
+          <leaseAnnouncement><sec>1</sec></leaseAnnouncement>
+        </discovery_config>
+@META_BLOCK@
+@PEER_BLOCK@
+      </builtin>
+      <userTransports>
+        <transport_id>f1t_tcp_wsl</transport_id>
+      </userTransports>
+      <useBuiltinTransports>false</useBuiltinTransports>
+    </rtps>
+  </participant>
+</profiles>
