@@ -1,0 +1,13 @@
+# Launch profile test_orin_p2p: car-stack start test_orin_p2p
+#
+# A road test of p2p_geometric on the car (no corridor: a Dubins path from the
+# car to the move's target, pure pursuit on it; obstacles only cap the speed;
+# the MPC is not started), with the per-mission rosbag recording, no
+# llama-server. Same image as test_orin_mpc: switching between the two is
+# car-stack restart <profile>, no rebuild.
+#
+# Sections: see test_orin_rrt.yaml.
+launch_arguments:
+  planner_controller_mode: p2p_geometric
+  enable_mission_logger: 'true'
+  enable_intelligence: 'false'

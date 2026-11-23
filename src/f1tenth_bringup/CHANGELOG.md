@@ -10,6 +10,13 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-23
+
+### Added
+- Profilo `test_orin_p2p` (p2p_geometric + mission logger, senza llama-server né
+  test_campaign_logger): con `test_orin_mpc` permette di provare MPC e p2p sulla stessa immagine,
+  cambiando solo profilo (`car-stack restart <profilo>`).
+
 ## [0.3.0] - 2026-11-23
 
 ### Added
