@@ -10,6 +10,19 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-23
+
+### Changed
+- `mission_config`: uno `stop_condition` `orientation_delta` può finire la mossa fino a 10° prima
+  della rotazione comandata (`ORIENTATION_DELTA_EARLY_STOP_MAX_DEG`), non solo esattamente su di
+  essa. Con `corridor_mpc` una `wall_turn` di 90° si assesta a 88-89° e con soglia 90 la mossa
+  proseguiva dritta per metri (run delle 17:09-17:12 del 2026-11-23). Oltre la rotazione comandata o
+  più di 10° prima resta un errore.
+
+### Fixed
+- `turn_left_then_person_then_straight_2m`: la svolta finisce a 85° accumulati (comando sempre 90°).
+  La velocità resta 0.4 m/s: è il minimo operativo `min_moving_speed_mps` e il loader rifiuta meno.
+
 ## [0.2.0] - 2026-11-23
 
 ### Added

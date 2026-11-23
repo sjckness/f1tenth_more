@@ -70,6 +70,13 @@ VALID_TURN_REFERENCES = {'odometry_orientation'}
 # and then holds the result. Neither carries a target -- see DriveSpec.
 DRIVE_MODES = {'straight', 'wall_turn'}
 
+# How far short of the commanded rotation an orientation_delta stop_condition
+# may end the move. corridor_mpc settles a 90 deg wall_turn at 88-89 deg, and a
+# value equal to the command then never fires: the move kept driving straight
+# for metres on the car (2026-11-23). Up to 10 deg short is a tolerance; more
+# than that (45 against a 90 turn) is still a mismatch and refused.
+ORIENTATION_DELTA_EARLY_STOP_MAX_DEG = 10.0
+
 # stop_condition.type values that are explicitly out of scope for this pass
 # (manual advance -- no mechanism planned). condition_eval.evaluate() returns
 # None for these; every consumer of that function has to treat None as "never
@@ -948,13 +955,14 @@ def _parse_move(raw: object, where: str, gap_limits_for=None) -> Move:
                 'non-zero drive.turn_mag_deg -- 0 means "use the controller '
                 'default", which this check cannot compare against',
             )
+        value_deg = abs(float(stop_condition.params['value']))
         _require(
-            math.isclose(
-                abs(float(stop_condition.params['value'])), commanded_deg,
-                abs_tol=1e-6,
-            ),
+            math.isclose(value_deg, commanded_deg, abs_tol=1e-6)
+            or commanded_deg - ORIENTATION_DELTA_EARLY_STOP_MAX_DEG
+            <= value_deg < commanded_deg,
             f'{where}: orientation_delta value ({stop_condition.params["value"]}) must equal '
-            f'{commanded_field} ({commanded_deg})',
+            f'{commanded_field} ({commanded_deg}), or be at most '
+            f'{ORIENTATION_DELTA_EARLY_STOP_MAX_DEG:g} deg short of it',
         )
 
     timeout_sec = None

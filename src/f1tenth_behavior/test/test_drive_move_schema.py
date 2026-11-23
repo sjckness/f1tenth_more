@@ -253,6 +253,20 @@ class TestOrientationDeltaOnADriveStep:
                 drive={'mode': 'wall_turn', 'turn_sign': 1.0, 'turn_mag_deg': 90.0},
                 stop_condition={'type': 'orientation_delta', 'value': 45.0})))
 
+    @pytest.mark.parametrize('value', [85.0, 80.0])
+    def test_value_up_to_10_deg_short_of_the_command_is_accepted(self, value):
+        cfg = parse_mission(_mission(_drive_move(
+            drive={'mode': 'wall_turn', 'turn_sign': 1.0, 'turn_mag_deg': 90.0},
+            stop_condition={'type': 'orientation_delta', 'value': value})))
+        assert cfg.moves[0].stop_condition.params['value'] == value
+
+    @pytest.mark.parametrize('value', [79.0, 95.0])
+    def test_value_beyond_the_command_or_too_short_is_rejected(self, value):
+        with pytest.raises(MissionConfigError, match='must equal'):
+            parse_mission(_mission(_drive_move(
+                drive={'mode': 'wall_turn', 'turn_sign': 1.0, 'turn_mag_deg': 90.0},
+                stop_condition={'type': 'orientation_delta', 'value': value})))
+
     def test_rejected_on_a_straight_drive_move(self):
         with pytest.raises(MissionConfigError, match='requires drive.mode "wall_turn"'):
             parse_mission(_mission(_drive_move(
