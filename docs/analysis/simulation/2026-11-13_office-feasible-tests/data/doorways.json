@@ -1,0 +1,4266 @@
+[
+ {
+  "x": 8.064,
+  "y": -19.404,
+  "width_m": 1.25,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 10.064,
+   "y": -19.404,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.477,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 6.064,
+   "y": -19.404,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.25,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 8.264,
+  "y": -19.404,
+  "width_m": 1.25,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 10.264,
+   "y": -19.404,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.423,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 6.264,
+   "y": -19.404,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.15,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 13.014,
+  "y": -17.804,
+  "width_m": 1.05,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 13.014,
+   "y": -15.804,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.05,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 13.014,
+   "y": -19.804,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.101,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 13.014,
+  "y": -17.704,
+  "width_m": 1.05,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 13.014,
+   "y": -15.704,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.112,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 13.014,
+   "y": -19.704,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.001,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 13.114,
+  "y": -17.204,
+  "width_m": 1.25,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 13.114,
+   "y": -15.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.618,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 13.114,
+   "y": -19.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.522,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 13.714,
+  "y": -16.454,
+  "width_m": 1.45,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 13.714,
+   "y": -14.454,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.05,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 13.714,
+   "y": -18.454,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 16.214,
+  "y": -16.454,
+  "width_m": 2.05,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 16.214,
+   "y": -14.454,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.29,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 16.214,
+   "y": -18.454,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.456,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 16.214,
+  "y": -16.204,
+  "width_m": 2.05,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 16.214,
+   "y": -14.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.3,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 16.214,
+   "y": -18.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.408,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 16.814,
+  "y": -8.704,
+  "width_m": 1.95,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 16.814,
+   "y": -6.704,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.45,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 16.814,
+   "y": -10.704,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.651,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 16.814,
+  "y": -8.204,
+  "width_m": 1.95,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 16.814,
+   "y": -6.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.581,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 16.814,
+   "y": -10.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.68,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 17.614,
+  "y": -18.804,
+  "width_m": 1.5,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 19.614,
+   "y": -18.804,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.471,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 15.614,
+   "y": -18.804,
+   "yaw_deg": 0.0,
+   "clearance_m": 1.744,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 17.764,
+  "y": -18.804,
+  "width_m": 1.5,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 19.764,
+   "y": -18.804,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.389,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 15.764,
+   "y": -18.804,
+   "yaw_deg": 0.0,
+   "clearance_m": 1.879,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 18.714,
+  "y": -2.504,
+  "width_m": 1.35,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 20.714,
+   "y": -2.504,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.415,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 16.714,
+   "y": -2.504,
+   "yaw_deg": 0.0,
+   "clearance_m": 1.177,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 18.764,
+  "y": -2.504,
+  "width_m": 1.35,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 20.764,
+   "y": -2.504,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.442,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 16.764,
+   "y": -2.504,
+   "yaw_deg": 0.0,
+   "clearance_m": 1.188,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 11.464,
+  "y": -14.604,
+  "width_m": 1.25,
+  "passage_axis": "y",
+  "free_through_m": [
+   5.8,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 11.464,
+   "y": -12.604,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.453,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 11.464,
+   "y": -16.604,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.68,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 13.064,
+  "y": -14.604,
+  "width_m": 1.7,
+  "passage_axis": "y",
+  "free_through_m": [
+   5.8,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 13.064,
+   "y": -12.604,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.346,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 13.064,
+   "y": -16.604,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.112,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 11.464,
+  "y": -14.204,
+  "width_m": 1.25,
+  "passage_axis": "y",
+  "free_through_m": [
+   5.4,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 11.464,
+   "y": -12.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.851,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 11.464,
+   "y": -16.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.427,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 13.264,
+  "y": -14.204,
+  "width_m": 1.35,
+  "passage_axis": "y",
+  "free_through_m": [
+   5.4,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 13.264,
+   "y": -12.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.792,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 13.264,
+   "y": -16.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.3,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 12.264,
+  "y": -19.754,
+  "width_m": 2.05,
+  "passage_axis": "x",
+  "free_through_m": [
+   5.3,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 14.264,
+   "y": -19.754,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.275,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 10.264,
+   "y": -19.754,
+   "yaw_deg": 0.0,
+   "clearance_m": 1.097,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 8.714,
+  "y": -17.354,
+  "width_m": 0.75,
+  "passage_axis": "y",
+  "free_through_m": [
+   5.2,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 8.714,
+   "y": -15.354,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.4,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 8.714,
+   "y": -19.354,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.721,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 8.714,
+  "y": -17.204,
+  "width_m": 0.75,
+  "passage_axis": "y",
+  "free_through_m": [
+   5.05,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 8.714,
+   "y": -15.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.4,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 8.714,
+   "y": -19.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.602,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 3.764,
+  "y": -12.854,
+  "width_m": 1.55,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   5.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 5.764,
+   "y": -12.854,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.25,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 1.764,
+   "y": -12.854,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 21.164,
+  "y": -19.104,
+  "width_m": 1.65,
+  "passage_axis": "x",
+  "free_through_m": [
+   4.75,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 23.164,
+   "y": -19.104,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.512,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 19.164,
+   "y": -19.104,
+   "yaw_deg": 0.0,
+   "clearance_m": 1.346,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 3.464,
+  "y": -12.854,
+  "width_m": 1.55,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   4.7
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 5.464,
+   "y": -12.854,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.442,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 1.464,
+   "y": -12.854,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 21.264,
+  "y": -19.104,
+  "width_m": 1.65,
+  "passage_axis": "x",
+  "free_through_m": [
+   4.65,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 23.264,
+   "y": -19.104,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.595,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 19.264,
+   "y": -19.104,
+   "yaw_deg": 0.0,
+   "clearance_m": 1.44,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 8.714,
+  "y": -16.704,
+  "width_m": 0.75,
+  "passage_axis": "y",
+  "free_through_m": [
+   4.55,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 8.714,
+   "y": -14.704,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.4,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 8.714,
+   "y": -18.704,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.4,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 15.264,
+  "y": -2.504,
+  "width_m": 1.3,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   4.45
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 17.264,
+   "y": -2.504,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.32,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 13.264,
+   "y": -2.504,
+   "yaw_deg": 0.0,
+   "clearance_m": 1.321,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 24.964,
+  "y": -1.754,
+  "width_m": 1.2,
+  "passage_axis": "y",
+  "free_through_m": [
+   4.4,
+   5.15
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 24.964,
+   "y": 0.246,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.95,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 24.964,
+   "y": -3.754,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.65,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 3.714,
+  "y": -15.904,
+  "width_m": 1.2,
+  "passage_axis": "x",
+  "free_through_m": [
+   4.3,
+   4.95
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 5.714,
+   "y": -15.904,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.158,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 1.714,
+   "y": -15.904,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.539,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 3.714,
+  "y": -14.804,
+  "width_m": 0.7,
+  "passage_axis": "x",
+  "free_through_m": [
+   4.3,
+   4.95
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 5.714,
+   "y": -14.804,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.071,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 1.714,
+   "y": -14.804,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.361,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 24.964,
+  "y": -2.604,
+  "width_m": 1.2,
+  "passage_axis": "y",
+  "free_through_m": [
+   5.25,
+   4.3
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 24.964,
+   "y": -0.604,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.652,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 24.964,
+   "y": -4.604,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 1.164,
+  "y": -2.754,
+  "width_m": 1.3,
+  "passage_axis": "y",
+  "free_through_m": [
+   4.1,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 1.164,
+   "y": -0.754,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.867,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 1.164,
+   "y": -4.754,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.2,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 3.914,
+  "y": -15.904,
+  "width_m": 1.2,
+  "passage_axis": "x",
+  "free_through_m": [
+   4.1,
+   5.15
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 5.914,
+   "y": -15.904,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.292,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 1.914,
+   "y": -15.904,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 1.164,
+  "y": -2.704,
+  "width_m": 1.3,
+  "passage_axis": "y",
+  "free_through_m": [
+   4.05,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 1.164,
+   "y": -0.704,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.914,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 1.164,
+   "y": -4.704,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.2,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 2.764,
+  "y": -12.854,
+  "width_m": 1.55,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   4.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 4.764,
+   "y": -12.854,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.943,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 0.764,
+   "y": -12.854,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 12.364,
+  "y": -15.104,
+  "width_m": 1.35,
+  "passage_axis": "x",
+  "free_through_m": [
+   5.65,
+   4.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 14.364,
+   "y": -15.104,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 10.364,
+   "y": -15.104,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.55,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 17.164,
+  "y": -1.304,
+  "width_m": 1.3,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.95,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 17.164,
+   "y": 0.696,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.75,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 17.164,
+   "y": -3.304,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.55,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 24.914,
+  "y": -1.254,
+  "width_m": 0.75,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.9,
+   5.65
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 24.914,
+   "y": 0.746,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.0,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 24.914,
+   "y": -3.254,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.57,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 26.264,
+  "y": -1.254,
+  "width_m": 1.0,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.9,
+   5.65
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 26.264,
+   "y": 0.746,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.01
+  },
+  "approach_b": {
+   "x": 26.264,
+   "y": -3.254,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 17.164,
+  "y": -1.204,
+  "width_m": 1.3,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.85,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 17.164,
+   "y": 0.796,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.65,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 17.164,
+   "y": -3.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.55,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 22.264,
+  "y": -14.704,
+  "width_m": 2.2,
+  "passage_axis": "x",
+  "free_through_m": [
+   4.45,
+   3.85
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 24.264,
+   "y": -14.704,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.031,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 20.264,
+   "y": -14.704,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.716,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 9.164,
+  "y": -15.954,
+  "width_m": 1.7,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.8,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 9.164,
+   "y": -13.954,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.85,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 9.164,
+   "y": -17.954,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.6,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 21.764,
+  "y": -22.204,
+  "width_m": 0.85,
+  "passage_axis": "x",
+  "free_through_m": [
+   4.95,
+   3.8
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 23.764,
+   "y": -22.204,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 19.764,
+   "y": -22.204,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 21.764,
+  "y": -16.804,
+  "width_m": 1.4,
+  "passage_axis": "x",
+  "free_through_m": [
+   4.95,
+   3.8
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 23.764,
+   "y": -16.804,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.447,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 19.764,
+   "y": -16.804,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.75,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 24.914,
+  "y": -1.154,
+  "width_m": 0.75,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.8,
+   5.75
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 24.914,
+   "y": 0.846,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.0,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 24.914,
+   "y": -3.154,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.604,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 26.264,
+  "y": -1.154,
+  "width_m": 1.0,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.8,
+   5.75
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 26.264,
+   "y": 0.846,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 26.264,
+   "y": -3.154,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 9.264,
+  "y": -17.454,
+  "width_m": 1.9,
+  "passage_axis": "y",
+  "free_through_m": [
+   5.3,
+   3.65
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 9.264,
+   "y": -15.454,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.873,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 9.264,
+   "y": -19.454,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.124,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 11.664,
+  "y": -17.454,
+  "width_m": 1.3,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.6,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 11.664,
+   "y": -15.454,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.75,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 11.664,
+   "y": -19.454,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.96,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 9.214,
+  "y": -15.704,
+  "width_m": 1.75,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.55,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 9.214,
+   "y": -13.704,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.906,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 9.214,
+   "y": -17.704,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 2.264,
+  "y": -14.754,
+  "width_m": 0.65,
+  "passage_axis": "x",
+  "free_through_m": [
+   5.75,
+   3.5
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 4.264,
+   "y": -14.754,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 0.264,
+   "y": -14.754,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.141,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 2.264,
+  "y": -12.854,
+  "width_m": 1.55,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   3.5
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 4.264,
+   "y": -12.854,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 0.264,
+   "y": -12.854,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 13.714,
+  "y": -16.604,
+  "width_m": 1.65,
+  "passage_axis": "x",
+  "free_through_m": [
+   3.5,
+   5.35
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 15.714,
+   "y": -16.604,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.57,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 11.714,
+   "y": -16.604,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.652,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 13.714,
+  "y": -15.004,
+  "width_m": 1.2,
+  "passage_axis": "x",
+  "free_through_m": [
+   3.5,
+   5.35
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 15.714,
+   "y": -15.004,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.93,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 11.714,
+   "y": -15.004,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.566,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 23.314,
+  "y": -3.054,
+  "width_m": 1.15,
+  "passage_axis": "x",
+  "free_through_m": [
+   3.4,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 25.314,
+   "y": -3.054,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.495,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 21.314,
+   "y": -3.054,
+   "yaw_deg": 0.0,
+   "clearance_m": 1.498,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 25.014,
+  "y": -3.504,
+  "width_m": 1.25,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   3.4
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 25.014,
+   "y": -1.504,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.3,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 25.014,
+   "y": -5.504,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.673,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 26.264,
+  "y": -3.504,
+  "width_m": 1.0,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   3.4
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 26.264,
+   "y": -1.504,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 26.264,
+   "y": -5.504,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 21.314,
+  "y": -22.204,
+  "width_m": 0.85,
+  "passage_axis": "x",
+  "free_through_m": [
+   5.4,
+   3.35
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 23.314,
+   "y": -22.204,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 19.314,
+   "y": -22.204,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 21.764,
+  "y": -14.704,
+  "width_m": 2.2,
+  "passage_axis": "x",
+  "free_through_m": [
+   4.95,
+   3.35
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 23.764,
+   "y": -14.704,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.1,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 19.764,
+   "y": -14.704,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.25,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 21.264,
+  "y": -16.804,
+  "width_m": 1.4,
+  "passage_axis": "x",
+  "free_through_m": [
+   5.45,
+   3.3
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 23.264,
+   "y": -16.804,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.75,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 19.264,
+   "y": -16.804,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.75,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 2.014,
+  "y": -17.104,
+  "width_m": 0.75,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   3.25
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 4.014,
+   "y": -17.104,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.4,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 0.014,
+   "y": -17.104,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.4,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 2.014,
+  "y": -16.004,
+  "width_m": 1.1,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   3.25
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 4.014,
+   "y": -16.004,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.559,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 0.014,
+   "y": -16.004,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.354,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 2.014,
+  "y": -14.754,
+  "width_m": 0.65,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   3.25
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 4.014,
+   "y": -14.754,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 0.014,
+   "y": -14.754,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.364,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 2.014,
+  "y": -12.854,
+  "width_m": 1.55,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   3.25
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 4.014,
+   "y": -12.854,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 0.014,
+   "y": -12.854,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 15.864,
+  "y": -20.704,
+  "width_m": 1.2,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   3.2
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 15.864,
+   "y": -18.704,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.867,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 15.864,
+   "y": -22.704,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.381,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 17.164,
+  "y": -20.704,
+  "width_m": 0.9,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   3.2
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 17.164,
+   "y": -18.704,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.791,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 17.164,
+   "y": -22.704,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 21.164,
+  "y": -16.804,
+  "width_m": 1.4,
+  "passage_axis": "x",
+  "free_through_m": [
+   5.55,
+   3.2
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 23.164,
+   "y": -16.804,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.65,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 19.164,
+   "y": -16.804,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.75,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 21.614,
+  "y": -14.704,
+  "width_m": 2.2,
+  "passage_axis": "x",
+  "free_through_m": [
+   5.1,
+   3.2
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 23.614,
+   "y": -14.704,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.1,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 19.614,
+   "y": -14.704,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.158,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 14.064,
+  "y": -16.604,
+  "width_m": 1.65,
+  "passage_axis": "x",
+  "free_through_m": [
+   3.15,
+   5.7
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 16.064,
+   "y": -16.604,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.912,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 12.064,
+   "y": -16.604,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.304,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 1.764,
+  "y": -10.204,
+  "width_m": 1.2,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   3.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 3.764,
+   "y": -10.204,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.6,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -0.236,
+   "y": -10.204,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.4,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 14.214,
+  "y": -15.154,
+  "width_m": 0.95,
+  "passage_axis": "x",
+  "free_through_m": [
+   3.0,
+   5.85
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 16.214,
+   "y": -15.154,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.051,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 12.214,
+   "y": -15.154,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.55,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 12.764,
+  "y": -17.304,
+  "width_m": 1.4,
+  "passage_axis": "x",
+  "free_through_m": [
+   4.8,
+   2.9
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 14.764,
+   "y": -17.304,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.716,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 10.764,
+   "y": -17.304,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.006
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 22.164,
+  "y": -12.254,
+  "width_m": 1.25,
+  "passage_axis": "y",
+  "free_through_m": [
+   2.9,
+   3.5
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 22.164,
+   "y": -10.254,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.982,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 22.164,
+   "y": -14.254,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.7,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 8.814,
+  "y": -21.104,
+  "width_m": 0.95,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.8
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 8.814,
+   "y": -19.104,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.61,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 8.814,
+   "y": -23.104,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 20.764,
+  "y": -22.104,
+  "width_m": 1.1,
+  "passage_axis": "x",
+  "free_through_m": [
+   5.95,
+   2.8
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 22.764,
+   "y": -22.104,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.55,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 18.764,
+   "y": -22.104,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.1,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 20.764,
+  "y": -20.804,
+  "width_m": 1.2,
+  "passage_axis": "x",
+  "free_through_m": [
+   5.95,
+   2.8
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 22.764,
+   "y": -20.804,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.716,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 18.764,
+   "y": -20.804,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.364,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 5.264,
+  "y": -17.154,
+  "width_m": 0.65,
+  "passage_axis": "x",
+  "free_through_m": [
+   2.75,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 7.264,
+   "y": -17.154,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.05,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 3.264,
+   "y": -17.154,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 11.414,
+  "y": -21.154,
+  "width_m": 1.05,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.75
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 11.414,
+   "y": -19.154,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.962,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 11.414,
+   "y": -23.154,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 14.464,
+  "y": -15.204,
+  "width_m": 1.05,
+  "passage_axis": "x",
+  "free_through_m": [
+   2.75,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 16.464,
+   "y": -15.204,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 12.464,
+   "y": -15.204,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.6,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 17.564,
+  "y": -1.354,
+  "width_m": 2.15,
+  "passage_axis": "y",
+  "free_through_m": [
+   2.75,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 17.564,
+   "y": 0.646,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 17.564,
+   "y": -3.354,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.15,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 8.664,
+  "y": -21.204,
+  "width_m": 0.7,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.7
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 8.664,
+   "y": -19.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.57,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 8.664,
+   "y": -23.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 10.164,
+  "y": -21.204,
+  "width_m": 1.1,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.7
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 10.164,
+   "y": -19.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.645,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 10.164,
+   "y": -23.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.75,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 15.764,
+  "y": -21.204,
+  "width_m": 1.0,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.7
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 15.764,
+   "y": -19.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.581,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 15.764,
+   "y": -23.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.75,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 17.164,
+  "y": -21.204,
+  "width_m": 0.8,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.7
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 17.164,
+   "y": -19.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.602,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 17.164,
+   "y": -23.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 25.014,
+  "y": -4.204,
+  "width_m": 1.25,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.7
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 25.014,
+   "y": -2.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.671,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 25.014,
+   "y": -6.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.75,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 26.264,
+  "y": -4.204,
+  "width_m": 1.0,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.7
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 26.264,
+   "y": -2.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 26.264,
+   "y": -6.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 12.514,
+  "y": -17.304,
+  "width_m": 1.4,
+  "passage_axis": "x",
+  "free_through_m": [
+   5.05,
+   2.65
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 14.514,
+   "y": -17.304,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.474,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 10.514,
+   "y": -17.304,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.006
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 8.064,
+  "y": -13.104,
+  "width_m": 1.4,
+  "passage_axis": "x",
+  "free_through_m": [
+   2.6,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 10.064,
+   "y": -13.104,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.65,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 6.064,
+   "y": -13.104,
+   "yaw_deg": 0.0,
+   "clearance_m": 1.221,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 14.964,
+  "y": -23.154,
+  "width_m": 1.55,
+  "passage_axis": "x",
+  "free_through_m": [
+   2.6,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 16.964,
+   "y": -23.154,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.65,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 12.964,
+   "y": -23.154,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 1.314,
+  "y": -10.204,
+  "width_m": 1.2,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   2.55
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 3.314,
+   "y": -10.204,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.6,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -0.686,
+   "y": -10.204,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.6,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 1.264,
+  "y": -18.404,
+  "width_m": 1.3,
+  "passage_axis": "x",
+  "free_through_m": [
+   4.75,
+   2.5
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 3.264,
+   "y": -18.404,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.2,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -0.736,
+   "y": -18.404,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.55,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 10.864,
+  "y": -14.854,
+  "width_m": 2.05,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   2.5
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 12.864,
+   "y": -14.854,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.541,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 8.864,
+   "y": -14.854,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.55,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 20.464,
+  "y": -22.104,
+  "width_m": 1.1,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   2.5
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 22.464,
+   "y": -22.104,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.532,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 18.464,
+   "y": -22.104,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 20.464,
+  "y": -20.804,
+  "width_m": 1.2,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   2.5
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 22.464,
+   "y": -20.804,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.427,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 18.464,
+   "y": -20.804,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 22.164,
+  "y": -11.854,
+  "width_m": 1.25,
+  "passage_axis": "y",
+  "free_through_m": [
+   2.5,
+   3.9
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 22.164,
+   "y": -9.854,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.604,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 22.164,
+   "y": -13.854,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.3,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 24.214,
+  "y": -5.954,
+  "width_m": 1.95,
+  "passage_axis": "x",
+  "free_through_m": [
+   2.5,
+   5.2
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 26.214,
+   "y": -5.954,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.55,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 22.214,
+   "y": -5.954,
+   "yaw_deg": 0.0,
+   "clearance_m": 1.0,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 15.764,
+  "y": -21.454,
+  "width_m": 1.0,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.45
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 15.764,
+   "y": -19.454,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.346,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 15.764,
+   "y": -23.454,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 24.264,
+  "y": -3.004,
+  "width_m": 0.75,
+  "passage_axis": "x",
+  "free_through_m": [
+   2.45,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 26.264,
+   "y": -3.004,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 22.264,
+   "y": -3.004,
+   "yaw_deg": 0.0,
+   "clearance_m": 1.098,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 24.264,
+  "y": -2.204,
+  "width_m": 0.6,
+  "passage_axis": "x",
+  "free_through_m": [
+   2.45,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 26.264,
+   "y": -2.204,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 22.264,
+   "y": -2.204,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.95,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 8.264,
+  "y": -13.104,
+  "width_m": 1.4,
+  "passage_axis": "x",
+  "free_through_m": [
+   2.4,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 10.264,
+   "y": -13.104,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 6.264,
+   "y": -13.104,
+   "yaw_deg": 0.0,
+   "clearance_m": 1.118,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 10.764,
+  "y": -23.154,
+  "width_m": 1.55,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   2.4
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 12.764,
+   "y": -23.154,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 8.764,
+   "y": -23.154,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 10.764,
+  "y": -16.704,
+  "width_m": 1.2,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   2.4
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 12.764,
+   "y": -16.704,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.15,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 8.764,
+   "y": -16.704,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 10.764,
+  "y": -15.254,
+  "width_m": 1.25,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   2.4
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 12.764,
+   "y": -15.254,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.55,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 8.764,
+   "y": -15.254,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 24.364,
+  "y": -3.854,
+  "width_m": 0.65,
+  "passage_axis": "x",
+  "free_through_m": [
+   2.35,
+   5.35
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 26.364,
+   "y": -3.854,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.4,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 22.364,
+   "y": -3.854,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.95,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 1.064,
+  "y": -20.754,
+  "width_m": 1.85,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   2.3
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 3.064,
+   "y": -20.754,
+   "yaw_deg": -180.0,
+   "clearance_m": 1.051,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -0.936,
+   "y": -20.754,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 1.064,
+  "y": -18.404,
+  "width_m": 1.3,
+  "passage_axis": "x",
+  "free_through_m": [
+   4.95,
+   2.3
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 3.064,
+   "y": -18.404,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.4,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -0.936,
+   "y": -18.404,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 3.714,
+  "y": -18.404,
+  "width_m": 1.3,
+  "passage_axis": "x",
+  "free_through_m": [
+   2.3,
+   4.95
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 5.714,
+   "y": -18.404,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 1.714,
+   "y": -18.404,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.006
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 3.714,
+  "y": -17.104,
+  "width_m": 0.75,
+  "passage_axis": "x",
+  "free_through_m": [
+   2.3,
+   4.95
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 5.714,
+   "y": -17.104,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.304,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 1.714,
+   "y": -17.104,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.4,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 10.664,
+  "y": -15.254,
+  "width_m": 1.25,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   2.3
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 12.664,
+   "y": -15.254,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.55,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 8.664,
+   "y": -15.254,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 15.264,
+  "y": -23.154,
+  "width_m": 1.55,
+  "passage_axis": "x",
+  "free_through_m": [
+   2.3,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 17.264,
+   "y": -23.154,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 13.264,
+   "y": -23.154,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": -0.436,
+  "y": -15.204,
+  "width_m": 1.6,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.1,
+   2.25
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": -0.436,
+   "y": -13.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.85,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -0.436,
+   "y": -17.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.3,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 1.514,
+  "y": -15.204,
+  "width_m": 0.75,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.1,
+   2.25
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 1.514,
+   "y": -13.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.673,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 1.514,
+   "y": -17.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.3,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 2.964,
+  "y": -15.204,
+  "width_m": 1.4,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.1,
+   2.25
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 2.964,
+   "y": -13.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.474,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 2.964,
+   "y": -17.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.3,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 4.414,
+  "y": -15.204,
+  "width_m": 0.95,
+  "passage_axis": "y",
+  "free_through_m": [
+   5.7,
+   2.25
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 4.414,
+   "y": -13.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.474,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 4.414,
+   "y": -17.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.3,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 8.664,
+  "y": -21.654,
+  "width_m": 0.7,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.25
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 8.664,
+   "y": -19.654,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.532,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 8.664,
+   "y": -23.654,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.3,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 11.464,
+  "y": -16.104,
+  "width_m": 1.7,
+  "passage_axis": "y",
+  "free_through_m": [
+   2.25,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 11.464,
+   "y": -14.104,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.304,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 11.464,
+   "y": -18.104,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.791,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": -0.436,
+  "y": -21.704,
+  "width_m": 1.6,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.9,
+   2.2
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": -0.436,
+   "y": -19.704,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.61,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -0.436,
+   "y": -23.704,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.25,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 8.764,
+  "y": -21.704,
+  "width_m": 0.9,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.2
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 8.764,
+   "y": -19.704,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.57,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 8.764,
+   "y": -23.704,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.25,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 9.764,
+  "y": -21.704,
+  "width_m": 0.7,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.2
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 9.764,
+   "y": -19.704,
+   "yaw_deg": -90.0,
+   "clearance_m": 1.092,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 9.764,
+   "y": -23.704,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.25,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 17.164,
+  "y": -21.704,
+  "width_m": 0.8,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.2
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 17.164,
+   "y": -19.704,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 17.164,
+   "y": -23.704,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.25,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 24.514,
+  "y": -5.954,
+  "width_m": 1.95,
+  "passage_axis": "x",
+  "free_through_m": [
+   2.2,
+   5.5
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 26.514,
+   "y": -5.954,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.25,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 22.514,
+   "y": -5.954,
+   "yaw_deg": 0.0,
+   "clearance_m": 1.0,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 24.964,
+  "y": -4.704,
+  "width_m": 0.9,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.2
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 24.964,
+   "y": -2.704,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.608,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 24.964,
+   "y": -6.704,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.25,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 26.364,
+  "y": -4.704,
+  "width_m": 0.8,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   2.2
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 26.364,
+   "y": -2.704,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.4,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 26.364,
+   "y": -6.704,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.25,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 2.964,
+  "y": -15.304,
+  "width_m": 1.4,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.2,
+   2.15
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 2.964,
+   "y": -13.304,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.381,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 2.964,
+   "y": -17.304,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.2,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 3.164,
+  "y": -14.254,
+  "width_m": 0.6,
+  "passage_axis": "y",
+  "free_through_m": [
+   2.15,
+   3.2
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 3.164,
+   "y": -12.254,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.2,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 3.164,
+   "y": -16.254,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.626,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 4.414,
+  "y": -15.304,
+  "width_m": 0.95,
+  "passage_axis": "y",
+  "free_through_m": [
+   5.8,
+   2.15
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 4.414,
+   "y": -13.304,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.381,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 4.414,
+   "y": -17.304,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.2,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 13.314,
+  "y": -1.254,
+  "width_m": 1.35,
+  "passage_axis": "y",
+  "free_through_m": [
+   2.15,
+   3.75
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 13.314,
+   "y": 0.746,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.2,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 13.314,
+   "y": -3.254,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.8,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 3.914,
+  "y": -17.104,
+  "width_m": 0.75,
+  "passage_axis": "x",
+  "free_through_m": [
+   2.1,
+   5.15
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 5.914,
+   "y": -17.104,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.381,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 1.914,
+   "y": -17.104,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.4,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 1.514,
+  "y": -15.404,
+  "width_m": 0.75,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.3,
+   2.05
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 1.514,
+   "y": -13.404,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.559,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 1.514,
+   "y": -17.404,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.1,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 3.764,
+  "y": -9.804,
+  "width_m": 1.95,
+  "passage_axis": "x",
+  "free_through_m": [
+   4.65,
+   2.05
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 5.764,
+   "y": -9.804,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.828,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 1.764,
+   "y": -9.804,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.1,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 0.764,
+  "y": -23.204,
+  "width_m": 1.4,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   2.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 2.764,
+   "y": -23.204,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.75,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -1.236,
+   "y": -23.204,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.05,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 0.764,
+  "y": -17.154,
+  "width_m": 0.65,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   2.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 2.764,
+   "y": -17.154,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -1.236,
+   "y": -17.154,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.05,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 13.314,
+  "y": -1.104,
+  "width_m": 1.35,
+  "passage_axis": "y",
+  "free_through_m": [
+   2.0,
+   3.9
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 13.314,
+   "y": 0.896,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.05,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 13.314,
+   "y": -3.104,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.885,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 2.664,
+  "y": -19.754,
+  "width_m": 1.7,
+  "passage_axis": "y",
+  "free_through_m": [
+   1.95,
+   4.15
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 2.664,
+   "y": -17.754,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 2.664,
+   "y": -21.754,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.6,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 2.864,
+  "y": -8.804,
+  "width_m": 1.5,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   1.95
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 2.864,
+   "y": -6.804,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.75,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 2.864,
+   "y": -10.804,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 24.964,
+  "y": -4.954,
+  "width_m": 0.9,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   1.95
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 24.964,
+   "y": -2.954,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.695,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 24.964,
+   "y": -6.954,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 3.614,
+  "y": -9.804,
+  "width_m": 1.95,
+  "passage_axis": "x",
+  "free_through_m": [
+   4.8,
+   1.9
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 5.614,
+   "y": -9.804,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.695,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 1.614,
+   "y": -9.804,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.006
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 10.264,
+  "y": -23.154,
+  "width_m": 1.55,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   1.9
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 12.264,
+   "y": -23.154,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 8.264,
+   "y": -23.154,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 26.264,
+  "y": -2.604,
+  "width_m": 1.0,
+  "passage_axis": "y",
+  "free_through_m": [
+   5.25,
+   1.9
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 26.264,
+   "y": -0.604,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 26.264,
+   "y": -4.604,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 26.364,
+  "y": -5.004,
+  "width_m": 0.8,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   1.9
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 26.364,
+   "y": -3.004,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.4,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 26.364,
+   "y": -7.004,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": -0.436,
+  "y": -15.604,
+  "width_m": 1.6,
+  "passage_axis": "y",
+  "free_through_m": [
+   3.5,
+   1.85
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": -0.436,
+   "y": -13.604,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.85,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -0.436,
+   "y": -17.604,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.05,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 6.164,
+  "y": -23.204,
+  "width_m": 1.4,
+  "passage_axis": "x",
+  "free_through_m": [
+   1.85,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 8.164,
+   "y": -23.204,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.05,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 4.164,
+   "y": -23.204,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.75,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 4.214,
+  "y": -18.404,
+  "width_m": 1.3,
+  "passage_axis": "x",
+  "free_through_m": [
+   1.8,
+   5.45
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 6.214,
+   "y": -18.404,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.05,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 2.214,
+   "y": -18.404,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 6.264,
+  "y": -23.204,
+  "width_m": 1.4,
+  "passage_axis": "x",
+  "free_through_m": [
+   1.75,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 8.264,
+   "y": -23.204,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 4.264,
+   "y": -23.204,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.75,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 10.114,
+  "y": -23.154,
+  "width_m": 1.55,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   1.75
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 12.114,
+   "y": -23.154,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.8,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 8.114,
+   "y": -23.154,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": -0.436,
+  "y": -22.204,
+  "width_m": 1.6,
+  "passage_axis": "y",
+  "free_through_m": [
+   4.4,
+   1.7
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": -0.436,
+   "y": -20.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.85,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -0.436,
+   "y": -24.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 4.914,
+  "y": -17.154,
+  "width_m": 0.65,
+  "passage_axis": "x",
+  "free_through_m": [
+   1.7,
+   6.0
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 6.914,
+   "y": -17.154,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 2.914,
+   "y": -17.154,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 7.464,
+  "y": -22.204,
+  "width_m": 1.15,
+  "passage_axis": "y",
+  "free_through_m": [
+   4.85,
+   1.7
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 7.464,
+   "y": -20.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.6,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 7.464,
+   "y": -24.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 9.214,
+  "y": -22.204,
+  "width_m": 1.75,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   1.7
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 9.214,
+   "y": -20.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.559,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 9.214,
+   "y": -24.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 16.664,
+  "y": -22.204,
+  "width_m": 1.85,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   1.7
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 16.664,
+   "y": -20.204,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 16.664,
+   "y": -24.204,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 3.164,
+  "y": -13.754,
+  "width_m": 0.6,
+  "passage_axis": "y",
+  "free_through_m": [
+   1.65,
+   3.7
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 3.164,
+   "y": -11.754,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "approach_b": {
+   "x": 3.164,
+   "y": -15.754,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.711,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 26.264,
+  "y": -1.754,
+  "width_m": 1.0,
+  "passage_axis": "y",
+  "free_through_m": [
+   1.65,
+   5.15
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 26.264,
+   "y": 0.246,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 26.264,
+   "y": -3.754,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.5,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 0.364,
+  "y": -23.204,
+  "width_m": 1.4,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   1.6
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 2.364,
+   "y": -23.204,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.75,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -1.636,
+   "y": -23.204,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 0.364,
+  "y": -18.204,
+  "width_m": 0.85,
+  "passage_axis": "x",
+  "free_through_m": [
+   5.65,
+   1.6
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 2.364,
+   "y": -18.204,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -1.636,
+   "y": -18.204,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 0.364,
+  "y": -17.154,
+  "width_m": 0.65,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   1.6
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 2.364,
+   "y": -17.154,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -1.636,
+   "y": -17.154,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 0.314,
+  "y": -10.404,
+  "width_m": 0.75,
+  "passage_axis": "x",
+  "free_through_m": [
+   6.0,
+   1.55
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 2.314,
+   "y": -10.404,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.4,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -1.686,
+   "y": -10.404,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 3.164,
+  "y": -13.654,
+  "width_m": 0.6,
+  "passage_axis": "y",
+  "free_through_m": [
+   1.55,
+   3.8
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 3.164,
+   "y": -11.654,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "approach_b": {
+   "x": 3.164,
+   "y": -15.654,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.652,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 9.214,
+  "y": -22.354,
+  "width_m": 1.75,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   1.55
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 9.214,
+   "y": -20.354,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.412,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 9.214,
+   "y": -24.354,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 16.664,
+  "y": -22.354,
+  "width_m": 1.85,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   1.55
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 16.664,
+   "y": -20.354,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.35,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 16.664,
+   "y": -24.354,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": -0.436,
+  "y": -22.404,
+  "width_m": 1.6,
+  "passage_axis": "y",
+  "free_through_m": [
+   4.6,
+   1.5
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": -0.436,
+   "y": -20.404,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.85,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -0.436,
+   "y": -24.404,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 0.264,
+  "y": -8.404,
+  "width_m": 2.1,
+  "passage_axis": "x",
+  "free_through_m": [
+   3.3,
+   1.5
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 2.264,
+   "y": -8.404,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.447,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": -1.736,
+   "y": -8.404,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 2.664,
+  "y": -19.304,
+  "width_m": 1.7,
+  "passage_axis": "y",
+  "free_through_m": [
+   1.5,
+   4.6
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 2.664,
+   "y": -17.304,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.2,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 2.664,
+   "y": -21.304,
+   "yaw_deg": 90.0,
+   "clearance_m": 1.649,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ },
+ {
+  "x": 3.164,
+  "y": -9.254,
+  "width_m": 2.2,
+  "passage_axis": "y",
+  "free_through_m": [
+   6.0,
+   1.5
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 3.164,
+   "y": -7.254,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.45,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 3.164,
+   "y": -11.254,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 7.464,
+  "y": -22.404,
+  "width_m": 1.15,
+  "passage_axis": "y",
+  "free_through_m": [
+   5.05,
+   1.5
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 7.464,
+   "y": -20.404,
+   "yaw_deg": -90.0,
+   "clearance_m": 0.6,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 7.464,
+   "y": -24.404,
+   "yaw_deg": 90.0,
+   "clearance_m": 0.0,
+   "floor_z_m": null
+  },
+  "use_approach": "a"
+ },
+ {
+  "x": 13.714,
+  "y": 0.596,
+  "width_m": 0.7,
+  "passage_axis": "x",
+  "free_through_m": [
+   1.5,
+   2.35
+  ],
+  "floor_z_m": 0.0,
+  "approach_a": {
+   "x": 15.714,
+   "y": 0.596,
+   "yaw_deg": -180.0,
+   "clearance_m": 0.0,
+   "floor_z_m": 0.0
+  },
+  "approach_b": {
+   "x": 11.714,
+   "y": 0.596,
+   "yaw_deg": 0.0,
+   "clearance_m": 0.335,
+   "floor_z_m": 0.0
+  },
+  "use_approach": "b"
+ }
+]
