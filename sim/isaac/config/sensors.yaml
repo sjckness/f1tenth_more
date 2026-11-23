@@ -59,6 +59,9 @@ imu:
 
 odometry:
   rate: 50.0                # Hz, /odom from vesc_to_odom (bag 50.0 Hz)
+  # rear wheel speed for /odom: joint_velocity (PhysX joint velocities) or joint_position (change of the
+  # joint angles per step, what a tachometer counts). See car.py rear_wheel_speed, hil_drift_probe.py.
+  wheel_speed_source: joint_velocity
   noise:
     enabled: true
     speed_scale_error: 0.02 # +2 % speed scale

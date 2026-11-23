@@ -52,6 +52,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--duration", type=float, default=0.0, help="stop after this many sim seconds (0 = run forever)")
     p.add_argument("--no-realtime", action="store_true", help="run as fast as possible (no real-time pacing)")
     p.add_argument("--stats-file", default="", help="write run statistics (json) here on exit")
+    p.add_argument("--physics-hz", type=float, default=PHYSICS_HZ, help=f"physics rate (default {PHYSICS_HZ:.0f})")
+    p.add_argument("--drift-log", default="", metavar="PATH",
+                   help="CSV of ground truth, /odom and wheel joints every 0.1 s sim time (sim/drift_log.py)")
     p.add_argument("--set", action="append", default=[], metavar="FILE.KEY=VALUE",
                    help="config override, e.g. --set sensors.stereo.semantic.enabled=true (repeatable)")
     p.add_argument("--snapshot-at", default="", metavar="T1,T2,...",
@@ -147,7 +150,8 @@ def run(app, cfg, args, stop) -> int:
     if not assets_root:
         log.error("NVIDIA asset root not reachable (internet / OMNI_SERVER?)")
         return 3
-    dt = 1.0 / PHYSICS_HZ
+    physics_hz = float(args.physics_hz)
+    dt = 1.0 / physics_hz
     world = World(stage_units_in_meters=1.0, physics_dt=dt, rendering_dt=dt)
     stage = omni.usd.get_context().get_stage()
     scene_info = build_scene(stage, cfg, assets_root, app)
@@ -182,7 +186,7 @@ def run(app, cfg, args, stop) -> int:
     ros.start_pose(0.0, cfg.scene["car"]["start"])
     K = sensors.cameras["left"].K
     baseline = float(get(cfg.car, "sensors.zed.baseline"))
-    render_every = max(1, int(round(PHYSICS_HZ / float(st["rate"]))))
+    render_every = max(1, int(round(physics_hz / float(st["rate"]))))
     timers = {k: RateTimer(r) for k, r in (("scan", cfg.sensors["lidar"]["rate"]), ("odom", cfg.sensors["odometry"]["rate"]),
                                            ("imu", cfg.sensors["imu"]["rate"]),
                                            ("gt", cfg.sensors["ground_truth"]["rate"]),
@@ -205,8 +209,25 @@ def run(app, cfg, args, stop) -> int:
     rtf_t0_wall, rtf_t0_sim = time.time(), 0.0
     run_wall0 = time.time()
     k = 0
-    log.info("running: physics %.0f Hz, render every %d steps (%.1f Hz), realtime=%s", PHYSICS_HZ, render_every,
-             PHYSICS_HZ / render_every, not args.no_realtime)
+    odom_src = str(cfg.sensors["odometry"].get("wheel_speed_source", "joint_velocity"))
+    if odom_src not in ("joint_velocity", "joint_position"):
+        raise ValueError(f"sensors.odometry.wheel_speed_source: {odom_src!r} (joint_velocity | joint_position)")
+    drift = None
+    if args.drift_log:
+        from sim.drift_log import DriftLog
+        kps, kds = controller.art.get_articulation_controller().get_gains()
+        drift = DriftLog(args.drift_log, 0.1, {
+            "physics_hz": physics_hz, "wheel_radius": geom.wheel_radius, "wheelbase": geom.wheelbase,
+            "dof_names": list(art.dof_names), "drive_idx": controller.drive_idx, "steer_idx": controller.steer_idx,
+            "kps": kps, "kds": kds,
+            "max_efforts": controller.art.get_articulation_controller().get_max_efforts(),
+            "start": cfg.scene["car"]["start"], "wheel_speed_source": odom_src,
+            "stop_hold": controller.stop_hold, "stop_hold_gain": controller.stop_hold_gain,
+            "reapply_unchanged_targets": controller.reapply_targets, "drive_damping": controller.drive_damping,
+            "odom_noise": cfg.sensors["odometry"]["noise"]})
+        log.info("drift log: %s", args.drift_log)
+    log.info("running: physics %.0f Hz, render every %d steps (%.1f Hz), realtime=%s, odometry from %s", physics_hz,
+             render_every, physics_hz / render_every, not args.no_realtime, odom_src)
     exit_reason = "loop end"
     try:
         while app.is_running() and not stop["flag"]:
@@ -223,7 +244,9 @@ def run(app, cfg, args, stop) -> int:
             sim_t["t"] = t
             ros.clock(t)
             # wheel odometry integrates every step (like the VESC at its own rate)
-            wheel_odom.update(controller.rear_wheel_speed(), controller.steer, dt)
+            wheel_odom.update(controller.rear_wheel_speed(dt, odom_src), controller.steer, dt)
+            if drift is not None:
+                drift.update(t, state, wheel_odom, controller)
             if timers["scan"].due(t):
                 r = sensors.read_scan()
                 if r.size:
@@ -289,6 +312,8 @@ def run(app, cfg, args, stop) -> int:
         stats.update(exit_reason=exit_reason, frames=k, sim_time=k * dt, wall_time=wall, rtf=(k * dt) / wall if wall > 0 else 0.0,
                      commands_received=ros.n_cmd, resets=resetter.count,
                      lidar=getattr(sensors, "lidar_azimuth_info", None))
+        if drift is not None:
+            drift.close()
         log.info("stopped: sim %.1f s, wall %.1f s, RTF %.3f, %d commands", k * dt, wall, stats["rtf"], ros.n_cmd)
         if args.stats_file:
             with open(args.stats_file, "w") as fh:

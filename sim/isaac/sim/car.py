@@ -16,7 +16,7 @@ from dataclasses import dataclass
 import numpy as np
 from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
-from sim.config import SimConfig, get
+from sim.config import SimConfig, get, val
 from sim.scene_builder import bind_physics_material, physics_material
 from sim.transforms import make_tf, matrix_to_quat, quat_from_rpy, quat_to_matrix, tf_inv
 
@@ -265,6 +265,13 @@ class CarController:
         self.drive_joints = list(get(lb, "drive_joints"))
         self.rear_joints = [j for j in self.drive_joints if "Rear" in j]
         self.drive_max_torque = float(lb.get("drive_max_torque", {}).get("value", 0.0) or 0.0)
+        # Standstill options (car_spec.yaml leatherback.*; the defaults keep the old behaviour). They exist
+        # for the drift at rest (2026-11-23: ~3.7 mm/s backwards with every wheel target at 0), see
+        # scripts/sim/win/hil_drift_probe.py, which measures each one.
+        self.stop_hold = bool(val(lb.get("stop_hold", False)))
+        self.stop_hold_gain = float(val(lb.get("stop_hold_gain", 10.0)))
+        self.reapply_targets = bool(val(lb.get("reapply_unchanged_targets", True)))
+        self.drive_damping = float(val(lb.get("drive_damping", 0.0)) or 0.0)
         self.geom = geom
         self.ctrl = AckermannController(
             "ackermann", wheel_base=geom.wheelbase, track_width=geom.track,
@@ -286,6 +293,9 @@ class CarController:
         self.speed = 0.0       # actuator-model output
         self.steer = 0.0
         self.timed_out = True
+        self.hold_pos = None          # drive joint positions latched when the car came to rest (stop_hold)
+        self.last_targets = None      # last (steering positions, wheel velocities) sent
+        self.rear_q_prev = None       # rear wheel joint positions at the previous step (odometry)
         self.ctrl.reset()
 
     def initialize(self, articulation) -> None:
@@ -303,6 +313,17 @@ class CarController:
             ac.set_max_efforts(np.full(len(self.drive_idx), self.drive_max_torque), joint_indices=self.drive_idx)
             log.info("wheel drive max torque %.2f N m (car_spec leatherback.drive_max_torque); max efforts now %s",
                      self.drive_max_torque, np.round(np.asarray(ac.get_max_efforts())[self.drive_idx], 3))
+        if self.drive_damping > 0:
+            kps, kds = (np.asarray(g, dtype=float).copy() for g in ac.get_gains())
+            log.warning("wheel drive damping %s -> %.3g (car_spec leatherback.drive_damping)",
+                        np.round(kds[self.drive_idx], 3), self.drive_damping)
+            kds[self.drive_idx] = self.drive_damping
+            ac.set_gains(kps=kps, kds=kds)
+        if self.stop_hold:
+            log.warning("stop_hold: wheels held at their angle when the car is at rest (gain %.1f 1/s)",
+                        self.stop_hold_gain)
+        if not self.reapply_targets:
+            log.warning("reapply_unchanged_targets=false: joint targets sent only when they change")
         kps, kds = ac.get_gains()
         log.info("joint gains (USD drives): drive kp %s kd %s | steering kp %s kd %s",
                  np.round(np.asarray(kps)[self.drive_idx], 3), np.round(np.asarray(kds)[self.drive_idx], 3),
@@ -325,11 +346,25 @@ class CarController:
         act = self.ctrl.forward(np.array([self.steer, 0.0, self.speed, 0.0, dt]))
         if act.joint_positions is None or act.joint_velocities is None:
             return
-        self.art.apply_action(ArticulationAction(
-            joint_positions=self.steer_sign * np.asarray(act.joint_positions, dtype=float),
-            joint_indices=self.steer_idx))
-        self.art.apply_action(ArticulationAction(
-            joint_velocities=np.asarray(act.joint_velocities, dtype=float), joint_indices=self.drive_idx))
+        steer_pos = self.steer_sign * np.asarray(act.joint_positions, dtype=float)
+        wheel_vel = np.asarray(act.joint_velocities, dtype=float)
+        if self.stop_hold and tgt_v == 0.0 and abs(self.speed) < STOP_HOLD_SPEED:
+            # Parking brake as a velocity servo on the wheel angle (the drives are velocity drives with a
+            # near-infinite kd: a position target would need a kp of the same order). Like the VESC's speed
+            # PID at 0 ERPM, whose integral holds the motor where it stopped.
+            q = np.asarray(self.art.get_joint_positions(joint_indices=self.drive_idx), dtype=float)
+            if self.hold_pos is None:
+                self.hold_pos = q.copy()
+            err = np.arctan2(np.sin(q - self.hold_pos), np.cos(q - self.hold_pos))
+            wheel_vel = np.clip(-self.stop_hold_gain * err, -STOP_HOLD_MAX_W, STOP_HOLD_MAX_W)
+        else:
+            self.hold_pos = None
+        if (self.reapply_targets or self.last_targets is None
+                or not np.array_equal(steer_pos, self.last_targets[0])
+                or not np.array_equal(wheel_vel, self.last_targets[1])):
+            self.art.apply_action(ArticulationAction(joint_positions=steer_pos, joint_indices=self.steer_idx))
+            self.art.apply_action(ArticulationAction(joint_velocities=wheel_vel, joint_indices=self.drive_idx))
+            self.last_targets = (steer_pos, wheel_vel)
         self._n += 1
         if self.debug and self._n % 30 == 0 and (abs(self.speed) > 1e-3 or abs(self.steer) > 1e-3):
             q = self.art.get_joint_positions(joint_indices=self.steer_idx)
@@ -338,10 +373,25 @@ class CarController:
                      self.speed, self.steer, np.round(self.steer_sign * np.asarray(act.joint_positions), 4),
                      np.round(np.asarray(q), 4), np.round(np.asarray(act.joint_velocities), 2), np.round(np.asarray(w), 2))
 
-    def rear_wheel_speed(self) -> float:
-        """Mean rear wheel surface speed [m/s] from joint velocities (wheel encoder / ERPM analogue)."""
+    def rear_wheel_speed(self, dt: float = 0.0, source: str = "joint_velocity") -> float:
+        """Mean rear wheel surface speed [m/s] (wheel encoder / ERPM analogue).
+
+        ``joint_velocity``: the joint velocities PhysX reports. ``joint_position``: the change of the joint
+        angles over ``dt`` (what a tachometer counts). Call it once per physics step with the second one.
+        """
+        if source == "joint_position":
+            q = np.asarray(self.art.get_joint_positions(joint_indices=self.rear_idx), dtype=float)
+            prev, self.rear_q_prev = self.rear_q_prev, q
+            if prev is None or dt <= 0:
+                return 0.0
+            d = np.arctan2(np.sin(q - prev), np.cos(q - prev))
+            return float(np.mean(d)) / dt * self.geom.wheel_radius
         v = self.art.get_joint_velocities(joint_indices=self.rear_idx)
         return float(np.mean(np.asarray(v, dtype=float))) * self.geom.wheel_radius
+
+
+STOP_HOLD_SPEED = 1e-3     # m/s: below this, with a zero target, the car is at rest (stop_hold)
+STOP_HOLD_MAX_W = 2.0      # rad/s: the brake servo never turns a wheel faster than this
 
 
 def _lag_rate(y: float, target: float, tau: float, rate: float, dt: float) -> float:

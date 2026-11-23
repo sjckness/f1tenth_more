@@ -66,6 +66,13 @@ sensors:
 leatherback:
   usd: {value: "/Isaac/Robots/NVIDIA/Leatherback/leatherback.usd", source: "NVIDIA assets 5.1"}
   drive_max_torque: {value: 2.0, unit: N m, source: "derived 2026-10-16 (sim_next S20): the USD velocity drives (kd 5.7e9) have no force limit, so a car pushing a wall builds unbounded wheel torque until PhysX goes NaN (office, 170 s stalled at 0.4 m/s). Traction limit 5.562 kg x 0.8 g / 4 wheels x 0.05 m = 0.55 N m per wheel; 2.0 = 3.6x that, never reached while driving (3 m/s^2 needs 0.21 N m)"}
+  # Standstill (2026-11-23): with every wheel target at 0 the car drifts backwards ~3.7 mm/s (ground truth)
+  # and /odom ~7.5 mm/s. These switches exist to measure fixes with scripts/sim/win/hil_drift_probe.py;
+  # the defaults are the behaviour before them.
+  stop_hold: {value: false, source: "drift fix candidate: at rest, servo each wheel back to the angle where it stopped (VESC speed PID at 0 ERPM)"}
+  stop_hold_gain: {value: 10.0, unit: 1/s, source: "assumed: wheel angle error -> velocity target"}
+  reapply_unchanged_targets: {value: true, source: "true = joint targets sent every step (wakes PhysX). false = only when they change, so PhysX can put the car to sleep at rest"}
+  drive_damping: {value: 0.0, unit: N m s/rad, source: "0 = the USD drives' kd (5.7e9). > 0 replaces it on the 4 wheel drives (drift fix candidate: a sane kd)"}
   wheelbase: {value: 0.320, unit: m, source: "measured: wheel body x +0.15 / -0.17"}
   track: {value: 0.2416, unit: m, source: "measured: wheel centres y +-0.1208 (rear right 0.1215)"}
   wheel_radius: {value: 0.052, unit: m, source: "measured: wheel bbox 0.104 dia; sample graph backWheelRadius 0.052"}

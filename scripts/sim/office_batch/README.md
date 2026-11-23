@@ -55,6 +55,12 @@ sessione. `session.json` registra quale missione ha girato: `mission` (il percor
 riporta `mission_name`. Una sessione non mescola due missioni: riprenderla (`--session`) con
 una missione diversa da quella registrata viene rifiutato.
 
+**Deriva di Isaac da fermo.** Con le ruote a 0 l'auto di Isaac arretra di circa 3,7 mm/s (ground
+truth) e `/odom` accumula circa 7,5-8 mm/s. Il fix (`car_spec.leatherback.stop_hold` +
+`sensors.odometry.wheel_speed_source: joint_position`) c'e' ma e' spento di default, finche' la
+prova sulla work non lo conferma nell'office: `scripts\sim\win\hil_drift_probe.bat` (dettagli e
+misure di linus nel suo docstring). Finche' e' spento, il batch gira con la deriva.
+
 ## Cosa si misura (`car-hil-agent analyze`)
 
 Ogni run viene giudicato in due modi.
