@@ -1,0 +1,38 @@
+{
+  "mission_id": "straight_3m_then_left_door_direct",
+  "schema_version": "6.0",
+  "description": "Same as straight_5m_then_left_door_direct, but the straight is 3 m. WHY: every pose of door_runup_left_5m.json puts the doorway 5 m ahead and 2 m to the left, so after 5 m the car stands ON the door axis, perpendicular to it, 2 m from the opening: a forward left turn (Dubins rho = 1.1 x R_min ~ 1.06 m) ends 1.06 m past the axis, and EnterDoor answers door_needs_steered_reverse without moving (HIL smoke 20261123_174535, both 5 m missions). Stopping 2 m before the axis leaves ~0.9 m of straight, the 90 deg left turn and ~0.9 m into the opening. The turn may start no later than ~3.9 m.",
+  "moves": [
+    {
+      "id": "move_0_straight_3m",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.4
+      },
+      "stop_condition": {
+        "type": "distance_reached",
+        "distance": 3.0
+      },
+      "timeout_sec": 30,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "move_1_enter_left_door",
+      "enter_door": {
+        "type": "enter_door",
+        "door": "left",
+        "along_tol": 0.15,
+        "lateral_tol": 0.05,
+        "yaw_tol_deg": 10,
+        "acquire_timeout_sec": 5.0,
+        "approach_dist_m": 0.05
+      },
+      "stop_condition": {
+        "type": "door_entered"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
