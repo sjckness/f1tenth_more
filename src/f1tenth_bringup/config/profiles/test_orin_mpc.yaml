@@ -1,11 +1,15 @@
 # Launch profile test_orin_mpc: car-stack start test_orin_mpc
 #
-# A road test of corridors + MPC (mpc_corr, the stack's default planner),
-# written out explicitly so the run does not depend on stack_params.yaml's
-# default, with the per-mission rosbag recording, no llama-server.
+# A road test of corridors + MPC (mpc_corr)
+# with every service of campaign3_rrt: per-mission rosbag recording, the
+# test_campaign_logger (runs, results.csv, MATLAB export input, under
+# /home/fabiocar/f1tenth_archive) and llama-server, so llm_planner_node can
+# turn prompts into missions. Same image as the other test_orin_* profiles:
+# switching is car-stack restart <profile>, no rebuild.
 #
 # Sections: see test_orin_rrt.yaml.
 launch_arguments:
   planner_controller_mode: corridor_mpc
   enable_mission_logger: 'true'
-  enable_intelligence: 'false'
+  enable_test_campaign_logger: 'true'
+  enable_intelligence: 'true'

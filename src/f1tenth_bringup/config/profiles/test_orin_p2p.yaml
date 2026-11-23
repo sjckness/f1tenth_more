@@ -1,13 +1,15 @@
 # Launch profile test_orin_p2p: car-stack start test_orin_p2p
 #
-# A road test of p2p_geometric on the car (no corridor: a Dubins path from the
-# car to the move's target, pure pursuit on it; obstacles only cap the speed;
-# the MPC is not started), with the per-mission rosbag recording, no
-# llama-server. Same image as test_orin_mpc: switching between the two is
-# car-stack restart <profile>, no rebuild.
+# A road test of p2p_geometric (no corridor: a Dubins path to the target, pure pursuit on it; obstacles only cap the speed; the MPC is not started)
+# with every service of campaign3_rrt: per-mission rosbag recording, the
+# test_campaign_logger (runs, results.csv, MATLAB export input, under
+# /home/fabiocar/f1tenth_archive) and llama-server, so llm_planner_node can
+# turn prompts into missions. Same image as the other test_orin_* profiles:
+# switching is car-stack restart <profile>, no rebuild.
 #
 # Sections: see test_orin_rrt.yaml.
 launch_arguments:
   planner_controller_mode: p2p_geometric
   enable_mission_logger: 'true'
-  enable_intelligence: 'false'
+  enable_test_campaign_logger: 'true'
+  enable_intelligence: 'true'
