@@ -131,3 +131,78 @@ def test_analyze_writes_tables_and_report(tmp_path):
     assert rep.startswith('---\nid: 2026-11-23_office-door-batch')
     assert '| corridor_mpc | 1 | 1 (100.0 %)' in rep
     assert os.path.exists(sess / 'analysis' / 'by_pose.csv')
+
+
+# ---- rezero_local (the re-zero right before the reset checks), with a fake RunNode: no ROS
+
+class _Ns:
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+
+def _odom_msg(x, y=0.0):
+    return _Ns(pose=_Ns(pose=_Ns(position=_Ns(x=x, y=y), orientation=_Ns(x=0.0, y=0.0, z=0.0, w=1.0))))
+
+
+class _Req:
+    def __init__(self):
+        self.pose = _Ns(header=_Ns(frame_id='', stamp=None),
+                        pose=_Ns(pose=_Ns(orientation=_Ns(w=0.0)), covariance=None))
+
+
+class _Trigger:
+    Request = _Req
+
+
+class _SetPose:
+    Request = _Req
+
+
+class _FakeRun:
+    """call() records the service and moves the matching topic to `after[name]`, stamped now."""
+
+    def __init__(self, after, ok=True):
+        self.after, self.ok, self.calls, self.last = after, ok, [], {}
+        self.node = _Ns(get_clock=lambda: _Ns(now=lambda: _Ns(to_msg=lambda: 'stamp')))
+        # stale values from before the re-zero: drifted 8 cm
+        self.last['wheel'] = (0.0, _odom_msg(-0.08))
+        self.last['odom'] = (0.0, _odom_msg(-0.077))
+
+    def call(self, srv_type, name, request, timeout):
+        self.calls.append((name, request))
+        if name in self.after:
+            key, x = self.after[name]
+            self.last[key] = (agent.time.monotonic() + 1e-6, _odom_msg(x))
+        return _Ns(success=self.ok, message='nope'), ''
+
+    def spin_for(self, sec, until=None):
+        return until() if until is not None else True
+
+
+def test_rezero_resets_sim_then_ekf_and_waits_for_zero():
+    rn = _FakeRun({'/sim/reset': ('wheel', 0.0), '/set_pose': ('odom', 0.003)})
+    rec = agent.rezero_local(rn, _Trigger, _SetPose)
+    assert 'error' not in rec, rec
+    assert [c[0] for c in rn.calls] == ['/sim/reset', '/set_pose']
+    req = rn.calls[1][1]
+    assert req.pose.header.frame_id == 'odom' and req.pose.pose.pose.orientation.w == 1.0
+
+
+def test_rezero_fails_when_sim_reset_refuses():
+    rn = _FakeRun({}, ok=False)
+    rec = agent.rezero_local(rn, _Trigger, _SetPose)
+    assert rec['error'].startswith('/sim/reset') and [c[0] for c in rn.calls] == ['/sim/reset']
+
+
+def test_rezero_does_not_accept_the_stale_filtered_odometry():
+    # /sim/reset zeroes /odom but /set_pose never brings /odometry/filtered back: the old -7.7 cm
+    # value must not count
+    rn = _FakeRun({'/sim/reset': ('wheel', 0.0)})
+    rec = agent.rezero_local(rn, _Trigger, _SetPose)
+    assert '/odometry/filtered' in rec['error']
+
+
+def test_rezero_waits_for_odom_back_at_zero_before_set_pose():
+    rn = _FakeRun({'/sim/reset': ('wheel', -0.06)})
+    rec = agent.rezero_local(rn, _Trigger, _SetPose)
+    assert rec['error'].startswith('/odom') and [c[0] for c in rn.calls] == ['/sim/reset']

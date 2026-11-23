@@ -54,6 +54,7 @@ DOORWAY_YAW_TOL_DEG = 20.0
 RESET_POS_TOL_M, RESET_YAW_TOL_DEG = 0.05, 1.5     # the HIL office settle (dce14b9e): 5 cm
 SPEED_TOL = 0.05
 LOCAL_TOL, GLOBAL_TOL, LOC_YAW_TOL = 0.05, 0.15, 0.05
+REZERO_TOL_M, REZERO_WAIT_S = 0.02, 5.0     # rezero_local(): /odom and /odometry/filtered back at 0
 PATHS_MIN_PERIOD_S = 0.5          # throttle of the path / corridor / door logs (disk)
 PACKAGES = ('f1tenth_behavior', 'f1tenth_planners', 'mpc_controller', 'f1tenth_costmap',
             'f1tenth_bringup', 'f1tenth_params', 'f1tenth_navigation', 'f1tenth_perception',
@@ -325,6 +326,8 @@ class RunNode:
                               qos_profile_sensor_data)
         n.create_subscription(Odometry, '/odometry/filtered', lambda m: self._odom('odom', m),
                               qos_profile_sensor_data)
+        n.create_subscription(Odometry, '/odom', lambda m: self._keep('wheel', m),
+                              qos_profile_sensor_data)
         n.create_subscription(Odometry, '/ekf_global/odometry/filtered',
                               lambda m: self._keep('ekf_global', m), 10)
         n.create_subscription(PoseWithCovarianceStamped, '/slam/pose', lambda m: self._keep('slam', m), 10)
@@ -489,8 +492,64 @@ def _num(v):
     return None if math.isnan(v) or math.isinf(v) else round(v, 4)
 
 
+def _near_zero(rn, key, after, tol=REZERO_TOL_M):
+    """The last `key` message arrived after `after` (monotonic) and sits within tol of 0 0 0."""
+    v = rn.last.get(key)
+    if v is None or v[0] < after:
+        return False
+    p = v[1].pose.pose
+    return math.hypot(p.position.x, p.position.y) <= tol and abs(wrap(yaw_of(p.orientation))) <= LOC_YAW_TOL
+
+
+def rezero_local(rn, trigger_type, setpose_type) -> dict:
+    """Isaac's /sim/reset, then /set_pose 0 on the local EKF: steps 2 and 3 of /reset_all, again.
+
+    Isaac drifts: with every wheel commanded to 0 the car creeps backwards by itself, ~3.7 mm/s
+    of true motion and ~7.3 mm/s on /odom (2026-11-23, three poses, Isaac alone). /reset_all zeroes
+    the odometry ~11 s before the checks (its step 2, then the SLAM restart, then --settle), so
+    /odometry/filtered was already at ~8 cm against LOCAL_TOL 5 cm and every reset failed. Doing it
+    again here, right before the 1 s sampling window, leaves ~1 s of drift and puts the car back at
+    its start pose the moment the mission starts. The drift itself is a sim bug, not fixed here.
+
+    /sim/reset alone is not enough: the local EKF fuses /odom differentially, so the jump back to 0
+    reaches /odometry/filtered as a velocity spike, not as a reset. Hence the /set_pose, after /odom
+    is back at 0 (same order as reset_manager). Both Isaac and fake_sim offer /sim/reset.
+    Returns the record; 'error' set when a step failed.
+    """
+    rec = {}
+    t0 = time.monotonic()
+    res, err = rn.call(trigger_type, '/sim/reset', trigger_type.Request(), 30.0)
+    if res is None or not res.success:
+        rec['error'] = f'/sim/reset: {err or res.message}'
+        return rec
+    if not rn.spin_for(REZERO_WAIT_S, until=lambda: _near_zero(rn, 'wheel', t0)):
+        rec['error'] = f'/odom not back within {REZERO_TOL_M} m of 0 in {REZERO_WAIT_S:.0f} s after /sim/reset'
+        return rec
+    rec['sim_reset_s'] = round(time.monotonic() - t0, 2)
+    req = setpose_type.Request()
+    req.pose.header.frame_id = 'odom'
+    req.pose.header.stamp = rn.node.get_clock().now().to_msg()
+    req.pose.pose.pose.orientation.w = 1.0
+    cov = [0.0] * 36
+    cov[0] = cov[7] = cov[14] = cov[21] = cov[28] = cov[35] = 1.0e-4   # reset_manager's covariance
+    req.pose.pose.covariance = cov
+    t1 = time.monotonic()
+    res, err = rn.call(setpose_type, '/set_pose', req, 10.0)
+    if res is None:
+        rec['error'] = f'/set_pose: {err}'
+        return rec
+    if not rn.spin_for(REZERO_WAIT_S, until=lambda: _near_zero(rn, 'odom', t1)):
+        rec['error'] = (f'/odometry/filtered not back within {REZERO_TOL_M} m of 0 in '
+                        f'{REZERO_WAIT_S:.0f} s after /set_pose')
+        return rec
+    rec['total_s'] = round(time.monotonic() - t0, 2)
+    return rec
+
+
 def do_reset(rn: RunNode, settle: float) -> dict:
-    """/reset_all, settle, then restart.sh's checks (HIL office tolerances). Returns the record."""
+    """/reset_all, settle, re-zero the local odometry (rezero_local), then restart.sh's checks
+    (HIL office tolerances). Returns the record."""
+    from robot_localization.srv import SetPose
     from std_srvs.srv import Trigger
     rec = {'checks': {}, 'ok': False}
     rn.spin_for(1.0)
@@ -502,6 +561,10 @@ def do_reset(rn: RunNode, settle: float) -> dict:
         return rec
     rec['message'] = res.message
     rn.spin_for(settle)
+    rec['rezero'] = rezero_local(rn, Trigger, SetPose)
+    if 'error' in rec['rezero']:
+        rec['error'] = rec['rezero']['error']
+        return rec
     rn.sampling = True
     rn.drive_window.clear()
     rn.gt_window.clear()
