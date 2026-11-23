@@ -400,20 +400,23 @@ docker_orin status | shell | logs -f | engine | report
 - Base load on the Orin, same conditions: 24.8 % total CPU native Humble, 17.5 %
   in the container, mostly because Humble's Discovery Server burns 72 % of a core.
 
-**A live run with Foxglove**, `scripts/orin/` (each wraps the tools above --
-`stack_mode.sh` / `docker_orin.sh` -- and runs preflight.sh first: ZED on
-USB3, the lidar's Ethernet link, the VESC enumerated over USB):
+**A live run with Foxglove**: `scripts/car/` (README there). From linus,
+`scripts/car/deploy.sh` puts a commit on the Orin and `scripts/car/ready.sh
+[--profile P]` says READY / NOT READY. Then on the Orin host shell:
 
 ```bash
-scripts/orin/container_up.sh      # native -> container, autostart=none
-scripts/orin/stack_live.sh        # the full stack, live ZED+lidar+VESC, foxglove_bridge:8765
-#   --trt              yolo_backend:=engine instead of the default .pt
-#   --rust <list|all>  corridor,hard_stop,mpc_solver,wall_tracker -> that *_impl switch to 'rust'
-scripts/orin/stack_stop.sh        # f1tenth_ctl stop stack; container stays up
-scripts/orin/container_down.sh    # container -> native, verified
+car-container start               # preflight (ZED USB3, lidar, VESC), native -> container, no stack
+car-stack start test_orin_rrt     # the stack with a launch profile; waits for f1tenth_ctl READY
+car-stack status                  # running profile (+ sha256), stack_args, READY or what is missing
+car-stack stop                    # f1tenth_ctl stop stack; container stays up
+car-container stop                # container -> native
 scripts/orin/container_shell.sh   # a shell in the running container, ROS sourced
 scripts/orin/container_shell.sh llm "vai dritto 2m"   # one-shot: ros2 run llm llm_planner_node "..."
 ```
+
+Profiles live in `src/f1tenth_bringup/config/profiles/` and reach the Orin via
+`scripts/car/profiles.sh push` (no rebuild, no container restart). The old
+`container_up/stack_live/stack_stop/container_down.sh` are in `scripts/old/`.
 
 `container_shell.sh`'s `llm` shortcut exists because running it by hand
 from a bare host shell (`ros2 run llm llm_planner_node "..."`) uses
@@ -443,13 +446,10 @@ source scripts/env/jazzy.sh && ros2 launch f1tenth_logger test_campaign_logger.l
 It reaches the same live stack either way (same `ROS_DISCOVERY_SERVER`/
 `ROS_DOMAIN_ID`, host networking).
 
-No script sends a motion command: `stack_live.sh` only starts the stack
-idle (perception, control, the BT) and prints the Foxglove WebSocket URL(s)
-(LAN and Tailscale) to open from a laptop; driving needs a joystick or a
-mission, same as native. `stack_live.sh` also samples
-`/diagnostics/battery_status` once the stack is ready and flags a reading
-under `min_battery_voltage` -- advisory, the same node that backs the BT's
-own runtime cutout (`f1tenth_diagnostics/battery_voltage_check_node.py`).
+No script sends a motion command: `car-stack start` only starts the stack
+idle (perception, control, the BT); driving needs a joystick or a mission,
+same as native (Foxglove on ws://<orin>:8765). Its READY wait includes
+f1tenth_ctl's battery check (`min_battery_voltage`).
 
 Tested live on the Orin, 2026-10-26, Python/.pt defaults: ready in ~15 s;
 `/scan` ~16 Hz, `/camera/image_raw` ~11 Hz, `/camera/detections` ~5 Hz all

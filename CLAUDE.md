@@ -217,8 +217,17 @@ Server on 127.0.0.1:11811, linus over Tailscale).
 
 Never edit files on the Orin (code, config, `~/dev_ws/f1tenth_car`, the native checkout). Flow: change on
 linus, commit, `tools/f1t build` (skill container-build), `tools/f1t deploy` (skill orin-deploy). The only
-on-the-fly override is `~/.config/f1tenth_car/stack_args`, logged by `tools/f1t orin status`. A bug on a
+on-the-fly overrides are `~/.config/f1tenth_car/stack_args`, logged by `tools/f1t orin status`, and the
+launch profiles in `~/.config/f1tenth_car/profiles/`, which only `scripts/car/profiles.sh push` writes
+(from `src/f1tenth_bringup/config/profiles/`, committed). A bug on a
 version: first `tools/f1t whatis <pkg> [--deployed]` (skill version-lookup). `tools/core` changes only on main.
+
+### Day-to-day: `scripts/car/`
+
+From linus: `scripts/car/deploy.sh [COMMIT]` (image + host tools + profiles, verified), then
+`scripts/car/ready.sh --profile P` (READY iff no check FAILs; read-only). On the Orin host:
+`car-container start|stop|status`, `car-stack start P|stop|restart P|status`. A new test setup is a new
+profile, not a new script. See `scripts/car/README.md`; the replaced `scripts/orin_*.sh` are in `scripts/old/`.
 
 ## Thor
 

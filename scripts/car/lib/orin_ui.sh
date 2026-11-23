@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# scripts/lib/orin_ui.sh - output degli script scripts/orin_*.sh su linus: barre di avanzamento,
+# scripts/car/lib/orin_ui.sh - output degli script di scripts/car/ su linus: barre di avanzamento,
 # tempi per passo, comandi stampati prima di eseguirli, coppie chiave/valore. Dopo tools/core/lib/log.sh
 # (usa log_*, _log_to_file): tutto va su stderr e nel log logs/tools/<script>_<data>.log.
 #

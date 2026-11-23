@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Gira SULL'ORIN (ssh bash -s < questo, da scripts/orin_deploy.sh): a che punto e' una build di f1t.
+# Gira SULL'ORIN (ssh bash -s < questo, da scripts/car/build.sh): a che punto e' una build di f1t.
 #   orin_build_progress.sh ROOT SHORT
 # Stampa una riga: STATO|FASE|K|M|ETA|TESTO
 #   STATO  running | ok | fail ... | none        (ROOT/SHORT.status scritto dal job di f1t build)

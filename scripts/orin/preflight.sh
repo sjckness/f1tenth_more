@@ -3,7 +3,7 @@
 # USB3, is the lidar's Ethernet link up, is the VESC enumerated. No ROS, no
 # container, no device opened -- safe to run in any mode, at any time.
 #
-#   scripts/orin/preflight.sh [--lidar-ip IP]
+#   scripts/orin/preflight.sh [--lidar-ip IP]     (on the Orin: car-preflight, installed by scripts/car/deploy.sh)
 #
 # ZED: STEREOLABS (vendor 2b03) must appear under a lsusb -t branch at
 # 5000M or 10000M, not 480M (the USB2 fallback that silently breaks the SDK
@@ -15,8 +15,8 @@
 #
 # Exit 0: all three present. Exit 1: at least one missing or wrong (printed).
 # Battery voltage is NOT checked here -- it is only observable through
-# vesc_driver_node, which is not running until the stack is live; see
-# stack_live.sh's own post-start voltage line.
+# vesc_driver_node, which is not running until the stack is live: car-stack
+# start waits for f1tenth_ctl READY, whose checks include the battery.
 set -euo pipefail
 case "${1:-}" in -h|--help)
   sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'
@@ -65,7 +65,7 @@ else
 fi
 
 # ---- VESC: enumerated over USB -----------------------------------------------
-vesc_link=$(find /dev/serial/by-id -maxdepth 1 \( -iname '*vesc*' -o -iname '*chibios*' \) 2>/dev/null | head -1)
+vesc_link=$(find /dev/serial/by-id -maxdepth 1 \( -iname '*vesc*' -o -iname '*chibios*' \) 2>/dev/null | head -1 || true)
 if [ -n "$vesc_link" ] && [ -e "$vesc_link" ]; then
   pass VESC "$vesc_link -> $(readlink -f "$vesc_link")"
 else

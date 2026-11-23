@@ -1,0 +1,22 @@
+# scripts/car: shellcheck + scripts/car/tests/car_scripts_test.sh (niente rete, niente ssh) su ogni
+# push/PR che tocca gli script o cio' che usano (tools/core/lib, preflight, ctl_container.env).
+name: car-scripts
+on:
+  push:
+    paths: ['scripts/car/**', 'scripts/orin/preflight.sh', 'tools/core/lib/**',
+            'src/f1tenth_ctl/config/ctl_container.env', '.github/workflows/car-scripts.yml']
+  pull_request:
+    paths: ['scripts/car/**', 'scripts/orin/preflight.sh', 'tools/core/lib/**',
+            'src/f1tenth_ctl/config/ctl_container.env', '.github/workflows/car-scripts.yml']
+jobs:
+  car-scripts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # image_commit / same_image leggono la storia
+      - name: shellcheck
+        run: python3 -m pip install --quiet --user shellcheck-py
+      - name: car_scripts_test
+        run: PATH="$HOME/.local/bin:$PATH" scripts/car/tests/car_scripts_test.sh

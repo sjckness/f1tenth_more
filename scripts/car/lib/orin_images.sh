@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Gira SULL'ORIN (ssh bash -s < questo, da scripts/lib/orin_common.sh): le immagini dell'auto.
+# Gira SULL'ORIN (ssh bash -s < questo, da scripts/car/lib/orin_common.sh): le immagini dell'auto.
 #   orin_images.sh REPO PREFIX
 # Una riga per immagine REPO:PREFIX<sha7>[-norust]: "TAG REVISION TESTED PINNED", dove REVISION e' la
 # label org.opencontainers.image.revision (sha completo), TESTED la label f1tenth.tested (o "-"),
