@@ -166,11 +166,14 @@ class FakeSim(Node):
         pub.publish(m)
 
     def loop(self):
-        dt, k, last = 0.01, 0, time.monotonic()
+        period, k = 0.01, 0
+        last = t_prev = time.monotonic()
         while rclpy.ok():
-            nxt = last + dt
+            nxt = last + period
             time.sleep(max(0.0, nxt - time.monotonic()))
-            last = nxt
+            last = max(nxt, time.monotonic() - period)   # late (slow CPU): no catch-up burst
+            now = time.monotonic()
+            dt, t_prev = now - t_prev, now               # integrate the time that really passed
             t = self.now()
             c = Clock()
             c.clock = stamp(t)
