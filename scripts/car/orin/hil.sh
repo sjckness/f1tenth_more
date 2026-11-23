@@ -111,7 +111,9 @@ case "$cmd" in
     if ping -c1 -W2 "$WS_IP" >/dev/null 2>&1; then ok "la workstation risponde al ping"
     else wa "la workstation non risponde al ping (Windows lo blocca: conta il resto)"; fi
     want=$((16 * 1024 * 1024)); have=$(cat /proc/sys/net/core/rmem_max)
-    [ "$have" -ge "$want" ] && ok "rmem_max $have" || ko "net.core.rmem_max $have < $want: sudo sysctl -w net.core.rmem_max=$want net.core.wmem_max=$want"
+    # WARN, not FAIL: the batch's door missions run on the lidar (a 4 kB scan fits any buffer); the
+    # 0.92 MB camera frames are what a small buffer drops, i.e. YOLO starves. Fix once per boot.
+    [ "$have" -ge "$want" ] && ok "rmem_max $have" || wa "net.core.rmem_max $have < $want: le immagini della camera si perdono a raffiche; sudo sysctl -w net.core.rmem_max=$want net.core.wmem_max=$want"
     if [ "$(ss -H -lun "sport = :$PORT" 2>/dev/null | wc -l)" -gt 0 ]; then
       if [ "$(state "$CTR")" = running ]; then wa "porta $PORT occupata dal container $CTR di una sessione precedente (up lo rimpiazza)"
       else ko "porta UDP $PORT gia' occupata da un altro processo"; fi
