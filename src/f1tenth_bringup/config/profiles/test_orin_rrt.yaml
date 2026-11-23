@@ -1,0 +1,16 @@
+# Launch profile test_orin_rrt: car-stack start test_orin_rrt
+#
+# A road test of corridors + RRT* on the car (corridor_rrt, pure pursuit on
+# the path; the MPC is not started), with the per-mission rosbag recording.
+# Unlike campaign3_rrt: no test_campaign_logger, no llama-server.
+#
+# Sections (f1tenth_bringup/launch_profile.py):
+#   launch_arguments: arguments of supervisor_bringup.launch.py; they replace
+#     the default only, a name:=value in ~/.config/f1tenth_car/stack_args wins.
+#   component_args: {component of components.yaml: {launch argument: value}},
+#     given to the launch files of that component that declare the argument.
+# Values are strings, as written after `name:=`. Never on/off/yes/no.
+launch_arguments:
+  planner_controller_mode: corridor_rrt
+  enable_mission_logger: 'true'
+  enable_intelligence: 'false'

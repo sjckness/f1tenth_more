@@ -10,6 +10,35 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-23
+
+### Added
+- Profili: sezione `component_args: {componente: {argomento: valore}}`. Ogni argomento va ai
+  launch file del componente che lo dichiarano, dopo `components.yaml` e dopo le iniezioni del
+  supervisor (nuovo parametro `profile_component_args` di `component_supervisor_node`, dichiarato
+  solo se passato). Prima il supervisor ignorava in silenzio gli argomenti dei componenti
+  (es. `yolo_backend`).
+- `supervisor_bringup.launch.py profiles_dir:=DIR`: dove cercare i profili. Vuoto (default): la
+  cartella `config/profiles` del pacchetto, come prima. Sull'auto `car-stack` lo punta a
+  `~/.config/f1tenth_car/profiles` (montata nel container), così un profilo cambia senza rebuild.
+- `f1tenth_bringup/launch_profile.py`: lettura e verifica dei profili, e CLI
+  `python3 -m f1tenth_bringup.launch_profile check|show|list`. Lo stack.log riporta percorso e
+  sha256 del profilo usato.
+- Profili `test_orin_rrt` (corridor_rrt + mission logger) e `test_orin_mpc` (corridor_mpc +
+  mission logger), senza llama-server né test_campaign_logger.
+
+### Changed
+- Un profilo che nomina qualcosa che non esiste ferma il lancio: una sezione sconosciuta, un
+  argomento non dichiarato, un componente che non c'è in `components.yaml`, un argomento che
+  nessun launch file del componente dichiara, o un argomento che il supervisor imposta da sé
+  (`calibration`, `enable_mission_logger`, `planner_controller_mode`, gli `*_impl`, che vanno in
+  `launch_arguments`).
+- Il nome del profilo deve essere un nome semplice: un percorso (`profile:=/x/y`) è rifiutato.
+
+### Fixed
+- `test_rust_switches.py`: cercava il nodo del supervisor nell'ultima `OpaqueFunction` del
+  launch, che dal test_campaign_logger in poi è un'altra; ora la cerca per nome.
+
 ## [0.2.0] - 2026-11-21
 
 ### Added

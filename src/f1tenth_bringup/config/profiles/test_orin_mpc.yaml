@@ -1,0 +1,11 @@
+# Launch profile test_orin_mpc: car-stack start test_orin_mpc
+#
+# A road test of corridors + MPC (mpc_corr, the stack's default planner),
+# written out explicitly so the run does not depend on stack_params.yaml's
+# default, with the per-mission rosbag recording, no llama-server.
+#
+# Sections: see test_orin_rrt.yaml.
+launch_arguments:
+  planner_controller_mode: corridor_mpc
+  enable_mission_logger: 'true'
+  enable_intelligence: 'false'

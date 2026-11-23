@@ -217,7 +217,9 @@ def _supervisor_parameters(overrides=None):
     for entity in ld.entities:
         if isinstance(entity, DeclareLaunchArgument):
             entity.visit(ctx)
-    op = [e for e in ld.entities if isinstance(e, OpaqueFunction)][-1]
+    # By name: the test_campaign_logger OpaqueFunction comes after it.
+    op = next(e for e in ld.entities if isinstance(e, OpaqueFunction)
+              and e._OpaqueFunction__function.__name__ == '_supervisor_node')
     node = next(a for a in op.execute(ctx) if isinstance(a, Node))
     # Name-mangled: launch_ros has no public accessor (see f1tenth_control's
     # test_mpc_corr_launch_config.py, which reads the same attribute).

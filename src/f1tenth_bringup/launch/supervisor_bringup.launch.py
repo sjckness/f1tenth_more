@@ -51,10 +51,12 @@ time (restart timers, watchdog). Normally started by scripts/sim/sim_isaac.sh;
 output/jazzy_port/phase3.md has the design and the default-path identity evidence.
 """
 
+import json
 import os
 
 from ament_index_python.packages import get_package_share_directory
 
+from f1tenth_bringup.launch_profile import load_registry, read_profile, resolve_component_args
 from f1tenth_params.param_defaults import get_default, get_path_default
 
 from launch import LaunchDescription
@@ -70,26 +72,6 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
-import yaml
-
-
-def load_profile(name, profiles_dir=None):
-    """Return the launch arguments of profile ``name`` ({} for 'none').
-
-    config/profiles/<name>.yaml, key launch_arguments: {argument: value}.
-    """
-    if name in ('', 'none'):
-        return {}
-    profiles_dir = profiles_dir or os.path.join(
-        get_package_share_directory('f1tenth_bringup'), 'config', 'profiles')
-    path = os.path.join(profiles_dir, f'{name}.yaml')
-    if not os.path.isfile(path):
-        known = sorted(f[:-5] for f in os.listdir(profiles_dir) if f.endswith('.yaml'))
-        raise RuntimeError(f'profile {name!r}: no {path} (known: {known})')
-    with open(path) as f:
-        args = (yaml.safe_load(f) or {}).get('launch_arguments') or {}
-    return {str(k): str(v).lower() if isinstance(v, bool) else str(v)
-            for k, v in args.items()}
 
 
 def _apply_profile(context, declared, profiles_dir=None):
@@ -99,9 +81,14 @@ def _apply_profile(context, declared, profiles_dir=None):
     the context came from the command line and wins; any other key of the
     profile is set here, so its DeclareLaunchArgument keeps it (a declared
     default only fills a missing value) and still checks its choices.
+    The profile's component_args are checked later, in _supervisor_node,
+    once components_config is known (f1tenth_bringup/launch_profile.py).
     """
     name = LaunchConfiguration('profile').perform(context)
-    values = load_profile(name, profiles_dir)
+    if profiles_dir is None:
+        profiles_dir = LaunchConfiguration('profiles_dir').perform(context) or None
+    profile = read_profile(name, profiles_dir)
+    values = profile['launch_arguments']
     unknown = sorted(set(values) - set(declared))
     if unknown:
         raise RuntimeError(f'profile {name!r}: not arguments of this launch file: {unknown}')
@@ -112,18 +99,27 @@ def _apply_profile(context, declared, profiles_dir=None):
         else:
             context.launch_configurations[key] = value
             applied.append(f'{key}:={value}')
-    if not values:
+    # Handed to _supervisor_node as text: launch configurations are strings.
+    context.launch_configurations['_profile_component_args'] = json.dumps(
+        profile['component_args'], sort_keys=True)
+    if profile['path'] is None:
         return []
-    return [LogInfo(msg=(f'[supervisor_bringup] profile {name}: {" ".join(applied) or "-"}'
+    return [LogInfo(msg=(f'[supervisor_bringup] profile {name} ({profile["path"]} '
+                         f'sha256 {profile["sha256"]}): {" ".join(applied) or "-"}'
                          + (f' (command line wins: {" ".join(kept)})' if kept else '')))]
 
 
 def generate_launch_description():
     profile_la = DeclareLaunchArgument(
         'profile', default_value='none',
-        description='Launch profile: config/profiles/<profile>.yaml sets the defaults of '
-                    'some of these arguments (e.g. campaign3_rrt). An argument given on the '
-                    'command line wins. none: no profile.')
+        description='Launch profile: <profiles_dir>/<profile>.yaml sets the defaults of '
+                    'some of these arguments (launch_arguments) and extra arguments of '
+                    'components (component_args), e.g. campaign3_rrt. An argument given on '
+                    'the command line wins. none: no profile.')
+    profiles_dir_la = DeclareLaunchArgument(
+        'profiles_dir', default_value='',
+        description="Directory of the profiles. Empty: this package's config/profiles. "
+                    'On the car: ~/.config/f1tenth_car/profiles (car-stack sets it).')
 
     discovery_server_address_default, discovery_server_address_desc = get_default(
         'discovery_server_address')
@@ -414,6 +410,25 @@ def generate_launch_description():
             'restart_budget_window_sec': LaunchConfiguration('restart_budget_window_sec'),
         }
         actions = []
+        # The profile's component_args, resolved to the launch files that
+        # declare each argument. An unknown component or argument stops the
+        # launch here: ros2 launch itself would accept and ignore it.
+        component_args = json.loads(
+            context.launch_configurations.get('_profile_component_args') or '{}')
+        if component_args:
+            registry = load_registry(LaunchConfiguration('components_config').perform(context))
+            name = LaunchConfiguration('profile').perform(context)
+            try:
+                resolved = resolve_component_args(component_args, registry)
+            except RuntimeError as e:
+                raise RuntimeError(f'profile {name!r}: {e}') from e
+            params['profile_component_args'] = ParameterValue(
+                json.dumps(resolved, sort_keys=True), value_type=str)
+            actions.append(LogInfo(msg=(
+                f'[supervisor_bringup] profile {name} component_args: '
+                + ' '.join(f'{c}/{f}:{k}:={v}' for c, files in sorted(resolved.items())
+                           for f, args in sorted(files.items())
+                           for k, v in sorted(args.items())))))
         sim = LaunchConfiguration('sim').perform(context)
         use_sim_time = LaunchConfiguration('use_sim_time').perform(context) == 'true'
         if sim != 'none':
@@ -476,6 +491,7 @@ def generate_launch_description():
     declared = [e.name for e in entities if isinstance(e, DeclareLaunchArgument)]
     return LaunchDescription([
         profile_la,
+        profiles_dir_la,
         OpaqueFunction(function=_apply_profile, args=[declared]),
         *entities,
     ])

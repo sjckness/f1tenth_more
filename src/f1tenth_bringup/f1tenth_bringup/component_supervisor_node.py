@@ -541,6 +541,32 @@ def apply_planner_controller_mode(registry, mode):
     return registry
 
 
+def apply_profile_component_args(registry, resolved):
+    """Pure: write a launch profile's component args into the registry, in place.
+
+    ``resolved`` is {component: {launch_file: {arg: value}}}, as
+    f1tenth_bringup/launch_profile.py resolve_component_args() builds it in
+    supervisor_bringup.launch.py (each argument only on the launch files that
+    declare it). Applied last, after components.yaml, the sim overlay and this
+    node's own injections, so the profile wins. A component or launch file
+    that is not in the registry raises: never silently dropped.
+    """
+    for component, files in (resolved or {}).items():
+        if component not in registry:
+            raise ValueError(f'profile names component {component!r}, which is not in '
+                             f'components.yaml (known: {sorted(registry)})')
+        for launch_file, args in files.items():
+            entries = [e for e in registry[component]
+                       if str(e.get('launch_file', '')) == launch_file]
+            if not entries:
+                raise ValueError(f'profile names {component}/{launch_file}, which '
+                                 f'component {component!r} does not launch')
+            for entry in entries:
+                entry.setdefault('args', {}).update(
+                    {str(k): str(v) for k, v in (args or {}).items()})
+    return registry
+
+
 def _declare_if_overridden(node, name, default):
     """Declare `name` only if the launch passed it; otherwise return the default undeclared.
 
@@ -870,6 +896,16 @@ class ComponentSupervisorNode(Node):
         self.get_logger().info(
             f'[component_supervisor] planner_controller_mode: '
             f'{self.planner_controller_mode}')
+        # Launch profile (supervisor_bringup.launch.py profile:=<name>): its
+        # component_args, already checked and resolved by the launch file.
+        # Declared only when passed, like the sim parameters.
+        self.profile_component_args = json.loads(
+            str(_declare_if_overridden(self, 'profile_component_args', '')) or '{}')
+        if self.profile_component_args:
+            apply_profile_component_args(self._registry, self.profile_component_args)
+            self.get_logger().info(
+                f'[component_supervisor] profile component_args: '
+                f'{json.dumps(self.profile_component_args, sort_keys=True)}')
 
         # Some individual launch files within a multi-launch component legitimately
         # do nothing at all when their own feature flag is off -- an empty (or
