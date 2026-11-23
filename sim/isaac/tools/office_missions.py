@@ -152,6 +152,11 @@ SPHERE_LIGHTS = ((16.8, 0.0), (16.8, -4.0), (16.8, -8.0), (16.8, -12.0),
 #        stops the car 0.5 m from the chair facing it, so the following "2 metres
 #        straight" has an obstacle 0.40 m ahead and times out. That is a property of
 #        the command, not of the map, which is why it is still listed and still run.
+#        Since 2026-11-23 its target is a PERSON, not a chair: the same person, start
+#        and scene as M-D (Isaac preset campaign_md), so M-C and M-D differ only in
+#        their last move. With a STANDING person the last move is blocked the same way
+#        (gap 1.0 m, and the person leaves 0.45 / 0.80 m beside it on that leg against
+#        the 1.18 m needed to pass): the person has to walk away for it to complete.
 #
 # The campaign texts also drop the ordinal ("the FIRST door on the left"): the planner
 # prompt routes an ordinal to `unsupported`, which forces an interactive confirmation.
@@ -178,14 +183,15 @@ MISSIONS = (
               {'mode': 'straight', 'guard': 'wall', 'thresh': 2.0}],
      'steps': [('straight_wall', WALL_THRESH_BEFORE_TURN), ('turn', 'left'),
                ('straight_wall', WALL_THRESH)]},
-    {'id': 'M-C', 'cmd': 'at the wall turn left, then go to the chair, then go straight 2 meters',
+    {'id': 'M-C', 'cmd': 'at the wall turn left, then go to the person, then go straight 2 meters',
      'start': (16.83, -9.87, 180.0),
      'plan': [{'mode': 'straight', 'guard': 'wall', 'thresh': 3.0},
               {'mode': 'turn', 'dir': 'left'},
-              {'mode': 'go_to', 'target': 'chair'},
+              {'mode': 'go_to', 'target': 'person'},
               {'mode': 'straight', 'guard': 'distance', 'thresh': 2.0}],
+     'add_person': (11.63, -13.30),     # M-D's person (campaign_md)
      'steps': [('straight_wall', WALL_THRESH_BEFORE_TURN), ('turn', 'left'),
-               ('go_to', 'chair', 'DeskChair_7'), ('straight_dist', 2.0)]},
+               ('go_to', 'person', None), ('straight_dist', 2.0)]},
     {'id': 'M-D', 'cmd': 'at the wall turn left, then go to the person, then enter the first door on the right',
      'start': (16.83, -9.87, 180.0),
      'plan': [{'mode': 'straight', 'guard': 'wall', 'thresh': 3.0},
@@ -574,7 +580,29 @@ def door_side_pick(grid: Grid, ops, x, y, yaw, side):
 
 # --------------------------------------------------------------------------- mission chain
 def run_mission(grid: Grid, ops, mission, out=print) -> dict:
-    """Walk one mission's primitive chain and report every step."""
+    """Walk one mission's primitive chain and report every step.
+
+    The mission's add_person is an obstacle for the whole chain (its collider, PERSON_R): it is
+    in no SDF, so without this a move AFTER go_to person would drive straight through it.
+    """
+    if not mission.get('add_person'):
+        return _run_mission(grid, ops, mission, out)
+    px, py = mission['add_person']
+    saved = grid.obst.copy()
+    try:
+        i0, j0 = grid.ij(px - PERSON_R, py - PERSON_R)
+        i1, j1 = grid.ij(px + PERSON_R, py + PERSON_R)
+        for i in range(i0, i1 + 1):
+            for j in range(j0, j1 + 1):
+                cx, cy = grid.xy(i, j)
+                if math.hypot(cx - px, cy - py) <= PERSON_R + grid.res / 2:
+                    grid.obst[i, j] = True
+        return _run_mission(grid, ops, mission, out)
+    finally:
+        grid.obst = saved
+
+
+def _run_mission(grid: Grid, ops, mission, out=print) -> dict:
     by_short = {o['short']: o for o in grid.objects}
     x, y, yaw = mission['start'][0], mission['start'][1], math.radians(mission['start'][2])
     out(f"\n### {mission['id']}  {mission['cmd']}")
