@@ -26,6 +26,21 @@ I modi sono `corridor_mpc`, `corridor_rrt` e `p2p_geometric`, con 3 ripetizioni:
 Non passa dall'LLM, perche' l'`llm` di questa linea non ha l'intent `enter_door`. Con una
 missione fissa i tre modi eseguono esattamente le stesse mosse.
 
+**Da sapere prima della notte.** Queste pose lasciano il varco *di fianco* all'auto alla fine
+dei 5 m: 2 m a sinistra, con l'asse della porta di traverso rispetto alla direzione di marcia.
+Il pre-punto di `enter_door` sta 1,24 m indietro sull'asse della porta, e per raggiungerlo
+serve un giro largo o una retromarcia. Se nessuna retromarcia dritta fino a 1 m basta, la
+mossa fallisce `door_needs_steered_reverse` senza muoversi. La retromarcia la guida solo
+`mpc_corr` (`/mpc/request_reverse`).
+
+Nella prova con `fake_sim.py` (2026-11-23, sessione `test_fake_3modes`, posa 16) tutti e tre i
+modi hanno chiuso il rettilineo (5,14-5,17 m) e poi hanno fallito cosi'. Il fake sim pero' ha
+stimato il varco 1,5 m troppo corto, cioe' gia' dietro l'auto, quindi in Isaac l'esito puo'
+essere diverso.
+
+Per misurare la variante senza pre-punto basta mettere in `batch.yaml`:
+`mission: scripts/sim/office_batch/missions/straight_5m_then_left_door_direct.json`.
+
 ## Cosa si misura (`car-hil-agent analyze`)
 
 Ogni run viene giudicato in due modi.
@@ -113,7 +128,7 @@ Per rifare solo l'analisi:
 scripts\sim\win\hil_office_batch.bat --analyze-only 20261123_220000_office_door_left_5m
 ```
 
-**Durata stimata**: circa 15 minuti per posa, quindi circa 9 ore per 35 pose. Il calcolo e'
+**Durata stimata**: 4-6 ore (circa 55 s per run nella prova con il fake sim, piu' un lancio di Isaac per posa). Il calcolo e'
 1 lancio di Isaac, poi per ciascuno dei 3 modi uno stack da circa 1 minuto e 3 run da circa
 1-2 minuti.
 
@@ -148,5 +163,27 @@ I CSV per run restano sull'Orin, come `raw_data`.
 | `scripts/sim/office_batch/batch.yaml` | work | pose, layout, missione, modi, ripetizioni, timeout, argomenti dello stack |
 | `scripts/sim/office_batch/fake_sim.py` | container (solo test) | sostituto cinematico di Isaac per provare la catena senza la work |
 
-Prova senza la work, da linus: `fake_sim.py` gira nel container HIL dell'Orin al posto di Isaac.
-Il comando completo e' nel messaggio del commit che ha introdotto questa cartella.
+## Prova senza la work (fatta il 2026-11-23)
+
+Da linus, con `fake_sim.py` nel container HIL dell'Orin al posto di Isaac e
+`F1T_HIL_CONFIG=hil.work.yaml`:
+
+```bash
+scp scripts/sim/office_batch/fake_sim.py jetson-orin:f1tenth_hil_batch/_test/
+F1T_HIL_CONFIG=hil.work.yaml python3 scripts/sim/win/hil_office_batch.py --ssh jetson-orin \
+  --poses 16 --reps 2 --session test_fake_3modes --sim-cmd "ssh -o BatchMode=yes jetson-orin \
+  docker exec -i -e ROS_DOMAIN_ID=44 f1tenth_hil bash -c \"'source /opt/f1tenth_ws/scripts/env/jazzy.sh >/dev/null; \
+  export FASTRTPS_DEFAULT_PROFILES_FILE=/tmp/f1tenth_hil_profile.xml ROS_DISCOVERY_SERVER=192.168.200.11:11812 \
+  ROS_DOMAIN_ID=44; exec python3 /home/fabiocar/f1tenth_hil_batch/_test/fake_sim.py --x {x} --y {y} --yaw {yaw} \
+  --map /home/fabiocar/f1tenth_hil_batch/test_fake_3modes/map_geo.json'\""
+```
+
+Risultato: 6 run su 6 eseguiti per intero. La catena e' completa e ha funzionato in ogni passo:
+
+- preflight, `up`, `wait-sim`;
+- `stack-up` per ogni modo (READY in circa 10 s), 6 reset OK al primo tentativo;
+- load e start della missione, registrazione, `stack-down`, analisi, `down`.
+
+Ogni run dura circa 55 s, cambi di stack compresi. Con Isaac, che va lanciato una volta per
+posa, il batch intero si stima in circa 4-6 ore. CPU del controllore: `mpc_corr` circa 730 ms
+per secondo simulato, `corridor_rrt` circa 193 ms/s, `p2p_geometric` circa 207 ms/s.

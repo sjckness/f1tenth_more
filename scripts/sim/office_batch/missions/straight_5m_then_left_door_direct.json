@@ -1,0 +1,38 @@
+{
+  "mission_id": "straight_5m_then_left_door_direct",
+  "schema_version": "6.0",
+  "description": "Same as straight_5m_then_left_door, but with approach_dist_m 0.05 (as src/f1tenth_behavior/missions/straight_2m_then_left_door_direct.json): EnterDoor's goal is the door itself, no pre-point 1.24 m back on the door axis. WHY an alternative: these start poses leave the doorway BESIDE the car at the end of the 5 m (2 m to the left, axis across the heading), so the default pre-point needs a loop or a reverse; on the fake-sim test (2026-11-23, test_fake_3modes) all three modes failed door_needs_steered_reverse there. Select it in batch.yaml (mission:) to measure that difference.",
+  "moves": [
+    {
+      "id": "move_0_straight_5m",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.4
+      },
+      "stop_condition": {
+        "type": "distance_reached",
+        "distance": 5.0
+      },
+      "timeout_sec": 30,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "move_1_enter_left_door",
+      "enter_door": {
+        "type": "enter_door",
+        "door": "left",
+        "along_tol": 0.15,
+        "lateral_tol": 0.05,
+        "yaw_tol_deg": 10,
+        "acquire_timeout_sec": 5.0,
+        "approach_dist_m": 0.05
+      },
+      "stop_condition": {
+        "type": "door_entered"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
