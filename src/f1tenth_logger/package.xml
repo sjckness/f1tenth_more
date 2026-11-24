@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>f1tenth_logger</name>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <description>Post-mission run logging and analysis: the per-mission rosbag2
   recorder, a SQLite index over the runs it writes, and the replay/report tooling
   that reads them back. Split out of f1tenth_diagnostics, whose remit is live

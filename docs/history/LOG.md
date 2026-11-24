@@ -20,6 +20,30 @@ commits behind** this workspace. This workspace is authoritative; the mirror is 
 
 ---
 
+### 2026-11-23 — First unattended office HIL batch analysed: 5/315, and it does not compare the planners [analysis]
+tags: analysis, hil, isaac, planner-modes
+- Session `20261123_175245_office_door_left_5m` on branch `hil-office-batch` (29e6c2a1): 35 poses x 3
+  `planner_controller_mode` x 3 repetitions = 315 runs, 17:52–23:06, no intervention needed. The
+  automation held; the result did not. Report:
+  [docs/analysis/simulation/2026-11-23_office-door-batch](../analysis/simulation/2026-11-23_office-door-batch/report.md).
+- 5 runs succeeded: corridor_mpc 1/105, corridor_rrt 2/105, p2p_geometric 2/105, Wilson 95 % CIs all
+  overlapping, and 4 of the 5 on one pose. The planner is not the variable this batch measured — 80 runs
+  never started and 212 of the 235 that flew stopped inside `enter_door`, which all three modes share.
+- Root cause found for the biggest infrastructure loss: poses 5, 6, 7, 11, 17, 27 spawn the car into an
+  invalid PhysX state (`Invalid PhysX transform` on every Leatherback rigid body, then
+  `Illegal BroadPhaseUpdateData` 8741x and a NaN IMU fallback). The NaN reaches `/odometry/filtered`, the
+  reset's standstill step never sees a speed, and all 9 runs of the pose are lost — 54 runs in total.
+- `enter_door` declared the door taken 23 times; ground truth says 18 of those were not in or through the
+  real opening, and `gt_in_door` is 0 for all three modes. Without the ground-truth check the batch would
+  have read 23/315.
+- The `_direct` 3 m mission was written to remove `door_needs_steered_reverse`; it is still the top
+  failure (96 of 217), so the run-up geometry is not the (only) cause.
+- Also found: `hil_agent.py:812` reads the straight leg as `move_0_straight_5m` while the mission that ran
+  uses `move_0_straight_3m`, so the generated report's `rettilineo ok` column is 0/105 everywhere and the
+  18 straight-leg timeouts are misfiled. The success numbers do not depend on it.
+- No planner was chosen or dropped. Figures and per-run CSVs stay on the Orin (unreachable from the work:
+  ssh host key), so the committed report carries the tables and a log-derived per-run CSV instead.
+
 ### 2026-10-16 — EKF at 20 Hz; 50 Hz cost baseline skipped; ekf_cost_observer removed [decision]
 tags: decision
 - Decided 2026-10-16: EKF stays at 20 Hz; the 50 Hz cost baseline is deliberately skipped;

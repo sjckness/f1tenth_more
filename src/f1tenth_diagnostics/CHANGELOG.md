@@ -10,6 +10,19 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-24
+
+### Added
+- `stack_info_node` (da `diagnostics_server.launch.py`, se `enable_stack_info`): pubblica su
+  `/viz/stack_info` un `diagnostic_msgs/DiagnosticStatus` (reliable + transient_local, depth 1,
+  all'avvio e ogni 10 s) con profilo (`car` / `sim-<host>` / `native`), immagine o albero git,
+  `branch@commit`, comando di lancio, `stack_args`, setup ROS. WARN con un trial in `stack_args`,
+  un albero dirty o un commit sconosciuto. Logica pura in `stack_info.py`, test in
+  `test/test_stack_info.py`.
+- Nel container lo stack non vede `F1T_CONTAINER_ROLE`, `F1TENTH_IMAGE_REF`, `F1TENTH_IMAGE_ID`
+  (f1tenth_ctl ripulisce l'ambiente prima di sorgere `ctl_container.env`): il nodo li legge da
+  `/proc/1/environ`.
+
 ## [0.1.0] - 2026-11-18
 
 ### Changed

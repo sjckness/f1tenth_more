@@ -2945,6 +2945,10 @@ mission_report_overlay_legend:
 enable_sys_obs:
   default: true
   description: "Run system_observer_node (CPU/GPU/RAM temp+usage) and include IsSystemOverheated in the BT emergency lane. false: both are fully skipped, not just idle."
+# Consumed by: f1tenth_diagnostics/diagnostics_server.launch.py (parse time, like enable_sys_obs).
+enable_stack_info:
+  default: true
+  description: "Run stack_info_node: /viz/stack_info (diagnostic_msgs/DiagnosticStatus, reliable + transient_local, every 10 s) says which stack runs: profile (car / sim-<host> / native), image ref and id or the git tree, branch@commit, launch command, stack_args, ROS setup. WARN with a stack_args trial, a dirty tree or an unknown commit. false: not launched."
 # Consumed by: f1tenth_diagnostics (calibration.launch.py -- both
 # gyro_bias_calibration_node and sensor_covariance_calibration_node).
 imu_topic:

@@ -7,7 +7,7 @@ package_name = 'f1tenth_diagnostics'
 
 setup(
     name=package_name,
-    version='0.0.1',
+    version='0.2.0',
     packages=[package_name],
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -46,6 +46,8 @@ setup(
             'f1tenth_diagnostics.system_observer_node:main',
             'diagnostics_server_node = '
             'f1tenth_diagnostics.diagnostics_server_node:main',
+            'stack_info_node = '
+            'f1tenth_diagnostics.stack_info_node:main',
             'steering_offset_calibration_node = '
             'f1tenth_diagnostics.steering_offset_calibration_node:main',
         ],

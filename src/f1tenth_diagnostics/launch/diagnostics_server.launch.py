@@ -3,9 +3,13 @@
 on-demand ~/run_diagnostics service. Included unconditionally by
 stack_bringup.launch.py / components.yaml's diagnostics component, alongside
 system_observer.launch.py -- which, unlike this file, IS gated behind enable_sys_obs.
+
+Also stack_info_node (/viz/stack_info: profile, image or git tree, launch command,
+stack_args, for Foxglove), gated behind enable_stack_info (stack_params.yaml, read
+at parse time like enable_sys_obs).
 """
 
-from f1tenth_params.param_defaults import get_default
+from f1tenth_params.param_defaults import get_default, get_value
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -34,8 +38,16 @@ def generate_launch_description():
         }],
     )
 
-    return LaunchDescription([
+    actions = [
         min_battery_voltage_arg,
         battery_check_rate_arg,
         diagnostics_server_node,
-    ])
+    ]
+    if get_value('enable_stack_info'):
+        actions.append(Node(
+            package='f1tenth_diagnostics',
+            executable='stack_info_node',
+            name='stack_info_node',
+            output='screen',
+        ))
+    return LaunchDescription(actions)

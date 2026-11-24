@@ -10,6 +10,12 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-24
+
+### Changed
+- `read_image_provenance` e `stack_launch_cmd` ora vivono in `f1tenth_params.stack_provenance`;
+  `mission_logger_node` le importa da lì. Nessun cambio di comportamento.
+
 ## [0.1.0] - 2026-11-18
 
 ### Changed
