@@ -10,6 +10,13 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-24
+
+### Added
+- `mpc_avoidance_mode` (default `centerline`), `obstacle_target_shift_m` (0.30, di nuovo: era stato
+  tolto con `7c217d95`) e `mpc_legacy_w_obs` (8.0): il modo `legacy` di
+  [`mpc_controller` 0.2.0](../f1tenth_control/mpc_controller/CHANGELOG.md).
+
 ## [0.2.0] - 2026-11-19
 
 ### Added

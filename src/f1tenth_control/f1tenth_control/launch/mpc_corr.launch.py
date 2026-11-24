@@ -163,6 +163,12 @@ def generate_launch_description():
     mpc_w_obs_default, mpc_w_obs_desc = get_default('mpc_w_obs')
     mpc_w_obs_la = DeclareLaunchArgument(
         'mpc_w_obs', default_value=str(mpc_w_obs_default), description=mpc_w_obs_desc)
+    # Obstacle avoidance mode (2026-11-24): centerline (today) or legacy (up to
+    # 2026-11-17). Its two legacy-only numbers stay on their stack_params defaults.
+    mpc_avoidance_mode_default, mpc_avoidance_mode_desc = get_default('mpc_avoidance_mode')
+    mpc_avoidance_mode_la = DeclareLaunchArgument(
+        'mpc_avoidance_mode', default_value=str(mpc_avoidance_mode_default),
+        choices=['centerline', 'legacy'], description=mpc_avoidance_mode_desc)
     mpc_w_du_delta_default, mpc_w_du_delta_desc = get_default('mpc_w_du_delta')
     mpc_w_du_delta_la = DeclareLaunchArgument(
         'mpc_w_du_delta', default_value=str(mpc_w_du_delta_default),
@@ -399,6 +405,8 @@ def generate_launch_description():
                 'object_arc_switch_lo_frac'),
             'mpc_w_v': LaunchConfiguration('mpc_w_v'),
             'mpc_w_obs': LaunchConfiguration('mpc_w_obs'),
+            'mpc_avoidance_mode': ParameterValue(
+                LaunchConfiguration('mpc_avoidance_mode'), value_type=str),
             'mpc_w_du_delta': LaunchConfiguration('mpc_w_du_delta'),
             'mpc_w_delta0': LaunchConfiguration('mpc_w_delta0'),
             'mpc_w_u_a': LaunchConfiguration('mpc_w_u_a'),
@@ -443,7 +451,7 @@ def generate_launch_description():
         mpc_w_line_la, object_corridor_mode_la,
         mpc_arc_corr_sigma_m_la, mpc_arc_line_sigma_m_la,
         object_arc_switch_hi_frac_la, object_arc_switch_lo_frac_la,
-        mpc_w_v_la, mpc_w_obs_la, mpc_w_du_delta_la, mpc_w_delta0_la,
+        mpc_w_v_la, mpc_w_obs_la, mpc_avoidance_mode_la, mpc_w_du_delta_la, mpc_w_delta0_la,
         mpc_w_u_a_la, mpc_w_du_a_la,
         delta_min_la, delta_max_la,
         corridor_heading_return_la,

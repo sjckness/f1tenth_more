@@ -2351,6 +2351,23 @@ mpc_obstacle_tie_band_m:
 mpc_obstacle_tie_side:
   default: left
   description: "Side rule: which side the car passes an obstacle that sits on its line ('left' or 'right'). See mpc_obstacle_tie_band_m."
+# OBSTACLE AVOIDANCE MODE (2026-11-24). 'legacy' brings back the avoidance the car ran up to image
+# 33d7045e (2026-11-17), before mpc-centerline-target (target always on the centreline, w_obs 200,
+# side rule) and the mpc-dodge car deploy (velocities, wake, body probes). Reason: field test
+# 2026-11-23, turn_left_then_person_then_straight_2m, 0 of 4 straight legs completed (0.5-2 m in 20 s);
+# in the logged one the car stopped facing the person 1 m ahead (the QP's no-side case 16a69a58
+# reports), backed off with the reverse manoeuvre and swerved 58 deg away; the track velocities
+# of standing people/objects read up to 1-2.8 m/s (median 0.31 m/s over 264 valid tracks).
+# Switch on the car with a profile: component_args: {navigation: {mpc_avoidance_mode: legacy}}.
+mpc_avoidance_mode:
+  default: centerline
+  description: "MPC obstacle avoidance: 'centerline' (today: the target is always the centreline lookahead point, the solver alone avoids with mpc_w_obs, the side rule and the mpc-dodge terms) or 'legacy' (up to 2026-11-17: the target is shifted off the obstacle by up to obstacle_target_shift_m, w_obs is mpc_legacy_w_obs, no side rule, every mpc-dodge term off whatever its own key says)."
+obstacle_target_shift_m:
+  default: 0.30
+  description: "mpc_avoidance_mode legacy only. Max tangential displacement [m] of the MPC lookahead target when it falls inside an obstacle's R_safe (r + car_radius + obstacle_safety_margin_m): pushed to the R_safe circle, then sideways by this times the penetration. Must stay under the corridor half-width (corr_half_width_start_m, 0.64 m); MPC_corr warns if it does not. 0.30 is the value the car ran until 2026-11-17."
+mpc_legacy_w_obs:
+  default: 8.0
+  description: "mpc_avoidance_mode legacy only: the per-stage obstacle weight used instead of mpc_w_obs (effective 8.0 x 7/20 = 2.8). 8.0 is the value the car ran until 2026-11-17; with the target shifted off the obstacle it only has to keep the margin, not beat w_term."
 # MOVING OBSTACLES AND THE INFORMED SIDE RULE (mpc-dodge, 2026-11-18; mpc_controller/
 # obstacle_motion.py, side_rule.py). Every one OFF by default: the QP and the side rule are today's.
 # They read the track id and the odom velocity semantic_layer_node puts on each Obstacle2D when its

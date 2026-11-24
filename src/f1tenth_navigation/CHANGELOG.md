@@ -10,6 +10,12 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-24
+
+### Added
+- `navigation.launch.py` dichiara e inoltra `mpc_avoidance_mode` a `mpc_corr.launch.py`, così un
+  profilo lo imposta con `component_args: {navigation: {mpc_avoidance_mode: legacy}}`.
+
 ## [0.1.0] - 2026-11-18
 
 ### Changed

@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>f1tenth_bringup</name>
-  <version>0.4.0</version>
+  <version>0.5.0</version>
   <description>Onboard drivers for vesc and sensors for F1TENTH vehicles. Bringup launch files.</description>
   <maintainer email="billyzheng.bz@gmail.com">Hongrui Zheng</maintainer>
   <license>MIT</license>

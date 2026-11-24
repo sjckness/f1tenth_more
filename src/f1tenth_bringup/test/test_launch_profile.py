@@ -93,7 +93,8 @@ def test_every_profile_validates():
     declared = _declared()
     registry = lp.load_registry(_COMPONENTS)
     names = lp.known_profiles(_PROFILES)
-    assert {'campaign3_rrt', 'test_orin_rrt', 'test_orin_mpc', 'test_orin_p2p'} <= set(names)
+    assert {'campaign3_rrt', 'test_orin_rrt', 'test_orin_mpc', 'test_orin_mpc_legacy',
+            'test_orin_p2p'} <= set(names)
     for name in names:
         profile = lp.read_profile(name, _PROFILES)
         assert profile['launch_arguments'] or profile['component_args'], name

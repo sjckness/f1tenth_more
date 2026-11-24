@@ -86,6 +86,9 @@ _FORWARDED = (
     # The RTI solver core's implementation, py (default) or rust
     # (main-jazzy-rust R2): written by the supervisor like corridor_impl.
     'mpc_solver_impl',
+    # Obstacle avoidance, centerline (default) or legacy (2026-11-24): a
+    # profile sets it with component_args: {navigation: {mpc_avoidance_mode: legacy}}.
+    'mpc_avoidance_mode',
     'boundary_source',
     'boundary_max_sources',
     'boundary_hard',

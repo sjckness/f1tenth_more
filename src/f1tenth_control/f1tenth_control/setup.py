@@ -7,7 +7,7 @@ package_name = 'f1tenth_control'
 
 setup(
     name=package_name,
-    version='0.0.1',
+    version='0.2.0',
     # Was a pure metapackage (packages=[]) until the avoidance pass. It now
     # owns ONE node, hard_stop_node: the last-resort LiDAR stop. It lives here
     # rather than in f1tenth_behavior or f1tenth_perception on purpose -- see

@@ -1,0 +1,18 @@
+# Launch profile test_orin_mpc_legacy: car-stack start test_orin_mpc_legacy
+#
+# test_orin_mpc with the MPC's obstacle avoidance as it was up to image
+# 33d7045e (2026-11-17): mpc_avoidance_mode legacy (target shifted off the
+# obstacle, w_obs 8, no side rule, mpc-dodge terms off). Everything else is
+# test_orin_mpc: same image, switching is car-stack restart <profile>.
+# Why: field test 2026-11-23, the straight leg towards a person never
+# completed with the centreline target (mpc_controller CHANGELOG 0.2.0).
+#
+# Sections: see test_orin_rrt.yaml.
+launch_arguments:
+  planner_controller_mode: corridor_mpc
+  enable_mission_logger: 'true'
+  enable_test_campaign_logger: 'true'
+  enable_intelligence: 'true'
+component_args:
+  navigation:
+    mpc_avoidance_mode: legacy

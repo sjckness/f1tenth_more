@@ -10,6 +10,28 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-24
+
+### Added
+- Parametro `mpc_avoidance_mode` (`centerline` | `legacy`, default `centerline` = comportamento
+  invariato). `legacy` riporta l'evitamento ostacoli che l'auto usava fino all'immagine `33d7045e`
+  (2026-11-17), prima di `mpc-centerline-target` e del deploy mpc-dodge:
+  - il target di lookahead viene spostato fuori dall'ostacolo (`_legacy_deflected_target`, il corpo
+    di `compute_local_target` prima di `7c217d95`: spinta tangenziale fino a
+    `obstacle_target_shift_m` 0.30, coda di 5 tick, smoothing esponenziale 0.5);
+  - `w_obs` = `mpc_legacy_w_obs` (8.0) al posto di `mpc_w_obs` (200);
+  - niente regola di lato, e tutti i termini mpc-dodge spenti (velocità, scia, sonde sul corpo,
+    corridoio ri-ancorato), qualunque cosa dica `stack_params.yaml`.
+  `compute_local_target` non cambia: `centerline` resta identico. All'avvio `AVOID/cfg` dice il
+  modo, `DODGE/cfg` riporta anche `body_probes`.
+  Perché: prova su strada 2026-11-23 (`turn_left_then_person_then_straight_2m`), 0 tratti dritti
+  completati su 4 verso una persona a 1 m; nel run con log l'auto si ferma davanti alla persona,
+  fa la retromarcia e scarta di 58°. Le velocità delle tracce ferme arrivano a 1-2.8 m/s (mediana
+  0.31 m/s su 264 righe `DODGE/motion`).
+  Nel rig closed-loop nominale (persona r 0.75 a 1 m dal paraurti, da fermo) passano entrambi:
+  `centerline` in 7.6 s tenendo il margine, `legacy` in 5.6 s entrando 0.13 m nel margine di
+  classe (`test/test_avoidance_mode.py`).
+
 ## [0.1.0] - 2026-11-18
 
 ### Changed

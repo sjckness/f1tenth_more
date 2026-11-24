@@ -985,6 +985,9 @@ class MPCController(Node):
             'mpc_obstacle_tie_band_m', get_value('mpc_obstacle_tie_band_m')).value)
         self.obstacle_tie_side = side_rule.side_sign(str(self.declare_parameter(
             'mpc_obstacle_tie_side', get_value('mpc_obstacle_tie_side')).value))
+        # Declared BEFORE _init_dodge_params and the weight set: 'legacy'
+        # overrides both. See _init_avoidance_mode.
+        self._init_avoidance_mode()
         self._init_dodge_params()
 
         # Solver selection: real-time-iteration (linearize once + one warm-started
@@ -1858,6 +1861,10 @@ class MPCController(Node):
             "w_line": _w('mpc_w_line'),
             "w_psi_stage": _w('mpc_w_psi_stage'),
         }
+        if self.mpc_avoidance_mode == 'legacy':
+            # The pre-2026-11-18 obstacle weight: with the target shifted off
+            # the obstacle, w_obs only has to keep the margin, not beat w_term.
+            self.weights["w_obs"] = self.legacy_w_obs
 
         # Disabled/warning-only clearance-log threshold (see
         # compute_predicted_clearance's comparison below) -- not a declared ROS
@@ -2438,7 +2445,11 @@ class MPCController(Node):
 
         self.get_logger().info(
             'MPC Controller STARTED (pure MPC + obstacle avoidance '
-            '[solver w_obs cost, centerline target], no plan executor)'
+            + ('[legacy: target shifted off obstacles, w_obs '
+               f'{self.weights["w_obs"]}]'
+               if self.mpc_avoidance_mode == 'legacy'
+               else f'[solver w_obs {self.weights["w_obs"]} cost, centerline target]')
+            + ', no plan executor)'
         )
 
         # ---- DEBUG: dump della configurazione all'avvio ----
@@ -4000,6 +4011,9 @@ class MPCController(Node):
         # getattr for the duck-typed stand-ins, which carry no channel.
         if getattr(self, 'speed_channel', None) is not None:
             self._speed_reset('goal_change')
+        # mpc_avoidance_mode legacy: smoother and deflection coast belong to the move.
+        if getattr(self, 'mpc_avoidance_mode', 'centerline') == 'legacy':
+            MPCController._reset_legacy_target(self)
         # Object mode's per-move geometry. Cleared HERE rather than in each of
         # the other four callbacks, so that any new goal of any shape drops an
         # active object approach without those callbacks having to grow a line
@@ -6030,6 +6044,8 @@ class MPCController(Node):
         corridor["avoidance_margin"] = self.avoidance_margin
 
         pref_nom = self.compute_local_target(x0, corridor)
+        if getattr(self, 'mpc_avoidance_mode', 'centerline') == 'legacy':
+            pref_nom = self._legacy_deflected_target(x0, corridor, pref_nom)
         self.cached_pref_nom = pref_nom
 
         # ---- DEBUG sintetico ----
@@ -8018,6 +8034,136 @@ class MPCController(Node):
                     throttle_duration_sec=5.0)
         return float(lookahead)
 
+    # ── mpc_avoidance_mode: today's centreline target, or the pre-2026-11-18 one ───
+    def _init_avoidance_mode(self):
+        """
+        Declare mpc_avoidance_mode and the legacy mode's own parameters.
+
+        'centerline' (default) is today's controller: the target is the centreline lookahead
+        point and the solver alone avoids (w_obs mpc_w_obs, the side rule, the mpc-dodge set).
+
+        'legacy' is the obstacle avoidance the car ran up to image 33d7045e (2026-11-17), before
+        branch mpc-centerline-target (7c217d95) and the mpc-dodge car deploy (c19f400e):
+          - the lookahead target is shifted off an obstacle (_legacy_deflected_target:
+            obstacle_target_shift_m, 5-tick coast, exponential smoothing);
+          - w_obs is mpc_legacy_w_obs (8.0) instead of mpc_w_obs;
+          - no side rule, and every mpc-dodge term off (static discs, no wake, nose probes only,
+            corridor re-anchored on the car), whatever stack_params says for them.
+        Field test 2026-11-23 (turn_left_then_person_then_straight_2m): with 'centerline' the
+        car stopped facing a person 1 m ahead instead of going round.
+        """
+        mode = str(self.declare_parameter(
+            'mpc_avoidance_mode', get_value('mpc_avoidance_mode')).value)
+        if mode not in ('centerline', 'legacy'):
+            raise ValueError("mpc_avoidance_mode must be 'centerline' or 'legacy', "
+                             f'got {mode!r}')
+        self.mpc_avoidance_mode = mode
+        self.obstacle_target_shift = float(self.declare_parameter(
+            'obstacle_target_shift_m', get_value('obstacle_target_shift_m')).value)
+        self.legacy_w_obs = float(self.declare_parameter(
+            'mpc_legacy_w_obs', get_value('mpc_legacy_w_obs')).value)
+        # In-code parameters, as they were before 2026-11-18.
+        self.target_smoothing_alpha = float(
+            self.declare_parameter('target_smoothing_alpha', 0.5).value)
+        self.deflection_decay_ticks = int(
+            self.declare_parameter('deflection_decay_ticks', 5).value)
+        self._reset_legacy_target()
+        if mode == 'legacy':
+            self.get_logger().warn(
+                f'AVOID/cfg | mpc_avoidance_mode=legacy: target shift '
+                f'{self.obstacle_target_shift:.2f} m, w_obs {self.legacy_w_obs}, '
+                f'no side rule, mpc-dodge terms off')
+        else:
+            self.get_logger().info('AVOID/cfg | mpc_avoidance_mode=centerline')
+
+    def _reset_legacy_target(self):
+        """Drop the legacy target's memory (smoother and deflection coast)."""
+        self.smoothed_target = None
+        self.last_deflection_vec = np.zeros(2)
+        self.deflection_decay_remaining = 0
+
+    def _legacy_deflected_target(self, x, corridor, p_target):
+        """
+        Return the legacy target: the centreline point shifted off obstacles, coasted, smoothed.
+
+        mpc_avoidance_mode 'legacy' only. Body of compute_local_target before 7c217d95
+        (2026-11-18), unchanged: when the centreline lookahead point falls within
+        R_safe = r + car_radius + avoidance_margin of an obstacle in corridor['obstacles_world'],
+        it moves to the R_safe circle and then tangentially (towards the car's heading) by
+        obstacle_target_shift_m scaled by the penetration. A deflection whose obstacle drops out
+        of the list decays to zero over deflection_decay_ticks ticks, and the result goes through
+        an exponential smoother (target_smoothing_alpha).
+        """
+        p_target = np.asarray(p_target, dtype=float).copy()
+        p_target_raw = p_target.copy()
+        max_defl = self.obstacle_target_shift
+
+        mean_half_width = float(np.mean(corridor["halfWidth"]))
+        if max_defl > mean_half_width:
+            self.get_logger().warn(
+                f'TGT/defl | obstacle_target_shift_m {max_defl:.3f} exceeds the '
+                f'corridor mean half-width {mean_half_width:.3f}: a fully '
+                f'penetrating obstacle deflects the target outside its own '
+                f'corridor.',
+                throttle_duration_sec=5.0)
+
+        for ox, oy, r in corridor.get("obstacles_world", []):
+            p_obs = np.array([ox, oy], dtype=float)
+            R_safe = r + self.car_radius + self.avoidance_margin
+
+            v = p_target - p_obs
+            d = np.linalg.norm(v)
+
+            if d < R_safe:
+                if d < 1e-6:
+                    psi = float(x[2])
+                    v = np.array([np.cos(psi), np.sin(psi)], dtype=float)
+                    d = 1e-6
+
+                v_hat = v / d
+                t = np.array([-v_hat[1], v_hat[0]], dtype=float)
+
+                e = np.array([np.cos(float(x[2])), np.sin(float(x[2]))], dtype=float)
+                if np.dot(t, e) < 0.0:
+                    t = -t
+
+                penetration = float(np.clip((R_safe - d) / max(R_safe - r, 1e-6), 0.0, 1.0))
+                offset = max_defl * penetration
+
+                p_target_old = p_target.copy()
+                p_target = p_obs + R_safe * v_hat + offset * t
+
+                self.get_logger().info(
+                    f'TGT/defl | ostacolo=({ox:+.3f},{oy:+.3f},r={r:.3f}) '
+                    f'd={d:.3f}<R_safe={R_safe:.3f} '
+                    f'pen={penetration:.2f} offset={offset:.3f} '
+                    f'({p_target_old[0]:+.3f},{p_target_old[1]:+.3f}) -> '
+                    f'({p_target[0]:+.3f},{p_target[1]:+.3f})'
+                )
+
+        deflected_this_tick = not np.allclose(p_target, p_target_raw)
+        if deflected_this_tick:
+            self.last_deflection_vec = p_target - p_target_raw
+            self.deflection_decay_remaining = self.deflection_decay_ticks
+        elif self.deflection_decay_remaining > 0:
+            # Decrement BEFORE the fraction: the first coast tick already decays, and the
+            # deflection reaches zero after exactly deflection_decay_ticks ticks.
+            self.deflection_decay_remaining -= 1
+            decay_fraction = self.deflection_decay_remaining / self.deflection_decay_ticks
+            p_target = p_target_raw + decay_fraction * self.last_deflection_vec
+            self.get_logger().info(
+                f'TGT/coast | no live deflection this tick, coasting '
+                f'({self.deflection_decay_remaining}/{self.deflection_decay_ticks} '
+                f'ticks left) -> ({p_target[0]:+.3f},{p_target[1]:+.3f})'
+            )
+
+        if self.smoothed_target is None:
+            self.smoothed_target = p_target.copy()
+        else:
+            alpha = self.target_smoothing_alpha
+            self.smoothed_target = alpha * p_target + (1.0 - alpha) * self.smoothed_target
+        return self.smoothed_target
+
     # ── mpc-dodge: moving obstacles, the informed side rule, the return ───
     def _init_dodge_params(self):
         """
@@ -8049,6 +8195,14 @@ class MPCController(Node):
         self.return_psi_scale = float(_p('mpc_return_psi_scale'))
         self.return_max_heading_deg = float(_p('mpc_return_max_heading_deg'))
         self.return_overshoot_max_m = float(_p('mpc_return_overshoot_max_m'))
+        if getattr(self, 'mpc_avoidance_mode', 'centerline') == 'legacy':
+            # None of these existed before 2026-11-18: static discs, no wake, nose probes
+            # only, the corridor re-anchored on the car (the return shaping is then inert).
+            self.obs_vel_trust = 0.0
+            self.obs_wake_weight = 0.0
+            self.obs_body_probes = False
+            self.obstacle_side_mode = 'fixed'
+            self.corridor_lateral_reanchor = True
         self._side_latch = side_rule.SideLatch()
         self._move_line_origin = None
         self._return_shape = None
@@ -8058,7 +8212,7 @@ class MPCController(Node):
             f'wake={self.obs_wake_weight}/{self.obs_wake_horizon_s}s '
             f'side={self.obstacle_side_mode} reanchor={self.corridor_lateral_reanchor} '
             f'return gain={self.return_gain} ratio={self.return_lookahead_ratio} '
-            f'psi_scale={self.return_psi_scale}')
+            f'psi_scale={self.return_psi_scale} body_probes={self.obs_body_probes}')
 
     def _side_ruled_obstacles(self, obstacles, motions, corridor):
         """
@@ -8067,6 +8221,9 @@ class MPCController(Node):
         'fixed' is _tie_broken_obstacles (today). 'informed' is side_rule.break_ties_informed,
         latched per track for the move.
         """
+        if getattr(self, 'mpc_avoidance_mode', 'centerline') == 'legacy':
+            # No side rule before 2026-11-18: the shifted target picks the side.
+            return obstacles, motions
         if getattr(self, 'obstacle_side_mode', 'fixed') != 'informed':
             # class-qualified: the closed-loop rig runs these on duck-typed stand-ins
             return MPCController._tie_broken_obstacles(self, obstacles, corridor), motions

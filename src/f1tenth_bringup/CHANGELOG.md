@@ -10,6 +10,13 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-24
+
+### Added
+- Profilo `test_orin_mpc_legacy`: `test_orin_mpc` con `mpc_avoidance_mode: legacy` (l'evitamento
+  ostacoli dell'MPC fino al 2026-11-17). Stessa immagine: `car-stack restart test_orin_mpc_legacy`
+  per passare al vecchio, `car-stack restart test_orin_mpc` per tornare al nuovo.
+
 ## [0.4.0] - 2026-11-23
 
 ### Added

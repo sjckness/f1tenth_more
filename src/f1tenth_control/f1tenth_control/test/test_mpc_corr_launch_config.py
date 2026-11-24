@@ -182,3 +182,23 @@ class TestMpcSolverImplSurvivesSubstitution:
         arg = next(e for e in launch_description.entities
                    if isinstance(e, DeclareLaunchArgument) and e.name == 'mpc_solver_impl')
         assert arg.choices == ['py', 'rust']
+
+
+class TestMpcAvoidanceModeSurvivesSubstitution:
+    """mpc_avoidance_mode (2026-11-24) reaches the node as the string it declares."""
+
+    def test_the_default_is_centerline_from_stack_params(self):
+        value = _node_parameters()['mpc_avoidance_mode']
+        assert isinstance(value, str), f'{value!r} ({type(value).__name__})'
+        assert value == get_value('mpc_avoidance_mode') == 'centerline'
+
+    def test_the_override_reaches_the_node_as_legacy(self):
+        value = _node_parameters({'mpc_avoidance_mode': 'legacy'})['mpc_avoidance_mode']
+        assert isinstance(value, str)
+        assert value == 'legacy'
+
+    def test_only_the_two_modes_are_accepted(self):
+        launch_description = _load_mpc_corr_launch().generate_launch_description()
+        arg = next(e for e in launch_description.entities
+                   if isinstance(e, DeclareLaunchArgument) and e.name == 'mpc_avoidance_mode')
+        assert arg.choices == ['centerline', 'legacy']

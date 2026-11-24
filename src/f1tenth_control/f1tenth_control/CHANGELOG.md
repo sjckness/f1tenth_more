@@ -10,6 +10,13 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-24
+
+### Added
+- `mpc_corr.launch.py`: argomento `mpc_avoidance_mode` (`centerline` | `legacy`, default da
+  `stack_params.yaml`), passato al nodo come stringa. Vedi
+  [`mpc_controller` 0.2.0](../mpc_controller/CHANGELOG.md).
+
 ## [0.1.0] - 2026-11-18
 
 ### Changed
