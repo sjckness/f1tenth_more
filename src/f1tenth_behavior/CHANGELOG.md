@@ -10,6 +10,16 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-24
+
+### Added
+- Missioni `person_then_straight_3m_then_left_door` (persona, dritto 3 m verso di lei, porta a
+  sinistra come `straight_3m_then_left_door_direct`) e `straight_2m_then_left_door_then_chair`
+  (dritto 2 m, porta a sinistra senza pre-punto, sedia).
+- `straight_2m_left_at_wall_then_person`: la missione girata sull'auto il 2026-11-23 mattina (7
+  COMPLETE su 10), finora solo in `llm_generated/` sull'Orin; copiata invariata, con una
+  descrizione.
+
 ## [0.3.0] - 2026-11-23
 
 ### Changed

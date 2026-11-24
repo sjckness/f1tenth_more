@@ -1,0 +1,52 @@
+{
+  "mission_id": "person_then_straight_3m_then_left_door",
+  "schema_version": "6.0",
+  "description": "Approach the nearest confirmed person and stop at its default gap (gap_min(person) rounded up to 0.1 m, car front to the person's near edge, resolved at load), then drive straight 3 m, then drive into the door on the LEFT and stop in it, facing the way through. The straight starts facing the person, so it drives toward them: either clear the path or use it as the obstacle-avoidance test (the person stays, the MPC must go round; mpc_avoidance_mode decides how). The person must be in view at the start: acquire_timeout_sec 10. Door move as straight_3m_then_left_door_direct (scripts/sim/office_batch): no pre-point (approach_dist_m 0.05), the goal is the door centre with its yaw; the door is picked once, the nearest STRONG confirmed door on the left of the car's heading when the move starts; door_not_found after 5 s aborts. Entered means within 0.15 m along the axis, 0.05 m sideways and 10 deg. Needs semantic_layer_node (/costmap/semantic_tracks), a door detector (/perception/doors_semantic) and the global EKF.",
+  "moves": [
+    {
+      "id": "move_0_go_to_person",
+      "go_to_object": {
+        "target_class": "person",
+        "speed": 0.4,
+        "acquire_timeout_sec": 10.0,
+        "lost_grace_sec": 1.5
+      },
+      "stop_condition": {
+        "type": "object_reached"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "move_1_straight_3m",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.4
+      },
+      "stop_condition": {
+        "type": "distance_reached",
+        "distance": 3.0
+      },
+      "timeout_sec": 30,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "move_2_enter_left_door",
+      "enter_door": {
+        "type": "enter_door",
+        "door": "left",
+        "along_tol": 0.15,
+        "lateral_tol": 0.05,
+        "yaw_tol_deg": 10,
+        "acquire_timeout_sec": 5.0,
+        "approach_dist_m": 0.05
+      },
+      "stop_condition": {
+        "type": "door_entered"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
