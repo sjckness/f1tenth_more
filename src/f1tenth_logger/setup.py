@@ -7,7 +7,7 @@ package_name = 'f1tenth_logger'
 
 setup(
     name=package_name,
-    version='0.0.1',
+    version='0.1.1',
     # test_campaign is its own subpackage so no module of the test-campaign
     # logger can collide with the mission logger's (see its __init__).
     packages=[package_name, package_name + '.test_campaign'],

@@ -10,6 +10,14 @@ l'analisi che la sostiene: `Evidence: docs/analysis/<area>/<id>/report.md`.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-24
+
+### Added
+- `f1tenth_params.stack_provenance`: `read_image_provenance` e `stack_launch_cmd`, spostate senza
+  modifiche da `f1tenth_logger/mission_logger_node.py` per condividerle con `stack_info_node` di
+  `f1tenth_diagnostics` (modulo puro, solo stdlib).
+- `enable_stack_info` in `stack_params.yaml` (default `true`): lancia `stack_info_node`.
+
 ## [0.2.0] - 2026-11-19
 
 ### Added

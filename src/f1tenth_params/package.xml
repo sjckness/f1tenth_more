@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>f1tenth_params</name>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
   <description>Single shared source of launch-parameter defaults for the whole
   f1tenth_more workspace (config/stack_params.yaml + param_defaults.py). Deliberately
   a dependency-free leaf package -- every other f1tenth_* launch file imports from

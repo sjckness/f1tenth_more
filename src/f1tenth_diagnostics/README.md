@@ -268,6 +268,26 @@ or standalone). `f1tenth_behavior`'s BT emergency lane reads the same
 is even constructed, so disabling this is a true "fully skipped" state on
 both sides, not just "publishes nothing."
 
+## stack_info_node
+
+Which stack is running, for Foxglove: `/viz/stack_info` (`diagnostic_msgs/DiagnosticStatus`,
+reliable + transient_local, depth 1, at startup and every 10 s). Launched by
+`diagnostics_server.launch.py` when `enable_stack_info` (stack_params.yaml) is true.
+
+- `message`: `<profile> | <image ref or native> | <branch>@<commit7>`, plus `| WARN: ...`
+  when a `stack_args` trial is active, the tree is dirty or the commit is unknown (level WARN).
+- `name`: the profile, `car` / `sim-<host>` / `native` (or the container role), `unknown` if
+  nothing says; `hardware_id`: the hostname.
+- `values`: profile, launch_profile, container, image_ref, image_id, branch, commit, describe,
+  subject, dirty, profile_args, stack_args, stack_args_trial, launch_cmd, ros_distro, rmw,
+  domain_id, discovery_server, use_sim_time, node_start_utc.
+
+In the car's container the stack's processes do not see compose.yaml's `F1T_CONTAINER_ROLE`,
+`F1TENTH_IMAGE_REF`, `F1TENTH_IMAGE_ID` (f1tenth_ctl cuts the environment down before sourcing
+`ctl_container.env`); the node reads them from `/proc/1/environ`. The image's commit comes from
+`F1TENTH_IMAGE_SOURCES` (`f1tenth_params.stack_provenance.read_image_provenance`, shared with the
+mission logger); a native stack uses git on its checkout.
+
 ## diagnostics_server_node
 
 **What it does:** a persistent coordinator node with three independent jobs,
