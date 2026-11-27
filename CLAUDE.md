@@ -164,6 +164,37 @@ alone.)
 The workspace is built with `--symlink-install`; keep it that way when
 rebuilding single packages.
 
+### Build through `scripts/colcon_build.sh`, never bare `colcon build`
+
+colcon runs every python package through `python setup.py develop ...` using its
+own `sys.executable` (`colcon_core/task/python/build.py:28-34,222-227`), and
+setuptools >= 80 dropped `develop --uninstall/--editable/--build-directory`. A
+`pip --user` upgrade left 84.2.1 in `~/.local/lib/python3.12/site-packages`,
+shadowing the distro's 68.1.2, so bare `colcon build` failed for all 19 python
+packages here with `error: option --uninstall not recognized` (raised from
+`_undo_develop()`), and copy mode was the only way through.
+
+`scripts/colcon_build.sh` wraps it: a `--system-site-packages` venv at
+`.venv-build/` (created on first use, needs no pip — `python3.12-venv` is not
+installed) plus `PYTHONNOUSERSITE=1`, so `setup.py` sees the distro setuptools
+while colcon and rclpy still come from `/usr/lib/python3/dist-packages`. It also
+generates `$venv/bin/colcon` (the stock `/usr/bin/colcon` has a hardcoded
+`/usr/bin/python3` shebang, which would defeat the whole thing), asserts the
+setuptools version before building, scrubs a `PYTHONPATH`/`AMENT_PREFIX_PATH`
+inherited from some *other* sourced workspace, and appends `--symlink-install` to
+`build`. Pass colcon args through it verbatim:
+
+```bash
+scripts/colcon_build.sh                                   # whole workspace
+scripts/colcon_build.sh build --packages-select llm       # one package
+scripts/colcon_build.sh test --packages-select llm        # tests too
+```
+
+This confines the fix to the build; setuptools 84.2.1 is still what editors, IDEs
+and `pip` see. Removing `~/.local/lib/python3.12/site-packages/setuptools*` fixes
+the root cause and makes the wrapper unnecessary (but changes every python tool on
+the machine, so it is a deliberate choice).
+
 **Docker:** the image for the car must build the workspace against the same apt
 snapshot it runs. Never copy an `install/` built against a different set of
 `ros-jazzy-*` packages into it.

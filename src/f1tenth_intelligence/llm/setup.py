@@ -33,6 +33,7 @@ setup(
     entry_points={
         'console_scripts': [
             'llm_planner_node = llm.llm_planner_node:main',
+            'llm_analytics = llm.llm_analytics:main',
         ],
     },
 )

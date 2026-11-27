@@ -1,5 +1,9 @@
 # f1tenth_perception
 
+> **Authoritative for topology, parameter routing and hardcoded values:** [`memory.md`](memory.md)
+> (component placement law, exact topics, prefix↔bare params, launch-unreachable values); this
+> file owns the data-flow narratives and the UNVALIDATED register — memory.md wins on conflict.
+
 Nodes, and what each one's output actually is. Written for the `d_wall` pass;
 not yet a complete package README — the older nodes carry their documentation in
 their own module docstrings and this file does not duplicate them.

@@ -1,0 +1,59 @@
+# Sample command file for `llm_analytics --exec-file` (see README, "Analytics").
+#
+#   source scripts/env/jazzy.sh
+#   ros2 run llm llm_analytics --exec-file \
+#       src/f1tenth_intelligence/llm/test/commands.sample.txt --airlock
+#
+# Format (load_command_file): one command per line, leading/trailing whitespace
+# trimmed, blank lines and lines starting with '#' skipped. The interior of a
+# line is passed through untouched -- so a trailing comment is NOT a comment,
+# it is part of the command sent to the model.
+#
+# Every line costs one generation (~15-20 s at 6.8 tok/s on Qwen2.5-3B q5_k_m,
+# plus --airlock's own retry budget). This file mixes the plan shapes the v2
+# prompt teaches, in Italian (prompts/planner_system_prompt.v2.it.txt is the
+# Italian prompt; a command in another language is a different test).
+#
+# 20 commands -- a benchmark sweep, not a smoke test: it covers every phase
+# shape the prompt teaches (wall/object/distance guards, turns, reverse, go_to
+# on COCO classes) and six commands that SHOULD be refused. Captures from it
+# live in analytics_runs/<YYYY-MM-DD-label>/commands.txt: llm_analytics copies
+# this file there, byte for byte, before the first command goes out, so a run
+# folder never has to guess which version of this file produced it
+# (planner.md section 1.6).
+#
+# Nothing here moves the robot: --exec-file posts the node's own request
+# itself and never loads or starts a mission.
+
+
+# -- straight + wall turn + distance (phases and turns) --------------------
+Vai dritto fino alla parete, poi gira a sinistra e avanza 5 metri.
+Avanza di 4 metri, poi gira a destra e vai dritto fino in fondo al corridoio.
+Vai avanti e fermati a un metro e mezzo dal muro.
+Vai dritto per 3 metri, gira a destra, poi avanza altri 2 metri e gira a sinistra.
+
+# -- generic obstacles: stop, conditional, pass-through -------------------
+Vai dritto ma fermati prima dell'ostacolo, poi gira a sinistra.
+Avanza dritto e se trovi un ostacolo fermati a 2 metri di distanza.
+Vai dritto, supera l'ostacolo e avanza di altri 4 metri.
+Vai dritto, oltrepassa la scatola e fermati al muro.
+
+# -- reverse: a first-class mode, untested live until this run -------------
+Fai la retro di un metro e mezzo, poi gira a destra.
+Vai dritto fino al muro, poi vai indietro di 2 metri e fermati.
+
+# -- go_to named COCO classes (needs go_to_enabled=true, the default) ------
+Vai verso il divano e fermati a mezzo metro.
+Raggiungi il tavolo e poi gira a sinistra.
+Avvicinati alla bicicletta e fermati a venti centimetri.
+Vai verso lo zaino.
+
+# -- expected refusals: no such class / an individual / an attribute ------
+Vai dritto e fermati vicino alla porta.
+Vai dalla mia collega Giulia.
+Vai verso l'automobile blu.
+
+# -- unsupported action / ambiguous commands ------------------------------
+Vai dritto fino al muro, poi salta l'ostacolo e fermati.
+Gira e avanza per un po' di metri.
+Vai dritto, poi fai la retro e gira.

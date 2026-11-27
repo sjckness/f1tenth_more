@@ -1,5 +1,9 @@
 # f1tenth_bringup
 
+> **Authoritative for contracts and invariants:** `src/f1tenth_bringup/memory.md`
+> (topic/service names + QoS, code-level auto-start sets, DDS/SHM quirks, config
+> ownership). This file is the narrative overview; if the two disagree, memory.md wins.
+
 Owns both top-level entry points (single-process `stack_bringup.launch.py`
 and per-component-restartable `component_supervisor_node`), the Foxglove
 bridge, the boot-time steering-sweep self-check, and most shared hardware
@@ -50,7 +54,7 @@ the 4 stack-wide values; see that node's own module docstring):
 | `config/ekf.yaml` | `robot_localization` EKF tuning — see `f1tenth_localization`'s doc. |
 | `config/sensors.yaml` | Hokuyo `urg_node` params (IP `192.168.0.10:10940`, frame `laser`, full-circle `angle_min/max = ±3.14`). |
 | `config/joy_teleop.yaml` | Joystick button/axis mapping — see `f1tenth_control`'s doc. |
-| `config/f1tenth_online_async.yaml` | SLAM Toolbox (async mapping) config — reused verbatim by `f1tenth_sim/launch/sim_bringup.launch.py`, not by anything in this package's own launch files. Lives here rather than in `f1tenth_sim` so the real-hardware and sim paths share one config file instead of two copies. |
+| `config/f1tenth_online_async.yaml` | Legacy SLAM Toolbox (async mapping) config. Nothing in this package loads it: SLAM is brought up by `f1tenth_navigation/launch/slam.launch.py` from `f1tenth_navigation/config/slam_toolbox_params.yaml`, and the sim (`f1tenth_sim/launch/sim_bringup.launch.py`) does not map at all — it only consumes `/scan`. |
 
 ## Consumed `stack_params.yaml` keys
 

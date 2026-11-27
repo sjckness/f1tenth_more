@@ -1,5 +1,9 @@
 # f1tenth_sim
 
+> **Authoritative for topology, cross-package couplings and hardcoded values:** [`memory.md`](memory.md)
+> (launch chain, the `/clock` path, wheelbase/servo couplings, why the sim publishes no TF); this
+> file owns the test-room and scenario narrative — memory.md wins on conflict.
+
 Gazebo Harmonic simulation of the roboracer for the two-machine setup: this
 package runs on the sim host (linus), the stack runs on the Thor. The
 launch file is `launch/sim_bringup.launch.py` and its docstring lists every

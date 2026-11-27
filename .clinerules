@@ -1,0 +1,64 @@
+# STRICT MEMORY BANK PROTOCOL
+To maximize DeepSeek prefix caching and minimize token waste, you MUST follow this sequence for every new task or chat:
+1. Read memory-bank/01-index.md and memory-bank/02-architecture.md FIRST. (This guarantees a cache hit).
+2. Read memory-bank/active-task.md to understand the current objective.
+3. NEVER run wildcard searches or read entire directories. Use the index to find the specific folder you need.
+4. Before reading massive implementation files, use CLI tools (like grep) to extract only interfaces, types, or function signatures.
+5. At the end of your work, you must autonomously update memory-bank/progress.md and memory-bank/active-task.md before closing the task.
+
+# MACRO TRIGGERS
+If the user starts a prompt with exactly "START:", you must autonomously:
+1. Treat the rest of the prompt as the objective.
+2. Read memory-bank/01-index.md and 02-architecture.md.
+3. Overwrite memory-bank/active-task.md with the new objective and a step-by-step plan.
+4. Output: "Memory Bank loaded. Active task updated. Ready to execute."
+
+If the user says exactly "HALT":
+1. Stop all coding.
+2. Summarize the completed work into memory-bank/progress.md.
+3. Update memory-bank/active-task.md with the exact next steps for the next session.
+4. Output: "Context saved to Memory Bank. Safe to delete this chat."
+
+If the user says exactly "COMPLETED":
+1. Condense the finished work into a single, high-level bullet point and append it to memory-bank/progress.md.
+2. Append a date-stamped summary to changelog.md using a single bash echo command. DO NOT read the changelog.md and keep the summary short and concise, easily readable for humans so its easy to keep track of what's been done.
+3. Prune memory-bank/progress.md: keep ONLY the last 10 completed items. Delete older entries (we rely on git history for the rest).
+4. Wipe memory-bank/active-task.md clean and replace the content strictly with: "Status: Idle. Awaiting new START command."
+5. Output: "Task marked complete. Working memory cleared. Ready for next objective."
+6. Send `Ctrl+C` to stop any hanging background processes (e.g., `gz_sim`, `llama-server`, or `pytest`), then explicitly run `exit` in every terminal window you opened during the session to destroy the environment state.
+
+# ROLE ENFORCEMENT
+If operating as a Planner/Architect: Focus exclusively on 02-architecture.md and 03-decision-log.md. Write execution steps into active-task.md. DO NOT edit source code.
+If operating as a Coder: Execute the steps in active-task.md. Update progress.md. DO NOT modify architecture or decision-log.md without explicit permission.
+
+# MEMORY MAINTENANCE
+- 02-architecture.md and 03-decision-log.md MUST each stay under 800 words. If you add new information, you must condense older information to stay under the limit.
+- progress.md tracks only the current week's work. When starting a new major milestone, you must clear out old entries. Rely on git commits for historical tracking.
+- active-task.md must only contain the current objective. It is wiped clean when a new START macro is triggered.
+
+
+# DEEP TIERING PROTOCOL (HUB AND SPOKE)
+To prevent root memory bloat, you must distribute context into domain-specific files:
+1. Root Index Limit: memory-bank/01-index.md must act ONLY as a router. It points to where things live (e.g., "Perception -> src/perception/"). Do not explain module logic here.
+2. Local Memory Fetch: When a task requires working inside a specific package (e.g., src/bringup/), you must read that package's local README.md or memory.md immediately after reading the root index.
+3. Local Memory Update: If you make a structural change, add a new node, or change a parameter in a specific ROS 2 package, you must update that package's local README.md/memory.md, NOT the root architecture file.
+
+# SSH TERMINAL EXECUTION RULE
+You are operating over SSH. VS Code shell integration is unavailable, so you will frequently receive the "timing heuristic" warning. This is expected.
+1. For quick commands (ls, cat, grep), ignore the warning and proceed normally.
+2. For long-running commands (colcon build, ros2 launch, test scripts), you MUST chain an explicit completion marker (e.g., `colcon build && echo "COMMAND_FINISHED_SUCCESSFULLY"`).
+3. NEVER assume a compilation or launch succeeded just because the output paused. If in doubt, pipe the output to a file (`colcon build > build_log.txt`) and read the file to verify completion and exit codes.
+
+# ANALYTICS RUN PROTOCOL
+Every headless `llm_analytics` trial is evidence, and evidence is append-only: one run, one directory, no exceptions.
+
+RULE (verbatim, non-negotiable): "Whenever conducting a headless LLM analytics test, you MUST explicitly create a new timestamped or task-named directory inside `src/f1tenth_intelligence/llm/analytics_runs/` (e.g., `YYYY-MM-DD-task-name`). You MUST use the `--out` and `--events` flags to route the results directly into this new folder. Never run a test that overwrites previous data in the root or /tmp/ without saving it."
+
+1. Label = `YYYY-MM-DD-<task-name>` (e.g. `2026-11-12-next-02-first-capture`). Same-day reruns take a suffix (`-2`, `-warm`, `-no-go-to`), never the same folder.
+2. Run `mkdir -p` yourself: `--out` creates missing parents (`write_report` → `os.makedirs`), `--events` does NOT (plain `open(..., 'w')`) and aborts the run at startup.
+3. The tool truncates on purpose — `--events` is opened `'w'` and `--out` is replaced. The per-run directory is the only thing protecting history.
+4. `analytics_runs/` is gitignored (decision D-B, `planner.md` §6). Persist the logs; commit the *conclusions* to `planner.md` §7 and a line to `changelog.md`.
+5. Never leave a capture only in `/tmp` — it is reaped. Move it into `analytics_runs/<label>/` before the session ends.
+6. Re-analysis reads the saved JSONL, never a live server: `ros2 run llm llm_analytics --replay <run>/events.jsonl --out <run>/replayed.json`.
+7. Keep the input beside its capture (`commands.txt`) — `llm_analytics` now writes it automatically beside `--events`, byte-identical for `--exec-file` (D-F), so a hand copy is no longer part of the ritual. A run you cannot reproduce is a rumour.
+

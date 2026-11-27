@@ -1,0 +1,12 @@
+# llm_analytics trial artefacts (decision D-B, planner.md §6).
+#
+# Captures are machine-specific timings and raw model output, not source: a
+# single NEXT-02 run is ~140 kB of JSON/JSONL, a campaign is not, and every
+# number in it is only comparable to a run with the same prompt sha256. Keep
+# the files for inspection and for `--replay`; commit the *conclusions* to
+# planner.md §7, never the logs.
+#
+#   src/f1tenth_intelligence/llm/analytics_runs/NEXT-02-first-capture/
+#       report.json    # --out
+#       events.jsonl   # --events (the log of record, replays with no server)
+analytics_runs/

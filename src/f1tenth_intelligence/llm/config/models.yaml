@@ -26,3 +26,25 @@ qwen25_3b_instruct:
   model_path: ~/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf
   port: 8083
   extra_args: ["-ngl", "999"]
+
+# Stock Llama-3.2-3B-Instruct, Q5_K_M -- pulled from
+# https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF
+# (Llama-3.2-3B-Instruct-Q5_K_M.gguf, ~2.3GB) as the second arm of
+# `scripts/analytics.sh compare A B` (planner.md §2). Same port as
+# qwen25_3b_instruct on purpose: `compare` runs the two models strictly one
+# after the other and hands the port back between them, so a distinct port
+# would only invite a stale server to survive a run nobody noticed.
+#
+# `-c 16384` is NOT decoration and NOT shared with qwen above. This GGUF's own
+# n_ctx_train is 131072, and llama-server with no -c adopts it: 28 layers x 8 KV
+# heads x 128 dim x 2 (K+V) x 2 B = ~115 KB of KV per token, i.e. ~15GB of KV
+# cache. On a 16 GiB host that is an instant OOM (measured 2026-11-25: the
+# kernel killed llama-server at 8.9 GiB anon-rss mid-load, `journalctl -k`).
+# At 16384 the KV cache is ~1.9GB and the whole server ~4.7GB, which fits
+# beside the desktop. qwen25 keeps its own 32768 default (its GGUF's
+# n_ctx_train), so the two arms differ in context length by necessity -- say so
+# when comparing, and do not read an n_ctx difference as a model difference.
+llama32_3b_instruct:
+  model_path: ~/projects/llm/models/Llama-3.2-3B-Instruct-Q5_K_M.gguf
+  port: 8083
+  extra_args: ["-ngl", "999", "-c", "16384"]

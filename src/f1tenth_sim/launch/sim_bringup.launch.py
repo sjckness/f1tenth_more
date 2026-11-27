@@ -390,7 +390,10 @@ def generate_launch_description():
         executable='drive_bridge',
         name='f1tenth_sim_drive_bridge',
         output='screen',
-        parameters=[{'use_sim_time': True, 'wheelbase': 0.3302}],
+        # 0.325 = the URDF (core.xacro hinge origin x), controllers.yaml and
+        # drive_bridge's own default (D5 keeps the URDF value); the coupling is
+        # pinned by test_sim_matches_car_config.py.
+        parameters=[{'use_sim_time': True, 'wheelbase': 0.325}],
     )
 
     # --- 6b) camera pan (sim side): only when the camera renders ------------

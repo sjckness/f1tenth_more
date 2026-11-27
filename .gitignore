@@ -44,6 +44,11 @@ build/
 install/
 log/
 
+# Build venv used by scripts/colcon_build.sh: it pins the setuptools colcon's
+# `setup.py develop` needs (< 80) without touching the system python. Machine
+# local and regenerable, so never tracked. See scripts/colcon_build.sh.
+.venv-build/
+
 # rosbag recordings dropped under the repo root during live testing --
 # runtime data, not source (each run is tens of MB of binary sqlite3/mcap).
 bags/

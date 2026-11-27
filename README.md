@@ -1,9 +1,9 @@
 # f1tenth_more
 
 ROS 2 Humble workspace for a physical F1TENTH autonomous racing car (VESC drive stack,
-ZED2 stereo camera or a webcam fallback, Hokuyo LiDAR, Jetson Orin/Thor), plus a Gazebo
-Fortress simulation. Real hardware and simulation are separate, non-overlapping entry
-points that share the same robot description, EKF config, and most node code.
+ZED2 stereo camera or a webcam fallback, Hokuyo LiDAR, Jetson Orin/Thor), plus a
+Gazebo Harmonic simulation. Real hardware and simulation are separate, non-overlapping
+entry points that share the same robot description, EKF config, and most node code.
 
 This README reflects the workspace after a full package-by-package reorganization
 (the "Phase 0-10" reorg referenced in commit history and in the since-removed
@@ -59,7 +59,7 @@ car -> only then MPC weight tuning).
 
 | Package | Purpose |
 |---|---|
-| `f1tenth_sim` | Gazebo Fortress bringup: spawns the shared `f1tenth_description` model, bridges sim sensors onto the same topic names the real stack uses, drives via `ros2_control` + an Ackermann controller. Reuses `ekf.yaml` and the SLAM config verbatim. No VESC/ZED SDK/urg_node. |
+| `f1tenth_sim` | Gazebo Harmonic bringup: spawns the shared `f1tenth_description` model, bridges sim sensors onto the same topic names the real stack uses, drives via `ros2_control` + an Ackermann controller. No VESC/ZED SDK/urg_node; localization, TF and SLAM stay the stack's job on the Thor. |
 
 ### Vendored (git submodules, under `f1tenth_external/` and `f1tenth_hardware/vesc/`)
 
@@ -80,9 +80,9 @@ exists to receive it.
 | Arg | Default | Meaning |
 |---|---|---|
 | `camera_source` | `zed` | `'zed'` \| `'webcam'` — camera hardware selection. |
-| `localization_source` | `raw_odom` | `'ekf'` \| `'raw_odom'` — `map→odom` source. **Default is raw, not EKF.** |
+| `localization_source` | `ekf` | `'ekf'` \| `'raw_odom'` — `map→odom` source. **Default is EKF.** `raw_odom` mirrors `/odom` unfiltered (wheel/steering dead reckoning, no IMU). |
 | `use_behavior_tree` | `true` | `true`: the py_trees BT drives the `ackermann_mux` "navigation" lane (via Nav2, when `enable_nav2` is also true). `false`: the BT does not run — see `enable_nav2` for what drives the mux instead. |
-| `enable_nav2` | `true` | `true`: bring up the Nav2 stack (idles with no goal, puts nothing on the mux by itself). `false`: `navigation.launch.py` brings up `mpc_corr` instead, which does drive the mux directly. Independent of `use_behavior_tree`. |
+| `enable_nav2` | `false` | `true`: bring up the Nav2 stack (idles with no goal, puts nothing on the mux by itself). `false` (the shipped default): `navigation.launch.py` brings up `mpc_corr` instead, which does drive the mux directly. Independent of `use_behavior_tree`. |
 
 (`enable_llm`, a 5th stack-wide branching arg that used to gate `llm.launch.py` from
 `stack_bringup.launch.py`, was removed outright — `component_supervisor_node`'s own

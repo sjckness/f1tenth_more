@@ -138,17 +138,47 @@ def _static_tf_args_all(path):
     return out
 
 
+def _joint_origin_xyz(joint_name, path=URDF / 'core.xacro'):
+    """A joint's <origin xyz> from the URDF source (core.xacro by default)."""
+    for joint in ET.fromstring(path.read_text()).iter('joint'):
+        if joint.get('name') == joint_name:
+            return [float(v) for v in joint.find('origin').get('xyz').split()]
+    raise AssertionError(f'no joint {joint_name} in {path}')
+
+
+def _wheel_collision_cylinder():
+    """(radius, length) of the wheels' collision cylinder in macros.xacro."""
+    text = (URDF / 'macros.xacro').read_text()
+    macro = re.search(r'<xacro:macro name="left_wheels_collision_geometry">(.*?)</xacro:macro>',
+                      text, re.S)
+    assert macro, 'no left_wheels_collision_geometry macro in macros.xacro'
+    cyl = re.search(r'<cylinder length="([\d.]+)" radius="([\d.]+)"', macro.group(1))
+    return float(cyl.group(2)), float(cyl.group(1))
+
+
 @pytest.fixture(scope='module')
 def urdf_dims():
-    return {k: float(v) for k, v in _xacro_properties('roboracer.urdf.xacro').items()
-            if k in ('wheelbase', 'track', 'wheel_radius', 'wheel_width')}
+    """Vehicle dimensions as they are literally written in the URDF sources.
+
+    core.xacro carries the geometry as literals (the msauber port dropped the
+    wheelbase/track <xacro:property> block): wheelbase and track are the
+    rear-wheel / steering-hinge joint origins, and the wheels are the collision
+    cylinder declared in macros.xacro.
+    """
+    wheel_radius, wheel_width = _wheel_collision_cylinder()
+    rear = _joint_origin_xyz('left_rear_wheel_joint')
+    hinge = _joint_origin_xyz('left_steering_hinge_joint')
+    return {'wheelbase': hinge[0] - rear[0],
+            'track': 2 * abs(rear[1]),
+            'wheel_radius': wheel_radius,
+            'wheel_width': wheel_width}
 
 
-def test_urdf_uses_the_f1tenth_reference_dimensions(urdf_dims):
-    # f1tenth_simulator racecar.xacro: wheelbase 0.3302, width 0.2032,
-    # wheel_radius 0.0508, wheel_length 0.0381 (track = width + wheel_length).
-    assert urdf_dims == {'wheelbase': 0.3302, 'track': 0.2413,
-                         'wheel_radius': 0.0508, 'wheel_width': 0.0381}
+def test_urdf_uses_the_hardcoded_core_xacro_dimensions(urdf_dims):
+    # core.xacro: rear wheels at x 0 / y +-0.1, steering hinges at x 0.325;
+    # macros.xacro: wheels are a 0.05 m radius, 0.045 m long collision cylinder.
+    assert urdf_dims == {'wheelbase': 0.325, 'track': 0.2,
+                         'wheel_radius': 0.05, 'wheel_width': 0.045}
 
 
 def test_drive_bridge_launch_and_controller_share_the_urdf_wheelbase(controller, urdf_dims):
@@ -269,13 +299,14 @@ def test_lidar_housing_is_outside_the_zed_vertical_fov(sim_mounts):
     assert math.degrees(worst) >= 43.0
 
 
-def test_sim_zed_is_a_zed2i_named_zed2_like_camera_launch():
+def test_sim_zed_is_a_zed2_named_zed2_like_camera_launch():
     props = _xacro_properties('sensors.xacro')
     text = (URDF / 'sensors.xacro').read_text()
-    # zed_macro.urdf.xacro, model zed2i (wrapper v5.4.1)
+    # zed_macro.urdf.xacro; the wrapper (v5.4.1) is asked for camera_model
+    # 'zed2' -- the SDK model name for the ZED 2, not the 'zed2i' variant.
     assert (props['zed_baseline'], props['zed_bottom_slope'],
             props['zed_optical_offset_x']) == ('0.12', '0.0', '-0.01')
-    assert 'camera_model\': \'zed2i\'' in CAMERA_LAUNCH.read_text()
+    assert "camera_model': 'zed2'" in CAMERA_LAUNCH.read_text()
     for frame in ('zed2_camera_link', 'zed2_camera_center', 'zed2_left_camera_frame',
                   'zed2_left_camera_frame_optical'):
         assert f'<link name="{frame}"' in text
